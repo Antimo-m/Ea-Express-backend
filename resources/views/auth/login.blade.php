@@ -6,5 +6,5 @@
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2"><label class="form-check mb-0"><input class="form-check-input" type="checkbox" name="remember" @checked(old('remember'))><span class="form-check-label">Ricordami</span></label><a href="{{ route('password.request') }}">Password dimenticata?</a></div>
         <button class="btn btn-primary w-100" type="submit">Accedi <x-ui.icon name="arrow-right" class="ms-2" /></button>
     </form>
-    <p class="text-center text-secondary mt-4 mb-0">Non hai un account? <a href="{{ route('register') }}">Registrati</a></p>
+    @if(config('access.registration'))<p class="text-center text-secondary mt-4 mb-0">Non hai un account? <a href="{{ route('register') }}">Registrati</a></p>@else<p class="text-center text-secondary mt-4 mb-0">Accesso riservato ai rider EA-Express. Per un account, contatta il responsabile.</p>@endif
 </x-guest-layout>
