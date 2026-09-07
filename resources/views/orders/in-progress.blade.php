@@ -1,0 +1,1 @@
+<x-section-page title="Spedizioni in corso" icon="truck" description="Il punto di riferimento per le consegne della giornata." :features="['Ritiri e consegne attive in un unico spazio.', 'Avvio della spedizione e aggiornamenti di stato.', 'Dettagli e comunicazioni associati a ogni ordine.']" />

@@ -7,7 +7,7 @@
 <div class="auth-shell">
     <aside class="auth-story" aria-label="EA-Express, consegne in Campania">
         <a href="{{ url('/') }}" class="brand-link"><x-application-logo /></a>
-        <div class="auth-story-content"><span class="eyebrow">VICINI A TE. FINO ALLA CONSEGNA.</span><h1>Ogni consegna,<br>un impegno<br><span>mantenuto.</span></h1><p>Il tuo lavoro si muove.<br>EA-Express lo tiene in ordine.</p>
+        <div class="auth-story-content"><span class="eyebrow">VICINI A TE. FINO ALLA CONSEGNA.</span><p class="story-heading">Ogni consegna,<br>un impegno<br><span>mantenuto.</span></p><p>Il tuo lavoro si muove.<br>EA-Express lo tiene in ordine.</p>
             <div class="route-illustration" aria-hidden="true"><span class="route-point"><x-ui.icon name="shop" /></span><span class="route-line"></span><span class="route-point route-point-brand"><x-ui.icon name="box-seam" /></span><span class="route-line"></span><span class="route-point"><x-ui.icon name="geo-alt" /></span></div>
         </div>
         <p class="small mb-0">Consegne locali. Persone, prima dei pacchi.</p>

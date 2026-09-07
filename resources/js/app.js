@@ -1,4 +1,4 @@
-import 'bootstrap/js/dist/offcanvas';
+import Offcanvas from 'bootstrap/js/dist/offcanvas';
 import 'bootstrap/js/dist/dropdown';
 
 for (const button of document.querySelectorAll('[data-password-toggle]')) {
@@ -12,3 +12,11 @@ for (const button of document.querySelectorAll('[data-password-toggle]')) {
         button.querySelector('i').className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
     });
 }
+
+const desktopViewport = window.matchMedia('(min-width: 992px)');
+desktopViewport.addEventListener('change', ({ matches }) => {
+    if (matches) {
+        const navigation = document.getElementById('app-navigation');
+        if (navigation) Offcanvas.getInstance(navigation)?.hide();
+    }
+});

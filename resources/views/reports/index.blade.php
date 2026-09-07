@@ -1,0 +1,1 @@
+<x-section-page title="Resoconti" icon="bar-chart" description="I numeri che aiutano a capire come sta andando." :features="['Ordini ricevuti, completati, rifiutati e annullati.', 'Confronto degli incassi con il mese precedente.', 'Andamento delle consegne e delle zone servite.']" />

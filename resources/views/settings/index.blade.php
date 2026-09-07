@@ -1,0 +1,1 @@
+<x-section-page title="Impostazioni" icon="sliders2" description="Le preferenze del tuo spazio di lavoro." :features="['Preferenze operative e di notifica.', 'Impostazioni della piattaforma in un unico punto.', 'Per modificare i tuoi dati personali, apri Il mio profilo.']" />

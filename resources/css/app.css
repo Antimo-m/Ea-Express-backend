@@ -70,8 +70,8 @@ details summary { cursor: pointer; min-height: 44px; }
 @media (min-width: 992px) {
     .auth-shell { display: grid; grid-template-columns: 46% 54%; background: #fff; }
     .auth-story { display: flex; flex-direction: column; justify-content: space-between; padding: 3rem clamp(2rem, 5vw, 5.5rem); background: #f5eee6; min-height: 100dvh; }
-    .auth-story h1 { font-size: clamp(2.8rem, 4.6vw, 4.8rem); letter-spacing: -.055em; line-height: 1.08; }
-    .auth-story h1 span { color: var(--ea-brand); }
+    .auth-story .story-heading { font-size: clamp(2.8rem, 4.6vw, 4.8rem); letter-spacing: -.055em; line-height: 1.08; }
+    .auth-story .story-heading span { color: var(--ea-brand); }
     .auth-story-content { padding-block: 3rem; }
     .auth-story-content p { color: var(--ea-muted); font-size: 1.05rem; line-height: 1.8; margin-top: 1.5rem; }
     .auth-main { padding: 3rem; }
@@ -209,4 +209,28 @@ a.nav-item-link:hover, button.nav-item-link:hover { color: var(--ea-ink); backgr
     .metric-label { font-size: .8rem; }
     .dashboard-columns { grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); }
     .panel-header, .request-card, .shipment-card { padding: 1.5rem; }
+}
+
+/* Sezioni future e leggibilità */
+.section-preview { display: grid; overflow: hidden; }
+.section-preview-intro { padding: 2.5rem 1.25rem; text-align: center; }
+.section-preview-intro h2 { font-size: clamp(1.4rem, 2vw, 1.8rem); margin-top: 1.2rem; }
+.section-preview-intro p { color: var(--ea-muted); line-height: 1.7; margin-bottom: 1.6rem; }
+.preview-symbol { position: relative; width: 86px; height: 86px; margin: 0 auto 1.5rem; display: grid; place-items: center; border-radius: 24px; background: #fff3e8; color: var(--ea-brand); font-size: 2.4rem; transform: rotate(-5deg); }
+.preview-spark { position: absolute; display: grid; place-items: center; width: 28px; height: 28px; top: -8px; right: -8px; font-size: 1rem; border-radius: 50%; background: #fff; border: 1px solid var(--ea-line); }
+.section-preview-features { padding: 2rem 1.5rem; background: #fafbfc; border-top: 1px solid var(--ea-line); display: flex; flex-direction: column; justify-content: center; }
+.section-preview-features ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.5rem; }
+.section-preview-features li { display: flex; gap: .8rem; align-items: start; color: var(--ea-muted); font-size: .9rem; line-height: 1.6; }
+.feature-dot { width: 30px; height: 30px; background: #fff; border: 1px solid var(--ea-line); border-radius: 9px; flex-shrink: 0; display: grid; place-items: center; }
+.section-preview-features > a { margin-top: 1.5rem; }
+.auth-story .story-heading { font-weight: 700; margin: 0; }
+.metric-note, .shipment-estimate, .shipment-card > .small:last-child, .request-meta, .demo-action-note { font-size: .75rem; }
+.request-route small { font-size: .65rem; }
+.status-pill, .mobile-nav .compact { font-size: .68rem; }
+.shipment-steps li { font-size: .68rem; }
+.request-details { font-size: .8rem; }
+@media (min-width: 1200px) {
+    .section-preview { grid-template-columns: 1.25fr 1fr; }
+    .section-preview-intro { padding: 4rem 2rem; }
+    .section-preview-features { padding: 3rem 2rem; border-top: 0; border-left: 1px solid var(--ea-line); }
 }
