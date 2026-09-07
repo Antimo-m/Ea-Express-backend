@@ -38,7 +38,7 @@ class AccessControlTest extends TestCase
 
         $response = $this->actingAs($user)->get('/dashboard');
 
-        $response->assertOk()->assertViewIs('dashboard');
+        $response->assertOk()->assertViewIs('dashboard.index');
     }
 
     public function test_dashboard_escapes_the_authenticated_users_name(): void
