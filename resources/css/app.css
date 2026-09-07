@@ -234,3 +234,13 @@ a.nav-item-link:hover, button.nav-item-link:hover { color: var(--ea-ink); backgr
     .section-preview-intro { padding: 4rem 2rem; }
     .section-preview-features { padding: 3rem 2rem; border-top: 0; border-left: 1px solid var(--ea-line); }
 }
+
+/* Accenti del marchio nell'area operativa */
+.app-header { border-top: 4px solid var(--ea-orange); }
+.app-sidebar .sidebar-brand { background: #fff5eb; border-bottom: 1px solid #f6dfca; }
+.nav-item-link.active { background: #ffead6; box-shadow: inset 3px 0 0 #c2410c; }
+.mobile-nav .active { box-shadow: inset 0 3px 0 #c2410c; }
+.dashboard-heading { background: #fff0e1; border: 1px solid #f8d9bd; border-radius: 1rem; padding: 1.5rem; }
+.metric-card { border-top: 3px solid #f5ae73; }
+.panel-header { background: #fffaf5; border-radius: 1rem 1rem 0 0; }
+.sidebar-foot { border-top-color: #efc6a4; }
