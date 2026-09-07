@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\NotifyOrderParticipants;
 use App\Actions\TransitionOrder;
 use App\Http\Requests\StoreOrderRequest;
 use App\Http\Requests\UpdateOrderStatusRequest;
@@ -58,9 +59,9 @@ class OrderController extends Controller
         return view('orders.create');
     }
 
-    public function store(StoreOrderRequest $request): RedirectResponse
+    public function store(StoreOrderRequest $request, NotifyOrderParticipants $notify): RedirectResponse
     {
-        $order = DB::transaction(function () use ($request) {
+        $order = DB::transaction(function () use ($request, $notify) {
             $order = new Order($request->validated());
             $order->reference = 'EA-'.Str::ulid();
             $order->tracking_token = Str::random(64);
@@ -68,6 +69,8 @@ class OrderController extends Controller
             $order->status = OrderStatus::Received;
             $order->save();
             $order->events()->create(['user_id' => $request->user()->id, 'status' => OrderStatus::Received]);
+
+            $notify->handle($order, 'Nuova richiesta', $request->user()->id);
 
             return $order;
         });

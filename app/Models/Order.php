@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['store_name', 'contact_email', 'recipient_name', 'recipient_phone', 'pickup_address', 'pickup_city', 'delivery_address', 'delivery_city', 'pickup_date', 'pickup_from', 'pickup_to', 'delivery_window', 'parcel_count', 'category', 'urgency', 'notes'])]
-#[Hidden(['tracking_token'])]
+#[Hidden(['tracking_token', 'conversation_token'])]
 class Order extends Model
 {
     /** @use HasFactory<OrderFactory> */
@@ -25,7 +25,12 @@ class Order extends Model
 
     protected function casts(): array
     {
-        return ['status' => OrderStatus::class, 'pickup_date' => 'date', 'rejected_at' => 'datetime', 'tracking_started_at' => 'datetime', 'delivered_at' => 'datetime', 'paid_at' => 'datetime', 'estimated_at' => 'datetime', 'price_cents' => 'integer', 'version' => 'integer'];
+        return ['conversation_expires_at' => 'datetime', 'status' => OrderStatus::class, 'pickup_date' => 'date', 'rejected_at' => 'datetime', 'tracking_started_at' => 'datetime', 'delivered_at' => 'datetime', 'paid_at' => 'datetime', 'estimated_at' => 'datetime', 'price_cents' => 'integer', 'version' => 'integer'];
+    }
+
+    public function messages(): HasMany
+    {
+        return $this->hasMany(OrderMessage::class);
     }
 
     public function rider(): BelongsTo

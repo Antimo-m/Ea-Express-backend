@@ -250,3 +250,9 @@ a.nav-item-link:hover, button.nav-item-link:hover { color: var(--ea-ink); backgr
 .tracking-timeline li { position: relative; padding: 0 0 1.4rem .4rem; }
 .tracking-timeline li::before { content: ''; position: absolute; left: -1.65rem; top: .3rem; width: .8rem; height: .8rem; border-radius: 50%; background: #c2410c; border: 2px solid #fff; }
 .form-select { min-height: 49px; }
+
+.conversation-list { display: grid; gap: 1rem; }
+.message-bubble { padding: 1rem; background: #f1f5f9; border-radius: 1rem; border: 1px solid #e2e8f0; }
+.message-team { background: #fff7ed; border-color: #fed7aa; }
+.message-body { white-space: pre-wrap; overflow-wrap: anywhere; }
+.notification-dot { width: .55rem; height: .55rem; background: #c2410c; border-radius: 50%; position: absolute; top: .45rem; right: .45rem; }
