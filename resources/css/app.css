@@ -244,3 +244,9 @@ a.nav-item-link:hover, button.nav-item-link:hover { color: var(--ea-ink); backgr
 .metric-card { border-top: 3px solid #f5ae73; }
 .panel-header { background: #fffaf5; border-radius: 1rem 1rem 0 0; }
 .sidebar-foot { border-top-color: #efc6a4; }
+
+.tone-danger { color: #991b1b; background: #fee2e2; }
+.tracking-timeline { list-style: none; padding-left: 1.2rem; border-left: 2px solid #fed7aa; margin-left: .5rem; }
+.tracking-timeline li { position: relative; padding: 0 0 1.4rem .4rem; }
+.tracking-timeline li::before { content: ''; position: absolute; left: -1.65rem; top: .3rem; width: .8rem; height: .8rem; border-radius: 50%; background: #c2410c; border: 2px solid #fff; }
+.form-select { min-height: 49px; }
