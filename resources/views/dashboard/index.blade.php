@@ -1,0 +1,12 @@
+<x-app-layout title="Dashboard">
+    <header class="dashboard-heading"><div><span class="eyebrow">OGNI GIORNO, PIÙ VICINI</span><h1>{{ $greeting }}, {{ auth()->user()->name }}<span class="brand-accent">.</span></h1><p class="text-secondary mb-0">Ecco il punto sulle tue consegne. Un passo alla volta.</p></div><div class="date-chip"><x-ui.icon name="calendar3" />{{ $today }}</div></header>
+    <div class="demo-banner" role="note"><span class="status-pill tone-orange"><x-ui.icon name="bezier2" />Anteprima</span><span><strong>Dati dimostrativi.</strong> Ordini, spedizioni e importi sono esempi, non attività reali.</span></div>
+    <section class="metrics-grid" aria-label="Riepilogo dimostrativo della giornata">@foreach($metrics as $metric)<x-dashboard.metric :metric="$metric" />@endforeach</section>
+    <div class="dashboard-columns">
+        <section class="surface" id="recent-requests" aria-labelledby="requests-title"><header class="panel-header"><div><span class="eyebrow">DA ORGANIZZARE</span><h2 id="requests-title">Richieste recenti <span class="count-pill">{{ count($requests) }}</span></h2><p>Le ultime richieste, con le informazioni che contano.</p></div><span class="panel-icon"><x-ui.icon name="inbox" /></span></header><p class="demo-action-note" id="demo-actions-note"><x-ui.icon name="info-circle" />In questa anteprima le azioni Accetta e Rifiuta non sono attive.</p><div class="requests-list">@foreach($requests as $order)<x-dashboard.request-card :order="$order" />@endforeach</div></section>
+        <div class="dashboard-side"><section class="surface" aria-labelledby="shipments-title"><header class="panel-header"><div><span class="eyebrow">IN MOVIMENTO</span><h2 id="shipments-title">Spedizioni in corso</h2><p>Due esempi di avanzamento.</p></div></header>@foreach($shipments as $shipment)<x-dashboard.shipment-card :shipment="$shipment" />@endforeach</section>
+            <aside class="day-note"><span class="day-note-icon"><x-ui.icon name="signpost-split" /></span><div><h2 class="h6">La prossima fermata, più chiara.</h2><p class="small mb-0">Apri i dettagli delle richieste per consultare indirizzi, fasce orarie e note per il ritiro.</p><a class="back-link mt-3" href="#recent-requests">Vai alle richieste <x-ui.icon name="arrow-up-right" /></a></div></aside>
+        </div>
+    </div>
+    <footer class="page-footer">EA-Express <span>Consegne locali, attenzione a ogni dettaglio.</span></footer>
+</x-app-layout>
