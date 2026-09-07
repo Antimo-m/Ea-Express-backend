@@ -1,0 +1,1 @@
+<x-section-page title="Tracking" icon="geo-alt" description="Un percorso chiaro, dal ritiro alla destinazione." :features="['Cronologia degli aggiornamenti con data e ora.', 'Stato corrente e prossima fase della consegna.', 'Tentativi di consegna, imprevisti e riprogrammazioni.']" />

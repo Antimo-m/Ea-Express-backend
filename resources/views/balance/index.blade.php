@@ -1,0 +1,1 @@
+<x-section-page title="Bilancio" icon="wallet2" description="Una visione semplice degli importi della tua attività." :features="['Riepiloghi giornalieri, settimanali e mensili.', 'Importi e stato degli ordini completati o annullati.', 'Saldo, spese e commissioni quando saranno disponibili.']" />

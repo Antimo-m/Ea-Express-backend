@@ -1,5 +1,5 @@
 <x-guest-layout title="Reimposta password">
-    <span class="eyebrow">UN NUOVO ACCESSO</span><h2 class="auth-title">Scegli la tua<br>nuova password.</h2>
+    <span class="eyebrow">UN NUOVO ACCESSO</span><h1 class="auth-title">Scegli la tua<br>nuova password.</h1>
     <form method="post" action="{{ route('password.store') }}" class="form-stack mt-4">@csrf
         <input type="hidden" name="token" value="{{ $request->route('token') }}">
         <x-ui.field name="email" label="Indirizzo email" type="email" :value="old('email', $request->email)" autocomplete="username" required />

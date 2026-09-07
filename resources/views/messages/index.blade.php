@@ -1,0 +1,1 @@
+<x-section-page title="Messaggi" icon="chat-dots" description="Una conversazione, il contesto giusto." :features="['Messaggi collegati a una specifica richiesta.', 'Comunicazioni tra negozio e operatore.', 'Aggiornamenti su disponibilità, ritardi e ritiro.']" />

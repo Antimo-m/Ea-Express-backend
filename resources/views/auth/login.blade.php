@@ -1,5 +1,5 @@
 <x-guest-layout title="Accedi">
-    <span class="eyebrow">BENTORNATO</span><h2 class="auth-title">La tua giornata<br>parte da qui.</h2><p class="text-secondary mb-4">Accedi al tuo spazio EA-Express.</p>
+    <span class="eyebrow">BENTORNATO</span><h1 class="auth-title">La tua giornata<br>parte da qui.</h1><p class="text-secondary mb-4">Accedi al tuo spazio EA-Express.</p>
     <form method="post" action="{{ route('login') }}" class="form-stack">@csrf
         <x-ui.field name="email" label="Indirizzo email" type="email" :value="old('email')" autocomplete="username" required autofocus />
         <x-ui.field name="password" label="Password" type="password" autocomplete="current-password" required />
