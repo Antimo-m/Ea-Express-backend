@@ -15,6 +15,12 @@ class AuthenticationSecurityTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['access.registration' => true]);
+    }
+
     public function test_login_is_temporarily_blocked_after_five_failed_attempts(): void
     {
         $this->freezeTime();

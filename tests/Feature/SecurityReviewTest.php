@@ -12,6 +12,12 @@ class SecurityReviewTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['access.registration' => true]);
+    }
+
     public function test_public_registration_cannot_assign_a_staff_role(): void
     {
         $this->post('/register', ['name' => 'Cliente', 'email' => 'client@example.com', 'password' => 'valid-password', 'password_confirmation' => 'valid-password', 'role' => 'admin'])->assertRedirect('/dashboard');
