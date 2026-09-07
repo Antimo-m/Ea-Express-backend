@@ -1,39 +1,11 @@
-<x-guest-layout>
-    <form method="POST" action="{{ route('password.store') }}">
-        @csrf
-
-        <!-- Password Reset Token -->
+<x-guest-layout title="Reimposta password">
+    <span class="eyebrow">UN NUOVO ACCESSO</span><h2 class="auth-title">Scegli la tua<br>nuova password.</h2>
+    <form method="post" action="{{ route('password.store') }}" class="form-stack mt-4">@csrf
         <input type="hidden" name="token" value="{{ $request->route('token') }}">
-
-        <!-- Email Address -->
-        <div>
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email', $request->email)" required autofocus autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
-        </div>
-
-        <!-- Password -->
-        <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
-            <x-text-input id="password" class="block mt-1 w-full" type="password" name="password" required autocomplete="new-password" />
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
-        </div>
-
-        <!-- Confirm Password -->
-        <div class="mt-4">
-            <x-input-label for="password_confirmation" :value="__('Confirm Password')" />
-
-            <x-text-input id="password_confirmation" class="block mt-1 w-full"
-                                type="password"
-                                name="password_confirmation" required autocomplete="new-password" />
-
-            <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
-        </div>
-
-        <div class="flex items-center justify-end mt-4">
-            <x-primary-button>
-                {{ __('Reset Password') }}
-            </x-primary-button>
-        </div>
+        <x-ui.field name="email" label="Indirizzo email" type="email" :value="old('email', $request->email)" autocomplete="username" required />
+        <x-ui.field name="password" label="Nuova password" type="password" autocomplete="new-password" minlength="8" help="Almeno 8 caratteri." required autofocus />
+        <x-ui.field name="password_confirmation" label="Conferma nuova password" type="password" autocomplete="new-password" required />
+        <button class="btn btn-primary w-100" type="submit">Salva nuova password</button>
     </form>
+    <a class="back-link mt-4" href="{{ route('login') }}">Torna al login</a>
 </x-guest-layout>
