@@ -13,6 +13,8 @@ use Illuminate\Validation\ValidationException;
 
 class TransitionOrder
 {
+    public function __construct(private NotifyOrderParticipants $notify) {}
+
     /** @param array<string, mixed> $data */
     public function handle(Order $order, User $user, array $data): void
     {
@@ -51,6 +53,7 @@ class TransitionOrder
             $locked->version++;
             $locked->save();
             $locked->events()->create(['user_id' => $user->id, 'status' => $next, 'note' => $data['note'] ?? null, 'public_note' => $data['public_note'] ?? null]);
+            $this->notify->handle($locked, $next->label(), $user->id);
         }, 3);
     }
 }
