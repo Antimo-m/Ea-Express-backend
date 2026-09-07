@@ -10,6 +10,7 @@
     <main class="app-content" id="main-content" tabindex="-1">
         @isset($header)<header class="page-heading mb-4">{{ $header }}</header>@endisset
         <x-ui.flash />
+        @if($errors->any())<div class="alert alert-danger" role="alert"><strong>Controlla i dati inseriti.</strong><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
         {{ $slot }}
     </main>
 </div>

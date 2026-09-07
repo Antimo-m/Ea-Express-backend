@@ -1,0 +1,6 @@
+@props(['order'])
+<article class="surface p-3 p-md-4 mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap"><div><span class="small text-secondary text-break">{{ $order->reference }}</span><h2 class="h5 mt-1"><a href="{{ route('orders.show', $order) }}">{{ $order->store_name }}</a></h2></div><span class="status-pill tone-{{ $order->status->tone() }}">{{ $order->status->label() }}</span></div>
+    <div class="row g-3 my-1"><div class="col-md-6"><div class="small text-secondary">Ritiro</div><strong>{{ $order->pickup_city }}</strong><div>{{ $order->pickup_address }}</div></div><div class="col-md-6"><div class="small text-secondary">Consegna</div><strong>{{ $order->delivery_city }}</strong><div>{{ $order->delivery_address }}</div></div></div>
+    <div class="d-flex align-items-center flex-wrap gap-3 mt-3 small"><span><x-ui.icon name="calendar3" /> {{ $order->pickup_date->format('d/m/Y') }} · {{ substr($order->pickup_from, 0, 5) }}–{{ substr($order->pickup_to, 0, 5) }}</span><span>{{ $order->parcel_count }} colli</span>@if($order->urgency === 'urgent')<span class="status-pill tone-orange">Urgente</span>@endif<a class="btn btn-outline-primary ms-md-auto" href="{{ route('orders.show', $order) }}">Apri ordine <x-ui.icon name="arrow-right" /></a></div>
+</article>

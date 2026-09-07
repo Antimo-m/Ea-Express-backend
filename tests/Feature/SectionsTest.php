@@ -39,8 +39,7 @@ class SectionsTest extends TestCase
         $this->actingAs($user)->get($path)
             ->assertOk()
             ->assertSee('<title>'.$title.' · EA-Express</title>', false)
-            ->assertSee('Disponibile prossimamente')
-            ->assertSee('Le funzioni elencate non sono ancora attive.')
+
             ->assertSee('aria-current="page"', false);
     }
 
