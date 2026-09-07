@@ -1,30 +1,22 @@
+@props(['title' => 'Accedi'])
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="csrf-token" content="{{ csrf_token() }}">
-
-        <title>{{ config('app.name', 'Laravel') }}</title>
-
-        <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
-
-        <!-- Scripts -->
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
-    </head>
-    <body class="font-sans text-gray-900 antialiased">
-        <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-gray-100">
-            <div>
-                <a href="/">
-                    <x-application-logo class="w-20 h-20 fill-current text-gray-500" />
-                </a>
-            </div>
-
-            <div class="w-full sm:max-w-md mt-6 px-6 py-4 bg-white shadow-md overflow-hidden sm:rounded-lg">
-                {{ $slot }}
-            </div>
+<head><x-ui.head :title="$title" /></head>
+<body>
+<a class="skip-link" href="#main-content">Vai al contenuto</a>
+<div class="auth-shell">
+    <aside class="auth-story" aria-label="EA-Express, consegne in Campania">
+        <a href="{{ url('/') }}" class="brand-link"><x-application-logo /></a>
+        <div class="auth-story-content"><span class="eyebrow">VICINI A TE. FINO ALLA CONSEGNA.</span><h1>Ogni consegna,<br>un impegno<br><span>mantenuto.</span></h1><p>Il tuo lavoro si muove.<br>EA-Express lo tiene in ordine.</p>
+            <div class="route-illustration" aria-hidden="true"><span class="route-point"><x-ui.icon name="shop" /></span><span class="route-line"></span><span class="route-point route-point-brand"><x-ui.icon name="box-seam" /></span><span class="route-line"></span><span class="route-point"><x-ui.icon name="geo-alt" /></span></div>
         </div>
-    </body>
+        <p class="small mb-0">Consegne locali. Persone, prima dei pacchi.</p>
+    </aside>
+    <main class="auth-main" id="main-content" tabindex="-1">
+        <a href="{{ url('/') }}" class="brand-link auth-mobile-brand"><x-application-logo /></a>
+        <div class="auth-card"><x-ui.flash />{{ $slot }}</div>
+        <p class="auth-footer">EA-Express · Al fianco delle attività in Campania</p>
+    </main>
+</div>
+</body>
 </html>
