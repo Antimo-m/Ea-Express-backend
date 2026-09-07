@@ -1,4 +1,6 @@
 *.log
+*.[mM][dD]
+*.[mM][aA][rR][kK][dD][oO][wW][nN]
 .DS_Store
 .env
 .env.*
