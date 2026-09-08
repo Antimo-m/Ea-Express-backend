@@ -1,0 +1,26 @@
+<?php
+
+namespace App\Http\Resources;
+
+use App\OrderStatus;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class CustomerOrderResource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id, 'reference' => $this->reference, 'status' => $this->status->value, 'status_label' => $this->status->label(), 'version' => $this->version,
+            'recipient_name' => $this->recipient_name, 'recipient_phone' => $this->recipient_phone,
+            'pickup_address' => $this->pickup_address, 'pickup_city' => $this->pickup_city, 'delivery_address' => $this->delivery_address, 'delivery_city' => $this->delivery_city,
+            'pickup_date' => $this->pickup_date->toDateString(), 'pickup_from' => substr($this->pickup_from, 0, 5), 'pickup_to' => substr($this->pickup_to, 0, 5),
+            'delivery_window' => $this->delivery_window, 'parcel_count' => $this->parcel_count, 'category' => $this->category, 'urgency' => $this->urgency, 'customer_notes' => $this->customer_notes,
+            'price_cents' => $this->price_cents, 'tracking_active' => $this->tracking_started_at !== null, 'estimated_at' => $this->estimated_at?->toIso8601String(),
+            'delivered_at' => $this->delivered_at?->toIso8601String(), 'created_at' => $this->created_at->toIso8601String(),
+            'can_edit' => $this->status === OrderStatus::Received, 'can_cancel' => $this->status === OrderStatus::Received,
+            'courier' => $this->whenLoaded('rider', fn () => $this->rider ? ['id' => $this->rider->id, 'name' => $this->rider->name] : null),
+            'events' => $this->whenLoaded('events', fn () => $this->events->map(fn ($event) => ['id' => $event->id, 'status' => $event->status->value, 'label' => $event->status->label(), 'message' => $event->public_note, 'created_at' => $event->created_at->toIso8601String()])),
+        ];
+    }
+}

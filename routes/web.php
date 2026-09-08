@@ -67,3 +67,5 @@ Route::middleware(['auth', EnsureStaff::class, EnsurePhoneVerified::class, 'thro
 });
 
 require __DIR__.'/auth.php';
+
+require __DIR__.'/customer.php';

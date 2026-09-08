@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\User;
+use App\UserRole;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
@@ -16,6 +19,15 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Paginator::useBootstrapFive();
+        RateLimiter::for('customer-api', fn (Request $request) => Limit::perMinute(120)->by('customer-api:'.($request->user('customer')?->id ?? $request->ip())));
+        RateLimiter::for('customer-login', fn (Request $request) => [Limit::perMinute(20)->by('customer-ip:'.$request->ip()), Limit::perMinute(5)->by('customer-login:'.hash('sha256', strtolower((string) $request->input('email'))).'|'.$request->ip())]);
+        ResetPassword::createUrlUsing(function (User $user, string $token): string {
+            if ($user->role === UserRole::Customer) {
+                return rtrim(config('customer.frontend_url'), '/').'/reset-password?'.http_build_query(['token' => $token, 'email' => $user->email]);
+            }
+
+            return route('password.reset', ['token' => $token, 'email' => $user->email]);
+        });
         \Illuminate\Support\Facades\View::composer('components.navigation.header', function (View $view) {
             $view->with('unreadNotifications', auth()->user()?->unreadNotifications()->count() ?? 0);
         });
