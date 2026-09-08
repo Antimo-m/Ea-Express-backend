@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Models\User;
+use App\Support\PhoneVerification;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -12,6 +13,7 @@ class VerifyPhoneOtp
 {
     public function handle(User $user, string $code): void
     {
+        abort_unless(PhoneVerification::enabled(), 404);
         try {
             $error = DB::transaction(function () use ($user, $code): ?string {
                 $locked = User::query()->lockForUpdate()->findOrFail($user->id);

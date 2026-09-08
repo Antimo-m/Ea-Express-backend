@@ -10,6 +10,9 @@ class SmsGateway
 {
     public function sendOtp(string $phone, string $code): void
     {
+        if (! PhoneVerification::enabled()) {
+            throw new RuntimeException('Invio SMS disattivato nell’ambiente di sviluppo.');
+        }
         $sid = config('sms.twilio.account_sid');
         $token = config('sms.twilio.auth_token');
         $from = config('sms.twilio.from');
