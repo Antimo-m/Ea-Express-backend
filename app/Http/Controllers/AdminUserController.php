@@ -39,7 +39,7 @@ class AdminUserController extends Controller
         $user->is_active = true;
         $user->save();
 
-        return redirect()->route('users.index')->with('status', 'Account rider creato. Comunica le credenziali al rider attraverso un canale riservato; verificherà il cellulare al primo accesso.');
+        return redirect()->route('users.index')->with('status', 'Account rider creato. Comunica le credenziali al rider attraverso un canale riservato.');
     }
 
     public function update(Request $request, User $user): RedirectResponse

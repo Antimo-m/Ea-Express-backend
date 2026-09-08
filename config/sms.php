@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'verification_enabled' => env('SMS_VERIFICATION_ENABLED', true),
     'driver' => env('SMS_DRIVER', 'twilio'),
     'twilio' => [
         'account_sid' => env('TWILIO_ACCOUNT_SID'),

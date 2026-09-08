@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Actions\SendPhoneOtp;
 use App\Actions\VerifyPhoneOtp;
 use App\Http\Controllers\Controller;
+use App\Support\PhoneVerification;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,7 @@ class PhoneVerificationController extends Controller
 {
     public function show(Request $request): View|RedirectResponse
     {
-        if ($request->user()->phone_verified_at || $request->user()->role === UserRole::Admin) {
+        if (! PhoneVerification::enabled() || $request->user()->phone_verified_at || $request->user()->role === UserRole::Admin) {
             return redirect()->route('dashboard');
         }
 
@@ -23,6 +24,7 @@ class PhoneVerificationController extends Controller
 
     public function store(Request $request, SendPhoneOtp $send): RedirectResponse
     {
+        abort_unless(PhoneVerification::enabled(), 404);
         $data = $request->validate(['phone' => ['required', 'string', 'max:30']]);
         $phone = preg_replace('/[\s()\-]/', '', $data['phone']);
         if (preg_match('/^3\d{9}$/D', $phone)) {
@@ -39,6 +41,7 @@ class PhoneVerificationController extends Controller
 
     public function update(Request $request, VerifyPhoneOtp $verify): RedirectResponse
     {
+        abort_unless(PhoneVerification::enabled(), 404);
         $data = $request->validate(['code' => ['required', 'string', 'regex:/^\d{4}$/D']]);
         $verify->handle($request->user(), $data['code']);
         $request->session()->regenerate();

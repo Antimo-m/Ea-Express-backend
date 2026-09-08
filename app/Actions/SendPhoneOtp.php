@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Models\User;
+use App\Support\PhoneVerification;
 use App\Support\SmsGateway;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -16,6 +17,7 @@ class SendPhoneOtp
 
     public function handle(User $user, string $phone): void
     {
+        abort_unless(PhoneVerification::enabled(), 404);
         $code = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
         $hash = Hash::make(self::digest($user->id, $phone, $code));
         DB::transaction(function () use ($user, $phone, &$hash, &$code) {

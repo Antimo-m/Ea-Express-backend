@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Support\PhoneVerification;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,7 +30,7 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        if ($request->user()->role !== UserRole::Admin && ! $request->user()->phone_verified_at) {
+        if (PhoneVerification::enabled() && $request->user()->role !== UserRole::Admin && ! $request->user()->phone_verified_at) {
             return redirect()->route('phone.notice');
         }
 
