@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Order;
+use App\Models\OrderMessage;
 use App\Models\User;
 use App\OrderStatus;
 use App\UserRole;
@@ -30,7 +31,7 @@ class CustomerPortalTest extends TestCase
         $rider = User::factory()->create();
         $this->postJson($this->api.'/auth/login', ['email' => $rider->email, 'password' => 'password'])->assertUnprocessable();
         $this->getJson($this->api.'/dashboard')->assertUnauthorized();
-        $this->postJson($this->api.'/auth/register', ['name' => 'Boutique Centro', 'email' => 'shop@example.com', 'password' => 'SecurePassword123', 'password_confirmation' => 'SecurePassword123', 'role' => 'admin'])->assertCreated()->assertJsonPath('user.name', 'Boutique Centro');
+        $this->postJson($this->api.'/auth/register', ['name' => 'Boutique Centro', 'email' => 'shop@example.com', 'password' => 'SecurePassword123', 'password_confirmation' => 'SecurePassword123', 'role' => 'admin'])->assertCreated()->assertJsonPath('user.name', 'Boutique Centro')->assertJsonPath('user.notify_orders', true)->assertJsonPath('user.notify_messages', true);
         $user = User::where('email', 'shop@example.com')->sole();
         $this->assertSame(UserRole::Customer, $user->role);
         $this->getJson($this->api.'/auth/me')->assertOk();
@@ -120,5 +121,34 @@ class CustomerPortalTest extends TestCase
         $customer->is_active = false;
         $customer->save();
         $this->getJson($this->api.'/auth/me')->assertUnauthorized();
+    }
+
+    public function test_courier_and_conversation_filters_keep_messages_and_orders_scoped_to_customer(): void
+    {
+        $customer = $this->customer();
+        $rider = User::factory()->create();
+        $order = Order::factory()->create(['customer_id' => $customer->id, 'rider_id' => $rider->id]);
+        OrderMessage::factory()->create(['order_id' => $order->id, 'user_id' => $rider->id]);
+        OrderMessage::factory()->create(['order_id' => $order->id, 'user_id' => null]);
+        Order::factory()->create(['customer_id' => $customer->id]);
+        $hidden = Order::factory()->create(['customer_id' => $this->customer()->id, 'rider_id' => $rider->id]);
+        OrderMessage::factory()->create(['order_id' => $hidden->id, 'user_id' => $rider->id]);
+        $this->actingAs($customer, 'customer')->getJson($this->api.'/orders?courier='.$rider->id.'&has_messages=1')
+            ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $order->id)
+            ->assertJsonPath('data.0.messages_count', 2)->assertJsonPath('data.0.unread_messages_count', 1);
+        $this->patchJson($this->api.'/orders/'.$order->id.'/messages/read')->assertOk();
+        $this->getJson($this->api.'/orders?has_messages=1')->assertJsonPath('data.0.unread_messages_count', 0);
+        $this->getJson($this->api.'/orders?courier=invalid')->assertUnprocessable();
+    }
+
+    public function test_completed_orders_do_not_appear_among_pending_pickups(): void
+    {
+        $customer = $this->customer();
+        $pending = Order::factory()->create(['customer_id' => $customer->id]);
+        Order::factory()->create(['customer_id' => $customer->id, 'status' => OrderStatus::Delivered]);
+        $pickedUp = Order::factory()->create(['customer_id' => $customer->id, 'status' => OrderStatus::InTransit]);
+        $pickedUp->events()->create(['status' => OrderStatus::PickedUp, 'user_id' => $pickedUp->created_by]);
+        $this->actingAs($customer, 'customer')->getJson($this->api.'/orders?kind=pickup')
+            ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $pending->id);
     }
 }
