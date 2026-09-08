@@ -19,16 +19,22 @@ class CustomerOrderController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
-        $data = $request->validate(['q' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', Rule::enum(OrderStatus::class)], 'kind' => ['nullable', 'in:pickup'], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d'], 'page' => ['nullable', 'integer', 'min:1']]);
-        $query = Order::where('customer_id', $request->user()->id)->with('rider');
+        $data = $request->validate(['q' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', Rule::enum(OrderStatus::class)], 'kind' => ['nullable', 'in:pickup'], 'courier' => ['nullable', 'integer', 'min:1'], 'has_messages' => ['nullable', 'boolean'], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d'], 'page' => ['nullable', 'integer', 'min:1']]);
+        $query = Order::where('customer_id', $request->user()->id)->with('rider')->withCount(['messages', 'messages as unread_messages_count' => fn ($q) => $q->whereNotNull('user_id')->whereNull('read_at')]);
         if (! empty($data['q'])) {
             $query->where(fn ($q) => $q->where('reference', 'like', '%'.$data['q'].'%')->orWhere('recipient_name', 'like', '%'.$data['q'].'%')->orWhere('delivery_city', 'like', '%'.$data['q'].'%'));
+        }
+        if (! empty($data['courier'])) {
+            $query->where('rider_id', $data['courier']);
+        }
+        if ($request->boolean('has_messages')) {
+            $query->whereHas('messages');
         }
         if (! empty($data['status'])) {
             $query->where('status', $data['status']);
         }
         if (($data['kind'] ?? null) === 'pickup') {
-            $query->whereNotIn('status', [OrderStatus::Rejected->value, OrderStatus::Cancelled->value])->whereDoesntHave('events', fn ($q) => $q->where('status', OrderStatus::PickedUp));
+            $query->whereNotIn('status', OrderStatus::closed())->whereDoesntHave('events', fn ($q) => $q->where('status', OrderStatus::PickedUp));
         }
         if (! empty($data['from'])) {
             $query->whereDate('pickup_date', '>=', $data['from']);
@@ -87,8 +93,8 @@ class CustomerOrderController extends Controller
         return response()->json(['message' => 'Richiesta annullata.']);
     }
 
-    private function authorizeOwner(Request $request,Order $order): void
+    private function authorizeOwner(Request $request, Order $order): void
     {
-        abort_unless($order->customer_id === $request->user()->id,404);
+        abort_unless($order->customer_id === $request->user()->id, 404);
     }
 }

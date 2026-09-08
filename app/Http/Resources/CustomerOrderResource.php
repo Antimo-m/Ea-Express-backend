@@ -18,6 +18,7 @@ class CustomerOrderResource extends JsonResource
             'delivery_window' => $this->delivery_window, 'parcel_count' => $this->parcel_count, 'category' => $this->category, 'urgency' => $this->urgency, 'customer_notes' => $this->customer_notes,
             'price_cents' => $this->price_cents, 'tracking_active' => $this->tracking_started_at !== null, 'estimated_at' => $this->estimated_at?->toIso8601String(),
             'delivered_at' => $this->delivered_at?->toIso8601String(), 'created_at' => $this->created_at->toIso8601String(),
+            'messages_count' => $this->whenCounted('messages'), 'unread_messages_count' => $this->whenCounted('unread_messages'),
             'can_edit' => $this->status === OrderStatus::Received, 'can_cancel' => $this->status === OrderStatus::Received,
             'courier' => $this->whenLoaded('rider', fn () => $this->rider ? ['id' => $this->rider->id, 'name' => $this->rider->name] : null),
             'events' => $this->whenLoaded('events', fn () => $this->events->map(fn ($event) => ['id' => $event->id, 'status' => $event->status->value, 'label' => $event->status->label(), 'message' => $event->public_note, 'created_at' => $event->created_at->toIso8601String()])),

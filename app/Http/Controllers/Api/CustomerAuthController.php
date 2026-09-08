@@ -40,7 +40,7 @@ class CustomerAuthController extends Controller
         $user->role = UserRole::Customer;
         $user->is_active = true;
         $user->save();
-        Auth::guard('customer')->login($user);
+        Auth::guard('customer')->login($user->refresh());
         $request->session()->regenerate();
 
         return $this->me($request)->setStatusCode(201);
