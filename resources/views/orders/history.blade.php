@@ -1,1 +1,0 @@
-<x-section-page title="Storico ordini" icon="clock-history" description="La memoria delle tue consegne, sempre ordinata." :features="['Consultazione degli ordini degli ultimi 12 mesi.', 'Filtri per periodo, cliente, zona e stato.', 'Ordini rifiutati e recupero entro un’ora, secondo le regole previste.']" />

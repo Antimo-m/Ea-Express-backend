@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\User;
+use App\Rules\SafePasswordLength;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
 
@@ -15,6 +16,6 @@ class StoreRiderRequest extends FormRequest
 
     public function rules(): array
     {
-        return ['name' => ['required', 'string', 'max:255'], 'email' => ['required', 'email', 'lowercase', 'max:255', 'unique:users,email'], 'password' => ['required', 'confirmed', Password::min(12), 'max:72']];
+        return ['name' => ['required', 'string', 'max:255'], 'email' => ['required', 'email', 'lowercase', 'max:255', 'unique:users,email'], 'password' => [new SafePasswordLength, 'required', 'confirmed', Password::min(12), 'max:72']];
     }
 }

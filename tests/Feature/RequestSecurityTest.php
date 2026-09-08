@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Password;
 use Tests\TestCase;
 
 class RequestSecurityTest extends TestCase
@@ -51,5 +52,18 @@ class RequestSecurityTest extends TestCase
         $this->assertSame(UserRole::Rider, $user->fresh()->role);
         $this->assertSame($phone, $user->fresh()->phone);
         $this->assertTrue($user->fresh()->is_active);
+    }
+
+    public function test_long_multibyte_passwords_are_rejected_without_changing_credentials(): void
+    {
+        $user = User::factory()->create();
+        $hash = $user->password;
+        $password = str_repeat('é', 40);
+        $this->actingAs($user)->put('/password', ['current_password' => 'password', 'password' => $password, 'password_confirmation' => $password])->assertSessionHasErrorsIn('updatePassword', 'password');
+        $this->assertSame($hash, $user->fresh()->password);
+        $this->post('/logout');
+        $token = Password::createToken($user);
+        $this->post('/reset-password', ['email' => $user->email, 'token' => $token, 'password' => $password, 'password_confirmation' => $password])->assertSessionHasErrors('password');
+        $this->assertSame($hash, $user->fresh()->password);
     }
 }

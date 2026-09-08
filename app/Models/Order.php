@@ -68,6 +68,18 @@ class Order extends Model
         });
     }
 
+    /** @return list<OrderStatus> */
+    public function allowedTransitions(): array
+    {
+        if ($this->status === OrderStatus::Rescheduled) {
+            $pickedUp = $this->events()->where('status', OrderStatus::PickedUp)->exists();
+
+            return [$pickedUp ? OrderStatus::OutForDelivery : OrderStatus::RiderArriving, OrderStatus::DeliveryIssue, OrderStatus::Cancelled];
+        }
+
+        return $this->status->next();
+    }
+
     public function recoverable(): bool
     {
         return $this->status === OrderStatus::Rejected && $this->rejected_at?->greaterThanOrEqualTo(now()->subHour());

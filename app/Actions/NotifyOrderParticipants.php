@@ -12,7 +12,7 @@ class NotifyOrderParticipants
 {
     public function handle(Order $order, string $title, ?int $actorId, bool $message = false): void
     {
-        $recipients = User::query()->whereIn('role', [UserRole::Admin, UserRole::Rider])->where($message ? 'notify_messages' : 'notify_orders', true);
+        $recipients = User::query()->where('is_active', true)->whereIn('role', [UserRole::Admin, UserRole::Rider])->where($message ? 'notify_messages' : 'notify_orders', true);
         if ($actorId !== null) {
             $recipients->where('id', '!=', $actorId);
         }

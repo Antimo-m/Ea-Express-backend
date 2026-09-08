@@ -19,10 +19,12 @@ class TransitionOrder
     public function handle(Order $order, User $user, array $data): void
     {
         DB::transaction(function () use ($order, $user, $data) {
+            $user = User::query()->lockForUpdate()->findOrFail($user->id);
+            abort_unless($user->is_active && $user->isStaff(), 403);
             $locked = Order::query()->lockForUpdate()->findOrFail($order->id);
             Gate::forUser($user)->authorize('update', $locked);
             $next = OrderStatus::from($data['status']);
-            if ($locked->version !== (int) $data['version'] || ! in_array($next, $locked->status->next(), true)) {
+            if ($locked->version !== (int) $data['version'] || ! in_array($next, $locked->allowedTransitions(), true)) {
                 throw ValidationException::withMessages(['status' => 'L’ordine è cambiato o il passaggio non è consentito. Ricarica la pagina.']);
             }
             if ($locked->status === OrderStatus::Rejected && ! $locked->recoverable()) {

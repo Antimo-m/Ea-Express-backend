@@ -129,4 +129,24 @@ class OrderWorkflowTest extends TestCase
         $this->actingAs($user)->delete('/profile', ['password' => 'password'])->assertSessionHasErrorsIn('userDeletion', 'password');
         $this->assertModelExists($user);
     }
+
+    public function test_rescheduled_delivery_cannot_skip_a_pickup_that_never_happened(): void
+    {
+        $user = User::factory()->create();
+        $order = Order::factory()->create(['rider_id' => $user->id, 'status' => OrderStatus::Rescheduled]);
+        $this->actingAs($user)->patch(route('orders.update', $order), ['status' => 'out_for_delivery', 'version' => 1])->assertSessionHasErrors('status');
+        $this->assertSame(OrderStatus::Rescheduled, $order->fresh()->status);
+        $this->patch(route('orders.update', $order), ['status' => 'rider_arriving', 'version' => 1])->assertSessionHasNoErrors();
+        $this->assertSame(OrderStatus::RiderArriving, $order->fresh()->status);
+    }
+
+    public function test_history_accepts_end_date_alone_and_uses_italian_day_boundaries(): void
+    {
+        $this->travelTo(now()->setDate(2026, 9, 8));
+        $user = User::factory()->create(['role' => UserRole::Admin]);
+        $first = Order::factory()->create(['status' => OrderStatus::Delivered, 'created_at' => '2026-09-06 22:30:00']);
+        $second = Order::factory()->create(['status' => OrderStatus::Delivered, 'created_at' => '2026-09-07 22:30:00']);
+        $this->actingAs($user)->get('/orders/history?to=2026-09-07')->assertOk()->assertSee($first->reference)->assertDontSee($second->reference);
+        $this->get('/orders/history?from=2026-09-08&to=2026-09-07')->assertSessionHasErrors('to');
+    }
 }
