@@ -12,6 +12,10 @@ class NotifyOrderParticipants
 {
     public function handle(Order $order, string $title, ?int $actorId, bool $message = false): void
     {
+        if ($order->customer_id && $order->customer_id !== $actorId) {
+            $customer = User::whereKey($order->customer_id)->where('role', UserRole::Customer)->where('is_active', true)->where($message ? 'notify_messages' : 'notify_orders', true)->first();
+            $customer?->notify(new OrderActivity($order->id, $order->reference, $title, $message));
+        }
         $recipients = User::query()->where('is_active', true)->whereIn('role', [UserRole::Admin, UserRole::Rider])->where($message ? 'notify_messages' : 'notify_orders', true);
         if ($actorId !== null) {
             $recipients->where('id', '!=', $actorId);

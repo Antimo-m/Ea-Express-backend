@@ -11,6 +11,9 @@ class EnsureActiveAccount
 {
     public function handle(Request $request, Closure $next): Response
     {
+        if ($request->is('api/v1/customer/*')) {
+            return $next($request);
+        }
         if ($request->user() && ! $request->user()->is_active) {
             Auth::guard('web')->logout();
             $request->session()->invalidate();

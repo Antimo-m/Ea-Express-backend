@@ -15,7 +15,7 @@ class SecurityHeaders
         $response->headers->set('X-Frame-Options', 'DENY');
         $response->headers->set('Referrer-Policy', 'no-referrer');
         $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-        if ($request->user() || $request->is('login', 'register', '*password*', 'track/*', 'conversation/*')) {
+        if ($request->user() || $request->is('login', 'register', '*password*', 'track/*', 'conversation/*', 'api/v1/customer/*')) {
             $response->headers->set('Cache-Control', 'no-store, private');
         }
         if (app()->isProduction()) {

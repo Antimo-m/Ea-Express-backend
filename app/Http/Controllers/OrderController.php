@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Actions\NotifyOrderParticipants;
+use App\Actions\CreateOrder;
 use App\Actions\TransitionOrder;
 use App\Http\Requests\StoreOrderRequest;
 use App\Http\Requests\UpdateOrderStatusRequest;
@@ -11,9 +11,7 @@ use App\OrderStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -64,21 +62,9 @@ class OrderController extends Controller
         return view('orders.create');
     }
 
-    public function store(StoreOrderRequest $request, NotifyOrderParticipants $notify): RedirectResponse
+    public function store(StoreOrderRequest $request, CreateOrder $create): RedirectResponse
     {
-        $order = DB::transaction(function () use ($request, $notify) {
-            $order = new Order($request->validated());
-            $order->reference = 'EA-'.Str::ulid();
-            $order->tracking_token = Str::random(64);
-            $order->created_by = $request->user()->id;
-            $order->status = OrderStatus::Received;
-            $order->save();
-            $order->events()->create(['user_id' => $request->user()->id, 'status' => OrderStatus::Received]);
-
-            $notify->handle($order, 'Nuova richiesta', $request->user()->id);
-
-            return $order;
-        });
+        $order = $create->handle($request->user(), $request->validated());
 
         return redirect()->route('orders.show', $order)->with('status', 'Richiesta creata.');
     }
