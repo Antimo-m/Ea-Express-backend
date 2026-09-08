@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Models\Expense;
 use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\OrderMessage;
+use App\Models\PaymentEntry;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -53,7 +55,7 @@ class ProfileController extends Controller
 
         $user = $request->user();
 
-        if (OrderMessage::where('user_id', $user->id)->exists() || $user->role === UserRole::Admin || Order::query()->where('created_by', $user->id)->orWhere('rider_id', $user->id)->orWhere('rejected_by', $user->id)->exists() || OrderEvent::where('user_id', $user->id)->exists()) {
+        if (Expense::where('user_id', $user->id)->exists() || PaymentEntry::where('user_id', $user->id)->exists() || OrderMessage::where('user_id', $user->id)->exists() || $user->role === UserRole::Admin || Order::query()->where('created_by', $user->id)->orWhere('rider_id', $user->id)->orWhere('rejected_by', $user->id)->exists() || OrderEvent::where('user_id', $user->id)->exists()) {
             throw ValidationException::withMessages(['password' => 'L’account ha responsabilità o uno storico operativo. Contatta il responsabile per disabilitarlo.'])->errorBag('userDeletion');
         }
 

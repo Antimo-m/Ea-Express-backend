@@ -10,11 +10,11 @@ return [
     ],
     'La tua attività' => [
         ['label' => 'Storico ordini', 'route' => 'orders.history', 'icon' => 'clock-history'],
-        ['label' => 'Bilancio', 'route' => 'balance.index', 'icon' => 'wallet2', 'upcoming' => true],
-        ['label' => 'Resoconti', 'route' => 'reports.index', 'icon' => 'bar-chart', 'upcoming' => true],
+        ['label' => 'Bilancio', 'route' => 'balance.index', 'icon' => 'wallet2'],
+        ['label' => 'Resoconti', 'route' => 'reports.index', 'icon' => 'bar-chart'],
     ],
     'Account' => [
         ['label' => 'Il mio profilo', 'route' => 'profile.edit', 'icon' => 'person-circle'],
-        ['label' => 'Impostazioni', 'route' => 'settings.index', 'icon' => 'sliders2', 'upcoming' => true],
+        ['label' => 'Impostazioni', 'route' => 'settings.index', 'icon' => 'sliders2'],
     ],
 ];

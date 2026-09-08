@@ -10,6 +10,7 @@ return [
     'current_password' => 'La password attuale non è corretta.',
     'min' => ['numeric' => 'Il campo :attribute deve essere almeno :min.', 'string' => 'Il campo :attribute deve contenere almeno :min caratteri.'],
     'max' => ['numeric' => 'Il campo :attribute non può superare :max.', 'string' => 'Il campo :attribute non può superare :max caratteri.'],
+    'before_or_equal' => 'Il campo :attribute deve essere uguale o precedente a :date.',
     'integer' => 'Il campo :attribute deve essere un numero intero.',
     'numeric' => 'Il campo :attribute deve essere un numero.',
     'boolean' => 'Il valore del campo :attribute non è valido.',
@@ -23,6 +24,7 @@ return [
     'required_if' => 'Il campo :attribute è obbligatorio per questa operazione.',
     'between' => ['numeric' => 'Il campo :attribute deve essere compreso tra :min e :max.'],
     'attributes' => [
+        'body' => 'messaggio', 'amount' => 'importo', 'description' => 'descrizione', 'spent_on' => 'data della spesa', 'month' => 'mese', 'from' => 'data iniziale', 'to' => 'data finale',
         'store_name' => 'negozio / cliente', 'recipient_name' => 'destinatario', 'recipient_phone' => 'telefono', 'pickup_address' => 'indirizzo di ritiro', 'pickup_city' => 'comune di ritiro', 'delivery_address' => 'indirizzo di consegna', 'delivery_city' => 'comune di consegna', 'pickup_date' => 'data di ritiro', 'pickup_from' => 'inizio fascia di ritiro', 'pickup_to' => 'fine fascia di ritiro', 'parcel_count' => 'numero colli', 'category' => 'categoria', 'urgency' => 'urgenza', 'price' => 'importo', 'note' => 'motivo', 'public_note' => 'aggiornamento pubblico', 'estimated_at' => 'nuova previsione', 'status' => 'stato', 'version' => 'versione ordine',
 
         'name' => 'nome e cognome',

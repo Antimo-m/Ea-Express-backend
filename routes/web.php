@@ -1,11 +1,16 @@
 <?php
 
+use App\Http\Controllers\BalanceController;
 use App\Http\Controllers\CustomerConversationController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TrackingController;
 use App\Http\Middleware\EnsureStaff;
 use Illuminate\Support\Facades\Route;
@@ -39,9 +44,13 @@ Route::middleware(['auth', 'verified', EnsureStaff::class])->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::patch('/notifications/read-all', [NotificationController::class, 'readAll'])->middleware('throttle:writes')->name('notifications.read-all');
     Route::patch('/notifications/{notification}', [NotificationController::class, 'update'])->middleware('throttle:writes')->name('notifications.update');
-    Route::view('/balance', 'balance.index')->name('balance.index');
-    Route::view('/reports', 'reports.index')->name('reports.index');
-    Route::view('/settings', 'settings.index')->name('settings.index');
+    Route::get('/balance', [BalanceController::class, 'index'])->name('balance.index');
+    Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::post('/balance/{order}/payment', [PaymentController::class, 'store'])->middleware('throttle:writes')->name('payments.store');
+    Route::post('/expenses', [ExpenseController::class, 'store'])->middleware('throttle:writes')->name('expenses.store');
+    Route::delete('/expenses/{expense}', [ExpenseController::class, 'destroy'])->middleware('throttle:writes')->name('expenses.destroy');
+    Route::patch('/settings', [SettingsController::class, 'update'])->middleware('throttle:writes')->name('settings.update');
+    Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.index');
 
 });
 
