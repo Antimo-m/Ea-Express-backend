@@ -44,6 +44,14 @@ class Order extends Model
     }
 
     #[Scope]
+    protected function financialFor(Builder $query, User $user): void
+    {
+        if ($user->role !== UserRole::Admin) {
+            $query->where('rider_id', $user->id);
+        }
+    }
+
+    #[Scope]
     protected function visibleTo(Builder $query, User $user): void
     {
         if ($user->role === UserRole::Admin) {
