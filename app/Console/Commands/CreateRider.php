@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\User;
+use App\Rules\SafePasswordLength;
 use App\UserRole;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Validator;
@@ -16,7 +17,7 @@ class CreateRider extends Command
     public function handle(): int
     {
         $data = ['email' => $this->argument('email'), 'name' => $this->argument('name'), 'password' => $this->secret('Password iniziale (almeno 12 caratteri)')];
-        $validator = Validator::make($data, ['email' => ['required', 'email', 'lowercase', 'unique:users,email'], 'name' => ['required', 'string', 'max:255'], 'password' => ['required', 'string', 'min:12', 'max:72']]);
+        $validator = Validator::make($data, ['email' => ['required', 'email', 'lowercase', 'unique:users,email'], 'name' => ['required', 'string', 'max:255'], 'password' => [new SafePasswordLength, 'required', 'string', 'min:12', 'max:72']]);
         if ($validator->fails()) {
             foreach ($validator->errors()->all() as $error) {
                 $this->error($error);

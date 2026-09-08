@@ -1,1 +1,0 @@
-<x-section-page title="Ordini in entrata" icon="inbox" description="Ogni richiesta, pronta per essere organizzata." :features="['Richieste con indirizzi, fasce orarie, pacchi e note.', 'Accettazione o rifiuto con conferma e feedback.', 'Priorità e urgenze subito riconoscibili.']" />

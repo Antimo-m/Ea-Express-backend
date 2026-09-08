@@ -24,12 +24,12 @@ Route::get('/track/{token}', [TrackingController::class, 'show'])->where('token'
 
 Route::get('/', function () {
     return view('welcome');
-});
+})->middleware('throttle:public-pages');
 
 Route::middleware(['auth', EnsureStaff::class, EnsurePhoneVerified::class])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
-    Route::redirect('/orders', '/orders/incoming')->name('orders.index');
+    Route::get('/orders', fn () => redirect()->route('orders.incoming'))->name('orders.index');
     Route::get('/orders/incoming', [OrderController::class, 'index'])->name('orders.incoming');
     Route::get('/orders/in-progress', [OrderController::class, 'index'])->name('orders.in-progress');
     Route::get('/orders/history', [OrderController::class, 'index'])->name('orders.history');

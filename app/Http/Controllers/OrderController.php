@@ -10,17 +10,22 @@ use App\Models\Order;
 use App\OrderStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class OrderController extends Controller
 {
     public function index(Request $request): View
     {
-        $filters = $request->validate(['q' => ['nullable', 'string', 'max:100'], 'zone' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', Rule::enum(OrderStatus::class)], 'urgency' => ['nullable', Rule::in(['urgent', 'standard'])], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from']]);
+        $filters = $request->validate(['q' => ['nullable', 'string', 'max:100'], 'zone' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', Rule::enum(OrderStatus::class)], 'urgency' => ['nullable', Rule::in(['urgent', 'standard'])], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d']]);
+        if (! empty($filters['from']) && ! empty($filters['to']) && $filters['to'] < $filters['from']) {
+            throw ValidationException::withMessages(['to' => 'La data finale deve essere uguale o successiva alla data iniziale.']);
+        }
         $section = $request->route()->getName();
         $query = Order::visibleTo($request->user())->with('rider');
         $title = match ($section) {
@@ -45,10 +50,10 @@ class OrderController extends Controller
             }
         }
         if (! empty($filters['from'])) {
-            $query->whereDate('created_at', '>=', $filters['from']);
+            $query->where('created_at', '>=', Carbon::parse($filters['from'], 'Europe/Rome')->startOfDay()->utc());
         }
         if (! empty($filters['to'])) {
-            $query->whereDate('created_at', '<=', $filters['to']);
+            $query->where('created_at', '<=', Carbon::parse($filters['to'], 'Europe/Rome')->endOfDay()->utc());
         }
 
         return view('orders.index', ['orders' => $query->latest()->orderByDesc('id')->paginate(15)->withQueryString(), 'title' => $title, 'section' => $section]);
@@ -82,7 +87,7 @@ class OrderController extends Controller
     {
         Gate::authorize('view', $order);
 
-        return view('orders.show', ['order' => $order->load('rider'), 'events' => $order->events()->with('user')->latest()->orderByDesc('id')->paginate(30)]);
+        return view('orders.show', ['order' => $order->load('rider'), 'transitions' => $order->allowedTransitions(), 'events' => $order->events()->with('user')->latest()->orderByDesc('id')->paginate(30)]);
     }
 
     public function update(UpdateOrderStatusRequest $request, Order $order, TransitionOrder $transition): RedirectResponse

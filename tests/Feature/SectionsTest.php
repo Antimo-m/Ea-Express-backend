@@ -26,13 +26,13 @@ class SectionsTest extends TestCase
     }
 
     #[DataProvider('sections')]
-    public function test_future_sections_require_authentication(string $path, string $title): void
+    public function test_operational_sections_require_authentication(string $path, string $title): void
     {
         $this->get($path)->assertRedirect(route('login'));
     }
 
     #[DataProvider('sections')]
-    public function test_authenticated_users_see_preparation_pages(string $path, string $title): void
+    public function test_verified_riders_see_operational_pages(string $path, string $title): void
     {
         $user = User::factory()->create();
 
@@ -40,7 +40,8 @@ class SectionsTest extends TestCase
             ->assertOk()
             ->assertSee('<title>'.$title.' · EA-Express</title>', false)
 
-            ->assertSee('aria-current="page"', false);
+            ->assertSee('aria-current="page"', false)
+            ->assertDontSee('Disponibile prossimamente');
     }
 
     public function test_orders_entry_point_redirects_authenticated_users_to_incoming_orders(): void
@@ -55,7 +56,7 @@ class SectionsTest extends TestCase
         $this->get('/orders')->assertRedirect(route('login'));
     }
 
-    public function test_no_order_creation_endpoint_is_exposed(): void
+    public function test_incoming_listing_does_not_accept_post(): void
     {
         $user = User::factory()->create();
 
