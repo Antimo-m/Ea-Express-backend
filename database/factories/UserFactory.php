@@ -30,9 +30,17 @@ class UserFactory extends Factory
             'role' => UserRole::Rider,
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
+            'phone' => '+39'.fake()->unique()->numerify('3#########'),
+            'phone_verified_at' => now(),
+            'is_active' => true,
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
         ];
+    }
+
+    public function phoneUnverified(): static
+    {
+        return $this->state(fn () => ['phone' => null, 'phone_verified_at' => null]);
     }
 
     /**

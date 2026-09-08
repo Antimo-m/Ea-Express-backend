@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use App\UserRole;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
@@ -14,12 +15,6 @@ use Tests\TestCase;
 class AuthenticationSecurityTest extends TestCase
 {
     use RefreshDatabase;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-        config(['access.registration' => true]);
-    }
 
     public function test_login_is_temporarily_blocked_after_five_failed_attempts(): void
     {
@@ -67,7 +62,8 @@ class AuthenticationSecurityTest extends TestCase
     #[DataProvider('invalidRegistrationData')]
     public function test_invalid_registration_does_not_create_an_account(array $invalid, string $field): void
     {
-        $response = $this->post('/register', array_replace([
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $response = $this->actingAs($admin)->post('/settings/users', array_replace([
             'name' => 'New User',
             'email' => 'new@example.com',
             'password' => 'valid-password',
@@ -75,15 +71,16 @@ class AuthenticationSecurityTest extends TestCase
         ], $invalid));
 
         $response->assertSessionHasErrors($field);
-        $this->assertDatabaseCount('users', 0);
-        $this->assertGuest();
+        $this->assertDatabaseCount('users', 1);
+        $this->assertAuthenticatedAs($admin);
     }
 
     public function test_registration_cannot_reuse_an_existing_email(): void
     {
         $user = User::factory()->create();
 
-        $response = $this->post('/register', [
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $response = $this->actingAs($admin)->post('/settings/users', [
             'name' => 'Duplicate User',
             'email' => $user->email,
             'password' => 'valid-password',
@@ -91,13 +88,14 @@ class AuthenticationSecurityTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors('email');
-        $this->assertDatabaseCount('users', 1);
-        $this->assertGuest();
+        $this->assertDatabaseCount('users', 2);
+        $this->assertAuthenticatedAs($admin);
     }
 
     public function test_registration_stores_a_hashed_password_and_ignores_verification_input(): void
     {
-        $response = $this->post('/register', [
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $response = $this->actingAs($admin)->post('/settings/users', [
             'name' => 'New User',
             'email' => 'new@example.com',
             'password' => 'valid-password',
@@ -105,9 +103,9 @@ class AuthenticationSecurityTest extends TestCase
             'email_verified_at' => '2026-01-01 12:00:00',
         ]);
 
-        $response->assertRedirect(route('dashboard'))->assertSessionHasNoErrors();
+        $response->assertRedirect(route('users.index'))->assertSessionHasNoErrors();
         $user = User::where('email', 'new@example.com')->sole();
-        $this->assertAuthenticatedAs($user);
+        $this->assertAuthenticatedAs($admin);
         $this->assertTrue(Hash::check('valid-password', $user->password));
         $this->assertNull($user->email_verified_at);
     }

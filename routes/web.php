@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\BalanceController;
 use App\Http\Controllers\CustomerConversationController;
 use App\Http\Controllers\DashboardController;
@@ -12,6 +13,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TrackingController;
+use App\Http\Middleware\EnsurePhoneVerified;
 use App\Http\Middleware\EnsureStaff;
 use Illuminate\Support\Facades\Route;
 
@@ -24,7 +26,7 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::middleware(['auth', 'verified', EnsureStaff::class])->group(function () {
+Route::middleware(['auth', EnsureStaff::class, EnsurePhoneVerified::class])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     Route::redirect('/orders', '/orders/incoming')->name('orders.index');
@@ -50,11 +52,15 @@ Route::middleware(['auth', 'verified', EnsureStaff::class])->group(function () {
     Route::post('/expenses', [ExpenseController::class, 'store'])->middleware('throttle:writes')->name('expenses.store');
     Route::delete('/expenses/{expense}', [ExpenseController::class, 'destroy'])->middleware('throttle:writes')->name('expenses.destroy');
     Route::patch('/settings', [SettingsController::class, 'update'])->middleware('throttle:writes')->name('settings.update');
+    Route::get('/settings/users', [AdminUserController::class, 'index'])->name('users.index');
+    Route::get('/settings/users/create', [AdminUserController::class, 'create'])->name('users.create');
+    Route::post('/settings/users', [AdminUserController::class, 'store'])->middleware('throttle:writes')->name('users.store');
+    Route::patch('/settings/users/{user}', [AdminUserController::class, 'update'])->middleware('throttle:writes')->name('users.update');
     Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.index');
 
 });
 
-Route::middleware(['auth', EnsureStaff::class, 'throttle:writes'])->group(function () {
+Route::middleware(['auth', EnsureStaff::class, EnsurePhoneVerified::class, 'throttle:writes'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

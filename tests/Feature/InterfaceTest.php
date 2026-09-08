@@ -10,12 +10,6 @@ class InterfaceTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-        config(['access.registration' => true]);
-    }
-
     public function test_login_is_localized_and_has_a_page_title(): void
     {
         $this->get('/login')

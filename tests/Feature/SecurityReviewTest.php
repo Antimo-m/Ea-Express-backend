@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
@@ -12,16 +11,10 @@ class SecurityReviewTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-        config(['access.registration' => true]);
-    }
-
     public function test_public_registration_cannot_assign_a_staff_role(): void
     {
-        $this->post('/register', ['name' => 'Cliente', 'email' => 'client@example.com', 'password' => 'valid-password', 'password_confirmation' => 'valid-password', 'role' => 'admin'])->assertRedirect('/dashboard');
-        $this->assertSame(UserRole::Customer, User::sole()->role);
+        $this->post('/register', ['name' => 'Cliente', 'email' => 'client@example.com', 'password' => 'valid-password', 'password_confirmation' => 'valid-password', 'role' => 'admin'])->assertNotFound();
+        $this->assertDatabaseCount('users', 0);
     }
 
     public function test_password_recovery_does_not_reveal_account_existence(): void

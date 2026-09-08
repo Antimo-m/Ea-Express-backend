@@ -32,13 +32,13 @@ class AccessControlTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_dashboard_requires_email_verification(): void
+    public function test_dashboard_requires_phone_verification(): void
     {
-        $user = User::factory()->unverified()->create();
+        $user = User::factory()->phoneUnverified()->create();
 
         $response = $this->actingAs($user)->get('/dashboard');
 
-        $response->assertRedirect(route('verification.notice'));
+        $response->assertRedirect(route('phone.notice'));
     }
 
     public function test_dashboard_escapes_the_authenticated_users_name(): void
