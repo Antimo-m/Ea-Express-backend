@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\UserRole;
 use Database\Factories\UserFactory;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,17 +11,12 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 #[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable implements MustVerifyEmail
+#[Hidden(['password', 'remember_token', 'phone_otp_hash', 'pending_phone', 'phone_otp_expires_at', 'phone_otp_attempts', 'phone_otp_send_count', 'phone_otp_window_at', 'phone_otp_sent_at'])]
+class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     public function isStaff(): bool
     {
         return in_array($this->role, [UserRole::Admin, UserRole::Rider], true);
@@ -32,6 +26,7 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return [
             'email_verified_at' => 'datetime',
+            'phone_verified_at' => 'datetime', 'phone_otp_expires_at' => 'datetime', 'phone_otp_sent_at' => 'datetime', 'phone_otp_window_at' => 'datetime', 'phone_otp_attempts' => 'integer', 'phone_otp_send_count' => 'integer', 'is_active' => 'boolean',
             'password' => 'hashed',
             'role' => UserRole::class,
             'notify_orders' => 'boolean',

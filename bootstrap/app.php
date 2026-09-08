@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureActiveAccount;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -14,8 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(SecurityHeaders::class);
+        $middleware->web(append: [EnsureActiveAccount::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->dontFlash(['code', 'phone', 'password', 'password_confirmation', 'current_password']);
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );

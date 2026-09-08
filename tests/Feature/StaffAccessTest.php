@@ -24,12 +24,10 @@ class StaffAccessTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => UserRole::Customer]))->get('/dashboard')->assertForbidden();
     }
 
-    public function test_unverified_rider_is_redirected_until_email_is_verified(): void
+    public function test_unverified_email_does_not_block_a_phone_verified_rider(): void
     {
         $user = User::factory()->unverified()->create();
-        $this->actingAs($user)->get('/dashboard')->assertRedirect(route('verification.notice'));
-        $this->get('/verify-email')->assertOk();
-        $user->markEmailAsVerified();
-        $this->get('/dashboard')->assertOk();
+        $this->actingAs($user)->get('/dashboard')->assertOk();
+        $this->get('/verify-email')->assertNotFound();
     }
 }
