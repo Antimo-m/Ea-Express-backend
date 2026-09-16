@@ -29,7 +29,7 @@ class OrderWorkflowTest extends TestCase
         $this->assertNull($order->price_cents);
         $this->assertSame(64, strlen($order->tracking_token));
         $this->assertDatabaseCount('order_events', 1);
-        $this->get(route('orders.show', $order))->assertOk()->assertSee('Accetta')->assertSee('Rifiuta');
+        $this->get(route('orders.show', $order))->assertOk()->assertSee('Prendi in carico')->assertSee('Rifiuta');
     }
 
     public function test_full_delivery_workflow_persists_events_price_and_public_tracking(): void

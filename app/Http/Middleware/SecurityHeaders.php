@@ -19,7 +19,8 @@ class SecurityHeaders
             $response->headers->set('Cache-Control', 'no-store, private');
         }
         if (app()->isProduction()) {
-            $response->headers->set('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'");
+            $socketOrigin = (config('realtime.scheme') === 'https' ? 'wss://' : 'ws://').config('realtime.host').':'.config('realtime.port');
+            $response->headers->set('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' {$socketOrigin}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'");
             if ($request->isSecure()) {
                 $response->headers->set('Strict-Transport-Security', 'max-age=31536000');
             }

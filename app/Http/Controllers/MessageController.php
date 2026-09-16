@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\AcknowledgeMessages;
 use App\Actions\NotifyOrderParticipants;
 use App\Models\Order;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,14 +20,19 @@ class MessageController extends Controller
         return view('messages.index', ['orders' => Order::visibleTo($request->user())->whereHas('messages')->withMax('messages', 'created_at')->withCount(['messages as unread_count' => fn ($q) => $q->whereNull('user_id')->whereNull('read_at')])->orderByDesc('messages_max_created_at')->orderByDesc('id')->paginate(15)]);
     }
 
-    public function show(Order $order): View
+    public function show(Request $request, Order $order): View|JsonResponse
     {
         Gate::authorize('view', $order);
 
-        return view('messages.show', ['order' => $order, 'messages' => $order->messages()->with('user')->latest()->orderByDesc('id')->paginate(30)]);
+        $messages = $order->messages()->with('user')->latest()->orderByDesc('id')->paginate(30);
+        if ($request->expectsJson()) {
+            return response()->json(['data' => $messages->getCollection()->map(fn ($message) => $message->conversationData()), 'meta' => ['current_page' => $messages->currentPage(), 'last_page' => $messages->lastPage()]]);
+        }
+
+        return view('messages.show', ['order' => $order, 'messages' => $messages]);
     }
 
-    public function store(Request $request, Order $order, NotifyOrderParticipants $notify): RedirectResponse
+    public function store(Request $request, Order $order, NotifyOrderParticipants $notify): RedirectResponse|JsonResponse
     {
         Gate::authorize('update', $order);
         $data = $request->validate(['body' => ['required', 'string', 'max:2000']]);
@@ -38,13 +45,20 @@ class MessageController extends Controller
             $notify->handle($locked, 'Nuovo messaggio', $request->user()->id, true);
         }, 3);
 
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Messaggio inviato.'], 201);
+        }
+
         return redirect()->route('messages.show', $order)->with('status', 'Messaggio inviato nella conversazione.');
     }
 
-    public function read(Order $order): RedirectResponse
+    public function read(Request $request, Order $order, AcknowledgeMessages $acknowledge): RedirectResponse|JsonResponse
     {
         Gate::authorize('update', $order);
-        $order->messages()->whereNull('user_id')->whereNull('read_at')->update(['read_at' => now()]);
+        $acknowledge->handle($request, $order, false);
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Stato aggiornato.']);
+        }
 
         return back()->with('status', 'Messaggi segnati come letti dal team.');
     }

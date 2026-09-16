@@ -74,7 +74,8 @@ class MessagingTest extends TestCase
         $this->assertSame(0, $muted->notifications()->count());
         $notification = $admin->notifications()->sole();
         $this->patch(route('notifications.update', $notification->id))->assertNotFound();
-        $this->actingAs($admin)->get('/notifications')->assertOk()->assertSee('Nuovo messaggio');
+        $this->actingAs($admin)->get('/notifications')->assertOk()->assertSee($order->reference);
+        $this->getJson(route('notifications.history', $order->id))->assertOk()->assertJsonFragment(['title' => 'Nuovo messaggio']);
         $this->patch(route('notifications.update', $notification->id))->assertRedirect(route('messages.show', $order));
         $this->assertSame(0, $admin->unreadNotifications()->count());
     }

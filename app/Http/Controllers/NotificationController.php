@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Support\NotificationInbox;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -11,7 +13,17 @@ class NotificationController extends Controller
 {
     public function index(Request $request): View
     {
-        return view('messages.notifications', ['notifications' => $request->user()->notifications()->latest()->orderByDesc('id')->paginate(20)]);
+        return view('messages.notifications', ['groups' => app(NotificationInbox::class)->groups($request->user())]);
+    }
+
+    public function feed(Request $request, NotificationInbox $inbox): JsonResponse
+    {
+        return response()->json($inbox->feed($request->user()));
+    }
+
+    public function history(Request $request, int $orderId, NotificationInbox $inbox): JsonResponse
+    {
+        return response()->json($inbox->history($request->user(), $orderId));
     }
 
     public function update(Request $request, string $notification): RedirectResponse

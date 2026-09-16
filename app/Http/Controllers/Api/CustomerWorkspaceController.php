@@ -8,6 +8,8 @@ use App\Models\Order;
 use App\Models\User;
 use App\OrderStatus;
 use App\Rules\SafePasswordLength;
+use App\Support\CustomerIdentity;
+use App\Support\NotificationInbox;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -39,9 +41,24 @@ class CustomerWorkspaceController extends Controller
 
     public function notifications(Request $request): JsonResponse
     {
+        if ($request->boolean('grouped')) {
+            $groups = app(NotificationInbox::class)->groups($request->user());
+
+            return response()->json(['data' => $groups->items(), 'meta' => ['current_page' => $groups->currentPage(), 'last_page' => $groups->lastPage(), 'unread' => $request->user()->unreadNotifications()->count()]]);
+        }
         $items = $request->user()->notifications()->latest()->orderByDesc('id')->paginate(20);
 
         return response()->json(['data' => $items->getCollection()->map(fn ($n) => ['id' => $n->id, 'title' => $n->data['title'], 'reference' => $n->data['reference'], 'order_id' => $n->data['order_id'], 'is_message' => $n->data['message'] ?? false, 'read_at' => $n->read_at?->toIso8601String(), 'created_at' => $n->created_at->toIso8601String()]), 'meta' => ['current_page' => $items->currentPage(), 'last_page' => $items->lastPage(), 'unread' => $request->user()->unreadNotifications()->count()]]);
+    }
+
+    public function feed(Request $request, NotificationInbox $inbox): JsonResponse
+    {
+        return response()->json($inbox->feed($request->user()));
+    }
+
+    public function history(Request $request, int $orderId, NotificationInbox $inbox): JsonResponse
+    {
+        return response()->json($inbox->history($request->user(), $orderId));
     }
 
     public function readNotification(Request $request, string $id): JsonResponse
@@ -60,8 +77,8 @@ class CustomerWorkspaceController extends Controller
 
     public function profile(Request $request): JsonResponse
     {
-        $data = $request->validate(['name' => ['required', 'string', 'max:150'], 'email' => ['required', 'email', 'lowercase', 'max:255', Rule::unique('users')->ignore($request->user()->id)]]);
-        $request->user()->update($data);
+        $data = $request->validate([...CustomerIdentity::rules(), 'name' => ['required', 'string', 'max:150'], 'email' => ['required', 'email', 'lowercase', 'max:255', Rule::unique('users')->ignore($request->user()->id)]]);
+        $request->user()->update(CustomerIdentity::normalize($data, $request->user()->sender_type));
 
         return response()->json(['message' => 'Profilo aggiornato.']);
     }

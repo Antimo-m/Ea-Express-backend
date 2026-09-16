@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head><x-ui.head :title="$title" /></head>
-<body>
+<body data-notifications-url="{{ route('notifications.feed') }}" data-notification-scope="staff:{{ auth()->id() }}">
 <a class="skip-link" href="#main-content">Vai al contenuto</a>
 <x-navigation.sidebar />
 <div class="app-workspace">

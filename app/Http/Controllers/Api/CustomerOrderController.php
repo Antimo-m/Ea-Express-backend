@@ -9,6 +9,8 @@ use App\Http\Requests\CustomerOrderRequest;
 use App\Http\Resources\CustomerOrderResource;
 use App\Models\Order;
 use App\OrderStatus;
+use App\Support\CustomerIdentity;
+use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -64,7 +66,11 @@ class CustomerOrderController extends Controller
         $updated = DB::transaction(function () use ($request, $order, $notify): Order {
             $locked = Order::where('customer_id', $request->user()->id)->lockForUpdate()->findOrFail($order->id);
             abort_unless($locked->status === OrderStatus::Received && $locked->version === $request->integer('version'), 409, 'La richiesta è stata aggiornata o già accettata. Ricarica i dettagli.');
-            $locked->fill($request->safe()->except(['version']));
+            $data = CustomerIdentity::normalize($request->safe()->except(['version', 'parcel_value']), $locked->sender_type);
+            $locked->fill($data);
+            if ($request->exists('parcel_value')) {
+                $locked->parcel_value_cents = $request->input('parcel_value') !== null ? Money::cents((string) $request->input('parcel_value')) : null;
+            }
             $locked->version++;
             $locked->save();
             $locked->events()->create(['user_id' => $request->user()->id, 'status' => $locked->status, 'public_note' => 'Richiesta aggiornata dal cliente.']);

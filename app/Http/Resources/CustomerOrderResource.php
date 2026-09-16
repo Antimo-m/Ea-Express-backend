@@ -12,10 +12,11 @@ class CustomerOrderResource extends JsonResource
     {
         return [
             'id' => $this->id, 'reference' => $this->reference, 'status' => $this->status->value, 'status_label' => $this->status->label(), 'version' => $this->version,
+            'store_name' => $this->store_name, 'sender_type' => $this->sender_type, 'business_type' => $this->business_type, 'business_description' => $this->business_description, 'parcel_value_cents' => $this->parcel_value_cents,
             'recipient_name' => $this->recipient_name, 'recipient_phone' => $this->recipient_phone,
             'pickup_address' => $this->pickup_address, 'pickup_city' => $this->pickup_city, 'delivery_address' => $this->delivery_address, 'delivery_city' => $this->delivery_city,
             'pickup_date' => $this->pickup_date->toDateString(), 'pickup_from' => substr($this->pickup_from, 0, 5), 'pickup_to' => substr($this->pickup_to, 0, 5),
-            'delivery_window' => $this->delivery_window, 'parcel_count' => $this->parcel_count, 'category' => $this->category, 'urgency' => $this->urgency, 'customer_notes' => $this->customer_notes,
+            'delivery_window' => $this->delivery_window, 'parcel_count' => $this->parcel_count, 'packages' => $this->packages, 'category' => $this->category, 'urgency' => $this->urgency, 'customer_notes' => $this->customer_notes,
             'price_cents' => $this->price_cents, 'tracking_active' => $this->tracking_started_at !== null, 'estimated_at' => $this->estimated_at?->toIso8601String(),
             'delivered_at' => $this->delivered_at?->toIso8601String(), 'created_at' => $this->created_at->toIso8601String(),
             'messages_count' => $this->whenCounted('messages'), 'unread_messages_count' => $this->whenCounted('unread_messages'),

@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\CustomerAuthController as Auth;
 use App\Http\Controllers\Api\CustomerMessageController as Messages;
 use App\Http\Controllers\Api\CustomerOrderController as Orders;
 use App\Http\Controllers\Api\CustomerWorkspaceController as Workspace;
+use App\Http\Controllers\RealtimeController;
 use App\Http\Middleware\EnsureCustomer;
 use Illuminate\Support\Facades\Route;
 
@@ -14,6 +15,8 @@ Route::prefix('api/v1/customer')->name('customer.')->middleware('throttle:custom
     Route::post('auth/forgot-password', [Auth::class, 'forgot'])->middleware('throttle:recovery');
     Route::post('auth/reset-password', [Auth::class, 'reset'])->middleware('throttle:reset-password');
     Route::middleware(['auth:customer', EnsureCustomer::class])->group(function (): void {
+        Route::get('realtime/configuration', [RealtimeController::class, 'configuration'])->middleware('throttle:60,1');
+        Route::post('realtime/auth', [RealtimeController::class, 'authenticate'])->middleware('throttle:writes');
         Route::get('auth/me', [Auth::class, 'me']);
         Route::post('auth/logout', [Auth::class, 'logout']);
         Route::get('dashboard', [Workspace::class, 'dashboard']);
@@ -21,6 +24,8 @@ Route::prefix('api/v1/customer')->name('customer.')->middleware('throttle:custom
         Route::get('orders', [Orders::class, 'index']);
         Route::get('orders/{order}', [Orders::class, 'show']);
         Route::get('orders/{order}/messages', [Messages::class, 'index']);
+        Route::get('notifications/feed', [Workspace::class, 'feed']);
+        Route::get('notifications/orders/{orderId}', [Workspace::class, 'history'])->whereNumber('orderId');
         Route::get('notifications', [Workspace::class, 'notifications']);
         Route::middleware('throttle:writes')->group(function (): void {
             Route::post('orders', [Orders::class, 'store']);

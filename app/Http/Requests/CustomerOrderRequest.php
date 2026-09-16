@@ -14,7 +14,8 @@ class CustomerOrderRequest extends StoreOrderRequest
     public function rules(): array
     {
         $rules = parent::rules();
-        unset($rules['store_name'],$rules['contact_email'],$rules['notes']);
+        unset($rules['contact_email'], $rules['notes']);
+        $rules['store_name'] = ['sometimes', 'required', 'string', 'max:150'];
         $rules['customer_notes'] = ['nullable', 'string', 'max:2000'];
         if ($this->isMethod('PATCH')) {
             $rules['version'] = ['required', 'integer', 'min:1'];
