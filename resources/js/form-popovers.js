@@ -1,6 +1,6 @@
 let active;
 export function attachFormPopovers(root = document) {
-  const nodes = root.querySelectorAll('select:not([multiple]), input[type="date"]');
+  const nodes = root.querySelectorAll('select:not([multiple]), input[type="date"], input[type="time"]');
   const cleanups = [];
   nodes.forEach(control => {
     if (control.dataset.popoverReady) return;
@@ -19,7 +19,7 @@ export function attachFormPopovers(root = document) {
       const keys = event => {
         if (event.key === 'Escape') { event.preventDefault(); close(); control.focus(); }
         if (event.key === 'Tab') close();
-        if (['ArrowDown','ArrowUp','ArrowLeft','ArrowRight','Home','End'].includes(event.key) && panel.contains(document.activeElement)) {
+        if (['ArrowDown','ArrowUp','ArrowLeft','ArrowRight','Home','End'].includes(event.key) && panel.contains(document.activeElement) && document.activeElement.tagName === 'BUTTON') {
           event.preventDefault(); const buttons = [...panel.querySelectorAll('button:not(:disabled)')]; let index = buttons.indexOf(document.activeElement);
           if (event.key === 'Home') index = 0; else if (event.key === 'End') index = buttons.length - 1; else index = Math.max(0, Math.min(buttons.length - 1, index + (['ArrowDown','ArrowRight'].includes(event.key) ? 1 : -1)));
           buttons[index]?.focus();
@@ -35,6 +35,39 @@ export function attachFormPopovers(root = document) {
       if (control.tagName === 'SELECT') {
         panel.classList.add('select-popover');
         [...control.options].forEach(option => { const item = button(option.textContent, () => select(option.value), option.selected); item.disabled = option.disabled; item.setAttribute('aria-pressed', String(option.selected)); panel.append(item); });
+      } else if (control.type === 'time') {
+        panel.classList.add('time-popover');
+        const heading = document.createElement('strong');
+        heading.textContent = 'Scegli l’orario';
+        const fields = document.createElement('div');
+        fields.className = 'time-popover-fields';
+        const values = (control.value || '09:00').split(':');
+        const inputs = ['Ore', 'Minuti'].map((text, index) => {
+          const label = document.createElement('label');
+          label.textContent = text;
+          const input = document.createElement('input');
+          input.type = 'number'; input.min = '0'; input.max = index === 0 ? '23' : '59';
+          input.step = '1'; input.required = true; input.value = String(Number(values[index]));
+          input.inputMode = 'numeric'; label.append(input); fields.append(label);
+          return input;
+        });
+        const candidate = control.cloneNode();
+        const confirm = button('Conferma orario', () => select(candidate.value));
+        const validate = () => {
+          candidate.value = inputs.map(input => input.value.padStart(2, '0')).join(':');
+          confirm.disabled = inputs.some(input => !input.validity.valid) || !candidate.value || !candidate.validity.valid;
+        };
+        inputs.forEach(input => {
+          input.addEventListener('input', validate);
+          input.addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              if (!confirm.disabled) select(candidate.value);
+            }
+          });
+        });
+        validate();
+        panel.append(heading, fields, confirm);
       } else {
         const initial = control.value ? new Date(`${control.value}T12:00:00`) : new Date();
         let month = new Date(initial.getFullYear(), initial.getMonth(), 1);
@@ -54,11 +87,13 @@ export function attachFormPopovers(root = document) {
         };draw();
       }
       control.setAttribute('aria-expanded','true');control.setAttribute('aria-haspopup','dialog');
-      panel.querySelector('.is-selected:not(:disabled), button:not(:disabled)')?.focus();
+      panel.querySelector('input, .is-selected:not(:disabled), button:not(:disabled)')?.focus();
       document.addEventListener('pointerdown',outside);document.addEventListener('keydown',keys);window.addEventListener('resize',close);active=close;
     };
+    const preventNativePicker = event => event.preventDefault();
+    control.addEventListener('click', preventNativePicker);
     control.addEventListener('pointerdown',open);control.addEventListener('keydown',open);
-    cleanups.push(()=>{control.removeEventListener('pointerdown',open);control.removeEventListener('keydown',open);delete control.dataset.popoverReady;});
+    cleanups.push(()=>{control.removeEventListener('click',preventNativePicker);control.removeEventListener('pointerdown',open);control.removeEventListener('keydown',open);delete control.dataset.popoverReady;});
   });
   return () => {active?.();cleanups.forEach(cleanup=>cleanup());};
 }

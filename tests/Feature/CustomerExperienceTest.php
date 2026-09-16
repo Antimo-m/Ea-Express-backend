@@ -18,6 +18,29 @@ class CustomerExperienceTest extends TestCase
         return ['recipient_name' => 'Mario Rossi', 'recipient_phone' => '+393331234567', 'pickup_address' => 'Via Roma 1', 'pickup_city' => 'Napoli', 'delivery_address' => 'Via Milano 2', 'delivery_city' => 'Caserta', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 2, 'category' => 'other', 'urgency' => 'standard'];
     }
 
+    public function test_customer_can_save_and_edit_content_description_and_rider_can_read_it(): void
+    {
+        $customer = User::factory()->create(['role' => UserRole::Customer]);
+        $response = $this->actingAs($customer, 'customer')->postJson('/api/v1/customer/orders', [...$this->payload(), 'category' => 'electronics', 'content_description' => 'Tastiera e mouse'])
+            ->assertCreated()->assertJsonPath('data.category_label', 'Elettronica e accessori: Tastiera e mouse');
+        $order = Order::findOrFail($response->json('data.id'));
+        $this->assertSame('Tastiera e mouse', $order->content_description);
+        $this->patchJson('/api/v1/customer/orders/'.$order->id, [...$this->payload(), 'category' => 'other', 'content_description' => 'Ceramiche artigianali', 'version' => 1])
+            ->assertOk()->assertJsonPath('data.content_description', 'Ceramiche artigianali');
+        $this->assertSame('Ceramiche artigianali', $order->fresh()->content_description);
+        $this->actingAs(User::factory()->create(), 'web')->get('/orders/'.$order->id)->assertOk()->assertSee('Altro: Ceramiche artigianali');
+    }
+
+    public function test_content_validation_rejects_unknown_categories_and_overlong_descriptions(): void
+    {
+        $customer = User::factory()->create(['role' => UserRole::Customer]);
+        $this->actingAs($customer, 'customer')->postJson('/api/v1/customer/orders', [...$this->payload(), 'category' => 'invalid'])
+            ->assertUnprocessable()->assertJsonValidationErrors('category');
+        $this->postJson('/api/v1/customer/orders', [...$this->payload(), 'content_description' => str_repeat('a', 256)])
+            ->assertUnprocessable()->assertJsonValidationErrors('content_description');
+        $this->assertDatabaseCount('orders', 0);
+    }
+
     public function test_private_accounts_do_not_keep_business_fields_and_can_later_describe_a_business(): void
     {
         $this->postJson('/api/v1/customer/auth/register', ['name' => 'Rita Rossi', 'email' => 'rita@example.test', 'password' => 'PasswordSicura123', 'password_confirmation' => 'PasswordSicura123', 'sender_type' => 'private', 'business_type' => 'Negozio', 'business_description' => 'Da eliminare'])

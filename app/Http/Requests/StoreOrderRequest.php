@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Support\CustomerIdentity;
+use App\Support\OrderContent;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -30,7 +31,9 @@ class StoreOrderRequest extends FormRequest
             'pickup_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.now('Europe/Rome')->toDateString()],
             'pickup_from' => ['required', 'date_format:H:i'], 'pickup_to' => ['required', 'date_format:H:i', 'after:pickup_from'],
             'delivery_window' => ['nullable', 'string', 'max:150'], 'parcel_count' => ['required', 'integer', 'between:1,100'],
-            'category' => ['required', Rule::in(['clothing', 'documents', 'other'])], 'urgency' => ['required', Rule::in(['standard', 'urgent'])], 'notes' => ['nullable', 'string', 'max:2000'],
+            'category' => ['required', Rule::in(array_keys(OrderContent::Categories))],
+            'content_description' => ['nullable', 'string', 'max:255'],
+            'urgency' => ['required', Rule::in(['standard', 'urgent'])], 'notes' => ['nullable', 'string', 'max:2000'],
         ];
     }
 }
