@@ -10,6 +10,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RealtimeController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TrackingController;
@@ -20,6 +21,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('/conversation/{token}', [CustomerConversationController::class, 'show'])->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:conversation')->name('conversation.show');
 Route::post('/conversation/{token}', [CustomerConversationController::class, 'store'])->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:conversation-write')->name('conversation.store');
 
+Route::get('/track/{token}/realtime/configuration', [TrackingController::class, 'realtime'])->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:tracking');
+Route::post('/track/{token}/realtime/auth', [TrackingController::class, 'realtime'])->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:tracking');
+
 Route::get('/track/{token}', [TrackingController::class, 'show'])->where('token', '[A-Za-z0-9]{64}')->middleware('throttle:tracking')->name('tracking.public');
 
 Route::get('/', function () {
@@ -27,6 +31,8 @@ Route::get('/', function () {
 })->middleware('throttle:public-pages');
 
 Route::middleware(['auth', EnsureStaff::class, EnsurePhoneVerified::class])->group(function () {
+    Route::get('/realtime/configuration', [RealtimeController::class, 'configuration'])->middleware('throttle:60,1');
+    Route::post('/realtime/auth', [RealtimeController::class, 'authenticate'])->middleware('throttle:writes');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     Route::get('/orders', fn () => redirect()->route('orders.incoming'))->name('orders.index');
@@ -43,6 +49,8 @@ Route::middleware(['auth', EnsureStaff::class, EnsurePhoneVerified::class])->gro
     Route::post('/messages/{order}', [MessageController::class, 'store'])->middleware('throttle:writes')->name('messages.store');
     Route::patch('/messages/{order}/read', [MessageController::class, 'read'])->middleware('throttle:writes')->name('messages.read');
     Route::post('/messages/{order}/share', [MessageController::class, 'share'])->middleware('throttle:writes')->name('messages.share');
+    Route::get('/notifications/feed', [NotificationController::class, 'feed'])->middleware('throttle:60,1')->name('notifications.feed');
+    Route::get('/notifications/orders/{orderId}', [NotificationController::class, 'history'])->whereNumber('orderId')->middleware('throttle:60,1')->name('notifications.history');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::patch('/notifications/read-all', [NotificationController::class, 'readAll'])->middleware('throttle:writes')->name('notifications.read-all');
     Route::patch('/notifications/{notification}', [NotificationController::class, 'update'])->middleware('throttle:writes')->name('notifications.update');

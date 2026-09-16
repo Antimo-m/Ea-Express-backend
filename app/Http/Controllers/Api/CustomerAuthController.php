@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Rules\SafePasswordLength;
+use App\Support\CustomerIdentity;
 use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -35,8 +36,8 @@ class CustomerAuthController extends Controller
 
     public function register(Request $request): JsonResponse
     {
-        $data = $request->validate(['name' => ['required', 'string', 'max:150'], 'email' => ['required', 'email', 'lowercase', 'max:255', 'unique:users,email'], 'password' => ['required', 'confirmed', Rules\Password::min(12), new SafePasswordLength]]);
-        $user = new User($data);
+        $data = $request->validate([...CustomerIdentity::rules(), 'name' => ['required', 'string', 'max:150'], 'email' => ['required', 'email', 'lowercase', 'max:255', 'unique:users,email'], 'password' => ['required', 'confirmed', Rules\Password::min(12), new SafePasswordLength]]);
+        $user = new User(CustomerIdentity::normalize($data));
         $user->role = UserRole::Customer;
         $user->is_active = true;
         $user->save();
@@ -50,7 +51,7 @@ class CustomerAuthController extends Controller
     {
         $user = $request->user('customer');
 
-        return response()->json(['user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'notify_orders' => $user->notify_orders, 'notify_messages' => $user->notify_messages], 'csrf_token' => csrf_token()]);
+        return response()->json(['user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'sender_type' => $user->sender_type, 'business_type' => $user->business_type, 'business_description' => $user->business_description, 'notify_orders' => $user->notify_orders, 'notify_messages' => $user->notify_messages], 'csrf_token' => csrf_token()]);
     }
 
     public function logout(Request $request): JsonResponse

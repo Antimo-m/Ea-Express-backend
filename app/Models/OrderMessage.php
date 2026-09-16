@@ -16,7 +16,12 @@ class OrderMessage extends Model
 
     protected function casts(): array
     {
-        return ['read_at' => 'datetime'];
+        return ['read_at' => 'datetime', 'delivered_at' => 'datetime'];
+    }
+
+    public function conversationData(): array
+    {
+        return ['id' => $this->id, 'body' => $this->body, 'sender' => $this->user_id ? 'courier' : 'customer', 'created_at' => $this->created_at->toIso8601String(), 'delivered_at' => $this->delivered_at?->toIso8601String(), 'read_at' => $this->read_at?->toIso8601String()];
     }
 
     public function user(): BelongsTo

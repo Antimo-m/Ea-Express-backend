@@ -10,12 +10,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'password', 'sender_type', 'business_type', 'business_description'])]
 #[Hidden(['password', 'remember_token', 'phone_otp_hash', 'pending_phone', 'phone_otp_expires_at', 'phone_otp_attempts', 'phone_otp_send_count', 'phone_otp_window_at', 'phone_otp_sent_at'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    protected $attributes = ['sender_type' => 'business'];
 
     public function isStaff(): bool
     {

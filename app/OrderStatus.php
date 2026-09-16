@@ -25,6 +25,19 @@ enum OrderStatus: string
         };
     }
 
+    public function actionLabel(): string
+    {
+        return match ($this) {
+            self::Accepted => 'Prendi in carico', self::PickupScheduled => 'Programma il ritiro',
+            self::RiderArriving => 'Parti per il ritiro', self::PickedUp => 'Conferma pacco ritirato',
+            self::InTransit => 'Avvia il trasporto', self::OutForDelivery => 'Inizia la consegna',
+            self::Delivered => 'Conferma consegna', self::DeliveryAttempted => 'Destinatario assente',
+            self::DeliveryIssue => 'Segnala un problema', self::Rescheduled => 'Riprogramma',
+            self::Rejected => 'Rifiuta richiesta', self::Cancelled => 'Annulla spedizione',
+            self::Received => 'Recupera richiesta',
+        };
+    }
+
     /** @return list<self> */
     public function next(): array
     {

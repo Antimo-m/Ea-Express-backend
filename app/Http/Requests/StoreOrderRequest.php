@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\CustomerIdentity;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,7 +15,14 @@ class StoreOrderRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
+        return [...CustomerIdentity::rules(),
+            'packages' => ['sometimes', 'required', 'array', 'list', 'min:1', 'max:100', 'size:'.$this->integer('parcel_count')],
+            'packages.*' => ['required', 'array:weight_kg,length_cm,width_cm,height_cm'],
+            'packages.*.weight_kg' => ['required', 'numeric', 'min:0.01', 'max:1000'],
+            'packages.*.length_cm' => ['required', 'numeric', 'min:1', 'max:500'],
+            'packages.*.width_cm' => ['required', 'numeric', 'min:1', 'max:500'],
+            'packages.*.height_cm' => ['required', 'numeric', 'min:1', 'max:500'],
+            'parcel_value' => ['nullable', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'],
             'store_name' => ['required', 'string', 'max:150'], 'contact_email' => ['nullable', 'email', 'max:255'],
             'recipient_name' => ['required', 'string', 'max:150'], 'recipient_phone' => ['required', 'string', 'max:30', 'regex:/^[+0-9 ()\-]{6,30}$/D'],
             'pickup_address' => ['required', 'string', 'max:255'], 'pickup_city' => ['required', 'string', 'max:100'],
