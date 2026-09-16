@@ -20,9 +20,8 @@ class RealtimeController extends Controller
         $expected = 'private-'.($request->user()->role === UserRole::Customer ? 'customer.' : 'staff.').$request->user()->id;
         abort_unless(hash_equals($expected, $data['channel_name']), 403);
 
-        $broadcaster = Broadcast::connection('reverb');
-        $broadcaster->channel(substr($expected, 8), fn ($user) => $user->is_active && $user->id === $request->user()->id);
+        require base_path('routes/channels.php');
 
-        return $broadcaster->auth($request);
+        return Broadcast::connection('reverb')->auth($request);
     }
 }

@@ -24,8 +24,33 @@ class RealtimeWorkspaceTest extends TestCase
         $this->actingAs($customer, 'customer')->postJson('/api/v1/customer/realtime/auth', ['socket_id' => '12.34', 'channel_name' => 'private-customer.'.$customer->id])->assertOk()->assertJsonStructure(['auth']);
         $this->postJson('/api/v1/customer/realtime/auth', ['socket_id' => '12.34', 'channel_name' => 'private-customer.'.$rider->id])->assertForbidden();
         $this->postJson('/api/v1/customer/realtime/auth', ['socket_id' => '12.34', 'channel_name' => 'private-staff.'.$rider->id])->assertForbidden();
-        $this->actingAs($rider)->postJson('/realtime/auth', ['socket_id' => '12.34', 'channel_name' => 'private-staff.'.$rider->id])->assertOk();
+        $this->actingAs($rider, 'web')->postJson('/realtime/auth', ['socket_id' => '12.34', 'channel_name' => 'private-staff.'.$rider->id])->assertOk();
         $this->postJson('/realtime/auth', ['socket_id' => '12.34', 'channel_name' => 'private-customer.'.$customer->id])->assertForbidden();
+    }
+
+    public function test_realtime_configuration_exposes_only_public_connection_settings_and_disabled_accounts_cannot_subscribe(): void
+    {
+        config(['broadcasting.connections.reverb.key' => 'public-key', 'broadcasting.connections.reverb.secret' => 'private-secret']);
+        $customer = User::factory()->create(['role' => UserRole::Customer]);
+        $this->actingAs($customer, 'customer')->getJson('/api/v1/customer/realtime/configuration')
+            ->assertOk()->assertExactJson(['key' => 'public-key', 'host' => config('realtime.host'), 'port' => config('realtime.port'), 'scheme' => config('realtime.scheme'), 'channel' => 'customer.'.$customer->id]);
+        $customer->is_active = false;
+        $customer->save();
+        $this->postJson('/api/v1/customer/realtime/auth', ['socket_id' => '12.34', 'channel_name' => 'private-customer.'.$customer->id])->assertUnauthorized();
+    }
+
+    public function test_tracking_subscription_requires_the_matching_token_of_an_active_tracking_order(): void
+    {
+        config(['broadcasting.connections.reverb.key' => 'test-key', 'broadcasting.connections.reverb.secret' => 'test-secret', 'broadcasting.connections.reverb.app_id' => 'test-id']);
+        $order = Order::factory()->create(['tracking_started_at' => now()]);
+        $path = '/track/'.$order->tracking_token.'/realtime';
+        $channel = 'private-tracking.'.hash('sha256', $order->tracking_token);
+        $this->postJson($path.'/auth', ['socket_id' => '12.34', 'channel_name' => $channel])->assertOk()->assertJsonStructure(['auth']);
+        $this->postJson($path.'/auth', ['socket_id' => '12.34', 'channel_name' => 'private-customer.1'])->assertForbidden();
+        $this->getJson('/track/'.str_repeat('a', 64).'/realtime/configuration')->assertNotFound();
+        $order->tracking_started_at = null;
+        $order->save();
+        $this->postJson($path.'/auth', ['socket_id' => '12.34', 'channel_name' => $channel])->assertNotFound();
     }
 
     public function test_events_only_reach_current_participants_and_do_not_expose_order_details(): void

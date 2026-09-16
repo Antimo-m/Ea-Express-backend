@@ -272,3 +272,8 @@ a{text-decoration:none}a:hover{text-decoration:none}h1,h2,h3{font-weight:650;let
 .form-popover{position:fixed;z-index:2000;max-height:min(340px,80vh);overflow:auto;padding:10px;border:1px solid #dce3ed;border-radius:18px;background:#fff;box-shadow:0 16px 48px #14243b26;color:#172b46}.form-popover button{border:0;border-radius:10px;background:#f0f4fa;color:#173b60;padding:10px;text-align:left;min-height:40px}.form-popover button:hover,.form-popover button:focus-visible{background:#ffeadc;outline:2px solid #e96520;outline-offset:-2px}.form-popover button.is-selected{background:#e95d18;color:white}.form-popover button:disabled{opacity:.35;cursor:not-allowed}.select-popover{display:grid;gap:4px}.calendar-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}.calendar-heading strong{font-size:14px;text-transform:capitalize}.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:10px}.calendar-grid button,.calendar-grid span{text-align:center;padding:6px;font-size:13px}.calendar-grid span{color:#697b90}input[type=date]::-webkit-calendar-picker-indicator{opacity:.45}
 
 .create-button{width:44px;height:44px;min-width:44px;border-radius:50%!important;padding:0!important;display:inline-flex;align-items:center;justify-content:center;font-size:26px;line-height:1;flex:none}
+
+input[data-popover-ready="true"]::-webkit-calendar-picker-indicator { pointer-events: none; }
+.time-popover-fields { display: flex; gap: 12px; margin: 12px 0; }
+.time-popover-fields label { display: grid; gap: 6px; flex: 1; min-width: 0; }
+.time-popover-fields input { width: 100%; min-height: 44px; }
