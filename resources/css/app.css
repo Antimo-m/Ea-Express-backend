@@ -277,3 +277,10 @@ input[data-popover-ready="true"]::-webkit-calendar-picker-indicator { pointer-ev
 .time-popover-fields { display: flex; gap: 12px; margin: 12px 0; }
 .time-popover-fields label { display: grid; gap: 6px; flex: 1; min-width: 0; }
 .time-popover-fields input { width: 100%; min-height: 44px; }
+
+.notification-badge { position:absolute; top:-3px; right:-5px; min-width:21px; height:21px; padding:0 4px; border:2px solid white; border-radius:12px; background:#a6380c; color:#fff; font-size:11px; font-weight:700; display:grid; place-items:center; }
+.notification-badge[hidden] { display:none; }
+.tone-purple { background:#f0ecff; color:#60359b; }
+.tone-teal { background:#e1f3f3; color:#116466; }
+
+.accounting-table td:last-child{font-variant-numeric:tabular-nums}.accounting-table th{font-weight:600}.accounting-table thead{position:sticky;top:0;background:white}.audit-data{white-space:pre-wrap;overflow-wrap:anywhere}.table-responsive .form-stack{min-width:260px;max-width:440px}.table-responsive{max-width:100%}

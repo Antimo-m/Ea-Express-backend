@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Order;
 use App\Models\OrderMessage;
+use App\Models\ShippingRate;
 use App\Models\User;
 use App\OrderStatus;
 use App\UserRole;
@@ -23,7 +24,7 @@ class CustomerPortalTest extends TestCase
 
     private function payload(): array
     {
-        return ['recipient_name' => 'Mario Rossi', 'recipient_phone' => '+393331234567', 'pickup_address' => 'Via Roma 1', 'pickup_city' => 'Napoli', 'delivery_address' => 'Via Milano 2', 'delivery_city' => 'Caserta', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 2, 'category' => 'clothing', 'urgency' => 'standard', 'customer_notes' => 'Citofono Rossi'];
+        return ['payment_method' => 'cash', 'pickup_street_number' => '10', 'pickup_postal_code' => '80100', 'delivery_street_number' => '20', 'delivery_postal_code' => '81100', 'package_type' => 'standard', 'recipient_name' => 'Mario Rossi', 'recipient_phone' => '+393331234567', 'pickup_address' => 'Via Roma 1', 'pickup_city' => 'Napoli', 'delivery_address' => 'Via Milano 2', 'delivery_city' => 'Caserta', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 2, 'category' => 'clothing', 'urgency' => 'standard', 'customer_notes' => 'Citofono Rossi'];
     }
 
     public function test_customer_auth_is_separate_and_cannot_accept_rider_credentials(): void
@@ -45,7 +46,8 @@ class CustomerPortalTest extends TestCase
     {
         $customer = $this->customer();
         $rider = User::factory()->create();
-        $response = $this->actingAs($customer, 'customer')->postJson($this->api.'/orders', [...$this->payload(), 'customer_id' => 999, 'rider_id' => $rider->id, 'status' => 'delivered', 'notes' => 'Injected internal note', 'price_cents' => 1]);
+        ShippingRate::factory()->create(['city' => 'Caserta', 'city_key' => 'caserta']);
+        $response = $this->actingAs($customer, 'customer')->postJson($this->api.'/orders', $this->checkoutData([...$this->payload(), 'customer_id' => 999, 'rider_id' => $rider->id, 'status' => 'delivered', 'notes' => 'Injected internal note', 'price_cents' => 1]));
         $response->assertCreated()->assertJsonPath('data.status', 'received');
         $order = Order::sole();
         $this->assertSame($customer->id, $order->customer_id);
@@ -74,11 +76,12 @@ class CustomerPortalTest extends TestCase
     {
         $user = $this->customer();
         $order = Order::factory()->create(['customer_id' => $user->id]);
-        $this->actingAs($user, 'customer')->patchJson($this->api.'/orders/'.$order->id, [...$this->payload(), 'version' => 1])->assertOk()->assertJsonPath('data.version', 2);
-        $this->patchJson($this->api.'/orders/'.$order->id, [...$this->payload(), 'version' => 1])->assertConflict();
+        ShippingRate::factory()->create(['city' => 'Caserta', 'city_key' => 'caserta']);
+        $this->actingAs($user, 'customer')->patchJson($this->api.'/orders/'.$order->id, $this->checkoutData([...$this->payload(), 'version' => 1], $order->id))->assertOk()->assertJsonPath('data.version', 2);
+        $this->patchJson($this->api.'/orders/'.$order->id, [...$this->payload(), 'version' => 1, 'checkout_token' => 'stale-review'])->assertConflict();
         $this->postJson($this->api.'/orders/'.$order->id.'/cancel', ['version' => 2, 'reason' => 'Richiesta duplicata'])->assertOk();
         $this->assertSame(OrderStatus::Cancelled, $order->fresh()->status);
-        $this->patchJson($this->api.'/orders/'.$order->id, [...$this->payload(), 'version' => 3])->assertConflict();
+        $this->patchJson($this->api.'/orders/'.$order->id, [...$this->payload(), 'version' => 3, 'checkout_token' => 'stale-review'])->assertConflict();
     }
 
     public function test_conversation_is_shared_with_rider_and_reads_are_separate_by_sender(): void

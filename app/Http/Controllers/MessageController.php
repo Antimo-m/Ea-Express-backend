@@ -35,11 +35,20 @@ class MessageController extends Controller
     public function store(Request $request, Order $order, NotifyOrderParticipants $notify): RedirectResponse|JsonResponse
     {
         Gate::authorize('update', $order);
-        $data = $request->validate(['body' => ['required', 'string', 'max:2000']]);
+        $data = $request->validate(['body' => ['required', 'string', 'max:2000'], 'submission_key' => ['nullable', 'uuid']]);
         DB::transaction(function () use ($request, $order, $data, $notify) {
             $locked = Order::query()->lockForUpdate()->findOrFail($order->id);
             Gate::authorize('update', $locked);
-            $message = $locked->messages()->make($data);
+            if (! empty($data['submission_key'])) {
+                $existing = $locked->messages()->where('submission_key', $data['submission_key'])->first();
+                if ($existing) {
+                    abort_unless($existing->body === $data['body'] && $existing->user_id === $request->user()->id, 409, 'Invio già utilizzato. Ricarica la conversazione.');
+
+                    return;
+                }
+            }
+            $message = $locked->messages()->make(['body' => $data['body']]);
+            $message->submission_key = $data['submission_key'] ?? null;
             $message->user_id = $request->user()->id;
             $message->save();
             $notify->handle($locked, 'Nuovo messaggio', $request->user()->id, true);

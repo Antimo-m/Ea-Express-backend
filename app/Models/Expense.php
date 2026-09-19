@@ -19,7 +19,12 @@ class Expense extends Model
 
     protected function casts(): array
     {
-        return ['spent_on' => 'date', 'voided_at' => 'datetime', 'amount_cents' => 'integer'];
+        return ['version' => 'integer', 'spent_on' => 'date', 'voided_at' => 'datetime', 'amount_cents' => 'integer'];
+    }
+
+    public function pendingSettlement(): BelongsTo
+    {
+        return $this->belongsTo(PendingSettlement::class);
     }
 
     public function user(): BelongsTo

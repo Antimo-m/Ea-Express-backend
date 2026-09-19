@@ -1,7 +1,24 @@
 import { connectWorkspace } from './workspace-realtime';
 import { observeMessageReceipts } from './message-receipts';
+import { createRefreshQueue } from './refresh-queue';
+
+const regions = createRefreshQueue(async () => {
+  if (!document.querySelector('[data-live-region]')) return;
+  const response = await fetch(location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' }, credentials: 'same-origin' });
+  if (!response.ok || response.redirected) return;
+  const fresh = new DOMParser().parseFromString(await response.text(), 'text/html');
+  for (const region of document.querySelectorAll('[data-live-region]')) {
+    const replacement = fresh.querySelector(`[data-live-region="${region.dataset.liveRegion}"]`);
+    if (region.contains(document.activeElement) && document.activeElement.matches('input,select,textarea')) continue;
+    if (replacement) region.replaceChildren(...replacement.childNodes);
+  }
+});
+let realtimeConnected = false;
+window.addEventListener('ea:realtime-status', event => { realtimeConnected = event.detail === 'connected'; });
+window.addEventListener('ea:workspace-polled', () => { if (!realtimeConnected) regions.refresh(); });
+window.addEventListener('ea:workspace-updated', () => regions.refresh());
 export async function staffRequest(path, { method = 'GET', data } = {}) {
-  const response = await fetch(path, { method, credentials: 'same-origin', headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }, ...(data ? { body: JSON.stringify(data) } : {}) });
+  const response = await fetch(path, { method, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }, ...(data ? { body: JSON.stringify(data) } : {}) });
   if (!response.ok) throw new Error(response.status === 401 || response.status === 419 ? 'Sessione scaduta. Accedi nuovamente.' : 'Aggiornamento non disponibile. Riprova.');
   return response.json();
 }
@@ -41,10 +58,12 @@ if (chat) {
   window.addEventListener('ea:workspace-updated', event => {
     if (!event.detail.order_id || event.detail.order_id === Number(chat.dataset.liveChat)) refresh();
   });
+  let submissionKey, submittedBody;
   form?.addEventListener('submit', async event => {
     event.preventDefault(); const button = form.querySelector('button'); if (button.disabled) return;
+    if (!submissionKey || submittedBody !== form.elements.body.value) { submissionKey = crypto.randomUUID(); submittedBody = form.elements.body.value; }
     button.disabled = true; feedback.textContent = 'Invio in corso…';
-    try { await staffRequest(form.action, { method: 'POST', data: { body: form.elements.body.value } }); form.elements.body.value = ''; feedback.textContent = 'Messaggio inviato'; list.scrollTop = list.scrollHeight; await refresh(); }
+    try { await staffRequest(form.action, { method: 'POST', data: { body: form.elements.body.value, submission_key: submissionKey } }); form.elements.body.value = ''; submissionKey = undefined; feedback.textContent = 'Messaggio inviato'; list.scrollTop = list.scrollHeight; await refresh(); }
     catch (error) { feedback.textContent = error.message; }
     finally { button.disabled = false; }
   });
@@ -56,7 +75,7 @@ window.addEventListener('ea:workspace-updated', async event => {
   if (!section || updating || event.detail.kind === 'receipts' || event.detail.kind === 'messages' || (event.detail.order_id && Number(section.dataset.liveOrder) !== event.detail.order_id)) return;
   updating = true;
   try {
-    const response = await fetch(location.href, { headers: { Accept: 'text/html' } });
+    const response = await fetch(location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' } });
     if (!response.ok || response.redirected) return;
     const fresh = new DOMParser().parseFromString(await response.text(), 'text/html');
     for (const selector of ['.order-overview', '.order-information', '.order-history']) {
@@ -76,7 +95,7 @@ if (tracking) {
   window.addEventListener('ea:workspace-updated', async () => {
     if (refreshing) return;
     refreshing = true;
-    try { const response = await fetch(location.href); if (!response.ok) return; const fresh = new DOMParser().parseFromString(await response.text(), 'text/html').querySelector('.tracking-document'); if (fresh) tracking.querySelector('.tracking-document').replaceWith(fresh); }
+    try { const response = await fetch(location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' } }); if (!response.ok) return; const fresh = new DOMParser().parseFromString(await response.text(), 'text/html').querySelector('.tracking-document'); if (fresh) tracking.querySelector('.tracking-document').replaceWith(fresh); }
     finally { refreshing = false; }
   });
 }
@@ -87,7 +106,7 @@ window.addEventListener('ea:workspace-updated', async event => {
   if (!container || notificationsRefreshing || event.detail.kind === 'receipts') return;
   notificationsRefreshing = true;
   try {
-    const response = await fetch(location.href); if (!response.ok || response.redirected) return;
+    const response = await fetch(location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' } }); if (!response.ok || response.redirected) return;
     const updated = new DOMParser().parseFromString(await response.text(), 'text/html').querySelector('[data-live-notifications]');
     if (!updated) return;
     const open = new Set([...container.querySelectorAll('details[open]')].map(item => item.dataset.historyUrl));

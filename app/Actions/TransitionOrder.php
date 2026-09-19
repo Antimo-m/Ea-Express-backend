@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 
 class TransitionOrder
 {
-    public function __construct(private NotifyOrderParticipants $notify) {}
+    public function __construct(private NotifyOrderParticipants $notify, private RecordOrderMail $mail) {}
 
     /** @param array<string, mixed> $data */
     public function handle(Order $order, User $user, array $data): void
@@ -32,7 +32,17 @@ class TransitionOrder
             }
             if ($next === OrderStatus::Accepted) {
                 $locked->rider_id = $user->id;
-                $locked->price_cents = Money::cents($data['price']);
+                if ($locked->pricing_version === 1) {
+                    abort_if($locked->price_state === 'awaiting_customer' || ($locked->price_state !== 'agreed' && $locked->quoted_price_cents === null), 409, 'Concorda prima la tariffa con il cliente.');
+                    $before = ['price_cents' => $locked->price_cents, 'price_state' => $locked->price_state];
+                    if ($locked->price_state !== 'agreed') {
+                        $locked->price_cents = $locked->quoted_price_cents;
+                    }
+                    $locked->price_state = 'agreed';
+                    app(RecordEconomicAudit::class)->handle($user, $locked, 'price.confirmed', $before, ['price_cents' => $locked->price_cents, 'price_state' => 'agreed']);
+                } else {
+                    $locked->price_cents = Money::cents($data['price']);
+                }
             }
             if ($next === OrderStatus::Rejected) {
                 $locked->rejected_at = now();
@@ -55,6 +65,9 @@ class TransitionOrder
             $locked->version++;
             $locked->save();
             $locked->events()->create(['user_id' => $user->id, 'status' => $next, 'note' => $data['note'] ?? null, 'public_note' => $data['public_note'] ?? null]);
+            if ($next === OrderStatus::Delivered) {
+                $this->mail->handle($locked, 'delivered');
+            }
             $this->notify->handle($locked, $next->label(), $user->id);
         }, 3);
     }

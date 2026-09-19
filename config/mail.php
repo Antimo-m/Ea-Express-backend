@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'order_lifecycle_enabled' => env('ORDER_MAIL_ENABLED', false),
 
     /*
     |--------------------------------------------------------------------------

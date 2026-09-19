@@ -19,6 +19,6 @@ class Money
 
     public static function format(?int $cents): string
     {
-        return $cents === null ? 'Da concordare' : '€ '.number_format($cents / 100, 2, ',', '.');
+        return $cents === null ? 'Tariffa da verificare' : '€ '.number_format($cents / 100, 2, ',', '.');
     }
 }

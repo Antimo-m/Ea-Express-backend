@@ -10,7 +10,7 @@ class CustomerIdentity
     public static function rules(): array
     {
         return [
-            'sender_type' => ['sometimes', 'required', Rule::in(['business', 'private'])],
+            'sender_type' => ['sometimes', 'required', Rule::in(['business', 'private', 'online_shop'])],
             'business_type' => ['nullable', 'string', 'max:100'],
             'business_description' => ['nullable', 'string', 'max:500'],
         ];

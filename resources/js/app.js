@@ -1,6 +1,7 @@
 import { attachFormPopovers } from './form-popovers';
 attachFormPopovers();
 import './package-fields';
+import './financial-forms';
 import './live-workspace';
 import Offcanvas from 'bootstrap/js/dist/offcanvas';
 import 'bootstrap/js/dist/dropdown';
@@ -46,7 +47,7 @@ for (const group of document.querySelectorAll('[data-notification-group]')) {
     async function loadPage(page = 1) {
         content.setAttribute('aria-busy', 'true');
         try {
-            const response = await fetch(`${group.dataset.historyUrl}?page=${page}`, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+            const response = await fetch(`${group.dataset.historyUrl}?page=${page}`, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' }, credentials: 'same-origin' });
             if (!response.ok) throw new Error();
             const result = await response.json();
             const fragment = document.createDocumentFragment();
@@ -80,18 +81,19 @@ if (document.body.dataset.notificationsUrl) {
     const monitor = createNotificationMonitor({
         scope: document.body.dataset.notificationScope,
         load: async () => {
-            const response = await fetch(document.body.dataset.notificationsUrl, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+            const response = await fetch(document.body.dataset.notificationsUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' }, credentials: 'same-origin' });
             if (!response.ok) throw new Error();
             return response.json();
         },
-        onChange({ enabled, unread }) {
+        onChange({ enabled, unread, available }) {
+            if (available) window.dispatchEvent(new Event('ea:workspace-polled'));
             button.setAttribute('aria-pressed', String(enabled));
             button.setAttribute('aria-label', enabled ? 'Disattiva suoni notifiche' : 'Attiva suoni notifiche');
             button.querySelector('span').textContent = enabled ? 'Suoni attivi' : 'Attiva suoni';
             button.querySelector('i').className = enabled ? 'bi bi-volume-up' : 'bi bi-volume-mute';
             if (unread !== undefined) {
                 const dot = document.querySelector('[data-notification-dot]');
-                if (dot) { dot.hidden = unread === 0; dot.setAttribute('aria-label', `${unread} notifiche da leggere`); }
+                if (dot) { dot.hidden = unread === 0; dot.textContent = unread > 99 ? '99+' : String(unread); dot.setAttribute('aria-label', `${unread} notifiche da leggere`); }
                 const count = document.querySelector('[data-notification-count]');
                 if (count) count.textContent = unread ? `${unread} aggiornamenti da leggere.` : 'Nessun nuovo aggiornamento.';
             }
@@ -104,3 +106,29 @@ if (document.body.dataset.notificationsUrl) {
 }
 
 for (const conversation of document.querySelectorAll('[data-conversation-list]')) { conversation.scrollTop = conversation.scrollHeight; }
+
+document.querySelector('[data-select-labels]')?.addEventListener('click', (event) => { const boxes = [...event.target.closest('form').querySelectorAll('input[name="ids[]"]')]; const checked = !boxes.every(box => box.checked); boxes.forEach(box => { box.checked = checked; }); });
+const quoteBox = document.querySelector('[data-shipping-quote]');
+if (quoteBox) {
+    const form = quoteBox.closest('form'); let timer; let requestNumber = 0;
+    const loadQuote = () => {
+        clearTimeout(timer); const current = ++requestNumber;
+        quoteBox.textContent = 'Tariffa da verificare';
+        timer = setTimeout(async () => {
+            const city = form.elements.delivery_city.value.trim(); const postal = form.elements.delivery_postal_code.value.trim();
+            if (!city || !/^[0-9]{5}$/.test(postal)) return;
+            quoteBox.textContent = 'Calcolo tariffa…';
+            try {
+                const response = await fetch(`/rates/quote?${new URLSearchParams({city, postal_code: postal})}`, {headers: {'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'}});
+                if (!response.ok) throw new Error('quote'); const data = await response.json();
+                if (current !== requestNumber) return;
+                quoteBox.textContent = data.available ? `Prezzo spedizione previsto: ${new Intl.NumberFormat('it-IT', {style:'currency', currency:'EUR'}).format(data.price_cents / 100)} · ${data.delivery_time || 'Tempi da verificare'}` : data.reason;
+            } catch { if (current === requestNumber) quoteBox.textContent = 'Tariffa da verificare. Il servizio non è disponibile al momento.'; }
+        }, 350);
+    };
+    form.elements.delivery_city.addEventListener('input', loadQuote); form.elements.delivery_postal_code.addEventListener('input', loadQuote); loadQuote();
+    const type = form.elements.package_type; const description = form.elements.package_description;
+    const updatePackage = () => { description.required = type.value === 'other'; }; type.addEventListener('change', updatePackage); updatePackage();
+}
+
+document.querySelector('[data-print-all-labels]')?.addEventListener('click', (event) => { const form = event.target.closest('form'); form.querySelectorAll('input[name="ids[]"]').forEach(box => { box.checked = true; }); form.requestSubmit(); });

@@ -37,6 +37,23 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
+# Materiale riservato, strumenti locali e dati operativi.
+/.agents/
+/.ai/
+/.codex/
+/.claude/
+/docs/
+/storage/framework/dev-server.json
+*.csv
+*.pdf
+*.docx
+*.xlsx
+*.map
+*.zip
+*.tar
+*.tar.gz
+*.crt
+
 # Report e revisioni interne rimangono esclusivamente locali.
 /[Rr][Ee][Pp][Oo][Rr][Tt]*
 /[Aa][Ii][Kk][Ii][Dd][Oo]*

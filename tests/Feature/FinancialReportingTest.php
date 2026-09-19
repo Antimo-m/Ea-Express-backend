@@ -19,10 +19,10 @@ class FinancialReportingTest extends TestCase
     {
         $user = User::factory()->create();
         $order = Order::factory()->create(['rider_id' => $user->id, 'status' => OrderStatus::Delivered, 'price_cents' => 1235, 'delivered_at' => now()]);
-        $this->actingAs($user)->post(route('payments.store', $order), ['action' => 'receive', 'version' => 1, 'note' => 'Contanti'])->assertSessionHasNoErrors();
+        $this->actingAs($user)->post(route('payments.store', $order), ['action' => 'receive', 'method' => 'cash', 'version' => 1, 'note' => 'Contanti'])->assertSessionHasNoErrors();
         $this->assertNotNull($order->fresh()->paid_at);
         $this->assertSame(1235, PaymentEntry::sole()->amount_cents);
-        $this->post(route('payments.store', $order), ['action' => 'receive', 'version' => 1, 'note' => 'Duplicato'])->assertSessionHasErrors('action');
+        $this->post(route('payments.store', $order), ['action' => 'receive', 'method' => 'cash', 'version' => 1, 'note' => 'Duplicato'])->assertSessionHasErrors('action');
         $this->assertDatabaseCount('payment_entries', 1);
         $this->post(route('payments.store', $order), ['action' => 'reverse', 'version' => 2, 'note' => 'Registrazione errata'])->assertSessionHasNoErrors();
         $this->assertNull($order->fresh()->paid_at);
@@ -38,7 +38,7 @@ class FinancialReportingTest extends TestCase
         Order::factory()->create(['rider_id' => $user->id, 'status' => OrderStatus::Delivered, 'price_cents' => 1500, 'delivered_at' => now()]);
         $other = Order::factory()->create(['rider_id' => User::factory(), 'status' => OrderStatus::Delivered, 'price_cents' => 99999, 'delivered_at' => now()]);
         Expense::factory()->create(['user_id' => $user->id, 'amount_cents' => 500]);
-        $this->actingAs($user)->post(route('payments.store', $paid), ['action' => 'receive', 'version' => 1, 'note' => 'Bonifico ricevuto'])->assertSessionHasNoErrors();
+        $this->actingAs($user)->post(route('payments.store', $paid), ['action' => 'receive', 'method' => 'cash', 'version' => 1, 'note' => 'Bonifico ricevuto'])->assertSessionHasNoErrors();
         $this->get('/balance')->assertOk()->assertViewHas('earned', 3500)->assertViewHas('cash', 2000)->assertViewHas('spent', 500)->assertViewHas('net', 1500)->assertViewHas('outstanding', 1500)->assertDontSee($other->reference);
     }
 
@@ -48,7 +48,7 @@ class FinancialReportingTest extends TestCase
         $other = Order::factory()->create(['rider_id' => User::factory(), 'status' => OrderStatus::Delivered, 'price_cents' => 1000]);
         $active = Order::factory()->create(['rider_id' => $user->id, 'status' => OrderStatus::Accepted, 'price_cents' => 1000]);
         $expense = Expense::factory()->create();
-        $data = ['action' => 'receive', 'version' => 1, 'note' => 'Test'];
+        $data = ['action' => 'receive', 'method' => 'cash', 'version' => 1, 'note' => 'Test'];
         $this->actingAs($user)->post(route('payments.store', $other), $data)->assertNotFound();
         $this->post(route('payments.store', $active), $data)->assertSessionHasErrors('action');
         $this->delete(route('expenses.destroy', $expense))->assertNotFound();
