@@ -65,7 +65,7 @@ enum OrderStatus: string
     public function tone(): string
     {
         return match ($this) {
-            self::Delivered => 'green', self::Rejected, self::Cancelled, self::DeliveryIssue, self::DeliveryAttempted => 'danger', self::Received => 'blue', default => 'orange'
+            self::Delivered => 'green', self::Rejected, self::Cancelled, self::DeliveryIssue, self::DeliveryAttempted => 'danger', self::Received => 'blue', self::Accepted, self::PickupScheduled => 'purple', self::PickedUp, self::InTransit, self::OutForDelivery => 'teal', default => 'orange'
         };
     }
 }

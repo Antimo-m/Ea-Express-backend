@@ -18,7 +18,7 @@ class OrderWorkflowTest extends TestCase
         $rider = User::factory()->create();
         $data = Order::factory()->make()->only(['store_name', 'recipient_name', 'recipient_phone', 'pickup_address', 'pickup_city', 'delivery_address', 'delivery_city', 'pickup_date', 'pickup_from', 'pickup_to', 'parcel_count', 'category', 'urgency']);
         $data['pickup_date'] = now()->addDay()->toDateString();
-        $data += ['status' => 'delivered', 'price_cents' => 1, 'rider_id' => 999, 'tracking_token' => 'guess'];
+        $data += ['payment_method' => 'cash', 'pickup_street_number' => '10', 'pickup_postal_code' => '80100', 'delivery_street_number' => '20', 'delivery_postal_code' => '81100', 'package_type' => 'standard', 'status' => 'delivered', 'price_cents' => 1, 'rider_id' => 999, 'tracking_token' => 'guess'];
         $response = $this->actingAs($rider)->post('/orders', $data);
         $response->assertSessionHasNoErrors();
         $order = Order::sole();

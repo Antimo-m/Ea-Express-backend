@@ -36,3 +36,20 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Materiale riservato, strumenti locali e dati operativi.
+/.agents/
+/.ai/
+/.codex/
+/.claude/
+/docs/
+/storage/framework/dev-server.json
+*.csv
+*.pdf
+*.docx
+*.xlsx
+*.map
+*.zip
+*.tar
+*.tar.gz
+*.crt

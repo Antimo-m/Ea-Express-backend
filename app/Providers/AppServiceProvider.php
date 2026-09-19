@@ -36,6 +36,7 @@ class AppServiceProvider extends ServiceProvider
         }
         RateLimiter::for('otp-send', fn (Request $request) => [Limit::perHour(3)->by('otp-send-user:'.$request->user()->id), Limit::perHour(15)->by('otp-send-ip:'.$request->ip())]);
         RateLimiter::for('otp-check', fn (Request $request) => [Limit::perMinute(5)->by('otp-check:'.$request->user()->id), Limit::perHour(20)->by('otp-check-hour:'.$request->user()->id)]);
+        RateLimiter::for('realtime-writes', fn (Request $request) => Limit::perMinute(60)->by('realtime-writes:'.($request->user()?->id ?? $request->ip())));
         RateLimiter::for('writes', fn (Request $request) => Limit::perMinute(60)->by('writes:'.($request->user()?->id ?? $request->ip())));
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\PaymentEntry;
+use App\Models\PendingSettlement;
 use App\OrderStatus;
 use App\Support\ReportingPeriod;
 use App\UserRole;
@@ -28,6 +29,7 @@ class ReportController extends Controller
         $accepted = (clone $cohort)->whereHas('events', fn ($q) => $q->where('status', OrderStatus::Accepted))->count();
         $delivered = Order::financialFor($request->user())->where('status', OrderStatus::Delivered)->whereBetween('delivered_at', $period->utcRange());
         $cash = PaymentEntry::whereHas('order', fn ($q) => $q->financialFor($request->user()))->whereBetween('created_at', $period->utcRange())->sum('amount_cents');
+        $cash += PendingSettlement::whereHas('account', fn ($q) => $q->where('direction', 'incoming')->whereNull('order_id'))->when($request->user()->role !== UserRole::Admin, fn ($q) => $q->where('user_id', $request->user()->id))->whereBetween('created_at', $period->utcRange())->sum('amount_cents');
         $zones = (clone $cohort)->select('delivery_city')->selectRaw('COUNT(*) as total')->groupBy('delivery_city')->orderByDesc('total')->orderBy('delivery_city')->limit(10)->get();
         $days = [];
         foreach ((clone $cohort)->select(['id', 'created_at'])->lazyById(500) as $order) {

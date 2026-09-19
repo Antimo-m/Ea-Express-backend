@@ -23,10 +23,20 @@ class CustomerMessageController extends Controller
     public function store(Request $request, Order $order, NotifyOrderParticipants $notify): JsonResponse
     {
         abort_unless($order->customer_id === $request->user()->id, 404);
-        $data = $request->validate(['body' => ['required', 'string', 'max:2000']]);
+        $data = $request->validate(['body' => ['required', 'string', 'max:2000'], 'submission_key' => ['nullable', 'uuid']]);
         DB::transaction(function () use ($order, $data, $notify, $request): void {
             $locked = Order::where('customer_id', $request->user()->id)->lockForUpdate()->findOrFail($order->id);
-            $locked->messages()->create($data);
+            if (! empty($data['submission_key'])) {
+                $existing = $locked->messages()->where('submission_key', $data['submission_key'])->first();
+                if ($existing) {
+                    abort_unless($existing->body === $data['body'] && $existing->user_id === null, 409, 'Invio già utilizzato. Ricarica la conversazione.');
+
+                    return;
+                }
+            }
+            $message = $locked->messages()->make(['body' => $data['body']]);
+            $message->submission_key = $data['submission_key'] ?? null;
+            $message->save();
             $notify->handle($locked, 'Nuovo messaggio dal cliente', $request->user()->id, true);
         });
 

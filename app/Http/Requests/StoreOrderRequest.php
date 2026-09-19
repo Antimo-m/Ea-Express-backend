@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Support\CustomerIdentity;
 use App\Support\OrderContent;
+use App\Support\PaymentMethod;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,9 +15,20 @@ class StoreOrderRequest extends FormRequest
         return $this->user()?->isStaff() ?? false;
     }
 
+    public function attributes(): array
+    {
+        return ['pickup_street_number' => 'numero civico di ritiro', 'pickup_postal_code' => 'CAP di ritiro', 'delivery_street_number' => 'numero civico di consegna', 'delivery_postal_code' => 'CAP di consegna', 'package_type' => 'caratteristiche del pacco', 'package_description' => 'descrizione delle caratteristiche'];
+    }
+
     public function rules(): array
     {
         return [...CustomerIdentity::rules(),
+            'delivery_zone' => ['nullable', 'string', 'max:100'],
+            'payment_method' => ['required', Rule::in(array_keys(PaymentMethod::Labels))],
+            'pickup_street_number' => ['required', 'string', 'max:20'], 'pickup_postal_code' => ['required', 'regex:/^[0-9]{5}$/D'],
+            'delivery_street_number' => ['required', 'string', 'max:20'], 'delivery_postal_code' => ['required', 'regex:/^[0-9]{5}$/D'],
+            'package_type' => ['required', 'in:standard,fragile,other'], 'package_description' => ['required_if:package_type,other', 'nullable', 'string', 'max:255'],
+            'customer_id' => ['nullable', Rule::exists('users', 'id')->where('role', 'customer')->where('is_active', true)],
             'packages' => ['sometimes', 'required', 'array', 'list', 'min:1', 'max:100', 'size:'.$this->integer('parcel_count')],
             'packages.*' => ['required', 'array:weight_kg,length_cm,width_cm,height_cm'],
             'packages.*.weight_kg' => ['required', 'numeric', 'min:0.01', 'max:1000'],
@@ -30,7 +42,7 @@ class StoreOrderRequest extends FormRequest
             'delivery_address' => ['required', 'string', 'max:255'], 'delivery_city' => ['required', 'string', 'max:100'],
             'pickup_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.now('Europe/Rome')->toDateString()],
             'pickup_from' => ['required', 'date_format:H:i'], 'pickup_to' => ['required', 'date_format:H:i', 'after:pickup_from'],
-            'delivery_window' => ['nullable', 'string', 'max:150'], 'parcel_count' => ['required', 'integer', 'between:1,100'],
+            'delivery_window' => ['nullable', 'date_format:H:i'], 'parcel_count' => ['required', 'integer', 'between:1,100'],
             'category' => ['required', Rule::in(array_keys(OrderContent::Categories))],
             'content_description' => ['nullable', 'string', 'max:255'],
             'urgency' => ['required', Rule::in(['standard', 'urgent'])], 'notes' => ['nullable', 'string', 'max:2000'],

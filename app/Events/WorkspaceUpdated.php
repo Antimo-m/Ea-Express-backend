@@ -33,7 +33,7 @@ class WorkspaceUpdated implements ShouldBroadcast, ShouldDispatchAfterCommit
             return [];
         }
 
-        $channels = User::where('is_active', true)->where(fn ($query) => $query->where('id', $order->customer_id)->orWhereIn('role', [UserRole::Admin, UserRole::Rider]))->get()->filter(fn (User $user) => $user->role === UserRole::Customer ? $order->customer_id === $user->id : $user->can('view', $order))->map(fn (User $user) => new PrivateChannel(($user->role === UserRole::Customer ? 'customer.' : 'staff.').$user->id))->values()->all();
+        $channels = User::where('is_active', true)->where(fn ($query) => $query->where('id', $order->customer_id)->orWhereIn('role', [UserRole::Admin, UserRole::Rider]))->get()->filter(fn (User $user) => $user->role === UserRole::Customer ? $order->customer_id === $user->id : ($this->kind === 'order' || $user->can('view', $order)))->map(fn (User $user) => new PrivateChannel(($user->role === UserRole::Customer ? 'customer.' : 'staff.').$user->id))->values()->all();
         if ($this->kind === 'order' && $order->tracking_started_at) {
             $channels[] = new PrivateChannel('tracking.'.hash('sha256', $order->tracking_token));
         }
@@ -48,6 +48,10 @@ class WorkspaceUpdated implements ShouldBroadcast, ShouldDispatchAfterCommit
 
     public function broadcastWith(): array
     {
+        if ($this->kind === 'order') {
+            return ['event_id' => $this->eventId, 'kind' => $this->kind];
+        }
+
         return ['event_id' => $this->eventId, 'order_id' => $this->orderId, 'kind' => $this->kind];
     }
 }

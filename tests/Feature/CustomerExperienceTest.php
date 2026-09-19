@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Order;
+use App\Models\ShippingRate;
 use App\Models\User;
 use App\Notifications\OrderActivity;
 use App\UserRole;
@@ -15,17 +16,18 @@ class CustomerExperienceTest extends TestCase
 
     private function payload(): array
     {
-        return ['recipient_name' => 'Mario Rossi', 'recipient_phone' => '+393331234567', 'pickup_address' => 'Via Roma 1', 'pickup_city' => 'Napoli', 'delivery_address' => 'Via Milano 2', 'delivery_city' => 'Caserta', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 2, 'category' => 'other', 'urgency' => 'standard'];
+        return ['payment_method' => 'cash', 'pickup_street_number' => '10', 'pickup_postal_code' => '80100', 'delivery_street_number' => '20', 'delivery_postal_code' => '81100', 'package_type' => 'standard', 'recipient_name' => 'Mario Rossi', 'recipient_phone' => '+393331234567', 'pickup_address' => 'Via Roma 1', 'pickup_city' => 'Napoli', 'delivery_address' => 'Via Milano 2', 'delivery_city' => 'Caserta', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 2, 'category' => 'other', 'urgency' => 'standard'];
     }
 
     public function test_customer_can_save_and_edit_content_description_and_rider_can_read_it(): void
     {
         $customer = User::factory()->create(['role' => UserRole::Customer]);
-        $response = $this->actingAs($customer, 'customer')->postJson('/api/v1/customer/orders', [...$this->payload(), 'category' => 'electronics', 'content_description' => 'Tastiera e mouse'])
+        ShippingRate::factory()->create(['city' => 'Caserta', 'city_key' => 'caserta']);
+        $response = $this->actingAs($customer, 'customer')->postJson('/api/v1/customer/orders', $this->checkoutData([...$this->payload(), 'category' => 'electronics', 'content_description' => 'Tastiera e mouse']))
             ->assertCreated()->assertJsonPath('data.category_label', 'Elettronica e accessori: Tastiera e mouse');
         $order = Order::findOrFail($response->json('data.id'));
         $this->assertSame('Tastiera e mouse', $order->content_description);
-        $this->patchJson('/api/v1/customer/orders/'.$order->id, [...$this->payload(), 'category' => 'other', 'content_description' => 'Ceramiche artigianali', 'version' => 1])
+        $this->patchJson('/api/v1/customer/orders/'.$order->id, $this->checkoutData([...$this->payload(), 'category' => 'other', 'content_description' => 'Ceramiche artigianali', 'version' => 1], $order->id))
             ->assertOk()->assertJsonPath('data.content_description', 'Ceramiche artigianali');
         $this->assertSame('Ceramiche artigianali', $order->fresh()->content_description);
         $this->actingAs(User::factory()->create(), 'web')->get('/orders/'.$order->id)->assertOk()->assertSee('Altro: Ceramiche artigianali');
@@ -57,12 +59,13 @@ class CustomerExperienceTest extends TestCase
     public function test_customer_declares_parcel_value_without_setting_shipping_cost_or_changing_identity_history(): void
     {
         $customer = User::factory()->create(['role' => UserRole::Customer, 'business_type' => 'Fiorista']);
-        $this->actingAs($customer, 'customer')->postJson('/api/v1/customer/orders', [...$this->payload(), 'store_name' => 'Rita Rossi', 'sender_type' => 'private', 'business_type' => 'Non pertinente', 'parcel_value' => '123,45', 'price_cents' => 1, 'parcel_value_cents' => 99])
-            ->assertCreated()->assertJsonPath('data.parcel_value_cents', 12345)->assertJsonPath('data.price_cents', null)->assertJsonPath('data.business_type', null)->assertJsonPath('data.store_name', 'Rita Rossi');
+        ShippingRate::factory()->create(['city' => 'Caserta', 'city_key' => 'caserta']);
+        $this->actingAs($customer, 'customer')->postJson('/api/v1/customer/orders', $this->checkoutData([...$this->payload(), 'store_name' => 'Rita Rossi', 'sender_type' => 'private', 'business_type' => 'Non pertinente', 'parcel_value' => '123,45', 'price_cents' => 1, 'parcel_value_cents' => 99]))
+            ->assertCreated()->assertJsonPath('data.parcel_value_cents', 12345)->assertJsonPath('data.price_cents', 500)->assertJsonPath('data.business_type', null)->assertJsonPath('data.store_name', 'Rita Rossi');
         $order = Order::sole();
         $this->assertSame(12345, $order->parcel_value_cents);
-        $this->assertNull($order->price_cents);
-        $this->patchJson('/api/v1/customer/orders/'.$order->id, [...$this->payload(), 'version' => 1, 'parcel_value' => '200.10'])->assertOk()->assertJsonPath('data.parcel_value_cents', 20010);
+        $this->assertSame(500, $order->price_cents);
+        $this->patchJson('/api/v1/customer/orders/'.$order->id, $this->checkoutData([...$this->payload(), 'version' => 1, 'parcel_value' => '200.10'], $order->id))->assertOk()->assertJsonPath('data.parcel_value_cents', 20010);
         $customer->update(['name' => 'Nome aggiornato']);
         $this->assertSame('Rita Rossi', $order->fresh()->store_name);
         $this->postJson('/api/v1/customer/orders', [...$this->payload(), 'parcel_value' => '-1'])->assertUnprocessable()->assertJsonValidationErrors('parcel_value');
