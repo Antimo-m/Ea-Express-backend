@@ -6,6 +6,7 @@ use App\OrderStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 class OrderStatistics
@@ -25,6 +26,17 @@ class OrderStatistics
         return new ReportingPeriod($start, $end);
     }
 
+    /** @return Collection<int, mixed> */
+    public function prices(Builder $query, bool $byAccount = false): Collection
+    {
+        $query = (clone $query)->whereNotIn('status', [OrderStatus::Cancelled, OrderStatus::Rejected])->whereNotNull('price_cents');
+        if ($byAccount) {
+            $query->select('customer_id')->groupBy('customer_id');
+        }
+
+        return $query->selectRaw('price_cents, COUNT(*) AS shipments, SUM(price_cents) AS total_cents')->groupBy('price_cents')->orderBy('price_cents')->get();
+    }
+
     /** @return array<string,mixed> */
     public function summarize(Builder $query): array
     {
@@ -33,6 +45,6 @@ class OrderStatistics
         $cancelled = (clone $query)->whereIn('status', [OrderStatus::Cancelled, OrderStatus::Rejected])->count();
         $priced = (clone $query)->whereNotIn('status', [OrderStatus::Cancelled, OrderStatus::Rejected])->whereNotNull('price_cents');
 
-        return ['total' => $count, 'delivered' => $delivered, 'cancelled' => $cancelled, 'in_progress' => $count - $delivered - $cancelled, 'completion_percent' => $count ? round(100 * $delivered / $count, 1) : 0, 'shipping_spend_cents' => (int) (clone $priced)->sum('price_cents'), 'delivered_spend_cents' => (int) (clone $priced)->where('status', OrderStatus::Delivered)->sum('price_cents'), 'unpriced' => (clone $query)->whereNotIn('status', [OrderStatus::Cancelled, OrderStatus::Rejected])->whereNull('price_cents')->count(), 'prices' => (clone $priced)->selectRaw('price_cents, COUNT(*) AS shipments, SUM(price_cents) AS total_cents')->groupBy('price_cents')->orderBy('price_cents')->get()];
+        return ['total' => $count, 'delivered' => $delivered, 'cancelled' => $cancelled, 'in_progress' => $count - $delivered - $cancelled, 'completion_percent' => $count ? round(100 * $delivered / $count, 1) : 0, 'shipping_spend_cents' => (int) (clone $priced)->sum('price_cents'), 'delivered_spend_cents' => (int) (clone $priced)->where('status', OrderStatus::Delivered)->sum('price_cents'), 'unpriced' => (clone $query)->whereNotIn('status', [OrderStatus::Cancelled, OrderStatus::Rejected])->whereNull('price_cents')->count(), 'prices' => $this->prices($query)];
     }
 }

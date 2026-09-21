@@ -27,6 +27,7 @@ class ReviseShippingRate
             $before = null;
             if ($rate) {
                 $rate = ShippingRate::query()->lockForUpdate()->findOrFail($rate->id);
+                abort_if($rate->archived_at !== null, 409, 'Questa tariffa è archiviata.');
                 abort_if(ShippingRate::where('supersedes_id', $rate->id)->exists(), 409, 'Questa versione è stata sostituita. Apri la versione più recente.');
                 $before = $rate->toArray();
                 $rate->active = false;

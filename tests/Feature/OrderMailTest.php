@@ -28,6 +28,7 @@ class OrderMailTest extends TestCase
         Mail::fake();
         $customer = User::factory()->create(['role' => UserRole::Customer]);
         $data = Order::factory()->make()->only(['store_name', 'recipient_name', 'recipient_phone', 'pickup_address', 'pickup_city', 'delivery_address', 'delivery_city', 'pickup_date', 'pickup_from', 'pickup_to', 'parcel_count', 'category', 'urgency']);
+        $data['parcel_value'] = '50';
         $data['pickup_date'] = $data['pickup_date']->toDateString();
         $data = [...$data, 'payment_method' => 'cash', 'content_description' => 'Documenti firmati', 'delivery_window' => '16:30'];
         ShippingRate::factory()->create(['city' => $data['delivery_city'], 'city_key' => ShippingQuote::cityKey($data['delivery_city'])]);

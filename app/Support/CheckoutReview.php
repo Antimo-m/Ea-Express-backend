@@ -39,6 +39,7 @@ class CheckoutReview
         if (! $order && Order::where('checkout_key', $payload['key'])->where('customer_id', $user->id)->exists()) {
             return $payload;
         }
+        app(BookingRules::class)->validate($data, $order);
         ShippingRate::whereKey($payload['quote']['rate_id'])->lockForUpdate()->first();
         $current = $this->quote($data, $order, true);
         abort_unless($current['available'] && $current['rate_id'] === $payload['quote']['rate_id'] && $current['price_cents'] === $payload['quote']['price_cents'], 409, 'Il listino è cambiato. Torna ai dati e verifica il nuovo riepilogo.');

@@ -2,6 +2,7 @@
     <div class="sidebar-brand"><a class="brand-link" href="{{ route('dashboard') }}"><x-application-logo /></a><button class="btn-close d-lg-none" type="button" data-bs-dismiss="offcanvas" data-bs-target="#app-navigation" aria-label="Chiudi menu"></button></div>
     <h2 id="navigation-title" class="visually-hidden">Menu principale</h2>
     <div class="offcanvas-body sidebar-content">
+        <a class="btn btn-primary sidebar-create" href="{{ route('orders.create') }}"><x-ui.icon name="plus-lg"/> Nuova richiesta</a>
         <nav aria-label="Navigazione principale">
             @foreach (config('navigation') as $group => $items)
                 <div class="nav-group"><p class="nav-group-label">{{ $group }}</p>@foreach ($items as $item)<x-navigation.link :item="$item" />@endforeach</div>
