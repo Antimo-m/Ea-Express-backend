@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests;
 
+use App\Support\BookingRules;
 use App\Support\CustomerIdentity;
 use App\Support\OrderContent;
 use App\Support\PaymentMethod;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Validator;
 
 class StoreOrderRequest extends FormRequest
 {
@@ -18,6 +21,25 @@ class StoreOrderRequest extends FormRequest
     public function attributes(): array
     {
         return ['pickup_street_number' => 'numero civico di ritiro', 'pickup_postal_code' => 'CAP di ritiro', 'delivery_street_number' => 'numero civico di consegna', 'delivery_postal_code' => 'CAP di consegna', 'package_type' => 'caratteristiche del pacco', 'package_description' => 'descrizione delle caratteristiche'];
+    }
+
+    public function after(): array
+    {
+        return [function (Validator $validator): void {
+            if ($validator->errors()->hasAny(['pickup_date', 'pickup_from', 'pickup_to'])) {
+                return;
+            }
+            try {
+                app(BookingRules::class)->validate($this->all(), $this->route('order'));
+            } catch (ValidationException $exception) {
+                $validator->errors()->add('pickup_from', $exception->errors()['pickup_from'][0]);
+            }
+        }];
+    }
+
+    public function messages(): array
+    {
+        return ['parcel_value.required' => 'Inserisci il valore del pacco, anche se è zero.', 'parcel_value.regex' => 'Inserisci un importo non negativo con al massimo due decimali.'];
     }
 
     public function rules(): array
@@ -35,12 +57,12 @@ class StoreOrderRequest extends FormRequest
             'packages.*.length_cm' => ['required', 'numeric', 'min:1', 'max:500'],
             'packages.*.width_cm' => ['required', 'numeric', 'min:1', 'max:500'],
             'packages.*.height_cm' => ['required', 'numeric', 'min:1', 'max:500'],
-            'parcel_value' => ['nullable', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'],
+            'parcel_value' => ['required', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'],
             'store_name' => ['required', 'string', 'max:150'], 'contact_email' => ['nullable', 'email', 'max:255'],
             'recipient_name' => ['required', 'string', 'max:150'], 'recipient_phone' => ['required', 'string', 'max:30', 'regex:/^[+0-9 ()\-]{6,30}$/D'],
             'pickup_address' => ['required', 'string', 'max:255'], 'pickup_city' => ['required', 'string', 'max:100'],
             'delivery_address' => ['required', 'string', 'max:255'], 'delivery_city' => ['required', 'string', 'max:100'],
-            'pickup_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.now('Europe/Rome')->toDateString()],
+            'pickup_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.(app(BookingRules::class)->unchanged($this->all(), $this->route('order')) ? $this->route('order')->pickup_date->toDateString() : now('Europe/Rome')->toDateString())],
             'pickup_from' => ['required', 'date_format:H:i'], 'pickup_to' => ['required', 'date_format:H:i', 'after:pickup_from'],
             'delivery_window' => ['nullable', 'date_format:H:i'], 'parcel_count' => ['required', 'integer', 'between:1,100'],
             'category' => ['required', Rule::in(array_keys(OrderContent::Categories))],

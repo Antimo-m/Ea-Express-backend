@@ -1,0 +1,30 @@
+:root {
+  --ea-font: 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
+  --ea-brand: #b64012;
+  --ea-brand-hover: #92320d;
+  --ea-orange: #f97316;
+  --ea-orange-soft: #fff1e8;
+  --ea-ink: #182b3a;
+  --ea-muted: #526273;
+  --ea-line: #dfe5eb;
+  --ea-bg: #f3f5f7;
+  --ea-surface: #ffffff;
+  --ea-surface-muted: #f8fafb;
+  --ea-success: #147451;
+  --ea-warning: #8c560c;
+  --ea-danger: #b42318;
+  --ea-info: #225ea8;
+  --ea-space-1: 4px;
+  --ea-space-2: 8px;
+  --ea-space-3: 12px;
+  --ea-space-4: 16px;
+  --ea-space-5: 24px;
+  --ea-space-6: 32px;
+  --ea-radius-control: 8px;
+  --ea-radius-card: 12px;
+  --ea-radius-modal: 16px;
+  --ea-shadow: 0 2px 6px #182b3a05;
+  --ea-shadow-dialog: 0 24px 80px #13263833;
+  --ea-transition: 140ms ease;
+  --ea-focus: #225ea8;
+}

@@ -10,7 +10,7 @@ export function attachFormPopovers(root = document) {
       event.preventDefault();
       active?.();
       const panel = document.createElement('div'); panel.className = 'form-popover'; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', control.labels?.[0]?.textContent || 'Scegli un valore');
-      document.body.append(panel);
+      (control.closest('dialog') || document.body).append(panel);
       const rect = control.getBoundingClientRect(); panel.style.width = `${Math.min(control.tagName === 'SELECT' ? Math.max(rect.width, 220) : 300, innerWidth - 24)}px`;
       panel.style.left = `${Math.max(12, Math.min(rect.left, innerWidth - panel.offsetWidth - 12))}px`;
       panel.style.top = `${Math.max(12, Math.min(rect.bottom + 6, innerHeight - 350))}px`;
@@ -52,8 +52,9 @@ export function attachFormPopovers(root = document) {
           return input;
         });
         const candidate = control.cloneNode();
-        const confirm = button('Conferma orario', () => select(candidate.value));
+        const confirm = button('Conferma orario', () => { validate(); if (!confirm.disabled) select(candidate.value); });
         const validate = () => {
+          candidate.min = control.min; candidate.max = control.max;
           candidate.value = inputs.map(input => input.value.padStart(2, '0')).join(':');
           confirm.disabled = inputs.some(input => !input.validity.valid) || !candidate.value || !candidate.validity.valid;
         };

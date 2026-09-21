@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\BookingRulesController;
 use App\Http\Controllers\Api\CustomerAuthController as Auth;
 use App\Http\Controllers\Api\CustomerMessageController as Messages;
 use App\Http\Controllers\Api\CustomerOrderController as Orders;
@@ -23,6 +24,7 @@ Route::prefix('api/v1/customer')->name('customer.')->middleware('throttle:custom
         Route::post('realtime/auth', [RealtimeController::class, 'authenticate'])->middleware('throttle:realtime-writes');
         Route::get('auth/me', [Auth::class, 'me']);
         Route::post('auth/logout', [Auth::class, 'logout']);
+        Route::get('booking-rules', BookingRulesController::class);
         Route::get('statistics', CustomerStatisticsController::class);
         Route::get('dashboard', [Workspace::class, 'dashboard']);
         Route::get('couriers', [Workspace::class, 'couriers']);

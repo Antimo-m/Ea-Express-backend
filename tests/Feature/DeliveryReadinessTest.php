@@ -83,7 +83,7 @@ class DeliveryReadinessTest extends TestCase
         $customer = User::factory()->create(['role' => UserRole::Customer]);
         $order = Order::factory()->make();
         $payload = $order->only(['recipient_name', 'recipient_phone', 'pickup_address', 'pickup_city', 'delivery_address', 'delivery_city', 'parcel_count', 'category', 'urgency']);
-        $payload += ['payment_method' => 'cash', 'pickup_street_number' => '10', 'pickup_postal_code' => '80100', 'delivery_street_number' => '20', 'delivery_postal_code' => '81100', 'package_type' => 'standard', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00'];
+        $payload += ['parcel_value' => '50', 'payment_method' => 'cash', 'pickup_street_number' => '10', 'pickup_postal_code' => '80100', 'delivery_street_number' => '20', 'delivery_postal_code' => '81100', 'package_type' => 'standard', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00'];
         $this->actingAs($customer, 'customer')->postJson('/api/v1/customer/orders', [...$payload, 'delivery_window' => 'pomeriggio'])->assertUnprocessable()->assertJsonValidationErrors('delivery_window');
         ShippingRate::factory()->create(['city' => $payload['delivery_city'], 'city_key' => ShippingQuote::cityKey($payload['delivery_city'])]);
         $this->postJson('/api/v1/customer/orders', $this->checkoutData([...$payload, 'delivery_window' => '16:30']))->assertCreated()->assertJsonPath('data.delivery_window', '16:30');

@@ -1,3 +1,7 @@
+import './data-tables';
+import './confirmations';
+import './booking-form';
+import './rates';
 import { attachFormPopovers } from './form-popovers';
 attachFormPopovers();
 import './package-fields';

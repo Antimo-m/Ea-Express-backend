@@ -16,7 +16,7 @@ class ShippingQuote
     /** @return array<string,mixed> */
     public function find(string $city, ?string $postalCode, ?string $zone = null, ?string $street = null, bool $lock = false): array
     {
-        $query = ShippingRate::where('active', true)->where('city_key', self::cityKey($city));
+        $query = ShippingRate::whereNull('archived_at')->where('active', true)->where('city_key', self::cityKey($city));
         $query->when($lock, fn ($q) => $q->lockForUpdate());
         $candidates = (clone $query)->get()->filter(fn ($rate) => (! $rate->zone || ($zone && self::cityKey($rate->zone) === self::cityKey($zone))) && (! $rate->street || ($street && self::cityKey($rate->street) === self::cityKey($street))));
         $query->whereIn('id', $candidates->modelKeys());

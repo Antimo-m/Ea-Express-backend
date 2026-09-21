@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\Api\BookingRulesController;
 use App\Http\Controllers\BalanceController;
 use App\Http\Controllers\CustomerConversationController;
 use App\Http\Controllers\DashboardController;
@@ -54,6 +55,10 @@ Route::middleware(['auth', EnsureStaff::class, EnsurePhoneVerified::class])->gro
     Route::get('/stores', [StoreReportController::class, 'index'])->name('stores.index');
     Route::get('/orders/create', [OrderController::class, 'create'])->name('orders.create');
     Route::post('/orders', [OrderController::class, 'store'])->middleware('throttle:writes')->name('orders.store');
+    Route::get('/rates/{rate}/history', [ShippingRateController::class, 'history'])->name('rates.history');
+    Route::patch('/rates/{rate}/state', [ShippingRateController::class, 'state'])->middleware('throttle:writes')->name('rates.state');
+    Route::delete('/rates/{rate}', [ShippingRateController::class, 'destroy'])->middleware('throttle:writes')->name('rates.destroy');
+    Route::get('/booking-rules', BookingRulesController::class)->name('booking-rules');
     Route::get('/rates', [ShippingRateController::class, 'index'])->name('rates.index');
     Route::get('/rates/quote', [ShippingRateController::class, 'quote'])->name('rates.quote');
     Route::post('/rates/{rate?}', [ShippingRateController::class, 'store'])->middleware('throttle:writes')->name('rates.store');

@@ -15,7 +15,7 @@ class ShippingPricingTest extends TestCase
 
     private function payload(): array
     {
-        return ['payment_method' => 'cash', 'recipient_name' => 'Cliente test', 'recipient_phone' => '+390811234567', 'pickup_address' => 'Via Roma', 'pickup_city' => 'Napoli', 'pickup_street_number' => '10', 'pickup_postal_code' => '80100', 'delivery_address' => 'Via Milano', 'delivery_city' => 'Caserta', 'delivery_street_number' => '20', 'delivery_postal_code' => '81100', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'category' => 'other', 'urgency' => 'standard', 'package_type' => 'fragile', 'sender_type' => 'online_shop'];
+        return ['parcel_value' => '50', 'payment_method' => 'cash', 'recipient_name' => 'Cliente test', 'recipient_phone' => '+390811234567', 'pickup_address' => 'Via Roma', 'pickup_city' => 'Napoli', 'pickup_street_number' => '10', 'pickup_postal_code' => '80100', 'delivery_address' => 'Via Milano', 'delivery_city' => 'Caserta', 'delivery_street_number' => '20', 'delivery_postal_code' => '81100', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'category' => 'other', 'urgency' => 'standard', 'package_type' => 'fragile', 'sender_type' => 'online_shop'];
     }
 
     public function test_quote_and_creation_use_server_price_and_preserve_historical_rate(): void

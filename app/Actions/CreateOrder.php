@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Models\Order;
 use App\Models\User;
 use App\OrderStatus;
+use App\Support\BookingRules;
 use App\Support\CheckoutReview;
 use App\Support\CustomerIdentity;
 use App\Support\Money;
@@ -26,6 +27,7 @@ class CreateOrder
             if ($review && ($existing = Order::where('checkout_key', $review['key'])->where('customer_id', $creator->id)->first())) {
                 return $existing;
             }
+            app(BookingRules::class)->validate($data);
             $method = $data['payment_method'] ?? null;
             unset($data['checkout_token'], $data['payment_method']);
             $value = $data['parcel_value'] ?? null;

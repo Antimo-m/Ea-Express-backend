@@ -1,4 +1,56 @@
-<x-app-layout title="Listino"><header class="mb-4"><span class="eyebrow">TARIFFE EA EXPRESS</span><h1>Listino</h1><p>Il prezzo confermato resta salvato nell’ordine. Le modifiche generano una nuova versione del listino.</p></header>
-<form method="get" class="surface p-3 mb-4 d-flex flex-wrap gap-3"><x-ui.field name="q" label="Località" :value="request('q')"/><div><label for="area" class="form-label">Area</label><select name="area" id="area" class="form-select"><option value="">Tutte</option>@foreach($areas as $area)<option @selected(request('area')===$area)>{{ $area }}</option>@endforeach</select></div>@if(auth()->user()->role===\App\UserRole::Admin)<div><label for="state" class="form-label">Stato</label><select id="state" name="state" class="form-select">@foreach(['active'=>'Attive','inactive'=>'Disattivate / storico','all'=>'Tutte'] as $v=>$label)<option value="{{ $v }}" @selected(request('state','active')===$v)>{{ $label }}</option>@endforeach</select></div>@endif<button class="btn btn-primary align-self-end">Filtra</button></form>
-@if(auth()->user()->role===\App\UserRole::Admin)<details class="surface p-4 mb-4" @if($errors->any()) open @endif><summary class="fw-semibold">Crea tariffa</summary>@include('rates.form',['rate'=>null])</details>@endif
-<div class="surface p-3 table-responsive"><table class="table align-middle"><thead class="sticky-top bg-white"><tr><th>Località</th><th>Criteri destinazione</th><th class="text-end">Spedizione</th><th>Stato / versione</th><th>Gestione</th></tr></thead><tbody>@forelse($rates as $rate)<tr><td>{{ $rate->city }}<small class="d-block text-secondary">{{ $rate->area }} · {{ $rate->delivery_time }}</small></td><td>{{ $rate->postal_code ?: 'Tutti i CAP della località' }}<br>{{ $rate->zone }} {{ $rate->street }}</td><td class="text-end text-nowrap">{{ \App\Support\Money::format($rate->price_cents) }}</td><td>{{ $rate->active?'Attiva':'Disattivata' }} · #{{ $rate->id }}<small class="d-block text-secondary">{{ $rate->updated_at->timezone('Europe/Rome')->format('d/m/Y H:i') }}</small></td><td>@if(auth()->user()->role===\App\UserRole::Admin)<details><summary class="btn btn-outline-primary btn-sm">Modifica / disattiva</summary>@include('rates.form',['rate'=>$rate])</details><a class="small" href="{{ route('audits.index',['type'=>'shipping_rates','id'=>$rate->id]) }}">Storico modifiche</a>@else{{ $rate->source_reference }}@endif</td></tr>@empty<tr><td colspan="5">Nessuna tariffa trovata.</td></tr>@endforelse</tbody></table>{{ $rates->links() }}</div><p class="small text-secondary mt-3">CAP, zona e via sono criteri facoltativi; quando specificati devono corrispondere alla destinazione. Le tariffe originali fornite indicano solo la località: nessun CAP viene dedotto automaticamente. Una versione già sostituita rimane consultabile e non può essere riattivata.</p></x-app-layout>
+<x-app-layout title="Listini">
+    <header class="page-heading"><div><span class="eyebrow">RETE DI CONSEGNA</span><h1>Listini</h1><p>Località, tempi e costi. Un riferimento chiaro per ogni spedizione.</p></div>@if(auth()->user()->role === \App\UserRole::Admin)<x-ui.icon-button icon="plus-lg" label="Aggiungi tariffa" variant="primary" data-rate-create/>@endif</header>
+    <form method="get" class="filter-bar surface" data-rates-filter>
+        <x-ui.field name="q" label="Cerca località" :value="request('q')" placeholder="Città, CAP o zona"/>
+        <div><label class="form-label" for="area">Area</label><select id="area" name="area" class="form-select"><option value="">Tutte le aree</option>@foreach($areas as $area)<option @selected(request('area')===$area)>{{ $area }}</option>@endforeach</select></div>
+        @if(auth()->user()->role === \App\UserRole::Admin)<div><label class="form-label" for="state">Stato</label><select id="state" name="state" class="form-select">@foreach(['active'=>'Attive','inactive'=>'Disattivate','all'=>'Tutte le correnti','archived'=>'Archiviate'] as $value=>$label)<option value="{{ $value }}" @selected(request('state','active')===$value)>{{ $label }}</option>@endforeach</select></div>@endif
+        <button class="btn btn-secondary"><x-ui.icon name="filter"/>Filtra</button>
+    </form>
+    <p class="operation-feedback" role="status" data-rate-feedback></p>
+    <div id="rates-results">
+        <p class="data-caption">{{ $rates->total() }} tariffe · {{ $rates->firstItem() ?? 0 }}–{{ $rates->lastItem() ?? 0 }} visualizzate</p>
+        <div class="rate-grid">
+        @forelse($rates as $rate)
+            <article @class(['surface','rate-card','is-inactive'=>!$rate->active]) data-rate="{{ json_encode($rate) }}">
+                <header><span class="eyebrow">{{ $rate->area ?: 'Località' }}</span><span class="status-badge">{{ $rate->archived_at ? 'Archiviata' : ($rate->active ? 'Attiva' : 'Disattivata') }}</span></header>
+                <h2>{{ $rate->city }}</h2><p class="rate-location">{{ collect([$rate->zone, $rate->postal_code ? 'CAP '.$rate->postal_code : null, $rate->street])->filter()->join(' · ') ?: 'Intera località' }}</p>
+                <div class="rate-price"><span>Costo spedizione</span><strong>{{ \App\Support\Money::format($rate->price_cents) }}</strong></div>
+                <p class="rate-time"><x-ui.icon name="clock"/> {{ $rate->delivery_time ?: 'Tempi da confermare' }}</p>
+                @if(auth()->user()->role === \App\UserRole::Admin)
+                <footer class="card-toolbar">
+                    @if(!$rate->archived_at)
+                    <button type="button" class="state-switch" role="switch" aria-checked="{{ $rate->active ? 'true' : 'false' }}" aria-label="Disponibilità tariffa {{ $rate->city }}" data-rate-toggle data-tooltip="{{ $rate->active ? 'Disattiva tariffa' : 'Attiva tariffa' }}"><span></span></button>
+                    <div class="actions"><x-ui.icon-button icon="pencil" label="Modifica tariffa" data-rate-edit/><x-ui.icon-button icon="trash" label="Archivia tariffa" variant="danger" data-rate-archive/></div>
+                    @endif
+                    <x-ui.icon-button icon="clock-history" label="Storico tariffa" data-rate-history/>
+                </footer>
+                @endif
+            </article>
+        @empty<div class="surface empty-state"><x-ui.icon name="geo-alt"/><h2>Nessuna tariffa trovata</h2><p>Modifica la ricerca o aggiungi una nuova località.</p></div>@endforelse
+        </div>
+        {{ $rates->links() }}
+    </div>
+    @if(auth()->user()->role === \App\UserRole::Admin)
+    <x-ui.modal id="rate-editor" title="Nuova tariffa" description="Definisci dove consegniamo e il costo della spedizione.">
+        <form data-rate-form class="form-stack">
+            <div class="modal-content-area field-grid">
+                <x-ui.field name="city" id="rate-city" label="Località" maxlength="100" required/>
+                <x-ui.field name="area" id="rate-area" label="Area" maxlength="100"/>
+                <x-ui.field name="postal_code" id="rate-postal" label="CAP (facoltativo)" pattern="[0-9]{5}" maxlength="5" inputmode="numeric"/>
+                <x-ui.field name="zone" id="rate-zone" label="Zona (facoltativa)" maxlength="100"/>
+                <x-ui.field name="street" id="rate-street" label="Via (facoltativa)" maxlength="255"/>
+                <x-ui.field name="price" id="rate-price" label="Costo spedizione (€)" inputmode="decimal" pattern="[0-9]{1,6}([.,][0-9]{1,2})?" required/>
+                <x-ui.field name="delivery_time" id="rate-time" label="Tempi di consegna" maxlength="100"/>
+                <x-ui.field name="source_reference" id="rate-source" label="Riferimento della tariffa" maxlength="255" required/>
+                <label class="switch-label"><input type="checkbox" name="active" checked/> Disponibile per nuove spedizioni</label>
+            </div>
+            <p class="modal-feedback" role="alert" data-modal-error></p>
+            <footer class="modal-actions"><button type="button" class="btn btn-light" data-dialog-close>Annulla</button><button class="btn btn-primary" type="submit">Salva tariffa</button></footer>
+        </form>
+    </x-ui.modal>
+    <x-ui.modal id="rate-archive" title="Archiviare questa tariffa?" description="La tariffa non sarà più disponibile per nuove prenotazioni. Prezzi e ordini storici resteranno conservati." danger>
+        <p class="confirmation-summary" data-archive-summary></p><p role="alert" data-modal-error></p><footer class="modal-actions"><button type="button" class="btn btn-light" data-dialog-close>Annulla</button><button type="button" class="btn btn-danger" data-archive-confirm>Archivia tariffa</button></footer>
+    </x-ui.modal>
+    <x-ui.modal id="rate-history" title="Storico tariffa" description="Versioni conservate per ricostruire le variazioni."><div class="modal-content-area" data-history-content></div><footer class="modal-actions"><button type="button" class="btn btn-light" data-dialog-close>Chiudi</button></footer></x-ui.modal>
+    @endif
+</x-app-layout>

@@ -24,7 +24,7 @@ class CustomerPortalTest extends TestCase
 
     private function payload(): array
     {
-        return ['payment_method' => 'cash', 'pickup_street_number' => '10', 'pickup_postal_code' => '80100', 'delivery_street_number' => '20', 'delivery_postal_code' => '81100', 'package_type' => 'standard', 'recipient_name' => 'Mario Rossi', 'recipient_phone' => '+393331234567', 'pickup_address' => 'Via Roma 1', 'pickup_city' => 'Napoli', 'delivery_address' => 'Via Milano 2', 'delivery_city' => 'Caserta', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 2, 'category' => 'clothing', 'urgency' => 'standard', 'customer_notes' => 'Citofono Rossi'];
+        return ['parcel_value' => '50', 'payment_method' => 'cash', 'pickup_street_number' => '10', 'pickup_postal_code' => '80100', 'delivery_street_number' => '20', 'delivery_postal_code' => '81100', 'package_type' => 'standard', 'recipient_name' => 'Mario Rossi', 'recipient_phone' => '+393331234567', 'pickup_address' => 'Via Roma 1', 'pickup_city' => 'Napoli', 'delivery_address' => 'Via Milano 2', 'delivery_city' => 'Caserta', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 2, 'category' => 'clothing', 'urgency' => 'standard', 'customer_notes' => 'Citofono Rossi'];
     }
 
     public function test_customer_auth_is_separate_and_cannot_accept_rider_credentials(): void
