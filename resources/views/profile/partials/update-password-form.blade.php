@@ -4,6 +4,6 @@
         <x-ui.field name="current_password" id="current-password" bag="updatePassword" label="Password attuale" type="password" autocomplete="current-password" required />
         <x-ui.field name="password" id="new-password" bag="updatePassword" label="Nuova password" type="password" autocomplete="new-password" minlength="8" help="Almeno 8 caratteri." required />
         <x-ui.field name="password_confirmation" id="confirm-password" bag="updatePassword" label="Conferma nuova password" type="password" autocomplete="new-password" required />
-        <div><button class="btn btn-primary" type="submit">Aggiorna password</button></div>
+        <div><x-ui.icon-button action="edit" label="Aggiorna password" type="submit" /></div>
     </form>
 </section>

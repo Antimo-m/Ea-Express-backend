@@ -1,13 +1,13 @@
 <x-app-layout title="Statistiche clienti">
     <header class="page-heading"><div><span class="eyebrow">ANALISI PER ACCOUNT</span><h1>Statistiche clienti</h1><p>Chi spedisce, quali tariffe utilizza e quanto genera.</p></div><span class="count-badge">{{ $stores->total() }} account / gruppi</span></header>
-    <form method="get" class="filter-bar surface">
+    <x-ui.filters :reset="route('stores.index')">
         <x-ui.field name="q" label="Cerca account" :value="request('q')" placeholder="Nome dell’account"/>
         <div><label class="form-label" for="period">Periodo</label><select class="form-select" id="period" name="period">@foreach(['today'=>'Oggi','week'=>'Settimana','month'=>'Mese','custom'=>'Intervallo'] as $value=>$label)<option value="{{ $value }}" @selected(request('period','month')===$value)>{{ $label }}</option>@endforeach</select></div>
         <x-ui.field name="from" label="Dal" type="date" :value="$period->start->toDateString()"/>
         <x-ui.field name="to" label="Al" type="date" :value="$period->end->toDateString()"/>
         <div><label for="status" class="form-label">Stato</label><select id="status" name="status" class="form-select"><option value="">Tutti</option>@foreach(\App\OrderStatus::cases() as $status)<option value="{{ $status->value }}" @selected(request('status')===$status->value)>{{ $status->label() }}</option>@endforeach</select></div>
-        <button class="btn btn-primary"><x-ui.icon name="filter"/>Applica</button>
-    </form>
+
+    </x-ui.filters>
     <p class="data-caption">Prezzi finali salvati · annullati e rifiutati esclusi dagli importi · conteggio per spedizione, non per collo.</p>
     <div class="account-list">
     @forelse($stores as $store)

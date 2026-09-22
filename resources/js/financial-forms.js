@@ -2,20 +2,24 @@ export function bindFinancialForms(root = document) {
     for (const form of root.querySelectorAll('[data-financial-form]')) {
         if (form.dataset.financialBound) continue;
         form.dataset.financialBound = 'true';
-        const button = form.querySelector('button[type="submit"], button:not([type])');
+        let button = form.querySelector('button[type="submit"], button:not([type])');
         const feedback = document.createElement('p');
         feedback.setAttribute('role', 'status');
-        feedback.className = 'small mt-2';
+        feedback.className = 'form-feedback small mt-2';
         form.append(feedback);
         let busy = false;
         form.addEventListener('submit', async event => {
             event.preventDefault();
             if (busy) return;
             busy = true;
-            const label = button.textContent;
+            button = event.submitter || button;
+            const label = button.innerHTML;
+            const accessibleLabel = button.getAttribute('aria-label');
             const data = new FormData(form);
+            if (event.submitter?.name) data.append(event.submitter.name, event.submitter.value);
             button.disabled = true;
-            button.textContent = 'Salvataggio…';
+            button.setAttribute('aria-busy', 'true');
+            button.setAttribute('aria-label', 'Salvataggio in corso');
             form.setAttribute('aria-busy', 'true');
             feedback.textContent = '';
             try {
@@ -32,13 +36,16 @@ export function bindFinancialForms(root = document) {
                 }
                 feedback.textContent = result.message || 'Operazione registrata.';
                 sessionStorage.setItem('ea:financial-feedback', feedback.textContent);
-                location.assign(result.redirect);
+                form.closest('dialog')?.close();
+                location.assign(result.redirect || location.href);
             } catch (error) {
                 feedback.textContent = error instanceof TypeError ? 'Connessione interrotta. Controlla il bilancio: il salvataggio potrebbe essere già riuscito.' : error.message;
                 feedback.setAttribute('role', 'alert');
                 busy = false;
                 button.disabled = false;
-                button.textContent = label;
+                button.innerHTML = label;
+                button.removeAttribute('aria-busy');
+                if (accessibleLabel) button.setAttribute('aria-label', accessibleLabel);
                 form.removeAttribute('aria-busy');
             }
         });

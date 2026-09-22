@@ -136,3 +136,20 @@ if (quoteBox) {
 }
 
 document.querySelector('[data-print-all-labels]')?.addEventListener('click', (event) => { const form = event.target.closest('form'); form.querySelectorAll('input[name="ids[]"]').forEach(box => { box.checked = true; }); form.requestSubmit(); });
+
+const pendingPublicForms = new WeakSet();
+document.addEventListener('submit', event => {
+    const form = event.target;
+    if (!form.matches('[data-prevent-repeat]') || event.defaultPrevented) return;
+    if (pendingPublicForms.has(form)) { event.preventDefault(); return; }
+    pendingPublicForms.add(form);
+    form.setAttribute('aria-busy', 'true');
+    queueMicrotask(() => form.querySelectorAll('button[type="submit"], button:not([type])').forEach(button => { button.disabled = true; }));
+});
+window.addEventListener('pageshow', event => {
+    if (!event.persisted) return;
+    document.querySelectorAll('[data-prevent-repeat]').forEach(form => {
+        pendingPublicForms.delete(form); form.removeAttribute('aria-busy');
+        form.querySelectorAll('button').forEach(button => { button.disabled = false; });
+    });
+});
