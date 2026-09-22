@@ -27,7 +27,7 @@ class Order extends Model
 
     protected function casts(): array
     {
-        return ['pricing_version' => 'integer', 'quoted_price_cents' => 'integer', 'rate_snapshot' => 'array', 'payment_proposed_at' => 'datetime', 'payment_confirmed_at' => 'datetime', 'packages' => 'array', 'conversation_expires_at' => 'datetime', 'status' => OrderStatus::class, 'pickup_date' => 'date', 'rejected_at' => 'datetime', 'tracking_started_at' => 'datetime', 'delivered_at' => 'datetime', 'paid_at' => 'datetime', 'estimated_at' => 'datetime', 'price_cents' => 'integer', 'parcel_value_cents' => 'integer', 'version' => 'integer'];
+        return ['receipt_voided_at' => 'datetime', 'pricing_version' => 'integer', 'quoted_price_cents' => 'integer', 'rate_snapshot' => 'array', 'payment_proposed_at' => 'datetime', 'payment_confirmed_at' => 'datetime', 'packages' => 'array', 'conversation_expires_at' => 'datetime', 'status' => OrderStatus::class, 'pickup_date' => 'date', 'rejected_at' => 'datetime', 'tracking_started_at' => 'datetime', 'delivered_at' => 'datetime', 'paid_at' => 'datetime', 'estimated_at' => 'datetime', 'price_cents' => 'integer', 'parcel_value_cents' => 'integer', 'version' => 'integer'];
     }
 
     /** @return array<string, mixed> */
@@ -36,8 +36,8 @@ class Order extends Model
         return [
             'method' => $this->payment_method,
             'method_label' => PaymentMethod::Labels[$this->payment_method] ?? 'Non registrato (storico)',
-            'state' => $this->paid_at ? 'paid' : ($this->payment_confirmed_at ? 'agreed' : ($this->payment_method ? 'proposed' : 'unrecorded')),
-            'label' => $this->paid_at ? 'Pagato' : ($this->payment_confirmed_at ? 'Concordato' : ($this->payment_method ? 'In attesa di conferma' : 'Metodo non registrato')),
+            'state' => $this->receipt_voided_at ? 'voided' : ($this->paid_at ? 'paid' : ($this->payment_confirmed_at ? 'agreed' : ($this->payment_method ? 'proposed' : 'unrecorded'))),
+            'label' => $this->receipt_voided_at ? 'Incasso stornato' : ($this->paid_at ? 'Pagato' : ($this->payment_confirmed_at ? 'Concordato' : ($this->payment_method ? 'In attesa di conferma' : 'Metodo non registrato'))),
             'proposed_by' => $this->payment_proposed_by,
             'proposed_at' => $this->payment_proposed_at?->toIso8601String(),
             'confirmed_by' => $this->payment_confirmed_by,

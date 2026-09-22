@@ -1,3 +1,4 @@
+import './report-charts';
 import './data-tables';
 import './confirmations';
 import './booking-form';

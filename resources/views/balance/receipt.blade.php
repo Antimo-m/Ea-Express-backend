@@ -1,2 +1,34 @@
-<article class="surface p-4 mb-3"><div class="d-flex justify-content-between flex-wrap gap-3"><div><a class="fw-semibold" href="{{ route('orders.show', $order) }}">{{ $order->store_name }}</a><p class="small text-secondary text-break mb-1">{{ $order->reference }}</p><span>{{ \App\Support\Money::format($order->price_cents) }} · {{ $order->paid_at ? 'Incasso registrato' : 'Da incassare' }}</span></div>@if($order->pendingAccount && $order->pendingAccount->state!=='cancelled')<span class="status-pill tone-orange">{{ $order->pendingAccount->state==='paid'?'SALDATO':'SOSPESO' }}</span>@if(auth()->user()->role===\App\UserRole::Admin)<a class="btn btn-outline-primary" href="{{ route('pending.index',['id'=>$order->pendingAccount->id]) }}">Gestisci nei sospesi</a>@endif @else<x-ui.action-dialog :id="'receipt-'.$order->id" :action="$order->paid_at ? 'edit' : 'receive'" :title="$order->paid_at ? 'Storna incasso' : 'Registra incasso'" :description="$order->reference"><form method="post" action="{{ route('payments.store', $order) }}" data-financial-form class="form-stack mt-3">@csrf<input type="hidden" name="version" value="{{ $order->version }}"><input type="hidden" name="action" value="{{ $order->paid_at ? 'reverse' : 'receive' }}">@unless($order->paid_at)<label for="payment-method-{{ $order->id }}">Metodo di pagamento</label><select class="form-select" id="payment-method-{{ $order->id }}" name="method" required><option value="">Seleziona il metodo</option>@foreach(\App\Support\PaymentMethod::Labels as $value => $label)<option value="{{ $value }}" @selected($order->payment_method === $value)>{{ $label }}</option>@endforeach</select>@endunless
-@if($order->paid_at)<x-ui.field name="note" :id="'payment-note-'.$order->id" label="Motivo dello storno" maxlength="500" required />@endif<x-ui.icon-button type="submit" :action="$order->paid_at ? 'delete' : 'receive'" :label="$order->paid_at ? 'Conferma storno' : 'Registra incasso'" :data-confirm="$order->paid_at ? 'Conferma storno' : null" :data-confirm-name="$order->reference" /></form></x-ui.action-dialog>@endif</div></article>
+<article class="surface receipt-row">
+    <div class="receipt-identity">
+        <a class="fw-semibold" href="{{ route('orders.show', $order) }}">{{ $order->store_name }}</a>
+        <p class="small text-secondary text-break mb-1">{{ $order->reference }}</p>
+        <strong>{{ \App\Support\Money::format($order->price_cents) }}</strong>
+        @if($order->receipt_voided_at)<p class="small text-secondary mb-0">Stornato il {{ $order->receipt_voided_at->timezone('Europe/Rome')->format('d/m/Y H:i') }} · {{ $order->receipt_void_reason }}</p>@endif
+    </div>
+    <div class="row-actions">
+        @if($order->pendingAccount && $order->pendingAccount->state !== 'cancelled')
+            <x-ui.pending-status :account="$order->pendingAccount" />
+            @if(auth()->user()->role === \App\UserRole::Admin)<a class="btn btn-outline-primary btn-sm" href="{{ route('pending.index', ['id' => $order->pendingAccount->id, 'direction' => $order->pendingAccount->direction]) }}">Gestisci sospeso</a>@endif
+        @else
+            @unless($order->paid_at || $order->receipt_voided_at)
+                <x-ui.action-dialog :id="'receipt-'.$order->id" action="receive" title="Registra incasso" :description="$order->reference">
+                    <form method="post" action="{{ route('payments.store', $order) }}" data-financial-form class="form-stack">
+                        @csrf<input type="hidden" name="version" value="{{ $order->version }}"><input type="hidden" name="action" value="receive">
+                        <label for="payment-method-{{ $order->id }}">Metodo di pagamento</label>
+                        <select class="form-select" id="payment-method-{{ $order->id }}" name="method" required><option value="">Seleziona il metodo</option>@foreach(\App\Support\PaymentMethod::Labels as $value => $label)<option value="{{ $value }}" @selected($order->payment_method === $value)>{{ $label }}</option>@endforeach</select>
+                        <x-ui.icon-button type="submit" action="receive" label="Registra incasso" text />
+                    </form>
+                </x-ui.action-dialog>
+            @endunless
+            <x-ui.action-dialog :id="'receipt-state-'.$order->id" :action="$order->receipt_voided_at ? 'restore' : 'delete'" :title="$order->receipt_voided_at ? 'Ripristina incasso' : 'Storna incasso'" :description="$order->reference">
+                <form method="post" action="{{ route('payments.store', $order) }}" data-financial-form class="form-stack">
+                    @csrf<input type="hidden" name="version" value="{{ $order->version }}"><input type="hidden" name="action" value="{{ $order->receipt_voided_at ? 'restore' : 'reverse' }}">
+                    <p class="text-secondary small">{{ $order->receipt_voided_at ? 'Il ripristino riporta la spedizione tra gli incassi da registrare. Non registra un pagamento.' : ($order->paid_at ? 'Lo storno compensa l’incasso registrato e lo sposta in Storni.' : 'L’incasso viene spostato in Storni. Nessuna uscita di cassa viene registrata perché non è stato ricevuto denaro.') }}</p>
+                    <x-ui.field name="note" :id="'receipt-reason-'.$order->id" :label="$order->receipt_voided_at ? 'Motivo del ripristino' : 'Motivo dello storno'" maxlength="500" required />
+                    <x-ui.icon-button type="submit" :action="$order->receipt_voided_at ? 'restore' : 'delete'" :label="$order->receipt_voided_at ? 'Ripristina incasso' : 'Conferma storno'" text />
+                </form>
+            </x-ui.action-dialog>
+        @endif
+        @if(auth()->user()->role === \App\UserRole::Admin)<x-ui.icon-button action="history" label="Storico dell’incasso" :href="route('audits.index', ['type' => 'orders', 'id' => $order->id])" />@endif
+    </div>
+</article>

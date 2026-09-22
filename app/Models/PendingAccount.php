@@ -18,6 +18,27 @@ class PendingAccount extends Model
         return ['amount_cents' => 'integer', 'settled_cents' => 'integer', 'occurred_on' => 'date', 'due_on' => 'date', 'settled_at' => 'datetime', 'version' => 'integer'];
     }
 
+    public function statusLabel(): string
+    {
+        return match ($this->state) {
+            'paid' => 'Saldato', 'partially_paid' => 'Parziale', 'cancelled' => 'Annullato', default => 'Non pagato',
+        };
+    }
+
+    public function statusTone(): string
+    {
+        return match ($this->state) {
+            'paid' => 'green', 'cancelled' => 'danger', default => 'orange',
+        };
+    }
+
+    public function refreshSettlementState(): void
+    {
+        $this->settled_cents = (int) $this->settlements()->sum('amount_cents');
+        $this->state = $this->settled_cents === $this->amount_cents ? 'paid' : ($this->settled_cents > 0 ? 'partially_paid' : 'open');
+        $this->settled_at = $this->state === 'paid' ? ($this->settled_at ?? now()) : null;
+    }
+
     public function settlements(): HasMany
     {
         return $this->hasMany(PendingSettlement::class);

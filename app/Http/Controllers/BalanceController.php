@@ -37,8 +37,8 @@ class BalanceController extends Controller
         $generalQuery = PendingSettlement::whereHas('account', fn ($q) => $q->where('direction', 'incoming')->whereNull('order_id')->when($customerId, fn ($q) => $q->where('customer_id', $customerId)))->when($request->user()->role !== UserRole::Admin, fn ($q) => $q->where('user_id', $request->user()->id))->whereBetween('created_at', $period->utcRange());
         $generalReceipts = (int) (clone $generalQuery)->sum('amount_cents');
         $cash += (int) $generalReceipts;
-        $receivableIds = (clone $completed)->whereNull('paid_at')->select('id');
-        $outstanding = (int) (clone $completed)->whereNull('paid_at')->sum('price_cents') - (int) PaymentEntry::whereIn('order_id', $receivableIds)->sum('amount_cents');
+        $receivableIds = (clone $completed)->whereNull('paid_at')->whereNull('receipt_voided_at')->select('id');
+        $outstanding = (int) (clone $completed)->whereNull('paid_at')->whereNull('receipt_voided_at')->sum('price_cents') - (int) PaymentEntry::whereIn('order_id', $receivableIds)->sum('amount_cents');
         $spent = (int) (clone $expenses)->whereNull('voided_at')->sum('amount_cents');
         $summaries = [];
         foreach (['Oggi' => now('Europe/Rome')->startOfDay(), 'Questa settimana' => now('Europe/Rome')->startOfWeek(), 'Questo mese' => now('Europe/Rome')->startOfMonth()] as $label => $since) {
@@ -65,7 +65,8 @@ class BalanceController extends Controller
             'generalEntries' => $generalQuery->with(['account', 'user'])->latest()->orderByDesc('id')->paginate(10, ['*'], 'general_page')->withQueryString(), 'summaries' => $summaries, 'earned' => (int) (clone $completed)->sum('price_cents'), 'completedCount' => (clone $completed)->count(),
             'cancelledCount' => (clone $orders)->where('status', OrderStatus::Cancelled)->whereBetween('updated_at', $period->utcRange())->count(),
             'outstanding' => $outstanding, 'generalReceipts' => (int) $generalReceipts, 'cash' => $cash, 'spent' => $spent, 'net' => $cash - $spent,
-            'orders' => (clone $completed)->whereNull('paid_at')->with('pendingAccount')->latest('delivered_at')->orderByDesc('id')->paginate(10, ['*'], 'orders_page')->withQueryString(),
+            'orders' => (clone $completed)->whereNull('paid_at')->whereNull('receipt_voided_at')->with('pendingAccount')->latest('delivered_at')->orderByDesc('id')->paginate(10, ['*'], 'orders_page')->withQueryString(),
+            'reversedOrders' => (clone $completed)->whereNotNull('receipt_voided_at')->with('pendingAccount')->latest('receipt_voided_at')->orderByDesc('id')->paginate(10, ['*'], 'reversed_page')->withQueryString(),
             'recordedOrders' => (clone $completed)->whereNotNull('paid_at')->with('pendingAccount')->latest('delivered_at')->orderByDesc('id')->paginate(10, ['*'], 'recorded_page')->withQueryString(),
             'expenses' => $expenses->with(['user:id,name', 'pendingSettlement.account'])->latest('spent_on')->orderByDesc('id')->paginate(10, ['*'], 'expenses_page')->withQueryString(),
             'payments' => $payments->with(['order:id,reference', 'user:id,name'])->latest()->orderByDesc('id')->paginate(10, ['*'], 'payments_page')->withQueryString(),

@@ -15,6 +15,7 @@ use App\Http\Controllers\OrderLabelController;
 use App\Http\Controllers\PaymentAgreementController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PendingAccountController;
+use App\Http\Controllers\PendingSettlementController;
 use App\Http\Controllers\PickupGroupController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RealtimeController;
@@ -79,6 +80,7 @@ Route::middleware(['auth', EnsureStaff::class, EnsurePhoneVerified::class])->gro
     Route::post('/pending', [PendingAccountController::class, 'store'])->middleware('throttle:writes')->name('pending.store');
     Route::patch('/pending/{account}', [PendingAccountController::class, 'update'])->middleware('throttle:writes')->name('pending.update');
     Route::post('/pending/{account}/settlements', [PendingAccountController::class, 'settle'])->middleware('throttle:writes')->name('pending.settle');
+    Route::patch('/pending/{account}/settlements/{settlement}', [PendingSettlementController::class, 'update'])->middleware('throttle:writes')->name('pending.settlements.update');
     Route::get('/economic-audits', [EconomicAuditController::class, 'index'])->name('audits.index');
     Route::get('/balance', [BalanceController::class, 'index'])->name('balance.index');
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');

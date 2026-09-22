@@ -15,7 +15,7 @@ class StoreReportController extends Controller
     public function index(Request $request, OrderStatistics $statistics): View
     {
         $period = $statistics->period($request);
-        $filters = $request->validate(['status' => ['nullable', Rule::enum(OrderStatus::class)], 'sender_type' => ['nullable', 'in:business,private,online_shop'], 'tariff' => ['nullable', 'integer', 'min:0'], 'q' => ['nullable', 'string', 'max:150']]);
+        $filters = $request->validate(['status' => ['nullable', Rule::enum(OrderStatus::class)], 'sender_type' => ['nullable', 'in:business,private,online_shop'], 'tariff' => ['nullable', 'integer', 'min:0'], 'q' => ['nullable', 'string', 'max:150'], 'sort' => ['nullable', 'in:volume,value,delivered,name'], 'order' => ['nullable', 'in:asc,desc']]);
         $query = Order::financialFor($request->user())->whereBetween('created_at', $period->utcRange());
         foreach (['status', 'sender_type'] as $field) {
             if (! empty($filters[$field])) {
@@ -23,12 +23,23 @@ class StoreReportController extends Controller
             }
         }
         if (! empty($filters['q'])) {
-            $query->whereHas('customer', fn ($account) => $account->where('name', 'like', '%'.$filters['q'].'%'));
+            $query->whereHas('customer', fn ($account) => $account->where(fn ($identity) => $identity->where('name', 'like', '%'.$filters['q'].'%')->orWhere('email', 'like', '%'.$filters['q'].'%')));
         }
         $detailOrders = null;
         $detailQuery = null;
-        $stores = (clone $query)->selectRaw("customer_id, COUNT(*) AS orders_count, SUM(CASE WHEN status='delivered' THEN 1 ELSE 0 END) AS delivered_count, SUM(CASE WHEN status NOT IN ('cancelled','rejected') THEN COALESCE(price_cents,0) ELSE 0 END) AS total_cents")
-            ->groupBy('customer_id')->orderBy('customer_id')->paginate(30)->withQueryString();
+        $summary = $statistics->summarize(clone $query);
+        $accountCount = (clone $query)->whereNotNull('customer_id')->distinct()->count('customer_id');
+        $sort = $filters['sort'] ?? 'volume';
+        $sortDirection = $filters['order'] ?? 'desc';
+        $storeQuery = (clone $query)->selectRaw("customer_id, COUNT(*) AS orders_count, SUM(CASE WHEN status='delivered' THEN 1 ELSE 0 END) AS delivered_count, SUM(CASE WHEN status NOT IN ('cancelled','rejected') THEN COALESCE(price_cents,0) ELSE 0 END) AS total_cents")
+            ->groupBy('customer_id');
+        $sortColumn = ['volume' => 'orders_count', 'value' => 'total_cents', 'delivered' => 'delivered_count'][$sort] ?? null;
+        if ($sortColumn) {
+            $storeQuery->orderBy($sortColumn, $sortDirection);
+        } else {
+            $storeQuery->orderBy(User::select('name')->whereColumn('users.id', 'orders.customer_id')->limit(1), $sortDirection);
+        }
+        $stores = $storeQuery->orderBy('customer_id')->paginate(30)->withQueryString();
         $accountIds = $stores->pluck('customer_id')->filter()->all();
         $hasUnassigned = $stores->contains(fn ($store) => $store->customer_id === null);
         $priceQuery = (clone $query)->where(function ($selection) use ($accountIds, $hasUnassigned): void {
@@ -54,6 +65,6 @@ class StoreReportController extends Controller
             $detailOrders = $detailQuery->whereNotIn('status', [OrderStatus::Cancelled, OrderStatus::Rejected])->whereNotNull('price_cents')->when(isset($filters['tariff']), fn ($q) => $q->where('price_cents', $filters['tariff']))->latest()->orderByDesc('id')->paginate(15, ['*'], 'detail_page')->withQueryString();
         }
 
-        return view('stores.index', compact('detailName', 'accountPrices', 'stores', 'customers', 'period', 'detail', 'detailOrders'));
+        return view('stores.index', compact('detailName', 'accountPrices', 'stores', 'customers', 'period', 'detail', 'detailOrders', 'summary', 'accountCount'));
     }
 }
