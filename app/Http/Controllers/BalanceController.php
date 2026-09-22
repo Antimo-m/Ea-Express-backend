@@ -62,11 +62,11 @@ class BalanceController extends Controller
             'period' => $period, 'customers' => $customers, 'extraIncome' => $extraIncome, 'extraExpenses' => $extraExpenses, 'adjustments' => $adjustments, 'operatingNet' => $operatingNet, 'pendingIncoming' => $pendingIncoming, 'pendingOutgoing' => $pendingOutgoing, 'pendingImpact' => $pendingImpact, 'finalNet' => $finalNet,
             'pendingCount' => (clone $pendingQuery)->count(),
             'pendingDetails' => $pendingQuery->with(['customer', 'order'])->orderBy('occurred_on')->orderBy('id')->paginate(15, ['*'], 'pending_page')->withQueryString(),
-            'manualMovements' => $manual->with(['customer', 'order', 'user'])->latest('occurred_on')->orderByDesc('id')->paginate(15, ['*'], 'manual_page')->withQueryString(),
             'generalEntries' => $generalQuery->with(['account', 'user'])->latest()->orderByDesc('id')->paginate(10, ['*'], 'general_page')->withQueryString(), 'summaries' => $summaries, 'earned' => (int) (clone $completed)->sum('price_cents'), 'completedCount' => (clone $completed)->count(),
             'cancelledCount' => (clone $orders)->where('status', OrderStatus::Cancelled)->whereBetween('updated_at', $period->utcRange())->count(),
             'outstanding' => $outstanding, 'generalReceipts' => (int) $generalReceipts, 'cash' => $cash, 'spent' => $spent, 'net' => $cash - $spent,
-            'orders' => $completed->with('pendingAccount')->latest('delivered_at')->orderByDesc('id')->paginate(10, ['*'], 'orders_page')->withQueryString(),
+            'orders' => (clone $completed)->whereNull('paid_at')->with('pendingAccount')->latest('delivered_at')->orderByDesc('id')->paginate(10, ['*'], 'orders_page')->withQueryString(),
+            'recordedOrders' => (clone $completed)->whereNotNull('paid_at')->with('pendingAccount')->latest('delivered_at')->orderByDesc('id')->paginate(10, ['*'], 'recorded_page')->withQueryString(),
             'expenses' => $expenses->with(['user:id,name', 'pendingSettlement.account'])->latest('spent_on')->orderByDesc('id')->paginate(10, ['*'], 'expenses_page')->withQueryString(),
             'payments' => $payments->with(['order:id,reference', 'user:id,name'])->latest()->orderByDesc('id')->paginate(10, ['*'], 'payments_page')->withQueryString(),
         ]);

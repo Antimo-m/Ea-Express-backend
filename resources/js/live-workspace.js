@@ -1,6 +1,7 @@
 import { connectWorkspace } from './workspace-realtime';
 import { observeMessageReceipts } from './message-receipts';
 import { createRefreshQueue } from './refresh-queue';
+import { bindFinancialForms } from './financial-forms';
 
 const regions = createRefreshQueue(async () => {
   if (!document.querySelector('[data-live-region]')) return;
@@ -9,8 +10,9 @@ const regions = createRefreshQueue(async () => {
   const fresh = new DOMParser().parseFromString(await response.text(), 'text/html');
   for (const region of document.querySelectorAll('[data-live-region]')) {
     const replacement = fresh.querySelector(`[data-live-region="${region.dataset.liveRegion}"]`);
-    if (region.contains(document.activeElement) && document.activeElement.matches('input,select,textarea')) continue;
+    if (region.querySelector('dialog[open], form[aria-busy="true"]') || (region.contains(document.activeElement) && document.activeElement.matches('input,select,textarea'))) continue;
     if (replacement) region.replaceChildren(...replacement.childNodes);
+    bindFinancialForms(region);
   }
 });
 let realtimeConnected = false;
@@ -72,18 +74,20 @@ if (chat) {
 let updating = false;
 window.addEventListener('ea:workspace-updated', async event => {
   const section = document.querySelector('[data-live-order]');
-  if (!section || updating || event.detail.kind === 'receipts' || event.detail.kind === 'messages' || (event.detail.order_id && Number(section.dataset.liveOrder) !== event.detail.order_id)) return;
+  if (!section || section.querySelector('dialog[open], form[aria-busy="true"]') || updating || event.detail.kind === 'receipts' || event.detail.kind === 'messages' || (event.detail.order_id && Number(section.dataset.liveOrder) !== event.detail.order_id)) return;
   updating = true;
   try {
     const response = await fetch(location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' } });
     if (!response.ok || response.redirected) return;
     const fresh = new DOMParser().parseFromString(await response.text(), 'text/html');
+    if (section.querySelector('dialog[open], form[aria-busy="true"]')) return;
     for (const selector of ['.order-overview', '.order-information', '.order-history']) {
       const current = section.querySelector(selector), replacement = fresh.querySelector(selector);
       if (current && replacement) current.replaceWith(replacement);
     }
     const workflow = section.querySelector('.order-workflow');
     if (workflow && !workflow.contains(document.activeElement)) workflow.replaceWith(fresh.querySelector('.order-workflow'));
+    bindFinancialForms(section);
   } finally { updating = false; }
 });
 

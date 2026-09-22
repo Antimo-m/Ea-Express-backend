@@ -53,3 +53,14 @@ Thumbs.db
 *.tar
 *.tar.gz
 *.crt
+
+# Test, fixture e risultati di verifica restano esclusivamente locali.
+/tests/
+/database/factories/
+/phpunit.xml
+/phpunit.xml.dist
+/coverage/
+/test-results/
+/playwright-report/
+*.test.*
+*.spec.*

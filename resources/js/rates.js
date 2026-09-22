@@ -1,6 +1,6 @@
 import { openDialog, closeDialog } from './dialogs';
+import { confirmAction } from './confirmations';
 const editor = document.querySelector('#rate-editor');
-const archive = document.querySelector('#rate-archive');
 const history = document.querySelector('#rate-history');
 const form = document.querySelector('[data-rate-form]');
 const feedback = document.querySelector('[data-rate-feedback]');
@@ -63,14 +63,27 @@ if (editor) {
             form.elements.price.value = selected ? (selected.price_cents / 100).toFixed(2) : '';
             form.elements.active.checked = selected ? selected.active : true;
             editor.querySelector('h2').textContent = selected ? 'Modifica tariffa' : 'Nuova tariffa';
+            const save = editor.querySelector('[data-rate-save]');
+            save.classList.toggle('action-add', !selected); save.classList.toggle('action-edit', !!selected);
+            save.querySelector('.bi').className = `bi bi-${selected ? 'pencil' : 'plus-lg'}`;
+            save.setAttribute('aria-label', selected ? 'Salva tariffa' : 'Aggiungi tariffa'); save.title = save.getAttribute('aria-label');
             openDialog(editor);
         } else if (button.matches('[data-rate-archive]')) {
-            archive.querySelector('[data-modal-error]').textContent = '';
-            archive.querySelector('[data-archive-summary]').textContent = [selected.city, selected.zone, selected.postal_code, money(selected.price_cents)].filter(Boolean).join(' · ');
-            openDialog(archive);
+            const rate = selected;
+            confirmAction({name: [rate.city, rate.zone, rate.postal_code, money(rate.price_cents)].filter(Boolean).join(' · '), action: 'Archivia tariffa', description: 'Le spedizioni precedenti mantengono il prezzo salvato.', onConfirm: async () => {
+                await request(`/rates/${rate.id}`, 'DELETE');
+                await refresh().catch(() => { feedback.textContent = 'Tariffa archiviata. Ricarica la pagina per aggiornare le card.'; });
+            }});
         } else if (button.matches('[data-rate-toggle]')) {
             const rate = selected;
-            await mutate(null, () => request(`/rates/${rate.id}/state`, 'PATCH', {active:!rate.active}));
+            if (rate.active) {
+                confirmAction({name: rate.city, action: 'Disattiva tariffa', description: 'La tariffa non sarà disponibile per nuove richieste.', onConfirm: async () => {
+                    await request(`/rates/${rate.id}/state`, 'PATCH', {active: false});
+                    await refresh().catch(() => { feedback.textContent = 'Tariffa disattivata. Ricarica la pagina per aggiornare le card.'; });
+                }});
+            } else {
+                await mutate(null, () => request(`/rates/${rate.id}/state`, 'PATCH', {active: true}));
+            }
         } else {
             const content = history.querySelector('[data-history-content]'); content.textContent = 'Caricamento…'; openDialog(history);
             try {
@@ -86,5 +99,4 @@ if (editor) {
         const id = selected?.id;
         mutate(editor, () => request(id ? `/rates/${id}` : '/rates', 'POST', data));
     });
-    document.querySelector('[data-archive-confirm]').addEventListener('click', () => {const id = selected.id; mutate(archive, () => request(`/rates/${id}`, 'DELETE'));});
 }

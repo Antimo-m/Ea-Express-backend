@@ -1,21 +1,27 @@
 export function openDialog(dialog) {
+    if (!dialog || dialog.open) return;
     dialog.returnFocus = document.activeElement;
     dialog.showModal();
-    dialog.querySelector('input:not([disabled]), button[data-dialog-close]')?.focus();
+    dialog.querySelector('input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])')?.focus();
 }
 export function closeDialog(dialog) {
-    if (dialog.getAttribute('aria-busy') === 'true') return;
+    if (dialog.getAttribute('aria-busy') === 'true' || dialog.querySelector('form[aria-busy="true"]')) return;
     dialog.close();
     if (dialog.returnFocus?.isConnected) dialog.returnFocus.focus();
     else document.querySelector('[data-rate-create]')?.focus();
 }
 document.addEventListener('click', event => {
+    const opener = event.target.closest('[data-dialog-open]');
+    if (opener) openDialog(document.getElementById(opener.dataset.dialogOpen));
     const button = event.target.closest('[data-dialog-close]');
     if (button) closeDialog(button.closest('dialog'));
 });
-for (const dialog of document.querySelectorAll('dialog')) {
-    dialog.addEventListener('cancel', event => { event.preventDefault(); closeDialog(dialog); });
-}
+document.addEventListener('cancel', event => {
+    if (!event.target.matches('dialog')) return;
+    event.preventDefault();
+    closeDialog(event.target);
+}, true);
+openDialog(document.querySelector('[data-dialog-initial="true"]'));
 
 document.addEventListener('keydown', event => {
     if (event.key !== 'Tab') return;

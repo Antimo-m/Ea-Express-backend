@@ -1,11 +1,11 @@
 <x-app-layout title="Listini">
     <header class="page-heading"><div><span class="eyebrow">RETE DI CONSEGNA</span><h1>Listini</h1><p>Località, tempi e costi. Un riferimento chiaro per ogni spedizione.</p></div>@if(auth()->user()->role === \App\UserRole::Admin)<x-ui.icon-button icon="plus-lg" label="Aggiungi tariffa" variant="primary" data-rate-create/>@endif</header>
-    <form method="get" class="filter-bar surface" data-rates-filter>
+    <x-ui.filters :reset="route('rates.index')" data-rates-filter>
         <x-ui.field name="q" label="Cerca località" :value="request('q')" placeholder="Città, CAP o zona"/>
         <div><label class="form-label" for="area">Area</label><select id="area" name="area" class="form-select"><option value="">Tutte le aree</option>@foreach($areas as $area)<option @selected(request('area')===$area)>{{ $area }}</option>@endforeach</select></div>
         @if(auth()->user()->role === \App\UserRole::Admin)<div><label class="form-label" for="state">Stato</label><select id="state" name="state" class="form-select">@foreach(['active'=>'Attive','inactive'=>'Disattivate','all'=>'Tutte le correnti','archived'=>'Archiviate'] as $value=>$label)<option value="{{ $value }}" @selected(request('state','active')===$value)>{{ $label }}</option>@endforeach</select></div>@endif
-        <button class="btn btn-secondary"><x-ui.icon name="filter"/>Filtra</button>
-    </form>
+
+    </x-ui.filters>
     <p class="operation-feedback" role="status" data-rate-feedback></p>
     <div id="rates-results">
         <p class="data-caption">{{ $rates->total() }} tariffe · {{ $rates->firstItem() ?? 0 }}–{{ $rates->lastItem() ?? 0 }} visualizzate</p>
@@ -45,11 +45,8 @@
                 <label class="switch-label"><input type="checkbox" name="active" checked/> Disponibile per nuove spedizioni</label>
             </div>
             <p class="modal-feedback" role="alert" data-modal-error></p>
-            <footer class="modal-actions"><button type="button" class="btn btn-light" data-dialog-close>Annulla</button><button class="btn btn-primary" type="submit">Salva tariffa</button></footer>
+            <footer class="modal-actions"><button type="button" class="btn btn-light" data-dialog-close>Annulla</button><x-ui.icon-button action="add" label="Aggiungi tariffa" type="submit" data-rate-save /></footer>
         </form>
-    </x-ui.modal>
-    <x-ui.modal id="rate-archive" title="Archiviare questa tariffa?" description="La tariffa non sarà più disponibile per nuove prenotazioni. Prezzi e ordini storici resteranno conservati." danger>
-        <p class="confirmation-summary" data-archive-summary></p><p role="alert" data-modal-error></p><footer class="modal-actions"><button type="button" class="btn btn-light" data-dialog-close>Annulla</button><button type="button" class="btn btn-danger" data-archive-confirm>Archivia tariffa</button></footer>
     </x-ui.modal>
     <x-ui.modal id="rate-history" title="Storico tariffa" description="Versioni conservate per ricostruire le variazioni."><div class="modal-content-area" data-history-content></div><footer class="modal-actions"><button type="button" class="btn btn-light" data-dialog-close>Chiudi</button></footer></x-ui.modal>
     @endif
