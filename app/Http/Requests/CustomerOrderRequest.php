@@ -23,9 +23,6 @@ class CustomerOrderRequest extends StoreOrderRequest
         $rules['customer_notes'] = ['nullable', 'string', 'max:2000'];
         $rules['checkout_token'] = [$this->routeIs('customer.checkout', 'customer.orders.review') ? 'nullable' : 'required', 'string', 'max:30000'];
         if ($this->route('order')) {
-            if ($this->input('delivery_window') === $this->route('order')?->delivery_window) {
-                $rules['delivery_window'] = ['nullable', 'string', 'max:150'];
-            }
             $rules['version'] = ['required', 'integer', 'min:1'];
         }
 

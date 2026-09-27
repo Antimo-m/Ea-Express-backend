@@ -38,7 +38,7 @@ class OrderStatistics
     }
 
     /** @return array<string,mixed> */
-    public function summarize(Builder $query): array
+    public function summarize(Builder $query, bool $includePrices = true): array
     {
         $row = (clone $query)->selectRaw("COUNT(*) AS total,
             COALESCE(SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END), 0) AS delivered,
@@ -55,7 +55,9 @@ class OrderStatistics
         $summary['in_progress'] = $summary['total'] - $summary['delivered'] - $summary['cancelled'];
         $summary['completion_percent'] = $summary['total'] ? round(100 * $summary['delivered'] / $summary['total'], 1) : 0;
         $summary['net_cents'] = $summary['gross_cents'] - $summary['delivered_spend_cents'];
-        $summary['prices'] = $this->prices($query);
+        if ($includePrices) {
+            $summary['prices'] = $this->prices($query);
+        }
 
         return $summary;
     }

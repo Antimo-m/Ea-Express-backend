@@ -2,7 +2,6 @@
 
 namespace App\Support;
 
-use App\Models\ShippingRate;
 use Illuminate\Validation\ValidationException;
 
 class PostalCodeResolver
@@ -21,22 +20,7 @@ class PostalCodeResolver
         if ($knownPlaces !== [] && $places === []) {
             $this->invalid('Provincia o regione non corrispondono al comune indicato.');
         }
-        $rates = ShippingRate::where('city_key', $key)->where('shipping_type', $shippingType)->where('active', true)->whereNull('archived_at')->where('is_default', false)->get()
-            ->filter(fn ($rate) => (! $rate->zone || ($zone && ShippingQuote::cityKey($rate->zone) === ShippingQuote::cityKey($zone))) && (! $rate->street || ($street && ShippingQuote::cityKey($rate->street) === ShippingQuote::cityKey($street))));
-        $specificity = $rates->map(fn ($rate) => (int) (bool) $rate->zone + (int) (bool) $rate->street)->max();
-        $rates = $rates->filter(fn ($rate) => (int) (bool) $rate->zone + (int) (bool) $rate->street === $specificity);
-        $codes = $rates->pluck('postal_code')->filter()->unique()->values();
         $postalCode = trim($postalCode ?? '');
-
-        if ($codes->isNotEmpty() && ! $rates->contains(fn ($rate) => ! $rate->postal_code)) {
-            if ($postalCode !== '' && $codes->containsStrict($postalCode)) {
-                return $postalCode;
-            }
-            if ($postalCode === '' && $codes->count() === 1) {
-                return $codes->first();
-            }
-            $this->invalid($postalCode === '' ? 'La località ha più CAP. Specifica il CAP della consegna o la zona.' : 'Il CAP non corrisponde alla località e alla zona del listino.');
-        }
 
         $matches = $places;
         if (count($matches) !== 1) {
@@ -47,12 +31,18 @@ class PostalCodeResolver
             return $postalCode;
         }
         if ($postalCode !== '') {
-            $this->invalid('Il CAP non corrisponde al comune indicato.');
+            $this->invalid('Il CAP inserito non corrisponde al Comune di consegna selezionato. Verifica il CAP e riprova.');
         }
         if (count($codes) === 1) {
             return $codes[0];
         }
         $this->invalid(count($codes) > 1 ? 'Il comune ha più CAP. Specifica il CAP della consegna; non è possibile sceglierlo automaticamente.' : 'Nessun CAP verificabile per questa località.');
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function places(string $city): array
+    {
+        return $this->municipalities()[ShippingQuote::cityKey($city)] ?? [];
     }
 
     /** @return array<string, array<int, array<string, mixed>>> */
@@ -62,7 +52,9 @@ class PostalCodeResolver
             $this->municipalities = [];
             $data = json_decode(file_get_contents(resource_path('italian-postal-codes.json')), true, 512, JSON_THROW_ON_ERROR);
             foreach ($data['municipalities'] as $place) {
-                $this->municipalities[ShippingQuote::cityKey($place['name'])][] = $place;
+                foreach ([$place['name'], ...($place['aliases'] ?? [])] as $name) {
+                    $this->municipalities[ShippingQuote::cityKey($name)][] = $place;
+                }
             }
         }
 

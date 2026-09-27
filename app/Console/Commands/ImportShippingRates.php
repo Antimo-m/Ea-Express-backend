@@ -6,6 +6,7 @@ use App\Actions\ReviseShippingRate;
 use App\Models\ShippingRate;
 use App\Models\User;
 use App\Support\Money;
+use App\Support\PostalCodeResolver;
 use App\Support\ShippingQuote;
 use App\UserRole;
 use Illuminate\Console\Command;
@@ -18,7 +19,7 @@ class ImportShippingRates extends Command
 
     protected $description = 'Importa versioni tariffarie senza alterare gli ordini storici';
 
-    public function handle(ReviseShippingRate $revise): int
+    public function handle(ReviseShippingRate $revise, PostalCodeResolver $resolver): int
     {
         $file = $this->argument('file');
         if (! is_file($file) || ! is_readable($file)) {
@@ -48,6 +49,18 @@ class ImportShippingRates extends Command
             }
             $data = array_map(fn ($v) => trim($v) === '' ? null : trim($v), array_combine($header, $values));
             $validator = Validator::make($data, ['area' => 'nullable|string|max:100', 'city' => 'required|string|max:100', 'postal_code' => ['nullable', 'regex:/^[0-9]{5}$/D'], 'price' => ['required', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'], 'delivery_time' => 'nullable|string|max:100', 'source_reference' => 'required|string|max:255']);
+            if (! $validator->fails()) {
+                $places = $resolver->places($data['city']);
+                if (count($places) !== 1 || ($data['postal_code'] && ! in_array($data['postal_code'], $places[0]['postal_codes'], true))) {
+                    fclose($handle);
+                    $this->error("Riga $line: Comune o CAP non verificabili. Nessuna tariffa importata.");
+
+                    return self::FAILURE;
+                }
+                $data['city'] = $places[0]['name'];
+                $data['postal_codes'] = $data['postal_code'] ? [$data['postal_code']] : $places[0]['postal_codes'];
+                $data['postal_code'] = count($data['postal_codes']) === 1 ? $data['postal_codes'][0] : null;
+            }
             $key = ShippingQuote::cityKey($data['city'] ?? '').'|'.($data['postal_code'] ?? '').'|'.($data['area'] ?? '');
             if ($validator->fails() || isset($seen[$key])) {
                 fclose($handle);

@@ -118,7 +118,10 @@ if (quoteBox) {
     const form = quoteBox.closest('form'); let timer; let requestNumber = 0;
     const loadQuote = () => {
         clearTimeout(timer); const current = ++requestNumber;
-        quoteBox.textContent = 'Tariffa da verificare';
+        quoteBox.textContent = 'Verifica Comune e CAP in corso…';
+        const territoryFeedback = form.querySelector('[data-territory-feedback]');
+        territoryFeedback.textContent = '';
+        for (const field of ['delivery_city', 'delivery_postal_code']) form.elements[field].removeAttribute('aria-invalid');
         timer = setTimeout(async () => {
             const city = form.elements.delivery_city.value.trim(); const postal = form.elements.delivery_postal_code.value.trim();
             if (!city || (postal && !/^[0-9]{5}$/.test(postal))) return;
@@ -127,7 +130,11 @@ if (quoteBox) {
                 const response = await fetch(`/rates/quote?${new URLSearchParams({city, postal_code: postal, shipping_type:form.elements.shipping_type.value, street:form.elements.delivery_address.value, zone:form.elements.delivery_zone.value, province:form.elements.delivery_province.value, region:form.elements.delivery_region.value})}`, {headers: {'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'}});
                 if (!response.ok) throw new Error('quote'); const data = await response.json();
                 if (current !== requestNumber) return;
-                if (!postal && data.available && data.postal_code) form.elements.delivery_postal_code.value = data.postal_code;
+                if (!postal && data.territory_valid && data.postal_code) form.elements.delivery_postal_code.value = data.postal_code;
+                territoryFeedback.textContent = data.territory_valid === false ? data.reason : '';
+                if (data.territory_valid === false) {
+                    for (const field of ['delivery_city', 'delivery_postal_code']) form.elements[field].setAttribute('aria-invalid', 'true');
+                }
                 quoteBox.textContent = data.available ? `Prezzo spedizione previsto: ${new Intl.NumberFormat('it-IT', {style:'currency', currency:'EUR'}).format(data.price_cents / 100)} · ${data.delivery_time || 'Tempi da verificare'}` : data.reason;
             } catch { if (current === requestNumber) quoteBox.textContent = 'Tariffa da verificare. Il servizio non è disponibile al momento.'; }
         }, 350);

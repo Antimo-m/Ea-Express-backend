@@ -25,7 +25,7 @@
                     @else
                         <rect x="{{ $x + $step * .2 }}" y="{{ 210 - $point['orders'] / $max * 175 }}" width="{{ $step * .6 }}" height="{{ $point['orders'] / $max * 175 }}" rx="3" class="chart-bar orders" />
                     @endif
-                    @if($index % 5 === 0 || $loop->last)<text x="{{ $x + $step / 2 }}" y="240" text-anchor="middle" class="chart-axis">{{ $point['label'] }}</text>@endif
+                    <text data-chart-tick="{{ $index }}" x="{{ $x + $step / 2 }}" y="240" text-anchor="middle" class="chart-axis">{{ $point['label'] }}</text>
                 </g>
             @endforeach
         </svg>
