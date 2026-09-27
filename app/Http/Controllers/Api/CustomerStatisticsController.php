@@ -16,12 +16,12 @@ class CustomerStatisticsController extends Controller
         $period = $statistics->period($request);
         $orders = Order::where('customer_id', $request->user()->id);
         $selected = (clone $orders)->whereBetween('created_at', $period->utcRange());
-        $summary = array_intersect_key($statistics->summarize($selected, false), array_flip(['total', 'delivered', 'cancelled', 'in_progress', 'completion_percent', 'regional_count', 'external_count']));
+        $summary = array_intersect_key($statistics->summarize($selected, false), array_flip(['total', 'delivered', 'cancelled', 'in_progress', 'completion_percent', 'regional_count', 'external_count', 'gross_cents', 'delivered_spend_cents', 'net_cents', 'missing_values']));
         $days = (int) $period->start->copy()->startOfDay()->diffInDays($period->end->copy()->startOfDay()) + 1;
         $previousPeriod = new ReportingPeriod($period->start->copy()->subDays($days), $period->start->copy()->subSecond());
         $comparison = array_intersect_key($statistics->summarize((clone $orders)->whereBetween('created_at', $previousPeriod->utcRange()), false), $summary);
         $changes = [];
-        foreach (['total', 'delivered', 'in_progress', 'cancelled'] as $metric) {
+        foreach (['total', 'delivered', 'in_progress', 'cancelled', 'gross_cents', 'delivered_spend_cents', 'net_cents'] as $metric) {
             $changes[$metric] = $comparison[$metric] !== 0 ? round(($summary[$metric] - $comparison[$metric]) * 100 / abs($comparison[$metric]), 1) : null;
         }
         $months = [];
@@ -36,6 +36,6 @@ class CustomerStatisticsController extends Controller
         $previous = (clone $orders)->whereBetween('created_at', [$previousStart->utc(), $previousEnd->utc()])->count();
         $current = $months[5]['shipments'];
 
-        return response()->json([...$summary, 'trend' => array_map(fn (array $point): array => array_intersect_key($point, array_flip(['date', 'shipments', 'delivered'])), $statistics->trend($selected, $period)), 'comparison' => $comparison, 'changes' => $changes, 'previous_from' => $previousPeriod->start->toDateString(), 'previous_to' => $previousPeriod->end->toDateString(), 'from' => $period->start->toDateString(), 'to' => $period->end->toDateString(), 'months' => $months, 'this_month' => $current, 'previous_comparable' => $previous, 'change_percent' => $previous ? round(($current - $previous) * 100 / $previous, 1) : null, 'comparison_note' => 'Mese in corso rispetto agli stessi giorni del mese precedente. I volumi misurano l’utilizzo del servizio.']);
+        return response()->json([...$summary, 'trend' => array_map(fn (array $point): array => array_intersect_key($point, array_flip(['date', 'shipments', 'delivered', 'gross_cents', 'shipping_cents', 'net_cents'])), $statistics->trend($selected, $period)), 'comparison' => $comparison, 'changes' => $changes, 'previous_from' => $previousPeriod->start->toDateString(), 'previous_to' => $previousPeriod->end->toDateString(), 'from' => $period->start->toDateString(), 'to' => $period->end->toDateString(), 'months' => $months, 'this_month' => $current, 'previous_comparable' => $previous, 'change_percent' => $previous ? round(($current - $previous) * 100 / $previous, 1) : null, 'comparison_note' => 'Mese in corso rispetto agli stessi giorni del mese precedente. I volumi misurano l’utilizzo del servizio.']);
     }
 }

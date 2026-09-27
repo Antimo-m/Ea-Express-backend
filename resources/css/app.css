@@ -3053,3 +3053,6 @@ html:has(dialog[open]) { overflow: hidden; }
   .cash-register-form .btn { flex: 1 1 auto; }
   .rates-pagination { gap: 12px; }
 }
+
+.trend-panel.is-compact { max-width: 760px; }
+.trend-panel.is-compact .chart-canvas { max-width: 640px; }

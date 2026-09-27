@@ -69,18 +69,22 @@ class OrderStatistics
         for ($day = $period->start->copy(); $day->lte($period->end); $day->addDay()) {
             $days[$day->toDateString()] = ['date' => $day->toDateString(), 'shipments' => 0, 'delivered' => 0, 'value_cents' => 0, 'gross_cents' => 0, 'shipping_cents' => 0, 'net_cents' => 0];
         }
-        foreach ((clone $query)->select(['id', 'created_at', 'status', 'parcel_value_cents', 'price_cents'])->toBase()->lazyById(500) as $order) {
-            $key = Carbon::parse($order->created_at, 'UTC')->timezone('Europe/Rome')->toDateString();
-            $days[$key]['shipments']++;
-            if (! in_array($order->status, [OrderStatus::Cancelled->value, OrderStatus::Rejected->value], true)) {
-                $days[$key]['value_cents'] += $order->parcel_value_cents ?? 0;
+        $hourExpression = match ($query->getConnection()->getDriverName()) {
+            'sqlite' => "strftime('%Y-%m-%d %H:00:00', created_at)",
+            default => "DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00')",
+        };
+        $rows = (clone $query)->whereBetween('created_at', $period->utcRange())->reorder()->selectRaw("{$hourExpression} AS utc_hour, COUNT(*) AS shipments,
+            SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END) AS delivered,
+            COALESCE(SUM(CASE WHEN status NOT IN ('cancelled','rejected') THEN parcel_value_cents ELSE 0 END), 0) AS value_cents,
+            COALESCE(SUM(CASE WHEN status = 'delivered' THEN parcel_value_cents ELSE 0 END), 0) AS gross_cents,
+            COALESCE(SUM(CASE WHEN status = 'delivered' THEN price_cents ELSE 0 END), 0) AS shipping_cents")
+            ->groupByRaw($hourExpression)->toBase()->get();
+        foreach ($rows as $row) {
+            $key = Carbon::parse($row->utc_hour, 'UTC')->timezone('Europe/Rome')->toDateString();
+            foreach (['shipments', 'delivered', 'value_cents', 'gross_cents', 'shipping_cents'] as $metric) {
+                $days[$key][$metric] += (int) $row->$metric;
             }
-            if ($order->status === OrderStatus::Delivered->value) {
-                $days[$key]['delivered']++;
-                $days[$key]['gross_cents'] += $order->parcel_value_cents ?? 0;
-                $days[$key]['shipping_cents'] += $order->price_cents ?? 0;
-                $days[$key]['net_cents'] += ($order->parcel_value_cents ?? 0) - ($order->price_cents ?? 0);
-            }
+            $days[$key]['net_cents'] += (int) $row->gross_cents - (int) $row->shipping_cents;
         }
 
         return array_values($days);

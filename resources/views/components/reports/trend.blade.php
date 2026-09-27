@@ -1,10 +1,10 @@
-@props(['points', 'kind' => 'orders', 'id', 'title', 'description'])
+@props(['points', 'kind' => 'orders', 'id', 'title', 'description', 'compact' => false])
 @php
     $cash = $kind === 'cash';
     $max = max(1, ...array_map(fn ($point) => $cash ? max($point['incoming'], $point['outgoing']) : $point['orders'], $points));
     $step = 840 / max(count($points), 1);
 @endphp
-<section class="surface workspace-section trend-panel" data-trend>
+<section @class(['surface workspace-section trend-panel', 'is-compact' => $compact]) data-trend>
     <header class="section-heading"><div><span class="eyebrow">{{ $cash ? 'FLUSSI DI CASSA' : 'VOLUME DI LAVORO' }}</span><h2>{{ $title }}</h2></div><x-ui.icon :name="$cash ? 'cash-stack' : 'bar-chart-line'" /></header>
     <p class="small text-secondary">{{ $description }}</p>
     @if($cash)<div class="chart-legend" aria-label="Serie del grafico"><button type="button" data-chart-series="incoming" aria-pressed="true"><span class="legend-dot incoming"></span>Entrate</button><button type="button" data-chart-series="outgoing" aria-pressed="true"><span class="legend-dot outgoing"></span>Uscite e storni</button></div>@endif
