@@ -9,6 +9,8 @@ use App\Models\PendingAccount;
 use App\Models\PendingSettlement;
 use App\Models\User;
 use App\OrderStatus;
+use App\Support\AccountingPeriod;
+use App\Support\ShippingEconomics;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -16,9 +18,10 @@ class CorrectPendingSettlement
 {
     public function __construct(private RecordEconomicAudit $audit, private NotifyOrderParticipants $notify) {}
 
-    public function handle(User $actor, PendingAccount $account, PendingSettlement $settlement, int $amount, string $reason, int $version): void
+    public function handle(User $actor, PendingAccount $account, PendingSettlement $settlement, int $amount, string $reason, int $version, ?string $eaAmount = null): void
     {
-        DB::transaction(function () use ($actor, $account, $settlement, $amount, $reason, $version): void {
+        DB::transaction(function () use ($actor, $account, $settlement, $amount, $reason, $version, $eaAmount): void {
+            $period = AccountingPeriod::lock();
             $order = $account->order_id ? Order::lockForUpdate()->findOrFail($account->order_id) : null;
             $locked = PendingAccount::lockForUpdate()->findOrFail($account->id);
             $payment = $locked->settlements()->lockForUpdate()->findOrFail($settlement->id);
@@ -27,18 +30,21 @@ class CorrectPendingSettlement
             if ($amount < 1 || $amount + $others > $locked->amount_cents) {
                 throw ValidationException::withMessages(['amount' => 'Inserisci un importo positivo che non superi il debito totale, considerando gli altri pagamenti.']);
             }
+            $period->assertOpen($payment->created_at);
             $before = $locked->toArray();
             $paymentBefore = $payment->toArray();
             if ($order) {
                 abort_unless($order->status === OrderStatus::Delivered && ! $order->receipt_voided_at, 409, 'La spedizione non consente la correzione del saldo.');
                 $entry = PaymentEntry::where('pending_settlement_id', $payment->id)->lockForUpdate()->first();
                 abort_unless($entry && $entry->order_id === $order->id && $entry->amount_cents === $payment->amount_cents, 409, 'Movimento di incasso mancante o non coerente.');
+                $period->assertOpen($entry->created_at);
                 $entryBefore = $entry->toArray();
+                $entry->ea_amount_cents = app(ShippingEconomics::class)->retainedAmount($order, $amount, $eaAmount);
                 $entry->amount_cents = $amount;
                 $entry->save();
                 $total = (int) PaymentEntry::where('order_id', $order->id)->sum('amount_cents');
                 abort_unless($order->price_cents !== null && $total >= 0 && $total <= $order->price_cents, 409, 'Il totale degli incassi non coincide con la tariffa della spedizione.');
-                $orderBefore = $order->only(['paid_at', 'paid_by', 'version']);
+                $orderBefore = $order->only(['carrier_cost_cents', 'paid_at', 'paid_by', 'version']);
                 $paid = $total === $order->price_cents;
                 $order->paid_at = $paid ? ($order->paid_at ?? $entry->created_at) : null;
                 $order->paid_by = $paid ? ($order->paid_by ?? $actor->id) : null;
@@ -50,6 +56,7 @@ class CorrectPendingSettlement
             } elseif ($locked->direction === 'outgoing') {
                 $expense = Expense::where('pending_settlement_id', $payment->id)->lockForUpdate()->first();
                 abort_unless($expense && ! $expense->voided_at && $expense->amount_cents === $payment->amount_cents, 409, 'Spesa collegata mancante o non coerente.');
+                $period->assertOpen($expense->spent_on);
                 $expenseBefore = $expense->toArray();
                 $expense->amount_cents = $amount;
                 $expense->version++;

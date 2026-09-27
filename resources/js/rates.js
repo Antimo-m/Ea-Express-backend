@@ -59,14 +59,20 @@ if (editor) {
         if (button.matches('[data-rate-create],[data-rate-edit]')) {
             form.reset(); form.querySelector('[data-modal-error]').textContent = '';
             form.querySelectorAll('[aria-invalid]').forEach(input => input.removeAttribute('aria-invalid'));
-            for (const name of ['city','area','postal_code','zone','street','delivery_time','source_reference']) form.elements.namedItem(name).value = selected?.[name] || '';
+            for (const name of ['city','area','postal_code','zone','street','delivery_time','source_reference','carrier_name','max_weight_kg','max_dimension_cm','delivery_days_min','delivery_days_max']) form.elements.namedItem(name).value = selected?.[name] || '';
             form.elements.price.value = selected ? (selected.price_cents / 100).toFixed(2) : '';
+            form.elements.shipping_type.value = selected?.shipping_type || 'regional';
+            form.elements.city.readOnly = Boolean(selected?.is_default);
+            form.elements.shipping_type.querySelector('[value="regional"]').disabled = Boolean(selected?.is_default);
+            for (const name of ['postal_code','zone','street','max_weight_kg','max_dimension_cm']) form.elements.namedItem(name).disabled = Boolean(selected?.is_default);
+            form.elements.carrier_cost.value = selected ? (selected.carrier_cost_cents / 100).toFixed(2) : '';
             form.elements.active.checked = selected ? selected.active : true;
             editor.querySelector('h2').textContent = selected ? 'Modifica tariffa' : 'Nuova tariffa';
             const save = editor.querySelector('[data-rate-save]');
             save.classList.toggle('action-add', !selected); save.classList.toggle('action-edit', !!selected);
             save.querySelector('.bi').className = `bi bi-${selected ? 'pencil' : 'plus-lg'}`;
             save.setAttribute('aria-label', selected ? 'Salva tariffa' : 'Aggiungi tariffa'); save.title = save.getAttribute('aria-label');
+            save.querySelector(':scope > span:last-child').textContent = save.getAttribute('aria-label');
             openDialog(editor);
         } else if (button.matches('[data-rate-archive]')) {
             const rate = selected;
@@ -95,7 +101,7 @@ if (editor) {
     form.addEventListener('submit', event => {
         event.preventDefault();
         const data = Object.fromEntries(new FormData(form)); data.active = form.elements.active.checked;
-        for (const name of ['area','postal_code','zone','street','delivery_time']) if (!data[name]) data[name] = null;
+        for (const name of ['area','postal_code','zone','street','delivery_time','carrier_name','carrier_cost','max_weight_kg','max_dimension_cm','delivery_days_min','delivery_days_max']) if (!data[name]) data[name] = null;
         const id = selected?.id;
         mutate(editor, () => request(id ? `/rates/${id}` : '/rates', 'POST', data));
     });

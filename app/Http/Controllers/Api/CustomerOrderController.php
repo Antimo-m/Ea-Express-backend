@@ -24,13 +24,16 @@ class CustomerOrderController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
-        $data = $request->validate(['sender_type' => ['nullable', 'in:business,private,online_shop'], 'q' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', Rule::enum(OrderStatus::class)], 'kind' => ['nullable', 'in:pickup'], 'courier' => ['nullable', 'integer', 'min:1'], 'has_messages' => ['nullable', 'boolean'], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d'], 'page' => ['nullable', 'integer', 'min:1']]);
-        $query = Order::where('customer_id', $request->user()->id)->with('rider')->withCount(['messages', 'messages as unread_messages_count' => fn ($q) => $q->whereNotNull('user_id')->whereNull('read_at')]);
+        $data = $request->validate(['shipping_type' => ['nullable', 'in:regional,external'], 'sender_type' => ['nullable', 'in:business,private,online_shop'], 'q' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', Rule::enum(OrderStatus::class)], 'kind' => ['nullable', 'in:pickup'], 'courier' => ['nullable', 'integer', 'min:1'], 'has_messages' => ['nullable', 'boolean'], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d'], 'page' => ['nullable', 'integer', 'min:1']]);
+        $query = Order::where('customer_id', $request->user()->id)->withDisplayIdentity()->with('rider')->withCount(['messages', 'messages as unread_messages_count' => fn ($q) => $q->whereNotNull('user_id')->whereNull('read_at')]);
+        if (! empty($data['shipping_type'])) {
+            $query->where('shipping_type', $data['shipping_type']);
+        }
         if (! empty($data['sender_type'])) {
             $query->where('sender_type', $data['sender_type']);
         }
         if (! empty($data['q'])) {
-            $query->where(fn ($q) => $q->where('reference', 'like', '%'.$data['q'].'%')->orWhere('recipient_name', 'like', '%'.$data['q'].'%')->orWhere('delivery_city', 'like', '%'.$data['q'].'%'));
+            $query->where(fn ($q) => $q->where('reference', 'like', '%'.$data['q'].'%')->orWhere('store_name', 'like', '%'.$data['q'].'%')->orWhere('recipient_name', 'like', '%'.$data['q'].'%')->orWhere('delivery_city', 'like', '%'.$data['q'].'%'));
         }
         if (! empty($data['courier'])) {
             $query->where('rider_id', $data['courier']);
@@ -58,7 +61,7 @@ class CustomerOrderController extends Controller
     {
         $this->authorizeOwner($request, $order);
 
-        return new CustomerOrderResource($order->load(['rider', 'priceProposals' => fn ($q) => $q->latest(), 'events' => fn ($q) => $q->orderBy('id')]));
+        return new CustomerOrderResource($order->load(['customer:id,name', 'creator:id,name', 'rider', 'priceProposals' => fn ($q) => $q->latest(), 'events' => fn ($q) => $q->orderBy('id')]));
     }
 
     public function review(CustomerOrderRequest $request, CheckoutReview $review, ?Order $order = null): JsonResponse
@@ -83,17 +86,16 @@ class CustomerOrderController extends Controller
             $locked = Order::where('customer_id', $request->user()->id)->lockForUpdate()->findOrFail($order->id);
             abort_unless($locked->customerEditable() && $locked->version === $request->integer('version'), 409, 'La richiesta è stata aggiornata o già accettata. Ricarica i dettagli.');
             $review = app(CheckoutReview::class)->confirm($request->user(), $request->validated(), $locked);
-            $economicBefore = $locked->only(['price_cents', 'parcel_value_cents', 'payment_method', 'shipping_rate_id', 'rate_snapshot']);
+            $economicBefore = $locked->only(['price_cents', 'parcel_value_cents', 'shipping_rate_id', 'rate_snapshot']);
             $data = CustomerIdentity::normalize($request->safe()->except(['version', 'parcel_value', 'checkout_token', 'payment_method']), $locked->sender_type);
-            if ($locked->payment_method !== $request->validated('payment_method')) {
-                $locked->payment_method = $request->validated('payment_method');
-                $locked->payment_proposed_by = $request->user()->id;
-                $locked->payment_proposed_at = now();
-                $locked->payment_confirmed_by = null;
-                $locked->payment_confirmed_at = null;
-            }
+            $scheduleBefore = $locked->pickupSchedule();
             $locked->fill($data);
-            if ($locked->price_cents === null || $locked->isDirty(['delivery_city', 'delivery_postal_code', 'delivery_zone', 'delivery_address'])) {
+            $scheduleAfter = $locked->pickupSchedule();
+            $scheduleChange = $scheduleBefore === $scheduleAfter ? null : ['before' => $scheduleBefore, 'after' => $scheduleAfter];
+            if ($scheduleChange) {
+                $locked->pickup_reminded_on = null;
+            }
+            if ($locked->price_cents === null || $locked->isDirty(['shipping_type', 'weight_kg', 'max_dimension_cm', 'delivery_city', 'delivery_postal_code', 'delivery_zone', 'delivery_address'])) {
                 $before = $locked->rate_snapshot;
                 app(ShippingQuote::class)->apply($locked, $review['quote']);
                 $locked->price_cents = $review['quote']['price_cents'];
@@ -103,13 +105,14 @@ class CustomerOrderController extends Controller
             if ($request->exists('parcel_value')) {
                 $locked->parcel_value_cents = $request->input('parcel_value') !== null ? Money::cents((string) $request->input('parcel_value')) : null;
             }
+            app(ShippingQuote::class)->estimate($locked);
             $locked->version++;
             $locked->save();
-            $economicAfter = $locked->only(['price_cents', 'parcel_value_cents', 'payment_method', 'shipping_rate_id', 'rate_snapshot']);
+            $economicAfter = $locked->only(['price_cents', 'parcel_value_cents', 'shipping_rate_id', 'rate_snapshot']);
             if ($economicBefore !== $economicAfter) {
                 app(RecordEconomicAudit::class)->handle($request->user(), $locked, 'order.economics_updated', $economicBefore, $economicAfter);
             }
-            $locked->events()->create(['user_id' => $request->user()->id, 'status' => $locked->status, 'public_note' => 'Richiesta aggiornata dal cliente.']);
+            $locked->events()->create(['user_id' => $request->user()->id, 'status' => $locked->status, 'public_note' => $scheduleChange ? 'Data o fascia del ritiro aggiornata dal cliente.' : 'Richiesta aggiornata dal cliente.', 'schedule_change' => $scheduleChange]);
             $notify->handle($locked, 'Richiesta modificata dal cliente', $request->user()->id);
 
             return $locked;
@@ -126,6 +129,7 @@ class CustomerOrderController extends Controller
             $locked = Order::where('customer_id', $request->user()->id)->lockForUpdate()->findOrFail($order->id);
             abort_unless($locked->customerEditable() && $locked->version === (int) $data['version'], 409, 'La richiesta è già stata gestita dal rider. Contattalo dalla conversazione.');
             $locked->status = OrderStatus::Cancelled;
+            app(ShippingQuote::class)->estimate($locked);
             $locked->version++;
             $locked->save();
             $locked->events()->create(['user_id' => $request->user()->id, 'status' => OrderStatus::Cancelled, 'public_note' => $data['reason']]);

@@ -1,0 +1,51 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Actions\NotifyOrderParticipants;
+use App\Actions\RecordEconomicAudit;
+use App\Models\Order;
+use App\OrderStatus;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+
+class CarrierShipmentController extends Controller
+{
+    public function update(Request $request, Order $order, NotifyOrderParticipants $notify): RedirectResponse
+    {
+        Gate::authorize('update', $order);
+        $data = $request->validate(['version' => ['required', 'integer'], 'carrier_name' => ['nullable', 'string', 'max:100'], 'carrier_tracking' => ['required', 'string', 'max:100'], 'carrier_status' => ['required', 'in:booked,handed_over,in_transit,delivery_issue'], 'estimated_at' => ['nullable', 'date_format:Y-m-d\\TH:i']]);
+        DB::transaction(function () use ($request, $order, $data, $notify): void {
+            $locked = Order::lockForUpdate()->findOrFail($order->id);
+            Gate::authorize('update', $locked);
+            abort_unless($locked->shipping_type === 'external' && $locked->version === (int) $data['version'], 409);
+            abort_if(in_array($locked->status->value, OrderStatus::closed(), true), 409, 'La spedizione è chiusa.');
+            $before = $locked->only(['carrier_name', 'carrier_tracking', 'carrier_status', 'carrier_handed_at', 'estimated_at']);
+            $locked->carrier_name = $data['carrier_name'] ?? $locked->carrier_name;
+            abort_unless($locked->carrier_name && $locked->price_cents !== null, 409, 'Conferma prima una tariffa con vettore.');
+            if ($data['carrier_status'] !== 'booked') {
+                abort_unless($locked->events()->where('status', OrderStatus::PickedUp)->exists(), 409, 'Registra prima il ritiro del pacco.');
+            }
+            $locked->carrier_tracking = $data['carrier_tracking'];
+            $locked->carrier_status = $data['carrier_status'];
+            if (in_array($data['carrier_status'], ['handed_over', 'in_transit', 'delivery_issue'], true)) {
+                $locked->carrier_handed_at ??= now();
+                $locked->tracking_started_at ??= now();
+            }
+            if (! empty($data['estimated_at'])) {
+                $locked->estimated_at = Carbon::parse($data['estimated_at'], 'Europe/Rome')->utc();
+            }
+            $locked->version++;
+            $locked->save();
+            $labels = ['booked' => 'Spedizione prenotata presso il vettore', 'handed_over' => 'Affidata al vettore', 'in_transit' => 'In transito con il vettore', 'delivery_issue' => 'Problema di consegna del vettore'];
+            $locked->events()->create(['user_id' => $request->user()->id, 'status' => $locked->status, 'public_note' => $labels[$data['carrier_status']]]);
+            app(RecordEconomicAudit::class)->handle($request->user(), $locked, 'carrier.updated', $before, $locked->only(array_keys($before)));
+            $notify->handle($locked, $labels[$data['carrier_status']], $request->user()->id);
+        }, 3);
+
+        return back()->with('status', 'Dati del vettore aggiornati.');
+    }
+}

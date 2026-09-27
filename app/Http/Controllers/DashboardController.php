@@ -13,7 +13,7 @@ class DashboardController extends Controller
     public function __invoke(Request $request): View
     {
         $now = now('Europe/Rome')->locale('it');
-        $base = Order::visibleTo($request->user());
+        $base = Order::visibleTo($request->user())->withDisplayIdentity();
         $incoming = (clone $base)->where('status', OrderStatus::Received);
         $active = (clone $base)->whereNotIn('status', [...OrderStatus::closed(), OrderStatus::Received->value]);
         $completed = (clone $base)->where('status', OrderStatus::Delivered)->whereBetween('delivered_at', [$now->copy()->startOfDay()->utc(), $now->copy()->endOfDay()->utc()]);

@@ -9,6 +9,7 @@ use App\Models\PaymentEntry;
 use App\Models\PendingSettlement;
 use App\OrderStatus;
 use App\Support\ReportingPeriod;
+use App\Support\ShippingEconomics;
 use App\UserRole;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -37,13 +38,14 @@ class ReportController extends Controller
         $spent = (int) (clone $expenses)->sum('amount_cents');
         $manual = FinancialMovement::whereNull('voided_at')->when($request->user()->role !== UserRole::Admin, fn ($q) => $q->whereRaw('1=0'))->whereBetween('occurred_on', [$period->start->toDateString(), $period->end->toDateString()]);
         $manualNet = (int) (clone $manual)->sum('amount_cents');
+        $receiptEconomics = app(ShippingEconomics::class)->receipts($payments);
         $operatingNet = $cash - $spent + $manualNet;
         $cashDays = [];
         $addCash = function (string $day, int $amount) use (&$cashDays): void {
             $cashDays[$day] ??= ['incoming' => 0, 'outgoing' => 0];
             $cashDays[$day][$amount >= 0 ? 'incoming' : 'outgoing'] += abs($amount);
         };
-        foreach ((clone $payments)->select(['id', 'created_at', 'amount_cents'])->lazyById(500) as $payment) {
+        foreach ((clone $payments)->select(['id', 'created_at', 'amount_cents', 'ea_amount_cents'])->lazyById(500) as $payment) {
             $addCash($payment->created_at->timezone('Europe/Rome')->format('d/m'), $payment->amount_cents);
         }
         foreach ((clone $general)->select(['id', 'created_at', 'amount_cents'])->lazyById(500) as $payment) {
@@ -71,6 +73,8 @@ class ReportController extends Controller
         $incomingTotal = array_sum(array_column($cashDays, 'incoming'));
         $outgoingTotal = array_sum(array_column($cashDays, 'outgoing'));
 
-        return view('reports.index', ['period' => $period, 'received' => $received, 'previous' => $before, 'growth' => $before ? round(($received - $before) / $before * 100, 1) : null, 'states' => $states, 'accepted' => $accepted, 'delivered' => $delivered->count(), 'earned' => (int) (clone $delivered)->sum('price_cents'), 'cash' => (int) $cash, 'zones' => $zones, 'days' => $days, 'trend' => $trend, 'spent' => $spent, 'manualNet' => $manualNet, 'operatingNet' => $operatingNet, 'topCustomers' => $topCustomers, 'incomingTotal' => $incomingTotal, 'outgoingTotal' => $outgoingTotal]);
+        $shippingEconomics = app(ShippingEconomics::class)->summarize($delivered);
+
+        return view('reports.index', ['receiptEconomics' => $receiptEconomics, 'shippingEconomics' => $shippingEconomics, 'shippingCounts' => (clone $cohort)->select('shipping_type')->selectRaw('COUNT(*) AS total')->groupBy('shipping_type')->pluck('total', 'shipping_type'), 'period' => $period, 'received' => $received, 'previous' => $before, 'growth' => $before ? round(($received - $before) / $before * 100, 1) : null, 'states' => $states, 'accepted' => $accepted, 'delivered' => $delivered->count(), 'earned' => (int) (clone $delivered)->sum('price_cents'), 'cash' => (int) $cash, 'zones' => $zones, 'days' => $days, 'trend' => $trend, 'spent' => $spent, 'manualNet' => $manualNet, 'operatingNet' => $operatingNet, 'topCustomers' => $topCustomers, 'incomingTotal' => $incomingTotal, 'outgoingTotal' => $outgoingTotal]);
     }
 }

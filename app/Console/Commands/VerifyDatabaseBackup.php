@@ -10,7 +10,7 @@ use Throwable;
 
 class VerifyDatabaseBackup extends Command
 {
-    protected $signature = 'database:backup-verify {archive? : Archivio cifrato; senza argomento verifica l’ultima copia esterna}';
+    protected $signature = 'database:backup-verify {archive? : Archivio cifrato; senza argomento verifica l’ultima copia} {--local : Verifica la copia locale, senza dichiararla esterna}';
 
     protected $description = 'Decifra e ripristina in SQLite temporaneo o MySQL Docker isolato, senza modificare il database applicativo';
 
@@ -21,7 +21,7 @@ class VerifyDatabaseBackup extends Command
         try {
             $source = $this->argument('archive');
             if (! $source) {
-                $offsite = rtrim((string) config('backup.offsite_path'), '/');
+                $offsite = $this->option('local') ? $directory : rtrim((string) config('backup.offsite_path'), '/');
                 if (! $offsite) {
                     throw new \RuntimeException('BACKUP_OFFSITE_PATH non configurato.');
                 }
@@ -36,7 +36,7 @@ class VerifyDatabaseBackup extends Command
             $metadata = $archive->decrypt($source, $work.'/restored');
             $archive->verifyRestore($work.'/restored', $metadata['driver']);
             if (! $this->argument('archive')) {
-                file_put_contents($directory.'/last-verified.json', json_encode(['timestamp' => time(), 'archive' => basename($source)]), LOCK_EX);
+                file_put_contents($directory.($this->option('local') ? '/last-local-verified.json' : '/last-verified.json'), json_encode(['timestamp' => time(), 'archive' => basename($source)]), LOCK_EX);
             }
             Log::info('Ripristino backup verificato in isolamento.', ['archive' => basename($source), 'driver' => $metadata['driver']]);
             $this->info('Ripristino isolato e integrità verificati. Nessun dato applicativo sovrascritto.');

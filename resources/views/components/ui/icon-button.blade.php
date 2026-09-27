@@ -1,7 +1,7 @@
 @props(['icon' => null, 'label', 'action' => null, 'variant' => null, 'as' => 'button', 'href' => null, 'type' => 'button', 'loading' => false, 'disabled' => false, 'text' => false])
 @php
-    $action ??= match ($icon) { 'plus-lg' => 'add', 'pencil', 'pencil-square' => 'edit', 'trash', 'trash3' => 'delete', 'search', 'filter' => 'search', 'printer' => 'print', default => 'neutral' };
-    $icon ??= match ($action) { 'add' => 'plus-lg', 'edit' => 'pencil', 'delete' => 'trash', 'search' => 'search', 'reset' => 'arrow-counterclockwise', 'receive' => 'cash-coin', 'restore' => 'arrow-counterclockwise', 'history' => 'clock-history', 'print', 'print-multiple' => 'printer', default => 'three-dots' };
+    $action ??= match ($icon) { 'send' => 'send', 'plus-lg' => 'add', 'pencil', 'pencil-square' => 'edit', 'trash', 'trash3' => 'delete', 'search', 'filter' => 'search', 'printer' => 'print', 'arrow-left' => 'back', default => 'neutral' };
+    $icon ??= match ($action) { 'send' => 'send', 'add' => 'plus-lg', 'edit' => 'pencil', 'delete' => 'trash', 'search' => 'search', 'reset' => 'arrow-counterclockwise', 'receive' => 'cash-coin', 'restore' => 'arrow-counterclockwise', 'history' => 'clock-history', 'back' => 'arrow-left', 'print', 'print-multiple' => 'printer', default => 'three-dots' };
     $tag = $href ? 'a' : (in_array($as, ['button', 'summary'], true) ? $as : 'button');
 @endphp
 <{{ $tag }} @if($tag === 'button') type="{{ $type }}" @disabled($disabled || $loading) @elseif($tag === 'a' && !$disabled && !$loading) href="{{ $href }}" @endif

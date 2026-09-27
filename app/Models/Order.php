@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\OrderStatus;
-use App\Support\PaymentMethod;
 use App\UserRole;
 use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -16,34 +15,27 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['delivery_zone', 'pickup_street_number', 'pickup_postal_code', 'delivery_street_number', 'delivery_postal_code', 'package_type', 'package_description', 'packages', 'store_name', 'contact_email', 'recipient_name', 'recipient_phone', 'pickup_address', 'pickup_city', 'delivery_address', 'delivery_city', 'pickup_date', 'pickup_from', 'pickup_to', 'delivery_window', 'parcel_count', 'content_description', 'category', 'urgency', 'notes', 'customer_notes', 'sender_type', 'business_type', 'business_description'])]
-#[Hidden(['tracking_token', 'conversation_token'])]
+#[Fillable(['shipping_type', 'delivery_province', 'delivery_region', 'weight_kg', 'max_dimension_cm', 'delivery_zone', 'pickup_street_number', 'pickup_postal_code', 'delivery_street_number', 'delivery_postal_code', 'package_type', 'package_description', 'packages', 'store_name', 'contact_email', 'recipient_name', 'recipient_phone', 'pickup_address', 'pickup_city', 'delivery_address', 'delivery_city', 'pickup_date', 'pickup_from', 'pickup_to', 'delivery_window', 'parcel_count', 'content_description', 'category', 'urgency', 'notes', 'customer_notes', 'sender_type', 'business_type', 'business_description'])]
+#[Hidden(['tracking_token', 'conversation_token', 'carrier_cost_cents'])]
 class Order extends Model
 {
     /** @use HasFactory<OrderFactory> */
     use HasFactory;
 
-    protected $attributes = ['version' => 1];
+    protected $attributes = ['version' => 1, 'shipping_type' => 'regional', 'carrier_cost_cents' => 0];
 
     protected function casts(): array
     {
-        return ['receipt_voided_at' => 'datetime', 'pricing_version' => 'integer', 'quoted_price_cents' => 'integer', 'rate_snapshot' => 'array', 'payment_proposed_at' => 'datetime', 'payment_confirmed_at' => 'datetime', 'packages' => 'array', 'conversation_expires_at' => 'datetime', 'status' => OrderStatus::class, 'pickup_date' => 'date', 'rejected_at' => 'datetime', 'tracking_started_at' => 'datetime', 'delivered_at' => 'datetime', 'paid_at' => 'datetime', 'estimated_at' => 'datetime', 'price_cents' => 'integer', 'parcel_value_cents' => 'integer', 'version' => 'integer'];
+        return ['carrier_cost_cents' => 'integer', 'carrier_handed_at' => 'datetime', 'estimated_delivery_from' => 'date', 'estimated_delivery_to' => 'date', 'weight_kg' => 'decimal:2', 'max_dimension_cm' => 'decimal:2', 'pickup_reminded_on' => 'date', 'receipt_voided_at' => 'datetime', 'pricing_version' => 'integer', 'quoted_price_cents' => 'integer', 'rate_snapshot' => 'array', 'payment_proposed_at' => 'datetime', 'payment_confirmed_at' => 'datetime', 'packages' => 'array', 'conversation_expires_at' => 'datetime', 'status' => OrderStatus::class, 'pickup_date' => 'date', 'rejected_at' => 'datetime', 'tracking_started_at' => 'datetime', 'delivered_at' => 'datetime', 'paid_at' => 'datetime', 'estimated_at' => 'datetime', 'price_cents' => 'integer', 'parcel_value_cents' => 'integer', 'version' => 'integer'];
     }
 
-    /** @return array<string, mixed> */
-    public function paymentData(): array
+    /** @return array{state: string, label: string, paid_at: ?string} */
+    public function receiptData(): array
     {
         return [
-            'method' => $this->payment_method,
-            'method_label' => PaymentMethod::Labels[$this->payment_method] ?? 'Non registrato (storico)',
-            'state' => $this->receipt_voided_at ? 'voided' : ($this->paid_at ? 'paid' : ($this->payment_confirmed_at ? 'agreed' : ($this->payment_method ? 'proposed' : 'unrecorded'))),
-            'label' => $this->receipt_voided_at ? 'Incasso stornato' : ($this->paid_at ? 'Pagato' : ($this->payment_confirmed_at ? 'Concordato' : ($this->payment_method ? 'In attesa di conferma' : 'Metodo non registrato'))),
-            'proposed_by' => $this->payment_proposed_by,
-            'proposed_at' => $this->payment_proposed_at?->toIso8601String(),
-            'confirmed_by' => $this->payment_confirmed_by,
-            'confirmed_at' => $this->payment_confirmed_at?->toIso8601String(),
+            'state' => $this->receipt_voided_at ? 'voided' : ($this->paid_at ? 'paid' : 'unrecorded'),
+            'label' => $this->receipt_voided_at ? 'Incasso stornato' : ($this->paid_at ? 'Pagato' : 'Da registrare'),
             'paid_at' => $this->paid_at?->toIso8601String(),
-            'paid_by' => $this->paid_by,
         ];
     }
 
@@ -55,6 +47,19 @@ class Order extends Model
     public function shippingRate(): BelongsTo
     {
         return $this->belongsTo(ShippingRate::class);
+    }
+
+    /** @return array{pickup_date: string, pickup_from: string, pickup_to: string} */
+    public function pickupSchedule(): array
+    {
+        return ['pickup_date' => $this->pickup_date->toDateString(), 'pickup_from' => substr($this->pickup_from, 0, 5), 'pickup_to' => substr($this->pickup_to, 0, 5)];
+    }
+
+    #[Scope]
+    protected function awaitingPickup(Builder $query): void
+    {
+        $query->whereIn('status', [OrderStatus::Received, OrderStatus::Accepted, OrderStatus::PickupScheduled, OrderStatus::RiderArriving, OrderStatus::DeliveryIssue, OrderStatus::Rescheduled])
+            ->whereDoesntHave('events', fn ($events) => $events->where('status', OrderStatus::PickedUp));
     }
 
     public function customerEditable(): bool
@@ -69,14 +74,40 @@ class Order extends Model
         };
     }
 
+    public function payments(): HasMany
+    {
+        return $this->hasMany(PaymentEntry::class);
+    }
+
     public function pendingAccount(): HasOne
     {
         return $this->hasOne(PendingAccount::class);
     }
 
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function displayName(): string
+    {
+        return trim($this->store_name ?? '') ?: (trim($this->customer?->name ?? '') ?: (trim($this->creator?->name ?? '') ?: $this->reference));
+    }
+
+    #[Scope]
+    protected function withDisplayIdentity(Builder $query): void
+    {
+        $query->with(['customer:id,name', 'creator:id,name']);
+    }
+
     public function customer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'customer_id');
+    }
+
+    public function latestMessage(): HasOne
+    {
+        return $this->hasOne(OrderMessage::class)->ofMany(['created_at' => 'max', 'id' => 'max']);
     }
 
     public function messages(): HasMany

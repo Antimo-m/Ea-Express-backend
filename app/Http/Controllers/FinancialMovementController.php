@@ -7,6 +7,7 @@ use App\Http\Requests\FinancialMovementRequest;
 use App\Models\FinancialMovement;
 use App\Models\Order;
 use App\Models\User;
+use App\Support\AccountingPeriod;
 use App\Support\Money;
 use App\Support\OrderStatistics;
 use App\UserRole;
@@ -58,6 +59,8 @@ class FinancialMovementController extends Controller
         }
         $cents *= in_array($data['kind'], ['extra_expense', 'adjustment_out']) ? -1 : 1;
         $result = DB::transaction(function () use ($request, $movement, $data, $cents): FinancialMovement {
+            $period = AccountingPeriod::lock();
+            $period->assertOpen($data['occurred_on']);
             User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
             $attributes = collect($data)->only(['kind', 'description', 'occurred_on', 'notes', 'customer_id', 'order_id'])->all();
             if (! empty($data['order_id'])) {
@@ -77,6 +80,9 @@ class FinancialMovementController extends Controller
             }
             if ($entry) {
                 abort_unless(! $entry->voided_at && $entry->version === (int) $data['version'], 409, 'Voce aggiornata o annullata. Ricarica il bilancio.');
+            }
+            if ($entry) {
+                $period->assertOpen($entry->occurred_on);
             }
             $before = $entry?->toArray();
             $entry ??= new FinancialMovement;
@@ -100,11 +106,13 @@ class FinancialMovementController extends Controller
     public function destroy(FinancialMovementRequest $request, FinancialMovement $movement): RedirectResponse|JsonResponse
     {
         DB::transaction(function () use ($request, $movement): void {
+            $period = AccountingPeriod::lock();
             $entry = FinancialMovement::lockForUpdate()->findOrFail($movement->id);
             abort_unless($entry->version === $request->integer('version'), 409);
             if ($entry->voided_at) {
                 return;
             }
+            $period->assertOpen($entry->occurred_on);
             $before = $entry->toArray();
             $entry->voided_at = now();
             $entry->version++;
@@ -112,6 +120,6 @@ class FinancialMovementController extends Controller
             app(RecordEconomicAudit::class)->handle($request->user(), $entry, 'movement.voided', $before, $entry->toArray());
         }, 3);
 
-        return $request->expectsJson() ? response()->json(['message' => 'Voce annullata.']) : redirect()->route('balance.index')->with('status','Voce annullata; storico conservato.');
+        return $request->expectsJson() ? response()->json(['message' => 'Voce annullata.']) : redirect()->route('balance.index')->with('status', 'Voce annullata; storico conservato.');
     }
 }

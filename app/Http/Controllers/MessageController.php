@@ -17,7 +17,7 @@ class MessageController extends Controller
 {
     public function index(Request $request): View
     {
-        return view('messages.index', ['orders' => Order::visibleTo($request->user())->whereHas('messages')->withMax('messages', 'created_at')->withCount(['messages as unread_count' => fn ($q) => $q->whereNull('user_id')->whereNull('read_at')])->orderByDesc('messages_max_created_at')->orderByDesc('id')->paginate(15)]);
+        return view('messages.index', ['orders' => Order::visibleTo($request->user())->whereHas('messages')->withDisplayIdentity()->with('latestMessage')->withMax('messages', 'created_at')->withCount(['messages as unread_count' => fn ($q) => $q->whereNull('user_id')->whereNull('read_at')])->orderByDesc('messages_max_created_at')->orderByDesc('id')->paginate(15)]);
     }
 
     public function show(Request $request, Order $order): View|JsonResponse

@@ -121,17 +121,20 @@ if (quoteBox) {
         quoteBox.textContent = 'Tariffa da verificare';
         timer = setTimeout(async () => {
             const city = form.elements.delivery_city.value.trim(); const postal = form.elements.delivery_postal_code.value.trim();
-            if (!city || !/^[0-9]{5}$/.test(postal)) return;
+            if (!city || (postal && !/^[0-9]{5}$/.test(postal))) return;
             quoteBox.textContent = 'Calcolo tariffa…';
             try {
-                const response = await fetch(`/rates/quote?${new URLSearchParams({city, postal_code: postal})}`, {headers: {'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'}});
+                const response = await fetch(`/rates/quote?${new URLSearchParams({city, postal_code: postal, shipping_type:form.elements.shipping_type.value, street:form.elements.delivery_address.value, zone:form.elements.delivery_zone.value, province:form.elements.delivery_province.value, region:form.elements.delivery_region.value})}`, {headers: {'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'}});
                 if (!response.ok) throw new Error('quote'); const data = await response.json();
                 if (current !== requestNumber) return;
+                if (!postal && data.available && data.postal_code) form.elements.delivery_postal_code.value = data.postal_code;
                 quoteBox.textContent = data.available ? `Prezzo spedizione previsto: ${new Intl.NumberFormat('it-IT', {style:'currency', currency:'EUR'}).format(data.price_cents / 100)} · ${data.delivery_time || 'Tempi da verificare'}` : data.reason;
             } catch { if (current === requestNumber) quoteBox.textContent = 'Tariffa da verificare. Il servizio non è disponibile al momento.'; }
         }, 350);
     };
-    form.elements.delivery_city.addEventListener('input', loadQuote); form.elements.delivery_postal_code.addEventListener('input', loadQuote); loadQuote();
+    for (const name of ['delivery_city','delivery_postal_code','shipping_type','delivery_address','delivery_zone','delivery_province','delivery_region']) form.elements[name].addEventListener('input', loadQuote);
+    const updateService = () => {for (const name of ['delivery_province','delivery_region']) form.elements[name].required = form.elements.shipping_type.value === 'external';};
+    form.elements.shipping_type.addEventListener('change', updateService); updateService(); loadQuote();
     const type = form.elements.package_type; const description = form.elements.package_description;
     const updatePackage = () => { description.required = type.value === 'other'; }; type.addEventListener('change', updatePackage); updatePackage();
 }
@@ -153,4 +156,27 @@ window.addEventListener('pageshow', event => {
         pendingPublicForms.delete(form); form.removeAttribute('aria-busy');
         form.querySelectorAll('button').forEach(button => { button.disabled = false; });
     });
+});
+
+const contentChoice = document.querySelector('select[name="category"]');
+if (contentChoice) {
+    const group = document.querySelector('[data-custom-content]');
+    const input = group?.querySelector('input');
+    const updateContent = () => {
+        if (!group || !input) return;
+        const custom = contentChoice.value === 'custom';
+        group.hidden = !custom; input.required = custom; input.disabled = !custom;
+    };
+    contentChoice.addEventListener('change', updateContent); updateContent();
+}
+
+document.querySelector('[data-close-account-detail]')?.addEventListener('click', () => {
+    document.getElementById('account-detail').hidden = true;
+    const selected = document.querySelector('.account-card.is-selected');
+    selected?.classList.remove('is-selected');
+    selected?.querySelector('a')?.focus();
+    const url = new URL(window.location.href);
+    for (const key of ['customer_id', 'unassigned', 'store', 'email', 'tariff', 'detail_page']) url.searchParams.delete(key);
+    url.hash = '';
+    window.history.replaceState(null, '', url);
 });

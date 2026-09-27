@@ -1,5 +1,6 @@
 export function openDialog(dialog) {
     if (!dialog || dialog.open) return;
+    normalizeDialogActions(dialog);
     dialog.returnFocus = document.activeElement;
     dialog.showModal();
     dialog.querySelector('input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])')?.focus();
@@ -34,3 +35,27 @@ document.addEventListener('keydown', event => {
         event.preventDefault(); (event.shiftKey ? last : first).focus();
     }
 });
+
+// Existing action forms retain their submit handlers and payloads.
+function normalizeDialogActions(root = document) {
+for (const form of root.querySelectorAll('.ea-modal form')) {
+    if (form.querySelector('.modal-actions')) continue;
+    const submits = [...form.querySelectorAll('button[type="submit"]')];
+    if (!submits.length) continue;
+    const footer = document.createElement('footer');
+    footer.className = 'modal-actions';
+    const back = document.createElement('button');
+    back.type = 'button'; back.className = 'btn modal-back'; back.dataset.dialogClose = '';
+    const icon = document.createElement('i'); icon.className = 'bi bi-arrow-left'; icon.setAttribute('aria-hidden', 'true');
+    back.append(icon, document.createTextNode('Torna indietro'));
+    for (const submit of submits) {
+        if (submit.classList.contains('icon-button') && !submit.classList.contains('action-with-text')) {
+            submit.classList.add('action-with-text');
+            const label = document.createElement('span'); label.textContent = submit.getAttribute('aria-label'); submit.append(label);
+        }
+    }
+    form.append(footer); footer.append(back, ...submits);
+}
+
+}
+normalizeDialogActions();

@@ -19,7 +19,7 @@
     <p class="confirmation-summary" data-confirm-summary></p>
     <p class="confirmation-summary" data-confirm-description></p>
     <p role="alert" data-modal-error></p>
-    <footer class="modal-actions"><button type="button" class="btn btn-light" data-dialog-close>Annulla</button><button type="button" class="btn btn-danger" data-confirm-action><x-ui.icon name="trash"/><span data-confirm-label>Elimina</span></button></footer>
+    <footer class="modal-actions"><button type="button" class="btn modal-back" data-dialog-close><x-ui.icon name="arrow-left"/> Torna indietro</button><button type="button" class="btn btn-danger" data-confirm-action><x-ui.icon name="trash"/><span data-confirm-label>Elimina</span></button></footer>
 </x-ui.modal>
 </body>
 </html>

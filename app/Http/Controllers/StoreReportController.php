@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\OrderStatus;
 use App\Support\OrderStatistics;
+use App\Support\ReportingPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -16,7 +17,7 @@ class StoreReportController extends Controller
     {
         $period = $statistics->period($request);
         $filters = $request->validate(['status' => ['nullable', Rule::enum(OrderStatus::class)], 'sender_type' => ['nullable', 'in:business,private,online_shop'], 'tariff' => ['nullable', 'integer', 'min:0'], 'q' => ['nullable', 'string', 'max:150'], 'sort' => ['nullable', 'in:volume,value,delivered,name'], 'order' => ['nullable', 'in:asc,desc']]);
-        $query = Order::financialFor($request->user())->whereBetween('created_at', $period->utcRange());
+        $query = Order::financialFor($request->user());
         foreach (['status', 'sender_type'] as $field) {
             if (! empty($filters[$field])) {
                 $query->where($field, $filters[$field]);
@@ -25,6 +26,11 @@ class StoreReportController extends Controller
         if (! empty($filters['q'])) {
             $query->whereHas('customer', fn ($account) => $account->where(fn ($identity) => $identity->where('name', 'like', '%'.$filters['q'].'%')->orWhere('email', 'like', '%'.$filters['q'].'%')));
         }
+        $days = (int) $period->start->copy()->startOfDay()->diffInDays($period->end->copy()->startOfDay()) + 1;
+        $previousPeriod = new ReportingPeriod($period->start->copy()->subDays($days), $period->start->copy()->subSecond());
+        $comparison = $statistics->summarize((clone $query)->whereBetween('created_at', $previousPeriod->utcRange()));
+        $query->whereBetween('created_at', $period->utcRange());
+        $trend = array_map(fn (array $point): array => ['label' => substr($point['date'], 8, 2).'/'.substr($point['date'], 5, 2), 'orders' => $point['shipments'], 'incoming' => 0, 'outgoing' => 0], $statistics->trend(clone $query, $period));
         $detailOrders = null;
         $detailQuery = null;
         $summary = $statistics->summarize(clone $query);
@@ -62,9 +68,9 @@ class StoreReportController extends Controller
         if ($detailQuery) {
             $detailName = $request->filled('customer_id') ? ((clone $detailQuery)->with('customer')->first()?->customer?->name ?? 'Account selezionato') : $detailName;
             $detail = $statistics->summarize(clone $detailQuery);
-            $detailOrders = $detailQuery->whereNotIn('status', [OrderStatus::Cancelled, OrderStatus::Rejected])->whereNotNull('price_cents')->when(isset($filters['tariff']), fn ($q) => $q->where('price_cents', $filters['tariff']))->latest()->orderByDesc('id')->paginate(15, ['*'], 'detail_page')->withQueryString();
+            $detailOrders = $detailQuery->withDisplayIdentity()->whereNotIn('status', [OrderStatus::Cancelled, OrderStatus::Rejected])->whereNotNull('price_cents')->when(isset($filters['tariff']), fn ($q) => $q->where('price_cents', $filters['tariff']))->latest()->orderByDesc('id')->paginate(15, ['*'], 'detail_page')->withQueryString();
         }
 
-        return view('stores.index', compact('detailName', 'accountPrices', 'stores', 'customers', 'period', 'detail', 'detailOrders', 'summary', 'accountCount'));
+        return view('stores.index', compact('comparison', 'previousPeriod', 'trend', 'detailName', 'accountPrices', 'stores', 'customers', 'period', 'detail', 'detailOrders', 'summary', 'accountCount'));
     }
 }
