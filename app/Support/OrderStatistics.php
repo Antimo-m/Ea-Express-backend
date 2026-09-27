@@ -67,7 +67,7 @@ class OrderStatistics
     {
         $days = [];
         for ($day = $period->start->copy(); $day->lte($period->end); $day->addDay()) {
-            $days[$day->toDateString()] = ['date' => $day->toDateString(), 'shipments' => 0, 'delivered' => 0, 'value_cents' => 0, 'gross_cents' => 0, 'shipping_cents' => 0, 'net_cents' => 0];
+            $days[$day->toDateString()] = ['date' => $day->toDateString(), 'shipments' => 0, 'delivered' => 0, 'cancelled' => 0, 'regional_count' => 0, 'external_count' => 0, 'missing_values' => 0, 'missing_prices' => 0, 'value_cents' => 0, 'gross_cents' => 0, 'shipping_cents' => 0, 'net_cents' => 0];
         }
         $hourExpression = match ($query->getConnection()->getDriverName()) {
             'sqlite' => "strftime('%Y-%m-%d %H:00:00', created_at)",
@@ -75,18 +75,53 @@ class OrderStatistics
         };
         $rows = (clone $query)->whereBetween('created_at', $period->utcRange())->reorder()->selectRaw("{$hourExpression} AS utc_hour, COUNT(*) AS shipments,
             SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END) AS delivered,
+            SUM(CASE WHEN status IN ('cancelled','rejected') THEN 1 ELSE 0 END) AS cancelled,
+            SUM(CASE WHEN shipping_type = 'regional' THEN 1 ELSE 0 END) AS regional_count,
+            SUM(CASE WHEN shipping_type = 'external' THEN 1 ELSE 0 END) AS external_count,
+            SUM(CASE WHEN status = 'delivered' AND parcel_value_cents IS NULL THEN 1 ELSE 0 END) AS missing_values,
+            SUM(CASE WHEN status = 'delivered' AND price_cents IS NULL THEN 1 ELSE 0 END) AS missing_prices,
             COALESCE(SUM(CASE WHEN status NOT IN ('cancelled','rejected') THEN parcel_value_cents ELSE 0 END), 0) AS value_cents,
             COALESCE(SUM(CASE WHEN status = 'delivered' THEN parcel_value_cents ELSE 0 END), 0) AS gross_cents,
             COALESCE(SUM(CASE WHEN status = 'delivered' THEN price_cents ELSE 0 END), 0) AS shipping_cents")
             ->groupByRaw($hourExpression)->toBase()->get();
         foreach ($rows as $row) {
             $key = Carbon::parse($row->utc_hour, 'UTC')->timezone('Europe/Rome')->toDateString();
-            foreach (['shipments', 'delivered', 'value_cents', 'gross_cents', 'shipping_cents'] as $metric) {
+            foreach (['shipments', 'delivered', 'cancelled', 'regional_count', 'external_count', 'missing_values', 'missing_prices', 'value_cents', 'gross_cents', 'shipping_cents'] as $metric) {
                 $days[$key][$metric] += (int) $row->$metric;
             }
             $days[$key]['net_cents'] += (int) $row->gross_cents - (int) $row->shipping_cents;
         }
 
         return array_values($days);
+    }
+
+    /** @return array<string,mixed> */
+    public function customerReport(Builder $orders, ReportingPeriod $period): array
+    {
+        $points = $this->trend($orders, $period);
+        $summary = [];
+        foreach (['total' => 'shipments', 'delivered' => 'delivered', 'cancelled' => 'cancelled', 'regional_count' => 'regional_count', 'external_count' => 'external_count', 'gross_cents' => 'gross_cents', 'delivered_spend_cents' => 'shipping_cents', 'net_cents' => 'net_cents', 'missing_values' => 'missing_values', 'missing_prices' => 'missing_prices'] as $metric => $field) {
+            $summary[$metric] = array_sum(array_column($points, $field));
+        }
+        $summary['in_progress'] = $summary['total'] - $summary['delivered'] - $summary['cancelled'];
+        $summary['completion_percent'] = $summary['total'] ? round(100 * $summary['delivered'] / $summary['total'], 1) : 0;
+        $months = [];
+        foreach ($points as $point) {
+            $month = substr($point['date'], 0, 7);
+            $months[$month] ??= ['month' => $month, 'shipments' => 0, 'delivered' => 0, 'net_cents' => 0];
+            foreach (['shipments', 'delivered', 'net_cents'] as $field) {
+                $months[$month][$field] += $point[$field];
+            }
+        }
+        $orderPeak = collect($points)->where('shipments', '>', 0)->sortByDesc('shipments')->first();
+        $revenuePeak = collect($points)->where('delivered', '>', 0)->sortByDesc('net_cents')->first();
+        $monthPeak = collect($months)->where('shipments', '>', 0)->sortByDesc('shipments')->first();
+        $chartSummaries = [
+            'orders' => ['total' => $summary['total'], 'peak' => $orderPeak ? ['date' => $orderPeak['date'], 'value' => $orderPeak['shipments']] : null],
+            'revenue' => ['total' => $summary['net_cents'], 'peak' => $revenuePeak ? ['date' => $revenuePeak['date'], 'value' => $revenuePeak['net_cents']] : null],
+            'months' => ['total' => $summary['total'], 'peak' => $monthPeak ? ['date' => $monthPeak['month'], 'value' => $monthPeak['shipments']] : null],
+        ];
+
+        return ['summary' => $summary, 'trend' => array_map(fn (array $point): array => array_intersect_key($point, array_flip(['date', 'shipments', 'delivered', 'gross_cents', 'shipping_cents', 'net_cents'])), $points), 'months' => array_values($months), 'chart_summaries' => $chartSummaries];
     }
 }

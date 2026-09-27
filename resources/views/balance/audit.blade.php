@@ -1,6 +1,6 @@
 <x-app-layout title="Storico operazioni">
     <nav class="page-back" aria-label="Navigazione pagina"><x-ui.icon-button action="back" :href="route('balance.index')" label="Torna indietro" text /></nav><header class="page-heading"><div><span class="eyebrow d-block mt-3">TRACCIABILITÀ CONTABILE</span><h1>Storico operazioni</h1><p>{{ $entityLabel }} #{{ request('id') }} · {{ $entries->total() }} eventi registrati</p></div></header>
-    <p class="data-caption">Eventi salvati nel database, dal più recente. Le operazioni storiche prive di audit non vengono ricostruite artificialmente.</p>
+    <p class="data-caption">Eventi salvati nel database, dal più recente. Le operazioni precedenti all’attivazione della cronologia non vengono ricostruite.</p>
     <ol class="audit-timeline">
         @forelse($entries as $entry)
             @php($event = $presenter->present($entry))
