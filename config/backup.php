@@ -2,6 +2,8 @@
 
 return [
     'enabled' => env('BACKUP_ENABLED', false),
+    'mode' => env('BACKUP_MODE', 'offsite'),
+    'key_file' => env('BACKUP_KEY_FILE'),
     'path' => env('BACKUP_PATH', storage_path('app/private/backups')),
     'offsite_path' => env('BACKUP_OFFSITE_PATH'),
     'key' => env('BACKUP_KEY'),

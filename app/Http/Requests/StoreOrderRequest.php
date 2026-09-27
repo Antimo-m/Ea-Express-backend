@@ -5,7 +5,7 @@ namespace App\Http\Requests;
 use App\Support\BookingRules;
 use App\Support\CustomerIdentity;
 use App\Support\OrderContent;
-use App\Support\PaymentMethod;
+use App\Support\PostalCodeResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -13,6 +13,32 @@ use Illuminate\Validation\Validator;
 
 class StoreOrderRequest extends FormRequest
 {
+    /** @var array<string, array<int, string>> */
+    private array $locationErrors = [];
+
+    protected function prepareForValidation(): void
+    {
+        if (! is_string($this->input('delivery_city')) || ($this->input('delivery_postal_code') !== null && ! is_string($this->input('delivery_postal_code')))) {
+            return;
+        }
+        foreach (['delivery_zone', 'delivery_address', 'shipping_type', 'delivery_province', 'delivery_region'] as $field) {
+            if ($this->input($field) !== null && ! is_string($this->input($field))) {
+                return;
+            }
+        }
+        try {
+            $postalCode = app(PostalCodeResolver::class)->resolve($this->input('delivery_city'), $this->input('delivery_postal_code'), $this->input('delivery_zone'), $this->input('delivery_address'), ($this->input('shipping_type') ?? 'regional'), $this->input('delivery_province'), $this->input('delivery_region'));
+            $this->merge(['delivery_postal_code' => $postalCode]);
+        } catch (ValidationException $exception) {
+            $this->locationErrors = $exception->errors();
+        }
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->routeIs('orders.store', 'orders.checkout.edit') ? route('orders.create') : parent::getRedirectUrl();
+    }
+
     public function authorize(): bool
     {
         return $this->user()?->isStaff() ?? false;
@@ -26,6 +52,11 @@ class StoreOrderRequest extends FormRequest
     public function after(): array
     {
         return [function (Validator $validator): void {
+            foreach ($this->locationErrors as $field => $messages) {
+                foreach ($messages as $message) {
+                    $validator->errors()->add($field, $message);
+                }
+            }
             if ($validator->errors()->hasAny(['pickup_date', 'pickup_from', 'pickup_to'])) {
                 return;
             }
@@ -45,8 +76,13 @@ class StoreOrderRequest extends FormRequest
     public function rules(): array
     {
         return [...CustomerIdentity::rules(),
+            'checkout_token' => ['nullable', 'string', 'max:30000'],
+            'shipping_type' => ['sometimes', 'required', 'in:regional,external'],
+            'delivery_region' => ['required_if:shipping_type,external', 'nullable', 'string', 'max:100'],
+            'delivery_province' => ['required_if:shipping_type,external', 'nullable', 'string', 'max:100'],
+            'weight_kg' => ['nullable', 'numeric', 'min:0.01', 'max:10000'],
+            'max_dimension_cm' => ['nullable', 'numeric', 'min:1', 'max:500'],
             'delivery_zone' => ['nullable', 'string', 'max:100'],
-            'payment_method' => ['required', Rule::in(array_keys(PaymentMethod::Labels))],
             'pickup_street_number' => ['required', 'string', 'max:20'], 'pickup_postal_code' => ['required', 'regex:/^[0-9]{5}$/D'],
             'delivery_street_number' => ['required', 'string', 'max:20'], 'delivery_postal_code' => ['required', 'regex:/^[0-9]{5}$/D'],
             'package_type' => ['required', 'in:standard,fragile,other'], 'package_description' => ['required_if:package_type,other', 'nullable', 'string', 'max:255'],
@@ -66,7 +102,7 @@ class StoreOrderRequest extends FormRequest
             'pickup_from' => ['required', 'date_format:H:i'], 'pickup_to' => ['required', 'date_format:H:i', 'after:pickup_from'],
             'delivery_window' => ['nullable', 'date_format:H:i'], 'parcel_count' => ['required', 'integer', 'between:1,100'],
             'category' => ['required', Rule::in(array_keys(OrderContent::Categories))],
-            'content_description' => ['nullable', 'string', 'max:255'],
+            'content_description' => ['required_if:category,custom', 'nullable', 'string', 'max:255'],
             'urgency' => ['required', Rule::in(['standard', 'urgent'])], 'notes' => ['nullable', 'string', 'max:2000'],
         ];
     }

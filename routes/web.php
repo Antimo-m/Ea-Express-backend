@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\AccountingControlController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\Api\BookingRulesController;
 use App\Http\Controllers\BalanceController;
+use App\Http\Controllers\CarrierShipmentController;
 use App\Http\Controllers\CustomerConversationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EconomicAuditController;
@@ -12,11 +14,11 @@ use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderLabelController;
-use App\Http\Controllers\PaymentAgreementController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PendingAccountController;
 use App\Http\Controllers\PendingSettlementController;
 use App\Http\Controllers\PickupGroupController;
+use App\Http\Controllers\PickupScheduleController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RealtimeController;
 use App\Http\Controllers\ReportController;
@@ -55,6 +57,7 @@ Route::middleware(['auth', EnsureStaff::class, EnsurePhoneVerified::class])->gro
     Route::get('/labels', [OrderLabelController::class, 'index'])->name('labels.index');
     Route::get('/stores', [StoreReportController::class, 'index'])->name('stores.index');
     Route::get('/orders/create', [OrderController::class, 'create'])->name('orders.create');
+    Route::post('/orders/checkout/edit', [OrderController::class, 'editCheckout'])->middleware('throttle:writes')->name('orders.checkout.edit');
     Route::post('/orders', [OrderController::class, 'store'])->middleware('throttle:writes')->name('orders.store');
     Route::get('/rates/{rate}/history', [ShippingRateController::class, 'history'])->name('rates.history');
     Route::patch('/rates/{rate}/state', [ShippingRateController::class, 'state'])->middleware('throttle:writes')->name('rates.state');
@@ -63,6 +66,7 @@ Route::middleware(['auth', EnsureStaff::class, EnsurePhoneVerified::class])->gro
     Route::get('/rates', [ShippingRateController::class, 'index'])->name('rates.index');
     Route::get('/rates/quote', [ShippingRateController::class, 'quote'])->name('rates.quote');
     Route::post('/rates/{rate?}', [ShippingRateController::class, 'store'])->middleware('throttle:writes')->name('rates.store');
+    Route::patch('/orders/{order}/carrier', [CarrierShipmentController::class, 'update'])->middleware('throttle:writes')->name('orders.carrier');
     Route::patch('/orders/{order}/price', [ShippingPriceController::class, 'update'])->middleware('throttle:writes')->name('prices.update');
     Route::get('/orders/{order}', [OrderController::class, 'show'])->name('orders.show');
     Route::patch('/orders/{order}', [OrderController::class, 'update'])->middleware('throttle:writes')->name('orders.update');
@@ -81,10 +85,11 @@ Route::middleware(['auth', EnsureStaff::class, EnsurePhoneVerified::class])->gro
     Route::patch('/pending/{account}', [PendingAccountController::class, 'update'])->middleware('throttle:writes')->name('pending.update');
     Route::post('/pending/{account}/settlements', [PendingAccountController::class, 'settle'])->middleware('throttle:writes')->name('pending.settle');
     Route::patch('/pending/{account}/settlements/{settlement}', [PendingSettlementController::class, 'update'])->middleware('throttle:writes')->name('pending.settlements.update');
+    Route::patch('/settings/accounting', [AccountingControlController::class, 'update'])->middleware('throttle:writes')->name('settings.accounting');
+    Route::patch('/orders/{order}/pickup-schedule', [PickupScheduleController::class, 'update'])->middleware('throttle:writes')->name('orders.pickup-schedule');
     Route::get('/economic-audits', [EconomicAuditController::class, 'index'])->name('audits.index');
     Route::get('/balance', [BalanceController::class, 'index'])->name('balance.index');
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
-    Route::patch('/orders/{order}/payment-agreement', [PaymentAgreementController::class, 'update'])->middleware('throttle:writes')->name('payment-agreement.update');
     Route::post('/balance/{order}/payment', [PaymentController::class, 'store'])->middleware('throttle:writes')->name('payments.store');
     Route::patch('/expenses/{expense}', [ExpenseController::class, 'update'])->middleware('throttle:writes')->name('expenses.update');
     Route::get('/movements', [FinancialMovementController::class, 'index'])->name('movements.index');

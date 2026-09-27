@@ -16,7 +16,7 @@ class NotifyOrderParticipants
         WorkspaceUpdated::dispatch($order->id, $message ? 'messages' : 'order');
         if ($order->customer_id && $order->customer_id !== $actorId) {
             $customer = User::whereKey($order->customer_id)->where('role', UserRole::Customer)->where('is_active', true)->where($message ? 'notify_messages' : 'notify_orders', true)->first();
-            $customer?->notify(new OrderActivity($order->id, $order->reference, $title, $message));
+            $customer?->notify(new OrderActivity($order->id, $order->reference, $title, $message, $order->displayName()));
         }
         $recipients = User::query()->where('is_active', true)->whereIn('role', [UserRole::Admin, UserRole::Rider])->where($message ? 'notify_messages' : 'notify_orders', true);
         if ($actorId !== null) {
@@ -30,7 +30,7 @@ class NotifyOrderParticipants
         });
         $recipients->each(function (User $user) use ($order, $title, $message) {
             if ($user->can('view', $order)) {
-                $user->notify(new OrderActivity($order->id, $order->reference, $title, $message));
+                $user->notify(new OrderActivity($order->id, $order->reference, $title, $message, $order->displayName()));
             }
         });
     }

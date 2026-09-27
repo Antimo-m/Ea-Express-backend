@@ -6,6 +6,7 @@ use App\Actions\RecordEconomicAudit;
 use App\Http\Requests\ExpenseRequest;
 use App\Models\Expense;
 use App\Models\User;
+use App\Support\AccountingPeriod;
 use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -23,6 +24,8 @@ class ExpenseController extends Controller
             throw ValidationException::withMessages(['amount' => 'L’importo deve essere maggiore di zero.']);
         }
         DB::transaction(function () use ($request, $data, $cents): void {
+            $period = AccountingPeriod::lock();
+            $period->assertOpen($data['spent_on']);
             User::query()->lockForUpdate()->findOrFail($request->user()->id);
             if (! empty($data['submission_key'])) {
                 $existing = Expense::where('user_id', $request->user()->id)->where('submission_key', $data['submission_key'])->first();
@@ -54,8 +57,11 @@ class ExpenseController extends Controller
             throw ValidationException::withMessages(['amount' => 'L’importo deve essere maggiore di zero.']);
         }
         DB::transaction(function () use ($request, $expense, $data, $cents): void {
+            $period = AccountingPeriod::lock();
             $entry = Expense::visibleTo($request->user())->lockForUpdate()->findOrFail($expense->id);
             abort_unless(! $entry->voided_at && ! $entry->pending_settlement_id && $entry->version === (int) $data['version'], 409, 'Spesa aggiornata, annullata o collegata a un saldo.');
+            $period->assertOpen($entry->spent_on);
+            $period->assertOpen($data['spent_on']);
             $before = $entry->toArray();
             $entry->description = $data['description'];
             $entry->spent_on = $data['spent_on'];
@@ -73,10 +79,12 @@ class ExpenseController extends Controller
         $expense = Expense::visibleTo($request->user())->findOrFail($expense->id);
         abort_if($expense->pending_settlement_id !== null, 409, 'Questa spesa è un saldo tracciato nei Sospesi e non può essere annullata separatamente.');
         DB::transaction(function () use ($request, $expense): void {
+            $period = AccountingPeriod::lock();
             $locked = Expense::visibleTo($request->user())->lockForUpdate()->findOrFail($expense->id);
             if ($locked->voided_at) {
                 return;
             }
+            $period->assertOpen($locked->spent_on);
             $before = $locked->toArray();
             $locked->voided_at = now();
             $locked->save();

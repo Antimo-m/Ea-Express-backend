@@ -1,8 +1,9 @@
 <article class="surface receipt-row">
     <div class="receipt-identity">
-        <a class="fw-semibold" href="{{ route('orders.show', $order) }}">{{ $order->store_name }}</a>
+        <a class="fw-semibold" href="{{ route('orders.show', $order) }}">{{ $order->displayName() }}</a>
         <p class="small text-secondary text-break mb-1">{{ $order->reference }}</p>
-        <strong>{{ \App\Support\Money::format($order->price_cents) }}</strong>
+        <strong>Tariffa prevista: {{ \App\Support\Money::format($order->price_cents) }}</strong>
+        @if($order->paid_at)<p class="small mb-0">Incasso effettivo: {{ \App\Support\Money::format((int) $order->payments_sum_amount_cents) }}</p>@endif
         @if($order->receipt_voided_at)<p class="small text-secondary mb-0">Stornato il {{ $order->receipt_voided_at->timezone('Europe/Rome')->format('d/m/Y H:i') }} · {{ $order->receipt_void_reason }}</p>@endif
     </div>
     <div class="row-actions">
@@ -14,8 +15,9 @@
                 <x-ui.action-dialog :id="'receipt-'.$order->id" action="receive" title="Registra incasso" :description="$order->reference">
                     <form method="post" action="{{ route('payments.store', $order) }}" data-financial-form class="form-stack">
                         @csrf<input type="hidden" name="version" value="{{ $order->version }}"><input type="hidden" name="action" value="receive">
-                        <label for="payment-method-{{ $order->id }}">Metodo di pagamento</label>
-                        <select class="form-select" id="payment-method-{{ $order->id }}" name="method" required><option value="">Seleziona il metodo</option>@foreach(\App\Support\PaymentMethod::Labels as $value => $label)<option value="{{ $value }}" @selected($order->payment_method === $value)>{{ $label }}</option>@endforeach</select>
+                        <p>Tariffa prevista: <strong>Tariffa prevista: {{ \App\Support\Money::format($order->price_cents) }}</strong>
+        @if($order->paid_at)<p class="small mb-0">Incasso effettivo: {{ \App\Support\Money::format((int) $order->payments_sum_amount_cents) }}</p>@endif.</p>
+                        @if($order->shipping_type === 'external')<x-ui.field name="received_amount" :id="'received-amount-'.$order->id" label="Importo effettivamente incassato (€)" :value="old('received_amount', number_format($order->price_cents / 100, 2, '.', ''))" inputmode="decimal" pattern="[0-9]{1,6}([.,][0-9]{1,2})?" required help="La tariffa originale resta invariata. Questo importo entra nel totale lordo incassato."/>@endif
                         <x-ui.icon-button type="submit" action="receive" label="Registra incasso" text />
                     </form>
                 </x-ui.action-dialog>

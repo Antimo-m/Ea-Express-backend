@@ -75,7 +75,13 @@ class ImportShippingRates extends Command
         DB::transaction(function () use ($rows, $user, $revise): void {
             User::whereKey($user->id)->lockForUpdate()->firstOrFail();
             foreach ($rows as $data) {
-                $existing = ShippingRate::where('active', true)->where('city_key', ShippingQuote::cityKey($data['city']))->where('postal_code', $data['postal_code'])->where('area', $data['area'])->lockForUpdate()->get();
+                $existing = ShippingRate::where('active', true)
+                    ->where('shipping_type', 'regional')
+                    ->whereNull(['archived_at', 'zone', 'street', 'max_weight_kg', 'max_dimension_cm'])
+                    ->where('city_key', ShippingQuote::cityKey($data['city']))
+                    ->where('postal_code', $data['postal_code'])
+                    ->where('area', $data['area'])
+                    ->lockForUpdate()->get();
                 if ($existing->count() > 1) {
                     throw new \RuntimeException('Tariffe attive ambigue per '.$data['city']);
                 }

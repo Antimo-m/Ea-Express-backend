@@ -2,9 +2,9 @@
   --ea-font: 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
   --ea-brand: #b64012;
   --ea-brand-hover: #92320d;
-  --ea-orange: #f97316;
+  --ea-orange: #f2a560;
   --ea-orange-soft: #fff1e8;
-  --ea-ink: #182b3a;
+  --ea-ink: #203f54;
   --ea-muted: #526273;
   --ea-line: #dfe5eb;
   --ea-bg: #f3f5f7;
@@ -20,9 +20,9 @@
   --ea-space-4: 16px;
   --ea-space-5: 24px;
   --ea-space-6: 32px;
-  --ea-radius-control: 8px;
-  --ea-radius-card: 12px;
-  --ea-radius-modal: 16px;
+  --ea-radius-control: 12px;
+  --ea-radius-card: 20px;
+  --ea-radius-modal: 24px;
   --ea-shadow: 0 2px 6px #182b3a05;
   --ea-shadow-dialog: 0 24px 80px #13263833;
   --ea-transition: 140ms ease;

@@ -42,7 +42,7 @@ enum OrderStatus: string
     public function next(): array
     {
         return match ($this) {
-            self::Received => [self::Accepted, self::Rejected, self::Cancelled],
+            self::Received => [self::Accepted, self::Rejected],
             self::Accepted => [self::PickupScheduled, self::RiderArriving, self::Cancelled],
             self::PickupScheduled => [self::RiderArriving, self::Cancelled],
             self::RiderArriving => [self::PickedUp, self::DeliveryIssue, self::Cancelled],

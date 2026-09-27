@@ -28,7 +28,7 @@ class CustomerWorkspaceController extends Controller
             'delivered' => (clone $base)->where('status', OrderStatus::Delivered)->count(),
             'attention' => (clone $base)->whereIn('status', ['delivery_issue', 'delivery_attempted', 'rejected'])->count(),
             'unread' => $request->user()->unreadNotifications()->count(),
-        ], 'recent' => CustomerOrderResource::collection((clone $base)->with('rider')->latest()->orderByDesc('id')->limit(5)->get()), 'next_pickups' => CustomerOrderResource::collection((clone $active)->with('rider')->whereDoesntHave('events', fn ($q) => $q->where('status', OrderStatus::PickedUp))->orderBy('pickup_date')->orderBy('pickup_from')->orderBy('id')->limit(3)->get())]);
+        ], 'recent' => CustomerOrderResource::collection((clone $base)->withDisplayIdentity()->with('rider')->latest()->orderByDesc('id')->limit(5)->get()), 'next_pickups' => CustomerOrderResource::collection((clone $active)->withDisplayIdentity()->with('rider')->whereDoesntHave('events', fn ($q) => $q->where('status', OrderStatus::PickedUp))->orderBy('pickup_date')->orderBy('pickup_from')->orderBy('id')->limit(3)->get())]);
     }
 
     public function couriers(Request $request): JsonResponse

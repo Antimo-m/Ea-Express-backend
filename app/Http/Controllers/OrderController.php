@@ -8,11 +8,13 @@ use App\Http\Requests\StoreOrderRequest;
 use App\Http\Requests\UpdateOrderStatusRequest;
 use App\Models\Order;
 use App\Models\User;
+use App\Support\CheckoutReview;
 use App\Support\OrderSelection;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class OrderController extends Controller
@@ -21,7 +23,7 @@ class OrderController extends Controller
     {
         $section = $request->route()->getName();
         $selection = app(OrderSelection::class);
-        $query = $selection->query($request, $section)->with('rider');
+        $query = $selection->query($request, $section)->withDisplayIdentity()->with('rider');
         $title = match ($section) {
             'orders.incoming' => 'Ordini in entrata', 'orders.in-progress' => 'Spedizioni in corso', default => 'Storico ordini'
         };
@@ -34,18 +36,32 @@ class OrderController extends Controller
         return view('orders.create', ['customers' => User::where('role', UserRole::Customer)->where('is_active', true)->orderBy('name')->get(['id', 'name', 'email'])]);
     }
 
-    public function store(StoreOrderRequest $request, CreateOrder $create): RedirectResponse
+    public function store(StoreOrderRequest $request, CreateOrder $create, CheckoutReview $review): RedirectResponse|View
     {
-        $order = $create->handle($request->user(), $request->validated());
+        if (! $request->filled('checkout_token')) {
+            return view('orders.checkout', ['review' => $review->preview($request->user(), $request->validated())]);
+        }
+
+        try {
+            $order = $create->handle($request->user(), $request->validated());
+        } catch (ValidationException $exception) {
+            $exception->redirectTo(route('orders.create'));
+            throw $exception;
+        }
 
         return redirect()->route('orders.show', $order)->with('status', 'Richiesta creata.');
+    }
+
+    public function editCheckout(StoreOrderRequest $request): RedirectResponse
+    {
+        return redirect()->route('orders.create')->withInput($request->safe()->except('checkout_token'));
     }
 
     public function show(Order $order): View
     {
         Gate::authorize('view', $order);
 
-        return view('orders.show', ['order' => $order->load(['rider', 'priceProposals' => fn ($q) => $q->with(['proposer', 'responder'])->latest()]), 'transitions' => $order->allowedTransitions(), 'events' => $order->events()->with('user')->latest()->orderByDesc('id')->paginate(30)]);
+        return view('orders.show', ['order' => $order->loadSum('payments', 'amount_cents')->load(['customer:id,name', 'creator:id,name', 'rider', 'priceProposals' => fn ($q) => $q->with(['proposer', 'responder'])->latest()]), 'transitions' => $order->allowedTransitions(), 'canReschedulePickup' => Order::awaitingPickup()->whereKey($order->id)->exists(), 'events' => $order->events()->with('user')->latest()->orderByDesc('id')->paginate(30)]);
     }
 
     public function update(UpdateOrderStatusRequest $request, Order $order, TransitionOrder $transition): RedirectResponse

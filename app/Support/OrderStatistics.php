@@ -40,11 +40,47 @@ class OrderStatistics
     /** @return array<string,mixed> */
     public function summarize(Builder $query): array
     {
-        $count = (clone $query)->count();
-        $delivered = (clone $query)->where('status', OrderStatus::Delivered)->count();
-        $cancelled = (clone $query)->whereIn('status', [OrderStatus::Cancelled, OrderStatus::Rejected])->count();
-        $priced = (clone $query)->whereNotIn('status', [OrderStatus::Cancelled, OrderStatus::Rejected])->whereNotNull('price_cents');
+        $row = (clone $query)->selectRaw("COUNT(*) AS total,
+            COALESCE(SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END), 0) AS delivered,
+            COALESCE(SUM(CASE WHEN status IN ('cancelled','rejected') THEN 1 ELSE 0 END), 0) AS cancelled,
+            COALESCE(SUM(CASE WHEN status NOT IN ('cancelled','rejected') THEN price_cents ELSE 0 END), 0) AS shipping_spend_cents,
+            COALESCE(SUM(CASE WHEN status = 'delivered' THEN price_cents ELSE 0 END), 0) AS delivered_spend_cents,
+            COALESCE(SUM(CASE WHEN status NOT IN ('cancelled','rejected') AND price_cents IS NULL THEN 1 ELSE 0 END), 0) AS unpriced,
+            COALESCE(SUM(CASE WHEN status NOT IN ('cancelled','rejected') THEN parcel_value_cents ELSE 0 END), 0) AS parcel_value_cents,
+            COALESCE(SUM(CASE WHEN status = 'delivered' THEN parcel_value_cents ELSE 0 END), 0) AS gross_cents,
+            COALESCE(SUM(CASE WHEN status = 'delivered' AND parcel_value_cents IS NULL THEN 1 ELSE 0 END), 0) AS missing_values,
+            COALESCE(SUM(CASE WHEN shipping_type = 'regional' THEN 1 ELSE 0 END), 0) AS regional_count,
+            COALESCE(SUM(CASE WHEN shipping_type = 'external' THEN 1 ELSE 0 END), 0) AS external_count")->first();
+        $summary = array_map(intval(...), $row->getAttributes());
+        $summary['in_progress'] = $summary['total'] - $summary['delivered'] - $summary['cancelled'];
+        $summary['completion_percent'] = $summary['total'] ? round(100 * $summary['delivered'] / $summary['total'], 1) : 0;
+        $summary['net_cents'] = $summary['gross_cents'] - $summary['delivered_spend_cents'];
+        $summary['prices'] = $this->prices($query);
 
-        return ['total' => $count, 'delivered' => $delivered, 'cancelled' => $cancelled, 'in_progress' => $count - $delivered - $cancelled, 'completion_percent' => $count ? round(100 * $delivered / $count, 1) : 0, 'shipping_spend_cents' => (int) (clone $priced)->sum('price_cents'), 'delivered_spend_cents' => (int) (clone $priced)->where('status', OrderStatus::Delivered)->sum('price_cents'), 'unpriced' => (clone $query)->whereNotIn('status', [OrderStatus::Cancelled, OrderStatus::Rejected])->whereNull('price_cents')->count(), 'prices' => $this->prices($query)];
+        return $summary;
+    }
+
+    /** @return list<array<string,mixed>> */
+    public function trend(Builder $query, ReportingPeriod $period): array
+    {
+        $days = [];
+        for ($day = $period->start->copy(); $day->lte($period->end); $day->addDay()) {
+            $days[$day->toDateString()] = ['date' => $day->toDateString(), 'shipments' => 0, 'delivered' => 0, 'value_cents' => 0, 'gross_cents' => 0, 'shipping_cents' => 0, 'net_cents' => 0];
+        }
+        foreach ((clone $query)->select(['id', 'created_at', 'status', 'parcel_value_cents', 'price_cents'])->toBase()->lazyById(500) as $order) {
+            $key = Carbon::parse($order->created_at, 'UTC')->timezone('Europe/Rome')->toDateString();
+            $days[$key]['shipments']++;
+            if (! in_array($order->status, [OrderStatus::Cancelled->value, OrderStatus::Rejected->value], true)) {
+                $days[$key]['value_cents'] += $order->parcel_value_cents ?? 0;
+            }
+            if ($order->status === OrderStatus::Delivered->value) {
+                $days[$key]['delivered']++;
+                $days[$key]['gross_cents'] += $order->parcel_value_cents ?? 0;
+                $days[$key]['shipping_cents'] += $order->price_cents ?? 0;
+                $days[$key]['net_cents'] += ($order->parcel_value_cents ?? 0) - ($order->price_cents ?? 0);
+            }
+        }
+
+        return array_values($days);
     }
 }

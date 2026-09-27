@@ -30,6 +30,12 @@ class TransitionOrder
             if ($locked->status === OrderStatus::Rejected && ! $locked->recoverable()) {
                 throw ValidationException::withMessages(['status' => 'Il recupero è consentito soltanto entro un’ora dal rifiuto.']);
             }
+            if ($locked->shipping_type === 'external' && $next === OrderStatus::Accepted) {
+                abort_unless($locked->quoted_price_cents !== null, 409, 'Configura prima la tariffa fuori regione.');
+            }
+            if ($locked->shipping_type === 'external' && $next === OrderStatus::Delivered) {
+                $locked->carrier_status = 'delivered';
+            }
             if ($next === OrderStatus::Accepted) {
                 $locked->rider_id = $user->id;
                 if ($locked->pricing_version === 1) {

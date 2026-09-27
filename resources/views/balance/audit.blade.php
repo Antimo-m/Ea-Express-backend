@@ -1,1 +1,15 @@
-<x-app-layout title="Storico economico"><h1>Storico economico</h1><p>{{ request('type') }} · #{{ request('id') }}</p>@forelse($entries as $entry)<article class="surface p-4 mb-3"><h2 class="h5">{{ $entry->action }}</h2><p>{{ $entry->user?->name ?? 'Sistema' }} · {{ $entry->created_at->timezone('Europe/Rome')->format('d/m/Y H:i:s') }}</p><div class="row g-3">@foreach(['before'=>'Prima','after'=>'Dopo'] as $field=>$label)<div class="col-md-6"><h3 class="h6">{{ $label }}</h3><pre class="small audit-data">{{ json_encode($entry->{$field},JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) }}</pre></div>@endforeach</div></article>@empty<p>Nessuna modifica tracciata per questa voce.</p>@endforelse{{ $entries->links() }}</x-app-layout>
+<x-app-layout title="Storico operazioni">
+    <nav class="page-back" aria-label="Navigazione pagina"><x-ui.icon-button action="back" :href="route('balance.index')" label="Torna indietro" text /></nav><header class="page-heading"><div><span class="eyebrow d-block mt-3">TRACCIABILITÀ CONTABILE</span><h1>Storico operazioni</h1><p>{{ $entityLabel }} #{{ request('id') }} · {{ $entries->total() }} eventi registrati</p></div></header>
+    <p class="data-caption">Eventi salvati nel database, dal più recente. Le operazioni storiche prive di audit non vengono ricostruite artificialmente.</p>
+    <ol class="audit-timeline">
+        @forelse($entries as $entry)
+            @php($event = $presenter->present($entry))
+            <li><span class="audit-marker"><x-ui.icon :name="$event['icon']" /></span><article class="surface audit-event">
+                <header class="section-heading"><div><h2>{{ $event['title'] }}</h2><p class="small text-secondary mb-0">{{ $entry->user?->name ?? 'Sistema' }} · <time datetime="{{ $entry->created_at->toIso8601String() }}">{{ $entry->created_at->timezone('Europe/Rome')->format('d/m/Y H:i:s') }}</time></p></div><span class="count-badge">Evento #{{ $entry->id }}</span></header>
+                <dl class="audit-changes">@foreach($event['changes'] as $change)<div><dt>{{ $change['label'] }}</dt><dd>@if($change['before'] !== null)<span class="audit-before">{{ $change['before'] }}</span><x-ui.icon name="arrow-right" /><span class="visually-hidden">diventa</span>@endif<strong>{{ $change['after'] }}</strong></dd></div>@endforeach</dl>
+                @if(!$event['changes'])<p class="small text-secondary mb-0">Operazione registrata senza ulteriori variazioni nei campi visualizzati.</p>@endif
+            </article></li>
+        @empty<li class="surface p-4">Nessun evento disponibile per questa registrazione.</li>@endforelse
+    </ol>
+    {{ $entries->links() }}
+</x-app-layout>

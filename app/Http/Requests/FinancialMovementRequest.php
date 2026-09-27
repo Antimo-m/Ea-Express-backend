@@ -14,6 +14,13 @@ class FinancialMovementRequest extends FormRequest
         return $this->user()?->role === UserRole::Admin;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->input('kind') === 'cash') {
+            $this->merge(['description' => 'Registrazione contanti', 'occurred_on' => $this->route('movement')?->occurred_on->toDateString() ?? now('Europe/Rome')->toDateString(), 'customer_id' => null, 'order_id' => null]);
+        }
+    }
+
     public function rules(): array
     {
         if ($this->isMethod('DELETE')) {

@@ -6,7 +6,7 @@ use Illuminate\Notifications\Notification;
 
 class OrderActivity extends Notification
 {
-    public function __construct(public int $orderId, public string $reference, public string $title, public bool $message = false) {}
+    public function __construct(public int $orderId, public string $reference, public string $title, public bool $message = false, public ?string $customerName = null) {}
 
     public function via(object $notifiable): array
     {
@@ -15,6 +15,6 @@ class OrderActivity extends Notification
 
     public function toArray(object $notifiable): array
     {
-        return ['order_id' => $this->orderId, 'reference' => $this->reference, 'title' => $this->title, 'message' => $this->message];
+        return ['customer_name' => $this->customerName, 'order_id' => $this->orderId, 'reference' => $this->reference, 'title' => $this->title, 'message' => $this->message];
     }
 }

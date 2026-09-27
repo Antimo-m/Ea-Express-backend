@@ -10,7 +10,7 @@ use Throwable;
 
 class DatabaseBackup extends Command
 {
-    protected $signature = 'database:backup {--local-only : Crea una copia locale di prova senza dichiararla offsite} {--check : Verifica la freschezza dei backup e dei test di ripristino}';
+    protected $signature = 'database:backup {--local-only : Crea una copia locale cifrata senza dichiararla esterna} {--check : Verifica la freschezza dei backup e dei test di ripristino}';
 
     protected $description = 'Backup completo cifrato MySQL/SQLite con copia esterna, retention e log';
 
@@ -18,15 +18,18 @@ class DatabaseBackup extends Command
     {
         $directory = rtrim((string) config('backup.path'), '/');
         if ($this->option('check')) {
-            foreach (['last-success.json' => 26 * 3600, 'last-verified.json' => 8 * 86400] as $name => $maxAge) {
+            $prefix = $this->option('local-only') ? 'last-local-' : 'last-';
+            foreach ([$prefix.'success.json' => 26 * 3600, $prefix.'verified.json' => 8 * 86400] as $name => $maxAge) {
                 $status = is_file($directory.'/'.$name) ? json_decode(file_get_contents($directory.'/'.$name), true) : null;
-                if (! $status || time() - ($status['timestamp'] ?? 0) > $maxAge) {
+                $sourceDirectory = $this->option('local-only') ? $directory : config('backup.offsite_path');
+                $archiveName = $status['archive'] ?? null;
+                if (! $status || ! is_int($status['timestamp'] ?? null) || $status['timestamp'] > time() || time() - $status['timestamp'] > $maxAge || ! is_string($archiveName) || basename($archiveName) !== $archiveName || ! $sourceDirectory || ! is_readable(rtrim($sourceDirectory, '/').'/'.$archiveName)) {
                     $this->error('Backup o verifica di ripristino assente/scaduta: '.$name);
 
                     return self::FAILURE;
                 }
             }
-            $this->info('Backup esterno e ripristino verificati entro le soglie.');
+            $this->info($this->option('local-only') ? 'Backup locale e ripristino verificati entro le soglie; copia esterna non verificata.' : 'Backup esterno e ripristino verificati entro le soglie.');
 
             return self::SUCCESS;
         }
@@ -63,6 +66,14 @@ class DatabaseBackup extends Command
                         if (basename($old) !== $name && filemtime($old) < time() - max(1, (int) config('backup.retention_days')) * 86400) {
                             unlink($old);
                         }
+                    }
+                }
+            }
+            file_put_contents($directory.'/last-local-success.json', json_encode(['timestamp' => time(), 'archive' => $name]), LOCK_EX);
+            if ($this->option('local-only')) {
+                foreach (glob($directory.'/ea-express-*.eab') ?: [] as $old) {
+                    if (basename($old) !== $name && filemtime($old) < time() - max(1, (int) config('backup.retention_days')) * 86400) {
+                        unlink($old);
                     }
                 }
             }

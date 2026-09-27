@@ -9,7 +9,7 @@ class PaymentEntry extends Model
 {
     protected function casts(): array
     {
-        return ['amount_cents' => 'integer'];
+        return ['ea_amount_cents' => 'integer', 'amount_cents' => 'integer'];
     }
 
     public function order(): BelongsTo

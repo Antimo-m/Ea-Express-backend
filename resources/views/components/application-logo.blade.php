@@ -1,1 +1,1 @@
-<span {{ $attributes->class(['brand']) }}><span class="brand-mark"><x-ui.icon name="box-seam" /></span><span>EA<span class="brand-accent">-</span>Express<span class="brand-caption">CONSEGNE, CON CURA.</span></span></span>
+<span {{ $attributes->class(['brand']) }}><img class="brand-logo" src="{{ asset('brand.svg') }}" alt="EA Express" width="155" height="83"></span>

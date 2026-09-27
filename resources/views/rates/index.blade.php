@@ -13,7 +13,7 @@
         @forelse($rates as $rate)
             <article @class(['surface','rate-card','is-inactive'=>!$rate->active]) data-rate="{{ json_encode($rate) }}">
                 <header><span class="eyebrow">{{ $rate->area ?: 'Località' }}</span><span class="status-badge">{{ $rate->archived_at ? 'Archiviata' : ($rate->active ? 'Attiva' : 'Disattivata') }}</span></header>
-                <h2>{{ $rate->city }}</h2><p class="rate-location">{{ collect([$rate->zone, $rate->postal_code ? 'CAP '.$rate->postal_code : null, $rate->street])->filter()->join(' · ') ?: 'Intera località' }}</p>
+                <h2>{{ $rate->city }}</h2><p class="small">{{ $rate->shipping_type === 'external' ? 'Fuori regione'.($rate->carrier_name ? ' · '.$rate->carrier_name : '') : 'Regionale' }}</p>@if($rate->shipping_type === 'external')<p class="small">Costo vettore: {{ \App\Support\Money::format($rate->carrier_cost_cents) }} · Margine: {{ \App\Support\Money::format($rate->price_cents - $rate->carrier_cost_cents) }}</p>@endif<p class="rate-location">{{ collect([$rate->zone, $rate->postal_code ? 'CAP '.$rate->postal_code : null, $rate->street])->filter()->join(' · ') ?: 'Intera località' }}</p>
                 <div class="rate-price"><span>Costo spedizione</span><strong>{{ \App\Support\Money::format($rate->price_cents) }}</strong></div>
                 <p class="rate-time"><x-ui.icon name="clock"/> {{ $rate->delivery_time ?: 'Tempi da confermare' }}</p>
                 @if(auth()->user()->role === \App\UserRole::Admin)
@@ -34,6 +34,13 @@
     <x-ui.modal id="rate-editor" title="Nuova tariffa" description="Definisci dove consegniamo e il costo della spedizione.">
         <form data-rate-form class="form-stack">
             <div class="modal-content-area field-grid">
+                <div><label class="form-label" for="rate-type">Servizio</label><select class="form-select" id="rate-type" name="shipping_type"><option value="regional">Regionale</option><option value="external">Fuori regione</option></select></div>
+                <x-ui.field name="carrier_name" label="Vettore (fuori regione)" maxlength="100"/>
+                <x-ui.field name="carrier_cost" label="Costo vettore previsto (€, facoltativo)" inputmode="decimal" pattern="[0-9]{1,6}([.,][0-9]{1,2})?"/>
+                <x-ui.field name="max_weight_kg" label="Peso totale massimo (kg, vuoto = nessun limite)" type="number" min="0.01" max="10000" step="0.01"/>
+                <x-ui.field name="max_dimension_cm" label="Lato massimo per collo (cm, vuoto = nessun limite)" type="number" min="1" max="500" step="0.01"/>
+                <x-ui.field name="delivery_days_min" label="Giorni lavorativi minimi dal ritiro" type="number" min="1" max="365"/>
+                <x-ui.field name="delivery_days_max" label="Giorni lavorativi massimi dal ritiro" type="number" min="1" max="365"/>
                 <x-ui.field name="city" id="rate-city" label="Località" maxlength="100" required/>
                 <x-ui.field name="area" id="rate-area" label="Area" maxlength="100"/>
                 <x-ui.field name="postal_code" id="rate-postal" label="CAP (facoltativo)" pattern="[0-9]{5}" maxlength="5" inputmode="numeric"/>
@@ -45,9 +52,9 @@
                 <label class="switch-label"><input type="checkbox" name="active" checked/> Disponibile per nuove spedizioni</label>
             </div>
             <p class="modal-feedback" role="alert" data-modal-error></p>
-            <footer class="modal-actions"><button type="button" class="btn btn-light" data-dialog-close>Annulla</button><x-ui.icon-button action="add" label="Aggiungi tariffa" type="submit" data-rate-save /></footer>
+            <footer class="modal-actions"><button type="button" class="btn modal-back" data-dialog-close><x-ui.icon name="arrow-left"/> Torna indietro</button><x-ui.icon-button action="add" label="Aggiungi tariffa" type="submit" data-rate-save text/></footer>
         </form>
     </x-ui.modal>
-    <x-ui.modal id="rate-history" title="Storico tariffa" description="Versioni conservate per ricostruire le variazioni."><div class="modal-content-area" data-history-content></div><footer class="modal-actions"><button type="button" class="btn btn-light" data-dialog-close>Chiudi</button></footer></x-ui.modal>
+    <x-ui.modal id="rate-history" title="Storico tariffa" description="Versioni conservate per ricostruire le variazioni."><div class="modal-content-area" data-history-content></div><footer class="modal-actions"><button type="button" class="btn modal-back" data-dialog-close><x-ui.icon name="arrow-left"/> Torna indietro</button></footer></x-ui.modal>
     @endif
 </x-app-layout>

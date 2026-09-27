@@ -13,7 +13,9 @@ use App\Models\PaymentEntry;
 use App\Models\PendingAccount;
 use App\Models\User;
 use App\OrderStatus;
+use App\Support\AccountingPeriod;
 use App\Support\Money;
+use App\Support\ShippingEconomics;
 use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -32,7 +34,7 @@ class PendingAccountController extends Controller
             ->when($data['state'] ?? null, fn ($q, $state) => $q->where('state', $state));
         $totals = (clone $query)->whereIn('state', ['open', 'partially_paid'])->selectRaw('direction, SUM(amount_cents - settled_cents) AS remaining')->groupBy('direction')->pluck('remaining', 'direction');
         $list = (clone $query)->when($data['direction'] ?? null, fn ($q, $direction) => $q->where('direction', $direction))
-            ->with(['customer:id,name', 'order:id,reference', 'settlements' => fn ($q) => $q->with('user:id,name')->latest()->orderByDesc('id')]);
+            ->with(['customer:id,name', 'order:id,reference,shipping_type', 'settlements' => fn ($q) => $q->with('user:id,name')->latest()->orderByDesc('id')]);
         match ($data['sort'] ?? 'recent') {
             'due' => $list->orderByRaw('CASE WHEN due_on IS NULL THEN 1 ELSE 0 END')->orderBy('due_on'),
             'remaining' => $list->orderByRaw('(amount_cents - settled_cents) DESC'),
@@ -52,6 +54,8 @@ class PendingAccountController extends Controller
         abort_unless($cents > 0, 422, 'Importo maggiore di zero richiesto.');
         unset($data['amount']);
         DB::transaction(function () use ($data, $cents, $request): void {
+            $period = AccountingPeriod::lock();
+            $period->assertOpen($data['occurred_on']);
             if (! empty($data['order_id'])) {
                 $order = Order::query()->lockForUpdate()->findOrFail($data['order_id']);
                 $remaining = $order->price_cents - (int) PaymentEntry::where('order_id', $order->id)->sum('amount_cents');
@@ -72,8 +76,10 @@ class PendingAccountController extends Controller
         abort_unless($request->user()->role === UserRole::Admin, 403);
         $data = $request->validated();
         DB::transaction(function () use ($request, $account, $data): void {
+            $period = AccountingPeriod::lock();
             $locked = PendingAccount::query()->when($request->filled('id'), fn ($q) => $q->whereKey($request->integer('id')))->lockForUpdate()->findOrFail($account->id);
             abort_unless($locked->version === (int) $data['version'] && in_array($locked->state, ['open', 'partially_paid']), 409, 'Sospeso aggiornato o chiuso.');
+            $period->assertOpen($locked->occurred_on);
             $before = $locked->toArray();
             if ($data['action'] === 'cancel') {
                 abort_if($locked->settled_cents > 0, 422, 'Un sospeso con pagamenti conserva i movimenti: non può essere annullato.');
@@ -99,14 +105,17 @@ class PendingAccountController extends Controller
         abort_unless($request->user()->role === UserRole::Admin, 403);
         $data = $request->validated();
         $data['note'] = '';
+        $data['method'] = 'cash';
         $cents = Money::cents($data['amount']);
         DB::transaction(function () use ($request, $account, $data, $cents): void {
+            $period = AccountingPeriod::lock();
+            $period->assertOpen(now());
             // Use the same lock order as direct receipts: order, then pending account.
             $order = $account->order_id ? Order::query()->lockForUpdate()->findOrFail($account->order_id) : null;
             $locked = PendingAccount::query()->lockForUpdate()->findOrFail($account->id);
             $existing = $locked->settlements()->where('submission_key', $data['submission_key'])->first();
             if ($existing) {
-                abort_unless($existing->amount_cents === $cents && $existing->method === $data['method'] && $existing->note === $data['note'], 409, 'Chiave già utilizzata con dati diversi.');
+                abort_unless($existing->amount_cents === $cents && $existing->method === $data['method'] && (! $order || PaymentEntry::where('pending_settlement_id', $existing->id)->value('ea_amount_cents') === app(ShippingEconomics::class)->retainedAmount($order, $cents, $data['ea_amount'] ?? null)) && $existing->note === $data['note'], 409, 'Chiave già utilizzata con dati diversi.');
 
                 return;
             }
@@ -120,10 +129,12 @@ class PendingAccountController extends Controller
                 $entry->order_id = $order->id;
                 $entry->user_id = $request->user()->id;
                 $entry->amount_cents = $cents;
+                $entry->ea_amount_cents = app(ShippingEconomics::class)->retainedAmount($order, $cents, $data['ea_amount'] ?? null);
                 $entry->method = $data['method'];
                 $entry->note = $data['note'];
                 $entry->pending_settlement_id = $settlement->id;
                 $entry->save();
+                app(RecordEconomicAudit::class)->handle($request->user(), $entry, 'payment.received', null, $entry->toArray());
                 $paid = (int) PaymentEntry::where('order_id', $order->id)->sum('amount_cents');
                 abort_if($paid > $order->price_cents, 409, 'Il totale supererebbe il prezzo concordato.');
                 if ($paid === $order->price_cents) {
@@ -139,7 +150,9 @@ class PendingAccountController extends Controller
                 $expense->amount_cents = $cents;
                 $expense->pending_settlement_id = $settlement->id;
                 $expense->save();
+                app(RecordEconomicAudit::class)->handle($request->user(), $expense, 'expense.created', null, $expense->toArray());
             }
+            app(RecordEconomicAudit::class)->handle($request->user(), $settlement, 'settlement.created', null, $settlement->toArray());
             $locked->refreshSettlementState();
             $locked->version++;
             $locked->save();

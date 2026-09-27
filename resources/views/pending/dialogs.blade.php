@@ -6,7 +6,6 @@
             <form method="post" action="{{ route('pending.settle', $account) }}" data-financial-form class="form-stack">@csrf
                 <input type="hidden" name="version" value="{{ $account->version }}"><input type="hidden" name="submission_key" value="{{ \Illuminate\Support\Str::uuid() }}">
                 <x-ui.field :id="'settle-amount-'.$account->id" name="amount" label="Importo da saldare (€)" inputmode="decimal" :value="number_format(($account->amount_cents-$account->settled_cents)/100,2,'.','')" required />
-                <div><label class="form-label" for="settle-method-{{ $account->id }}">Metodo</label><select class="form-select" name="method" id="settle-method-{{ $account->id }}">@foreach(\App\Support\PaymentMethod::Labels as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select></div>
                 <x-ui.icon-button action="receive" label="Registra pagamento" type="submit" text />
             </form>
         </div></x-ui.modal>
@@ -26,10 +25,10 @@
         <div class="modal-content-area">
             <div class="history-summary"><x-ui.pending-status :account="$account" /><span>Pagato <strong>{{ \App\Support\Money::format($account->settled_cents) }}</strong></span><span>Residuo <strong>{{ \App\Support\Money::format($account->amount_cents-$account->settled_cents) }}</strong></span></div>
             <p class="small text-secondary">Le correzioni aggiornano il bilancio alla data del pagamento originale. Il motivo e gli importi precedenti restano nello storico modifiche.</p>
-            <div class="table-responsive"><table class="table workspace-table" data-table-static><thead><tr><th>Pagamento</th><th>Metodo / operatore</th><th>Importo</th><th>Azioni</th></tr></thead><tbody>
+            <div class="table-responsive"><table class="table workspace-table" data-table-static><thead><tr><th>Pagamento</th><th>Operatore</th><th>Importo</th><th>Azioni</th></tr></thead><tbody>
                 @forelse($account->settlements as $settlement)<tr>
                     <td data-label="Pagamento"><strong>{{ $settlement->created_at->timezone('Europe/Rome')->format('d/m/Y H:i') }}</strong><small class="d-block text-secondary">Riferimento #{{ $settlement->id }}</small>@if($settlement->note)<small>{{ $settlement->note }}</small>@endif @if($settlement->updated_at->gt($settlement->created_at))<span class="small d-block text-secondary">Corretto il {{ $settlement->updated_at->timezone('Europe/Rome')->format('d/m/Y H:i') }}</span>@endif</td>
-                    <td data-label="Metodo / operatore">{{ \App\Support\PaymentMethod::Labels[$settlement->method] ?? $settlement->method }}<small class="d-block text-secondary">{{ $settlement->user?->name }}</small></td>
+                    <td data-label="Operatore"><small class="d-block text-secondary">{{ $settlement->user?->name }}</small></td>
                     <td data-label="Importo"><x-ui.signed-money :amount="$settlement->amount_cents * ($account->direction === 'incoming' ? 1 : -1)" /></td>
                     <td data-label="Azioni"><div class="row-actions">@if($account->state !== 'cancelled')<x-ui.icon-button action="edit" label="Correggi pagamento" :data-dialog-open="'settlement-edit-'.$settlement->id" :aria-controls="'settlement-edit-'.$settlement->id" aria-haspopup="dialog" />@endif<x-ui.icon-button action="history" label="Storico modifiche pagamento" :href="route('audits.index', ['type'=>'pending_settlements','id'=>$settlement->id])" /></div></td>
                 </tr>@empty<tr><td colspan="4">Nessun pagamento registrato.</td></tr>@endforelse

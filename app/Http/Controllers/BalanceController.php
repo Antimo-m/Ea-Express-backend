@@ -11,6 +11,7 @@ use App\Models\PendingSettlement;
 use App\Models\User;
 use App\OrderStatus;
 use App\Support\ReportingPeriod;
+use App\Support\ShippingEconomics;
 use App\UserRole;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -50,24 +51,30 @@ class BalanceController extends Controller
         $extraIncome = (int) ($manualTotals['income'] ?? 0);
         $extraExpenses = -(int) ($manualTotals['extra_expense'] ?? 0);
         $adjustments = (int) ($manualTotals['adjustment_in'] ?? 0) + (int) ($manualTotals['adjustment_out'] ?? 0);
+        $cashAdditions = (int) ($manualTotals['cash'] ?? 0);
+        $grossIncome = $cash + $extraIncome + $adjustments;
+        $totalExpenses = $spent + $extraExpenses;
+        $receiptEconomics = app(ShippingEconomics::class)->receipts($payments);
         $operatingNet = $cash - $spent + $extraIncome - $extraExpenses + $adjustments;
         $pendingQuery = PendingAccount::query()->when($request->user()->role !== UserRole::Admin, fn ($q) => $q->whereHas('order', fn ($o) => $o->financialFor($request->user())))->when($customerId, fn ($q) => $q->where('customer_id', $customerId))->whereDate('occurred_on', '>=', $start->toDateString())->whereDate('occurred_on', '<=', $end->toDateString())->whereIn('state', ['open', 'partially_paid']);
         $pendingIncoming = (int) (clone $pendingQuery)->where('direction', 'incoming')->selectRaw('COALESCE(SUM(amount_cents-settled_cents),0) AS cents')->value('cents');
         $pendingOutgoing = (int) (clone $pendingQuery)->where('direction', 'outgoing')->selectRaw('COALESCE(SUM(amount_cents-settled_cents),0) AS cents')->value('cents');
         $pendingImpact = $pendingIncoming - $pendingOutgoing;
-        $finalNet = $operatingNet + $pendingImpact;
+        $finalNet = $operatingNet + $pendingImpact + $cashAdditions;
         $customers = User::where('role', UserRole::Customer)->when($request->user()->role !== UserRole::Admin, fn ($q) => $q->whereIn('id', (clone $orders)->select('customer_id')))->orderBy('name')->get(['id', 'name']);
 
         return view('balance.index', [
-            'period' => $period, 'customers' => $customers, 'extraIncome' => $extraIncome, 'extraExpenses' => $extraExpenses, 'adjustments' => $adjustments, 'operatingNet' => $operatingNet, 'pendingIncoming' => $pendingIncoming, 'pendingOutgoing' => $pendingOutgoing, 'pendingImpact' => $pendingImpact, 'finalNet' => $finalNet,
+            'grossIncome' => $grossIncome, 'totalExpenses' => $totalExpenses, 'cashAdditions' => $cashAdditions,
+            'cashEntries' => (clone $manual)->where('kind', 'cash')->with('user:id,name')->latest('occurred_on')->orderByDesc('id')->paginate(10, ['*'], 'cash_page')->withQueryString(),
+            'receiptEconomics' => $receiptEconomics, 'shippingEconomics' => app(ShippingEconomics::class)->summarize($completed), 'period' => $period, 'customers' => $customers, 'extraIncome' => $extraIncome, 'extraExpenses' => $extraExpenses, 'adjustments' => $adjustments, 'operatingNet' => $operatingNet, 'pendingIncoming' => $pendingIncoming, 'pendingOutgoing' => $pendingOutgoing, 'pendingImpact' => $pendingImpact, 'finalNet' => $finalNet,
             'pendingCount' => (clone $pendingQuery)->count(),
             'pendingDetails' => $pendingQuery->with(['customer', 'order'])->orderBy('occurred_on')->orderBy('id')->paginate(15, ['*'], 'pending_page')->withQueryString(),
             'generalEntries' => $generalQuery->with(['account', 'user'])->latest()->orderByDesc('id')->paginate(10, ['*'], 'general_page')->withQueryString(), 'summaries' => $summaries, 'earned' => (int) (clone $completed)->sum('price_cents'), 'completedCount' => (clone $completed)->count(),
             'cancelledCount' => (clone $orders)->where('status', OrderStatus::Cancelled)->whereBetween('updated_at', $period->utcRange())->count(),
             'outstanding' => $outstanding, 'generalReceipts' => (int) $generalReceipts, 'cash' => $cash, 'spent' => $spent, 'net' => $cash - $spent,
-            'orders' => (clone $completed)->whereNull('paid_at')->whereNull('receipt_voided_at')->with('pendingAccount')->latest('delivered_at')->orderByDesc('id')->paginate(10, ['*'], 'orders_page')->withQueryString(),
-            'reversedOrders' => (clone $completed)->whereNotNull('receipt_voided_at')->with('pendingAccount')->latest('receipt_voided_at')->orderByDesc('id')->paginate(10, ['*'], 'reversed_page')->withQueryString(),
-            'recordedOrders' => (clone $completed)->whereNotNull('paid_at')->with('pendingAccount')->latest('delivered_at')->orderByDesc('id')->paginate(10, ['*'], 'recorded_page')->withQueryString(),
+            'orders' => (clone $completed)->whereNull('paid_at')->whereNull('receipt_voided_at')->withDisplayIdentity()->with('pendingAccount')->withSum('payments', 'amount_cents')->latest('delivered_at')->orderByDesc('id')->paginate(10, ['*'], 'orders_page')->withQueryString(),
+            'reversedOrders' => (clone $completed)->whereNotNull('receipt_voided_at')->withDisplayIdentity()->with('pendingAccount')->withSum('payments', 'amount_cents')->latest('receipt_voided_at')->orderByDesc('id')->paginate(10, ['*'], 'reversed_page')->withQueryString(),
+            'recordedOrders' => (clone $completed)->whereNotNull('paid_at')->withDisplayIdentity()->with('pendingAccount')->withSum('payments', 'amount_cents')->latest('delivered_at')->orderByDesc('id')->paginate(10, ['*'], 'recorded_page')->withQueryString(),
             'expenses' => $expenses->with(['user:id,name', 'pendingSettlement.account'])->latest('spent_on')->orderByDesc('id')->paginate(10, ['*'], 'expenses_page')->withQueryString(),
             'payments' => $payments->with(['order:id,reference', 'user:id,name'])->latest()->orderByDesc('id')->paginate(10, ['*'], 'payments_page')->withQueryString(),
         ]);

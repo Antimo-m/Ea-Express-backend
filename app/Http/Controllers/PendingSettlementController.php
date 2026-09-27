@@ -16,7 +16,7 @@ class PendingSettlementController extends Controller
     {
         abort_unless($settlement->pending_account_id === $account->id, 404);
         $data = $request->validated();
-        $correct->handle($request->user(), $account, $settlement, Money::cents($data['amount']), $data['reason'], (int) $data['version']);
+        $correct->handle($request->user(), $account, $settlement, Money::cents($data['amount']), $data['reason'], (int) $data['version'], $data['ea_amount'] ?? null);
         $message = 'Pagamento corretto. Saldo, residuo e bilancio aggiornati.';
         $redirect = route('pending.index', ['id' => $account->id, 'direction' => $account->direction]);
 

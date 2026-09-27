@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AccountingControl;
+use App\Support\BackupStatus;
+use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -10,7 +13,7 @@ class SettingsController extends Controller
 {
     public function edit(Request $request): View
     {
-        return view('settings.index', ['user' => $request->user()]);
+        return view('settings.index', ['user' => $request->user(), 'accounting' => $request->user()->role === UserRole::Admin ? AccountingControl::findOrFail(1) : null, 'backup' => $request->user()->role === UserRole::Admin ? app(BackupStatus::class)->summary() : null]);
     }
 
     public function update(Request $request): RedirectResponse

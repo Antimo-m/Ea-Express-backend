@@ -6,7 +6,6 @@ use App\Http\Controllers\Api\CustomerMessageController as Messages;
 use App\Http\Controllers\Api\CustomerOrderController as Orders;
 use App\Http\Controllers\Api\CustomerStatisticsController;
 use App\Http\Controllers\Api\CustomerWorkspaceController as Workspace;
-use App\Http\Controllers\PaymentAgreementController;
 use App\Http\Controllers\RealtimeController;
 use App\Http\Controllers\ShippingPriceController;
 use App\Http\Controllers\ShippingRateController;
@@ -43,7 +42,6 @@ Route::prefix('api/v1/customer')->name('customer.')->middleware('throttle:custom
             Route::post('orders/{order}/checkout', [Orders::class, 'review'])->name('orders.review');
             Route::post('orders', [Orders::class, 'store']);
             Route::patch('orders/{order}', [Orders::class, 'update']);
-            Route::patch('orders/{order}/payment-agreement', [PaymentAgreementController::class, 'update']);
             Route::post('orders/{order}/cancel', [Orders::class, 'cancel']);
             Route::post('orders/{order}/messages', [Messages::class, 'store']);
             Route::patch('notifications/read-all', [Workspace::class, 'readAll']);

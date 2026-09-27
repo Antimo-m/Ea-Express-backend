@@ -15,7 +15,7 @@ class CorrectPendingSettlementRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'amount' => ['required', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'],
+            'ea_amount' => ['nullable', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'], 'amount' => ['required', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'],
             'reason' => ['required', 'string', 'max:500'],
             'version' => ['required', 'integer', 'min:1'],
         ];
