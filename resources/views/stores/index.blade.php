@@ -1,13 +1,6 @@
 <x-app-layout title="Statistiche Clienti">
     <header class="page-heading"><div><span class="eyebrow">ANALISI PER ACCOUNT</span><h1>Statistiche Clienti</h1><p>Chi spedisce, quali tariffe utilizza e quanto genera.</p></div><span class="count-badge">{{ $stores->total() }} account / gruppi</span></header>
-    <section class="report-kpis" aria-label="Resoconto ordini">
-        <article class="surface report-kpi"><span>Totale ordini <x-ui.icon name="box-seam"/></span><strong>{{ $summary['total'] }}</strong><small>Periodo precedente: {{ $comparison['total'] }} · {{ $comparison['total'] ? number_format(($summary['total'] - $comparison['total']) * 100 / $comparison['total'], 1, ',', '.').'%' : 'Nessuna base di confronto' }}</small></article>
-        <article class="surface report-kpi"><span>Completati <x-ui.icon name="check2-circle"/></span><strong>{{ $summary['delivered'] }}</strong><small>{{ $summary['completion_percent'] }}% degli ordini nel periodo</small></article>
-        <article class="surface report-kpi"><span>In corso <x-ui.icon name="truck"/></span><strong>{{ $summary['in_progress'] }}</strong><small>Richieste ancora aperte</small></article>
-        <article class="surface report-kpi"><span>Annullati / rifiutati <x-ui.icon name="x-circle"/></span><strong>{{ $summary['cancelled'] }}</strong><small>Esclusi dagli importi delle spedizioni</small></article>
-    </section>
-    <p class="data-caption">{{ $accountCount }} account attivi · {{ $summary['regional_count'] }} regionali · {{ $summary['external_count'] }} fuori regione · confronto con {{ $previousPeriod->start->format('d/m/Y') }}–{{ $previousPeriod->end->format('d/m/Y') }}</p>
-    <x-ui.filters :reset="route('stores.index')">
+    <x-ui.filters :reset="route('stores.index')" compact>
         <x-ui.field name="q" label="Cerca account" :value="request('q')" placeholder="Nome o email dell’account"/>
         <div><label class="form-label" for="period">Periodo</label><select class="form-select" id="period" name="period">@foreach(['today'=>'Oggi','week'=>'Settimana','month'=>'Mese','custom'=>'Intervallo'] as $value=>$label)<option value="{{ $value }}" @selected(request('period','month')===$value)>{{ $label }}</option>@endforeach</select></div>
         <x-ui.field name="from" label="Dal" type="date" :value="$period->start->toDateString()"/>
@@ -17,9 +10,8 @@
         <div><label for="status" class="form-label">Stato</label><select id="status" name="status" class="form-select"><option value="">Tutti</option>@foreach(\App\OrderStatus::cases() as $status)<option value="{{ $status->value }}" @selected(request('status')===$status->value)>{{ $status->label() }}</option>@endforeach</select></div>
 
     </x-ui.filters>
+    <h2 class="h4 mt-3">Ordini per cliente</h2>
     <p class="data-caption">Prezzi finali salvati · annullati e rifiutati esclusi dagli importi · conteggio per spedizione, non per collo.</p>
-    <x-reports.trend id="statistics-orders" title="Andamento ordini" description="Ordini creati ogni giorno nel periodo selezionato, in ora italiana. I filtri si applicano anche al grafico." :points="$trend"/>
-    <h2 class="h4 mt-4">Ordini per cliente</h2>
     <div class="account-card-grid" aria-label="Clienti e attività">
         @forelse($stores as $store)
             @php
@@ -46,4 +38,12 @@
         </ul>{{ $detailOrders->links() }}
     </section>
     @endif
+    <section class="report-kpis" aria-label="Resoconto ordini">
+        <article class="surface report-kpi"><span>Totale ordini <x-ui.icon name="box-seam"/></span><strong>{{ $summary['total'] }}</strong><small>Periodo precedente: {{ $comparison['total'] }} · {{ $comparison['total'] ? number_format(($summary['total'] - $comparison['total']) * 100 / $comparison['total'], 1, ',', '.').'%' : 'Nessuna base di confronto' }}</small></article>
+        <article class="surface report-kpi"><span>Completati <x-ui.icon name="check2-circle"/></span><strong>{{ $summary['delivered'] }}</strong><small>{{ $summary['completion_percent'] }}% degli ordini nel periodo</small></article>
+        <article class="surface report-kpi"><span>In corso <x-ui.icon name="truck"/></span><strong>{{ $summary['in_progress'] }}</strong><small>Richieste ancora aperte</small></article>
+        <article class="surface report-kpi"><span>Annullati / rifiutati <x-ui.icon name="x-circle"/></span><strong>{{ $summary['cancelled'] }}</strong><small>Esclusi dagli importi delle spedizioni</small></article>
+    </section>
+    <p class="data-caption">{{ $accountCount }} account attivi · {{ $summary['regional_count'] }} regionali · {{ $summary['external_count'] }} fuori regione · confronto con {{ $previousPeriod->start->format('d/m/Y') }}–{{ $previousPeriod->end->format('d/m/Y') }}</p>
+    <x-reports.trend id="statistics-orders" title="Andamento ordini" description="Ordini creati ogni giorno nel periodo selezionato, in ora italiana. I filtri si applicano anche al grafico." :points="$trend" compact/>
 </x-app-layout>

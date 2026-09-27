@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\PaymentEntry;
 use App\Models\PendingSettlement;
 use App\OrderStatus;
+use App\Support\OrderStatistics;
 use App\Support\ReportingPeriod;
 use App\Support\ShippingEconomics;
 use App\UserRole;
@@ -60,9 +61,11 @@ class ReportController extends Controller
         $topCustomers = (clone $cohort)->whereNotNull('customer_id')->select('customer_id')->selectRaw('COUNT(*) AS shipments')->groupBy('customer_id')->with('customer:id,name')->orderByDesc('shipments')->orderBy('customer_id')->limit(5)->get();
         $zones = (clone $cohort)->select('delivery_city')->selectRaw('COUNT(*) as total')->groupBy('delivery_city')->orderByDesc('total')->orderBy('delivery_city')->limit(10)->get();
         $days = [];
-        foreach ((clone $cohort)->select(['id', 'created_at'])->lazyById(500) as $order) {
-            $day = $order->created_at->timezone('Europe/Rome')->format('d/m');
-            $days[$day] = ($days[$day] ?? 0) + 1;
+        foreach (app(OrderStatistics::class)->trend($cohort, $period) as $point) {
+            if ($point['shipments'] > 0) {
+                $day = substr($point['date'], 8, 2).'/'.substr($point['date'], 5, 2);
+                $days[$day] = $point['shipments'];
+            }
         }
         ksort($days);
         $trend = [];

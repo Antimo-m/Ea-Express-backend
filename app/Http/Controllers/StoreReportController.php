@@ -28,12 +28,12 @@ class StoreReportController extends Controller
         }
         $days = (int) $period->start->copy()->startOfDay()->diffInDays($period->end->copy()->startOfDay()) + 1;
         $previousPeriod = new ReportingPeriod($period->start->copy()->subDays($days), $period->start->copy()->subSecond());
-        $comparison = $statistics->summarize((clone $query)->whereBetween('created_at', $previousPeriod->utcRange()));
+        $comparison = $statistics->summarize((clone $query)->whereBetween('created_at', $previousPeriod->utcRange()), false);
         $query->whereBetween('created_at', $period->utcRange());
         $trend = array_map(fn (array $point): array => ['label' => substr($point['date'], 8, 2).'/'.substr($point['date'], 5, 2), 'orders' => $point['shipments'], 'incoming' => 0, 'outgoing' => 0], $statistics->trend(clone $query, $period));
         $detailOrders = null;
         $detailQuery = null;
-        $summary = $statistics->summarize(clone $query);
+        $summary = $statistics->summarize(clone $query, false);
         $accountCount = (clone $query)->whereNotNull('customer_id')->distinct()->count('customer_id');
         $sort = $filters['sort'] ?? 'volume';
         $sortDirection = $filters['order'] ?? 'desc';
