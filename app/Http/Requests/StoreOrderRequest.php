@@ -100,7 +100,7 @@ class StoreOrderRequest extends FormRequest
             'delivery_address' => ['required', 'string', 'max:255'], 'delivery_city' => ['required', 'string', 'max:100'],
             'pickup_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.(app(BookingRules::class)->unchanged($this->all(), $this->route('order')) ? $this->route('order')->pickup_date->toDateString() : now('Europe/Rome')->toDateString())],
             'pickup_from' => ['required', 'date_format:H:i'], 'pickup_to' => ['required', 'date_format:H:i', 'after:pickup_from'],
-            'delivery_window' => ['nullable', 'date_format:H:i'], 'parcel_count' => ['required', 'integer', 'between:1,100'],
+            'delivery_window' => ['exclude'], 'parcel_count' => ['required', 'integer', 'between:1,100'],
             'category' => ['required', Rule::in(array_keys(OrderContent::Categories))],
             'content_description' => ['required_if:category,custom', 'nullable', 'string', 'max:255'],
             'urgency' => ['required', Rule::in(['standard', 'urgent'])], 'notes' => ['nullable', 'string', 'max:2000'],

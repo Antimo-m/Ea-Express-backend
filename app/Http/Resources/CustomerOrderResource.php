@@ -12,7 +12,7 @@ class CustomerOrderResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'shipping_type' => $this->shipping_type, 'delivery_region' => $this->delivery_region, 'delivery_province' => $this->delivery_province, 'weight_kg' => $this->weight_kg, 'max_dimension_cm' => $this->max_dimension_cm, 'carrier_name' => $this->carrier_name, 'carrier_tracking' => $this->carrier_tracking, 'carrier_status' => $this->carrier_status, 'estimated_delivery_from' => $this->estimated_delivery_from?->toDateString(), 'estimated_delivery_to' => $this->estimated_delivery_to?->toDateString(),
+            'shipping_type' => $this->shipping_type, 'delivery_region' => $this->delivery_region, 'delivery_province' => $this->delivery_province, 'weight_kg' => $this->weight_kg, 'max_dimension_cm' => $this->max_dimension_cm, 'carrier_tracking' => $this->carrier_tracking, 'carrier_status' => $this->carrier_status, 'estimated_delivery_from' => $this->estimated_delivery_from?->toDateString(), 'estimated_delivery_to' => $this->estimated_delivery_to?->toDateString(),
             'display_name' => $this->resource->displayName(), 'id' => $this->id, 'reference' => $this->reference, 'status' => $this->status->value, 'status_label' => $this->status->label(), 'version' => $this->version,
             'store_name' => $this->store_name, 'sender_type' => $this->sender_type, 'business_type' => $this->business_type, 'business_description' => $this->business_description, 'parcel_value_cents' => $this->parcel_value_cents,
             'recipient_name' => $this->recipient_name, 'recipient_phone' => $this->recipient_phone,

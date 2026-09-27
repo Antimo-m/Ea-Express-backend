@@ -1,14 +1,15 @@
 @if(auth()->user()->role === \App\UserRole::Admin)
-<section class="surface p-4 my-4" id="cash-register">
-    <h2 class="h5">Registra contanti</h2>
+<section class="cash-register my-3" id="cash-register">
+    <header class="cash-register-heading"><h2 class="h5 mb-0"><x-ui.icon name="cash-stack"/> Contanti</h2><strong>{{ \App\Support\Money::format($cashAdditions) }}</strong></header>
     <p class="small text-secondary">Aggiungi contanti ulteriori rispetto agli incassi già registrati nelle consegne.</p>
-    <form method="post" action="{{ route('movements.store') }}" data-financial-form class="form-stack">
+    <form method="post" action="{{ route('movements.store') }}" data-financial-form class="cash-register-form">
         @csrf
         <input type="hidden" name="kind" value="cash">
         <input type="hidden" name="submission_key" value="{{ old('submission_key', (string) \Illuminate\Support\Str::uuid()) }}">
         <x-ui.field name="amount" id="cash-create-amount" label="Importo contanti (€)" :value="old('amount')" inputmode="decimal" required />
         <button class="btn btn-primary" type="submit">Registra contanti</button>
     </form>
+    <details class="cash-register-history"><summary>Registrazioni e modifiche <span class="count-badge">{{ $cashEntries->total() }}</span></summary>
     @foreach($cashEntries as $entry)
     <article class="d-flex justify-content-between flex-wrap gap-3 border-top pt-3 mt-3">
         <div><strong>{{ \App\Support\Money::format($entry->amount_cents) }}</strong><p class="small text-secondary mb-0">{{ $entry->occurred_on->format('d/m/Y') }} · {{ $entry->user->name }}{{ $entry->voided_at ? ' · Eliminata' : '' }}</p></div>
@@ -33,5 +34,6 @@
     </article>
     @endforeach
     {{ $cashEntries->links() }}
+    </details>
 </section>
 @endif

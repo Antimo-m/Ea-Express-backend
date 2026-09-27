@@ -1,5 +1,16 @@
 for (const chart of document.querySelectorAll('[data-trend]')) {
     const points = [...chart.querySelectorAll('[data-chart-point]')];
+    const svg = chart.querySelector('svg');
+    const ticks = [...chart.querySelectorAll('[data-chart-tick]')];
+    const layoutTicks = () => {
+        const width = svg.getBoundingClientRect().width;
+        const count = Math.max(2, Math.min(points.length, Math.floor(width / 84)));
+        const visible = new Set(Array.from({length: count}, (_, index) => Math.round(index * (points.length - 1) / (count - 1))));
+        ticks.forEach((tick, index) => { tick.style.display = visible.has(index) ? '' : 'none'; });
+        svg.querySelectorAll('.chart-axis').forEach(axis => { axis.style.fontSize = `${Math.max(18, 12 * 920 / Math.max(1, width))}px`; });
+    };
+    new ResizeObserver(layoutTicks).observe(svg);
+    layoutTicks();
     const range = chart.querySelector('[data-chart-range]');
     const output = chart.querySelector('[data-chart-output]');
     const money = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' });

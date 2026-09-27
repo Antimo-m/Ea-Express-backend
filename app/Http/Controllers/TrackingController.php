@@ -34,6 +34,6 @@ class TrackingController extends Controller
     {
         $order = Order::query()->where('tracking_token', $token)->whereNotNull('tracking_started_at')->firstOrFail();
 
-        return view('tracking.public', ['shippingType' => $order->shipping_type, 'carrierName' => $order->carrier_name, 'carrierTracking' => $order->carrier_tracking, 'carrierStatus' => $order->carrier_status, 'deliveryFrom' => $order->estimated_delivery_from, 'deliveryTo' => $order->estimated_delivery_to, 'reference' => $order->reference, 'status' => $order->status, 'estimated' => $order->estimated_at, 'events' => $order->events()->select(['id', 'status', 'public_note', 'created_at'])->latest()->orderByDesc('id')->paginate(30)]);
+        return view('tracking.public', ['shippingType' => $order->shipping_type, 'carrierTracking' => $order->carrier_tracking, 'carrierStatus' => $order->carrier_status, 'deliveryFrom' => $order->estimated_delivery_from, 'deliveryTo' => $order->estimated_delivery_to, 'reference' => $order->reference, 'status' => $order->status, 'estimated' => $order->estimated_at, 'events' => $order->events()->select(['id', 'status', 'public_note', 'created_at'])->latest()->orderByDesc('id')->paginate(30)]);
     }
 }

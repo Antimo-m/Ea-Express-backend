@@ -5,6 +5,19 @@ const history = document.querySelector('#rate-history');
 const form = document.querySelector('[data-rate-form]');
 const feedback = document.querySelector('[data-rate-feedback]');
 let selected;
+function updateRateFields() {
+    const external = form.elements.shipping_type.value === 'external';
+    form.querySelector('[data-external-rate-fields]').hidden = !external;
+    for (const input of form.querySelectorAll('[data-external-rate-fields] input')) input.disabled = !external || (Boolean(selected?.is_default) && ['max_weight_kg','max_dimension_cm'].includes(input.name));
+    form.elements.shipping_type.parentElement.hidden = Boolean(selected);
+}
+form?.elements.shipping_type.addEventListener('change', updateRateFields);
+editor?.querySelector('[data-editor-history]').addEventListener('click', () => {
+    document.querySelector(`[data-rate] [data-rate-history]`)?.blur();
+    const card = [...document.querySelectorAll('[data-rate]')].find(card => JSON.parse(card.dataset.rate).id === selected.id);
+    closeDialog(editor);
+    card?.querySelector('[data-rate-history]').click();
+});
 let pending = false;
 const money = value => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value / 100);
 async function request(url, method = 'GET', data) {
@@ -60,6 +73,9 @@ if (editor) {
             form.reset(); form.querySelector('[data-modal-error]').textContent = '';
             form.querySelectorAll('[aria-invalid]').forEach(input => input.removeAttribute('aria-invalid'));
             for (const name of ['city','area','postal_code','zone','street','delivery_time','source_reference','carrier_name','max_weight_kg','max_dimension_cm','delivery_days_min','delivery_days_max']) form.elements.namedItem(name).value = selected?.[name] || '';
+            form.elements.postal_code.value = selected?.postal_codes?.join(', ') || selected?.postal_code || '';
+            form.elements.source_reference.value = selected?.source_reference || 'Inserimento dal gestionale';
+            editor.querySelector('[data-editor-history]').hidden = !selected;
             form.elements.price.value = selected ? (selected.price_cents / 100).toFixed(2) : '';
             form.elements.shipping_type.value = selected?.shipping_type || 'regional';
             form.elements.city.readOnly = Boolean(selected?.is_default);
@@ -73,6 +89,7 @@ if (editor) {
             save.querySelector('.bi').className = `bi bi-${selected ? 'pencil' : 'plus-lg'}`;
             save.setAttribute('aria-label', selected ? 'Salva tariffa' : 'Aggiungi tariffa'); save.title = save.getAttribute('aria-label');
             save.querySelector(':scope > span:last-child').textContent = save.getAttribute('aria-label');
+            updateRateFields();
             openDialog(editor);
         } else if (button.matches('[data-rate-archive]')) {
             const rate = selected;
@@ -94,7 +111,7 @@ if (editor) {
             const content = history.querySelector('[data-history-content]'); content.textContent = 'Caricamento…'; openDialog(history);
             try {
                 const result = await request(`/rates/${selected.id}/history`);
-                content.replaceChildren(...result.data.map(rate => {const row = document.createElement('p'); row.className = 'history-row'; row.textContent = `${new Date(rate.created_at).toLocaleString('it-IT')} · ${money(rate.price_cents)} · ${rate.archived_at ? 'Archiviata' : rate.active ? 'Attiva' : 'Inattiva / sostituita'} · ${rate.source_reference}`; return row;}));
+                content.replaceChildren(...result.data.map(rate => {const row = document.createElement('p'); row.className = 'history-row'; row.textContent = `${new Date(rate.created_at).toLocaleString('it-IT')} · ${rate.city} · Area: ${rate.area || '—'} · CAP: ${(rate.postal_codes || [rate.postal_code]).filter(Boolean).join(', ') || 'da verificare'} · ${money(rate.price_cents)} · Tempi: ${rate.delivery_time || '—'}${rate.shipping_type === 'external' ? ` · Vettore: ${rate.carrier_name || '—'} · Costo vettore: ${money(rate.carrier_cost_cents)}` : ''} · ${rate.archived_at ? 'Archiviata' : rate.active ? 'Attiva' : 'Inattiva / sostituita'} · ${rate.source_reference}`; return row;}));
             } catch(error) {content.textContent = error.message;}
         }
     });
@@ -102,6 +119,8 @@ if (editor) {
         event.preventDefault();
         const data = Object.fromEntries(new FormData(form)); data.active = form.elements.active.checked;
         for (const name of ['area','postal_code','zone','street','delivery_time','carrier_name','carrier_cost','max_weight_kg','max_dimension_cm','delivery_days_min','delivery_days_max']) if (!data[name]) data[name] = null;
+        data.postal_codes = form.elements.postal_code.disabled ? null : (data.postal_code || '').split(',').map(code => code.trim()).filter(Boolean);
+        data.postal_code = data.postal_codes?.length === 1 ? data.postal_codes[0] : null;
         const id = selected?.id;
         mutate(editor, () => request(id ? `/rates/${id}` : '/rates', 'POST', data));
     });

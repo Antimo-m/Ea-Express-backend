@@ -13,7 +13,7 @@ return [
     'Amministrazione e contabilità' => [
         ['label' => 'Bilancio', 'route' => 'balance.index', 'icon' => 'wallet2'],
         ['label' => 'Sospesi', 'route' => 'pending.index', 'icon' => 'hourglass-split', 'admin' => true],
-        ['label' => 'Statistiche', 'route' => 'stores.index', 'icon' => 'shop'],
+        ['label' => 'Statistiche Clienti', 'route' => 'stores.index', 'icon' => 'shop'],
         ['label' => 'Resoconti', 'route' => 'reports.index', 'icon' => 'bar-chart'],
     ],
     'Configurazione commerciale' => [

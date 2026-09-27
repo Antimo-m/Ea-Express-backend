@@ -1,5 +1,5 @@
-<x-app-layout title="Statistiche">
-    <header class="page-heading"><div><span class="eyebrow">ANALISI PER ACCOUNT</span><h1>Statistiche</h1><p>Chi spedisce, quali tariffe utilizza e quanto genera.</p></div><span class="count-badge">{{ $stores->total() }} account / gruppi</span></header>
+<x-app-layout title="Statistiche Clienti">
+    <header class="page-heading"><div><span class="eyebrow">ANALISI PER ACCOUNT</span><h1>Statistiche Clienti</h1><p>Chi spedisce, quali tariffe utilizza e quanto genera.</p></div><span class="count-badge">{{ $stores->total() }} account / gruppi</span></header>
     <section class="report-kpis" aria-label="Resoconto ordini">
         <article class="surface report-kpi"><span>Totale ordini <x-ui.icon name="box-seam"/></span><strong>{{ $summary['total'] }}</strong><small>Periodo precedente: {{ $comparison['total'] }} · {{ $comparison['total'] ? number_format(($summary['total'] - $comparison['total']) * 100 / $comparison['total'], 1, ',', '.').'%' : 'Nessuna base di confronto' }}</small></article>
         <article class="surface report-kpi"><span>Completati <x-ui.icon name="check2-circle"/></span><strong>{{ $summary['delivered'] }}</strong><small>{{ $summary['completion_percent'] }}% degli ordini nel periodo</small></article>

@@ -23,7 +23,7 @@ class ShippingRateController extends Controller
         $request->validate(['state' => ['nullable', 'in:active,inactive,all,archived']]);
         $isAdmin = $request->user()->role === UserRole::Admin;
         $state = $isAdmin ? $request->input('state', 'active') : 'active';
-        $query = ShippingRate::query()->when($data['shipping_type'] ?? null, fn ($q, $type) => $q->where('shipping_type', $type))->whereDoesntHave('successor');
+        $query = ShippingRate::query()->when(! $isAdmin, fn ($q) => $q->where('territory_review_required', false))->when($data['shipping_type'] ?? null, fn ($q, $type) => $q->where('shipping_type', $type))->whereDoesntHave('successor');
         $query->when($state === 'archived', fn ($q) => $q->whereNotNull('archived_at'), fn ($q) => $q->whereNull('archived_at'));
         if (in_array($state, ['active', 'inactive'], true)) {
             $query->where('active', $state === 'active');
@@ -33,7 +33,7 @@ class ShippingRateController extends Controller
         }))->when($data['area'] ?? null, fn ($q, $area) => $q->where('area', $area));
         $rates = $query->orderByDesc('is_default')->orderBy('area')->orderBy('city')->orderBy('id')->paginate(18)->withQueryString();
         if ($request->user()->role === UserRole::Customer) {
-            $rates->through(fn (ShippingRate $rate) => $rate->only(['id', 'is_default', 'city', 'zone', 'street', 'area', 'postal_code', 'price_cents', 'delivery_time', 'shipping_type', 'carrier_name', 'max_weight_kg', 'max_dimension_cm', 'delivery_days_min', 'delivery_days_max']));
+            $rates->through(fn (ShippingRate $rate) => $rate->only(['id', 'is_default', 'city', 'zone', 'street', 'area', 'postal_code', 'postal_codes', 'price_cents', 'delivery_time', 'shipping_type', 'max_weight_kg', 'max_dimension_cm', 'delivery_days_min', 'delivery_days_max']));
         }
         $areas = ShippingRate::whereNull('archived_at')->whereDoesntHave('successor')->when(! $isAdmin, fn ($q) => $q->where('active', true))->whereNotNull('area')->distinct()->orderBy('area')->pluck('area');
 
@@ -91,7 +91,7 @@ class ShippingRateController extends Controller
         abort_unless($request->user()->role === UserRole::Admin, 403);
         $data = $request->validated();
         $data['price_cents'] = Money::cents($data['price']);
-        $data['carrier_cost_cents'] = ($data['shipping_type'] ?? 'regional') === 'external' ? Money::cents((string) ($data['carrier_cost'] ?? '0')) : 0;
+        $data['carrier_cost_cents'] = ($data['shipping_type'] ?? $rate?->shipping_type ?? 'regional') === 'external' ? Money::cents((string) ($data['carrier_cost'] ?? (($rate?->carrier_cost_cents ?? 0) / 100))) : 0;
         unset($data['price'], $data['carrier_cost']);
         $new = $revise->handle($request->user(), $data, $rate);
         if ($request->expectsJson()) {
