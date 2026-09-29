@@ -17,6 +17,6 @@ class OrderPolicy
 
     public function update(User $user, Order $order): bool
     {
-        return $user->isStaff() && ($user->role === UserRole::Admin || $order->rider_id === $user->id || ($order->rider_id === null && $order->status === OrderStatus::Received) || ($order->recoverable() && $order->rejected_by === $user->id));
+        return $user->is_active && ($user->role === UserRole::Admin || ($user->role === UserRole::Rider && $user->email_verified_at && $order->rider_id === $user->id && ! in_array($order->status, [OrderStatus::Received, OrderStatus::Rejected], true)));
     }
 }

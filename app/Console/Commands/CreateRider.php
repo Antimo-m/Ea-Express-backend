@@ -12,7 +12,7 @@ class CreateRider extends Command
 {
     protected $signature = 'app:create-rider {email} {name}';
 
-    protected $description = 'Crea un rider; la password viene richiesta senza mostrarla e il cellulare resta da verificare';
+    protected $description = 'Crea un rider; la password viene richiesta senza mostrarla e l’email resta da verificare';
 
     public function handle(): int
     {
@@ -28,7 +28,7 @@ class CreateRider extends Command
         $user = new User($data);
         $user->role = UserRole::Rider;
         $user->save();
-        $this->info('Rider creato. Al primo accesso dovrà verificare il cellulare tramite SMS.');
+        $this->info('Rider creato. Al primo accesso dovrà verificare l’email tramite OTP.');
 
         return self::SUCCESS;
     }

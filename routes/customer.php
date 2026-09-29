@@ -1,12 +1,13 @@
 <?php
 
 use App\Http\Controllers\Api\BookingRulesController;
-use App\Http\Controllers\Api\SenderAddressController;
 use App\Http\Controllers\Api\CustomerAuthController as Auth;
 use App\Http\Controllers\Api\CustomerMessageController as Messages;
 use App\Http\Controllers\Api\CustomerOrderController as Orders;
+use App\Http\Controllers\Api\CustomerPendingController;
 use App\Http\Controllers\Api\CustomerStatisticsController;
 use App\Http\Controllers\Api\CustomerWorkspaceController as Workspace;
+use App\Http\Controllers\Api\SenderAddressController;
 use App\Http\Controllers\RealtimeController;
 use App\Http\Controllers\ShippingPriceController;
 use App\Http\Controllers\ShippingRateController;
@@ -28,6 +29,8 @@ Route::prefix('api/v1/customer')->name('customer.')->middleware('throttle:custom
         Route::put('sender-address', [SenderAddressController::class, 'update'])->middleware('throttle:writes');
         Route::delete('sender-address', [SenderAddressController::class, 'destroy'])->middleware('throttle:writes');
         Route::get('booking-rules', BookingRulesController::class);
+        Route::get('pending', [CustomerPendingController::class, 'index']);
+        Route::get('pending/{account}', [CustomerPendingController::class, 'show'])->whereNumber('account');
         Route::get('statistics', CustomerStatisticsController::class);
         Route::get('dashboard', [Workspace::class, 'dashboard']);
         Route::get('couriers', [Workspace::class, 'couriers']);

@@ -5,5 +5,4 @@
         <x-ui.field name="email" label="Indirizzo email" type="email" :value="old('email', $user->email)" autocomplete="username" maxlength="255" required />
         <div><x-ui.icon-button action="edit" label="Salva dati" type="submit" /></div>
     </form>
-    <div class="mt-4"><h3 class="h6">Cellulare</h3><p class="text-secondary">{{ $user->phone_verified_at ? $user->phone.' · Verificato' : 'Verifica cellulare non completata' }}</p><p class="small text-secondary">Per cambiare un numero già verificato, chiedi all’amministratore di ripristinare la verifica.</p></div>
 </section>

@@ -10,6 +10,7 @@ use Illuminate\Support\Carbon;
 class EconomicAuditPresenter
 {
     private const Fields = [
+        'rider_id' => 'Rider', 'assigned_by' => 'Assegnato da', 'assigned_at' => 'Assegnato il', 'email_verified_at' => 'Email verificata il', 'name' => 'Nome', 'email' => 'Email', 'role' => 'Ruolo',
         'carrier_cost_cents' => 'Costo vettore', 'ea_amount_cents' => 'Quota EA-Express', 'amount_cents' => 'Importo', 'settled_cents' => 'Totale saldato', 'price_cents' => 'Tariffa',
         'previous_price_cents' => 'Tariffa precedente', 'quoted_price_cents' => 'Tariffa iniziale', 'parcel_value_cents' => 'Valore merce',
         'description' => 'Causale', 'subject' => 'Soggetto', 'notes' => 'Note', 'note' => 'Nota',
@@ -46,11 +47,12 @@ class EconomicAuditPresenter
         }
         $title = match ($entry->action) {
             'recipient_incident.created' => 'Precedente destinatario registrato', 'recipient_incident.correct' => 'Dati del precedente corretti', 'recipient_incident.dismiss' => 'Segnalazione destinatario rimossa',
+            'rider.created' => 'Account Rider creato', 'rider.email_verified' => 'Email Rider verificata', 'rider.assigned' => 'Rider assegnato',
             'expense.created' => 'Spesa registrata', 'expense.updated', 'expense.corrected' => 'Spesa corretta', 'expense.voided' => 'Spesa annullata',
             'payment.received' => 'Incasso registrato', 'payment.reversed' => 'Movimento di storno registrato', 'payment.corrected' => 'Importo dell’incasso corretto',
             'receipt.receive' => 'Incasso confermato', 'receipt.reverse' => 'Incasso spostato negli storni', 'receipt.restore' => 'Incasso ripristinato', 'receipt.corrected' => 'Saldo della spedizione aggiornato', 'receipt.backfilled' => 'Storno storico riconosciuto',
             'settlement.created' => 'Pagamento del sospeso registrato', 'settlement.corrected' => 'Pagamento del sospeso corretto',
-            'pending.created' => 'Sospeso creato', 'pending.settled' => 'Pagamento applicato al sospeso', 'pending.corrected', 'pending.update' => 'Sospeso aggiornato', 'pending.cancel' => 'Sospeso annullato',
+            'pending.assigned' => 'Cliente associato al sospeso storico', 'pending.created' => 'Sospeso creato', 'pending.settled' => 'Pagamento applicato al sospeso', 'pending.corrected', 'pending.update' => 'Sospeso aggiornato', 'pending.cancel' => 'Sospeso annullato',
             'movement.created' => 'Movimento creato', 'movement.updated' => 'Movimento modificato', 'movement.voided' => 'Movimento annullato',
             'price.quoted' => 'Tariffa calcolata', 'price.confirmed' => 'Tariffa confermata', 'price.requoted' => 'Tariffa ricalcolata', 'order.economics_updated' => 'Dati economici aggiornati',
             'payment.proposed' => 'Proposta storica di pagamento', 'payment.confirmed' => 'Accordo storico di pagamento',

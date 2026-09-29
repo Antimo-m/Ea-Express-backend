@@ -28,20 +28,20 @@ class PendingAccountController extends Controller
     public function index(Request $request): View
     {
         abort_unless($request->user()->role === UserRole::Admin, 403);
-        $data = $request->validate(['id' => ['nullable', 'integer', 'min:1'], 'direction' => ['nullable', 'in:incoming,outgoing'], 'state' => ['nullable', 'in:open,partially_paid,paid,cancelled'], 'q' => ['nullable', 'string', 'max:150'], 'sort' => ['nullable', 'in:recent,due,remaining']]);
-        $query = PendingAccount::query()->when($data['id'] ?? null, fn ($q, $id) => $q->whereKey($id))
-            ->when($data['q'] ?? null, fn ($q, $term) => $q->where(fn ($search) => $search->where('subject', 'like', '%'.$term.'%')->orWhere('description', 'like', '%'.$term.'%')->orWhereHas('customer', fn ($customer) => $customer->where('name', 'like', '%'.$term.'%'))))
+        $data = $request->validate(['customer_id' => ['nullable', 'integer', 'exists:users,id'], 'id' => ['nullable', 'integer', 'min:1'], 'direction' => ['nullable', 'in:incoming,outgoing'], 'state' => ['nullable', 'in:open,partially_paid,paid,cancelled'], 'q' => ['nullable', 'string', 'max:150'], 'sort' => ['nullable', 'in:recent,due,remaining']]);
+        $query = PendingAccount::query()->when($data['customer_id'] ?? null, fn ($q, $id) => $q->where('customer_id', $id))->when($data['id'] ?? null, fn ($q, $id) => $q->whereKey($id))
+            ->when($data['q'] ?? null, fn ($q, $term) => $q->where(fn ($search) => $search->where('subject', 'like', '%'.$term.'%')->orWhere('description', 'like', '%'.$term.'%')->orWhereHas('customer', fn ($customer) => $customer->where(fn ($identity) => $identity->where('name', 'like', '%'.$term.'%')->orWhere('email', 'like', '%'.$term.'%')->orWhere('business_description', 'like', '%'.$term.'%')))))
             ->when($data['state'] ?? null, fn ($q, $state) => $q->where('state', $state));
         $totals = (clone $query)->whereIn('state', ['open', 'partially_paid'])->selectRaw('direction, SUM(amount_cents - settled_cents) AS remaining')->groupBy('direction')->pluck('remaining', 'direction');
         $list = (clone $query)->when($data['direction'] ?? null, fn ($q, $direction) => $q->where('direction', $direction))
-            ->with(['customer:id,name', 'order:id,reference,shipping_type', 'settlements' => fn ($q) => $q->with('user:id,name')->latest()->orderByDesc('id')]);
+            ->with(['customer:id,name,email,business_type,business_description,is_active', 'order:id,reference,shipping_type', 'settlements' => fn ($q) => $q->with('user:id,name')->latest()->orderByDesc('id')]);
         match ($data['sort'] ?? 'recent') {
             'due' => $list->orderByRaw('CASE WHEN due_on IS NULL THEN 1 ELSE 0 END')->orderBy('due_on'),
             'remaining' => $list->orderByRaw('(amount_cents - settled_cents) DESC'),
             default => $list->latest(),
         };
         $accounts = $list->orderByDesc('id')->paginate(20)->withQueryString();
-        $customers = User::where('role', UserRole::Customer)->orderBy('name')->get(['id', 'name']);
+        $customers = User::where('role', UserRole::Customer)->orderBy('name')->get(['id', 'name', 'email', 'business_type', 'business_description', 'is_active']);
 
         return view('pending.index', compact('accounts', 'totals', 'customers'));
     }
@@ -61,9 +61,10 @@ class PendingAccountController extends Controller
                 $remaining = $order->price_cents - (int) PaymentEntry::where('order_id', $order->id)->sum('amount_cents');
                 abort_unless($data['direction'] === 'incoming' && $order->status === OrderStatus::Delivered && $order->price_cents !== null && ! $order->paid_at && ! $order->receipt_voided_at && $remaining === $cents, 422, 'Per una spedizione usa il residuo esatto di una consegna non saldata, in entrata.');
                 abort_if(PendingAccount::where('order_id', $order->id)->exists(), 409, 'Esiste già un sospeso per questa spedizione.');
-                abort_if(! empty($data['customer_id']) && (int) $data['customer_id'] !== $order->customer_id, 422, 'Il cliente non corrisponde alla spedizione.');
+                abort_if((int) $data['customer_id'] !== $order->customer_id, 422, 'Il cliente non corrisponde alla spedizione.');
                 $data['customer_id'] = $order->customer_id;
             }
+            abort_unless(User::whereKey($data['customer_id'])->where('role', UserRole::Customer)->lockForUpdate()->first(), 422, 'Seleziona un account cliente valido.');
             $account = PendingAccount::create([...$data, 'amount_cents' => $cents, 'created_by' => $request->user()->id]);
             app(RecordEconomicAudit::class)->handle($request->user(), $account, 'pending.created', null, $account->toArray());
         }, 3);
@@ -78,7 +79,20 @@ class PendingAccountController extends Controller
         DB::transaction(function () use ($request, $account, $data): void {
             $period = AccountingPeriod::lock();
             $locked = PendingAccount::query()->when($request->filled('id'), fn ($q) => $q->whereKey($request->integer('id')))->lockForUpdate()->findOrFail($account->id);
-            abort_unless($locked->version === (int) $data['version'] && in_array($locked->state, ['open', 'partially_paid']), 409, 'Sospeso aggiornato o chiuso.');
+            abort_unless($locked->version === (int) $data['version'], 409, 'Sospeso aggiornato.');
+            if ($data['action'] === 'assign') {
+                abort_unless($locked->customer_id === null, 409, 'Il cliente associato non può essere cambiato.');
+                abort_unless(User::whereKey($data['customer_id'])->where('role', UserRole::Customer)->lockForUpdate()->first(), 422, 'Seleziona un account cliente valido.');
+                abort_if($locked->order_id && $locked->order->customer_id !== (int) $data['customer_id'], 422, 'Il cliente non corrisponde alla spedizione.');
+                $before = $locked->toArray();
+                $locked->customer_id = $data['customer_id'];
+                $locked->version++;
+                $locked->save();
+                app(RecordEconomicAudit::class)->handle($request->user(), $locked, 'pending.assigned', $before, $locked->toArray());
+
+                return;
+            }
+            abort_unless(in_array($locked->state, ['open', 'partially_paid']), 409, 'Sospeso chiuso.');
             $period->assertOpen($locked->occurred_on);
             $before = $locked->toArray();
             if ($data['action'] === 'cancel') {

@@ -13,7 +13,7 @@ export function bindFinancialForms(root = document) {
             if (busy) return;
             busy = true;
             button = event.submitter || button;
-            const label = button.innerHTML;
+            const originalContent = Array.from(button.childNodes, node => node.cloneNode(true));
             const accessibleLabel = button.getAttribute('aria-label');
             const data = new FormData(form);
             if (event.submitter?.name) data.append(event.submitter.name, event.submitter.value);
@@ -22,6 +22,7 @@ export function bindFinancialForms(root = document) {
             button.setAttribute('aria-label', 'Salvataggio in corso');
             form.setAttribute('aria-busy', 'true');
             feedback.textContent = '';
+            feedback.setAttribute('role', 'status');
             try {
                 const response = await fetch(form.getAttribute('action'), { method: 'POST', credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' }, body: data });
                 const result = response.headers.get('content-type')?.includes('application/json') ? await response.json() : {};
@@ -37,15 +38,23 @@ export function bindFinancialForms(root = document) {
                 feedback.textContent = result.message || 'Operazione registrata.';
                 sessionStorage.setItem('ea:financial-feedback', feedback.textContent);
                 form.closest('dialog')?.close();
-                location.assign(result.redirect || location.href);
+                let redirect = new URL(location.href);
+                try {
+                    const destination = new URL(result.redirect || location.href, location.href);
+                    if (destination.origin === redirect.origin && ['http:', 'https:'].includes(destination.protocol)) redirect = destination;
+                } catch {
+                    // A malformed destination falls back to the current page after a successful save.
+                }
+                location.assign(redirect.href);
             } catch (error) {
                 feedback.textContent = error instanceof TypeError ? 'Connessione interrotta. Controlla il bilancio: il salvataggio potrebbe essere già riuscito.' : error.message;
                 feedback.setAttribute('role', 'alert');
                 busy = false;
                 button.disabled = false;
-                button.innerHTML = label;
+                button.replaceChildren(...originalContent);
                 button.removeAttribute('aria-busy');
-                if (accessibleLabel) button.setAttribute('aria-label', accessibleLabel);
+                if (accessibleLabel !== null) button.setAttribute('aria-label', accessibleLabel);
+                else button.removeAttribute('aria-label');
                 form.removeAttribute('aria-busy');
             }
         });
@@ -54,7 +63,7 @@ export function bindFinancialForms(root = document) {
     if (saved && root.querySelector('[data-financial-form]')) {
         sessionStorage.removeItem('ea:financial-feedback');
         const notice = document.createElement('p'); notice.className = 'alert alert-success'; notice.setAttribute('role', 'status'); notice.textContent = saved;
-        root.querySelector('main').prepend(notice);
+        (root.querySelector('main') || root).prepend(notice);
     }
 }
 bindFinancialForms();

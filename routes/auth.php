@@ -2,10 +2,10 @@
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
+use App\Http\Controllers\Auth\EmailOtpController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
-use App\Http\Controllers\Auth\PhoneVerificationController;
 use App\Http\Middleware\EnsureStaff;
 use Illuminate\Support\Facades\Route;
 
@@ -29,9 +29,9 @@ Route::middleware(['guest', 'throttle:public-pages'])->group(function () {
 });
 
 Route::middleware(['auth', 'throttle:writes'])->group(function () {
-    Route::get('verify-phone', [PhoneVerificationController::class, 'show'])->middleware(EnsureStaff::class)->name('phone.notice');
-    Route::post('verify-phone/send', [PhoneVerificationController::class, 'store'])->middleware([EnsureStaff::class, 'throttle:otp-send'])->name('phone.send');
-    Route::post('verify-phone/confirm', [PhoneVerificationController::class, 'update'])->middleware([EnsureStaff::class, 'throttle:otp-check'])->name('phone.verify');
+    Route::get('verify-email-otp', [EmailOtpController::class, 'show'])->middleware(EnsureStaff::class)->name('email-otp.notice');
+    Route::post('verify-email-otp/send', [EmailOtpController::class, 'store'])->middleware([EnsureStaff::class, 'throttle:otp-send'])->name('email-otp.send');
+    Route::post('verify-email-otp/confirm', [EmailOtpController::class, 'update'])->middleware([EnsureStaff::class, 'throttle:otp-check'])->name('email-otp.verify');
 
     Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])
         ->name('password.confirm');

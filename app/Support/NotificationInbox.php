@@ -4,15 +4,29 @@ namespace App\Support;
 
 use App\Models\Order;
 use App\Models\User;
+use App\UserRole;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Carbon;
 
 class NotificationInbox
 {
+    private function visibleNotifications(User $user): MorphMany
+    {
+        $orders = $user->role === UserRole::Customer ? Order::where('customer_id', $user->id) : Order::visibleTo($user);
+
+        return $user->notifications()->whereIn('data->order_id', $orders->select('id'));
+    }
+
+    public function unreadCount(User $user): int
+    {
+        return $this->visibleNotifications($user)->whereNull('read_at')->count();
+    }
+
     public function groups(User $user): LengthAwarePaginator
     {
-        $groups = $user->notifications()->reorder()->select('data->order_id as order_id', 'data->reference as reference')
+        $groups = $this->visibleNotifications($user)->reorder()->select('data->order_id as order_id', 'data->reference as reference')
             ->selectRaw('COUNT(*) as total, SUM(CASE WHEN read_at IS NULL THEN 1 ELSE 0 END) as unread, MAX(created_at) as latest_at')
             ->groupBy('data->order_id', 'data->reference')->orderByDesc('latest_at')->orderByDesc('order_id')->paginate(12)->withQueryString()->through(fn ($group) => (object) ['order_id' => (int) $group->order_id, 'reference' => $group->reference, 'total' => (int) $group->total, 'unread' => (int) $group->unread, 'latest_at' => Carbon::parse($group->latest_at)->toIso8601String()]);
         $names = Order::whereIn('id', $groups->getCollection()->pluck('order_id'))->withDisplayIdentity()->get(['id', 'customer_id', 'created_by', 'reference', 'store_name'])->keyBy('id');
@@ -28,7 +42,7 @@ class NotificationInbox
     /** @return array<string, mixed> */
     public function history(User $user, int $orderId): array
     {
-        $items = $user->notifications()->where('data->order_id', $orderId)->latest()->orderByDesc('id')->paginate(20);
+        $items = $this->visibleNotifications($user)->where('data->order_id', $orderId)->latest()->orderByDesc('id')->paginate(20);
 
         return ['data' => $items->getCollection()->map(fn (DatabaseNotification $item) => $this->item($item)), 'meta' => ['current_page' => $items->currentPage(), 'last_page' => $items->lastPage()]];
     }
@@ -36,7 +50,7 @@ class NotificationInbox
     /** @return array<string, mixed> */
     public function feed(User $user): array
     {
-        return ['unread' => $user->unreadNotifications()->count(), 'items' => $user->notifications()->latest()->orderByDesc('id')->limit(50)->get()->map(fn (DatabaseNotification $item) => ['id' => $item->id, 'read' => $item->read_at !== null])];
+        return ['unread' => $this->visibleNotifications($user)->whereNull('read_at')->count(), 'items' => $this->visibleNotifications($user)->latest()->orderByDesc('id')->limit(50)->get()->map(fn (DatabaseNotification $item) => ['id' => $item->id, 'read' => $item->read_at !== null])];
     }
 
     /** @return array<string, mixed> */

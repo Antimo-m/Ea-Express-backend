@@ -26,7 +26,7 @@ class Order extends Model
 
     protected function casts(): array
     {
-        return ['carrier_cost_cents' => 'integer', 'carrier_handed_at' => 'datetime', 'estimated_delivery_from' => 'date', 'estimated_delivery_to' => 'date', 'weight_kg' => 'decimal:2', 'max_dimension_cm' => 'decimal:2', 'pickup_reminded_on' => 'date', 'receipt_voided_at' => 'datetime', 'pricing_version' => 'integer', 'quoted_price_cents' => 'integer', 'rate_snapshot' => 'array', 'payment_proposed_at' => 'datetime', 'payment_confirmed_at' => 'datetime', 'packages' => 'array', 'conversation_expires_at' => 'datetime', 'status' => OrderStatus::class, 'pickup_date' => 'date', 'rejected_at' => 'datetime', 'tracking_started_at' => 'datetime', 'delivered_at' => 'datetime', 'paid_at' => 'datetime', 'estimated_at' => 'datetime', 'price_cents' => 'integer', 'parcel_value_cents' => 'integer', 'version' => 'integer'];
+        return ['assigned_at' => 'datetime', 'carrier_cost_cents' => 'integer', 'carrier_handed_at' => 'datetime', 'estimated_delivery_from' => 'date', 'estimated_delivery_to' => 'date', 'weight_kg' => 'decimal:2', 'max_dimension_cm' => 'decimal:2', 'pickup_reminded_on' => 'date', 'receipt_voided_at' => 'datetime', 'pricing_version' => 'integer', 'quoted_price_cents' => 'integer', 'rate_snapshot' => 'array', 'payment_proposed_at' => 'datetime', 'payment_confirmed_at' => 'datetime', 'packages' => 'array', 'conversation_expires_at' => 'datetime', 'status' => OrderStatus::class, 'pickup_date' => 'date', 'rejected_at' => 'datetime', 'tracking_started_at' => 'datetime', 'delivered_at' => 'datetime', 'paid_at' => 'datetime', 'estimated_at' => 'datetime', 'price_cents' => 'integer', 'parcel_value_cents' => 'integer', 'version' => 'integer'];
     }
 
     /** @return array{state: string, label: string, paid_at: ?string} */
@@ -37,6 +37,11 @@ class Order extends Model
             'label' => $this->receipt_voided_at ? 'Incasso stornato' : ($this->paid_at ? 'Pagato' : 'Da registrare'),
             'paid_at' => $this->paid_at?->toIso8601String(),
         ];
+    }
+
+    public function totalCents(): ?int
+    {
+        return $this->price_cents === null ? null : ($this->parcel_value_cents ?? 0) + $this->price_cents;
     }
 
     public function priceProposals(): HasMany
@@ -115,6 +120,11 @@ class Order extends Model
         return $this->hasMany(OrderMessage::class);
     }
 
+    public function assignedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_by');
+    }
+
     public function rider(): BelongsTo
     {
         return $this->belongsTo(User::class, 'rider_id');
@@ -144,10 +154,7 @@ class Order extends Model
 
             return;
         }
-        $query->where(function (Builder $q) use ($user) {
-            $q->where('rider_id', $user->id)->orWhere('created_by', $user->id)
-                ->orWhere('rejected_by', $user->id)->orWhere(fn (Builder $pool) => $pool->whereNull('rider_id')->where('status', OrderStatus::Received));
-        });
+        $query->where('rider_id', $user->id)->whereNotIn('status', [OrderStatus::Received, OrderStatus::Rejected]);
     }
 
     /** @return list<OrderStatus> */
