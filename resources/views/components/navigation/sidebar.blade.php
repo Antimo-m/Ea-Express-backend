@@ -2,10 +2,13 @@
     <div class="sidebar-brand"><a class="brand-link" href="{{ route('dashboard') }}"><x-application-logo /></a><button class="btn-close d-lg-none" type="button" data-bs-dismiss="offcanvas" data-bs-target="#app-navigation" aria-label="Chiudi menu"></button></div>
     <h2 id="navigation-title" class="visually-hidden">Menu principale</h2>
     <div class="offcanvas-body sidebar-content">
-        <x-ui.icon-button action="add" href="{{ route('orders.create') }}" label="Nuova richiesta" class="sidebar-create" text />
+        @if(auth()->user()->role === \App\UserRole::Admin)<x-ui.icon-button action="add" href="{{ route('orders.create') }}" label="Nuova richiesta" class="sidebar-create" text />@endif
         <nav aria-label="Navigazione principale">
             @foreach (config('navigation') as $group => $items)
+                @php($items = collect($items)->filter(fn ($item) => !($item['admin'] ?? false) || auth()->user()->role === \App\UserRole::Admin))
+                @if($items->isNotEmpty())
                 <div class="nav-group"><p class="nav-group-label">{{ $group }}</p>@foreach ($items as $item)<x-navigation.link :item="$item" />@endforeach</div>
+                @endif
             @endforeach
         </nav>
         <div class="sidebar-foot"><span class="area-dot"></span> Al fianco della Campania<span class="d-block mt-1">EA-Express · Il tuo spazio operativo</span></div>

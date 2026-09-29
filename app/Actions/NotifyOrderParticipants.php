@@ -6,7 +6,6 @@ use App\Events\WorkspaceUpdated;
 use App\Models\Order;
 use App\Models\User;
 use App\Notifications\OrderActivity;
-use App\OrderStatus;
 use App\UserRole;
 
 class NotifyOrderParticipants
@@ -23,10 +22,7 @@ class NotifyOrderParticipants
             $recipients->where('id', '!=', $actorId);
         }
         $recipients->where(function ($query) use ($order) {
-            $query->where('role', UserRole::Admin)->orWhere('id', $order->rider_id)->orWhere('id', $order->created_by);
-            if ($order->status === OrderStatus::Received && $order->rider_id === null) {
-                $query->orWhere('role', UserRole::Rider);
-            }
+            $query->where('role', UserRole::Admin)->orWhere('id', $order->rider_id);
         });
         $recipients->each(function (User $user) use ($order, $title, $message) {
             if ($user->can('view', $order)) {

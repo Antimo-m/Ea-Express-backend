@@ -4,6 +4,7 @@ namespace App\Events;
 
 use App\Models\Order;
 use App\Models\User;
+use App\OrderStatus;
 use App\UserRole;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
@@ -38,7 +39,13 @@ class WorkspaceUpdated implements ShouldBroadcast, ShouldDispatchAfterCommit
                 ->map(fn (int $id) => new PrivateChannel('staff.'.$id))->all();
         }
 
-        $channels = User::where('is_active', true)->where(fn ($query) => $query->where('id', $order->customer_id)->orWhereIn('role', [UserRole::Admin, UserRole::Rider]))->get()->filter(fn (User $user) => $user->role === UserRole::Customer ? $order->customer_id === $user->id : ($this->kind === 'order' || $user->can('view', $order)))->map(fn (User $user) => new PrivateChannel(($user->role === UserRole::Customer ? 'customer.' : 'staff.').$user->id))->values()->all();
+        $channels = User::where('is_active', true)->where(function ($query) use ($order): void {
+            $query->where('role', UserRole::Admin)
+                ->orWhere(fn ($customer) => $customer->where('role', UserRole::Customer)->where('id', $order->customer_id));
+            if (! in_array($order->status, [OrderStatus::Received, OrderStatus::Rejected], true)) {
+                $query->orWhere(fn ($rider) => $rider->where('role', UserRole::Rider)->where('id', $order->rider_id));
+            }
+        })->get(['id', 'role'])->map(fn (User $user) => new PrivateChannel(($user->role === UserRole::Customer ? 'customer.' : 'staff.').$user->id))->all();
         if ($this->kind === 'order' && $order->tracking_started_at) {
             $channels[] = new PrivateChannel('tracking.'.hash('sha256', $order->tracking_token));
         }

@@ -10,7 +10,7 @@ class EnsureStaff
 {
     public function handle(Request $request, Closure $next): Response
     {
-        abort_unless($request->user()?->isStaff(), 403, 'Accesso riservato ai rider abilitati.');
+        abort_unless($request->user()?->isStaff(), 403, 'Accesso riservato al personale abilitato.');
 
         return $next($request);
     }

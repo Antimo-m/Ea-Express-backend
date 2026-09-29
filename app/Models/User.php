@@ -12,7 +12,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 #[Fillable(['name', 'email', 'password', 'sender_type', 'business_type', 'business_description'])]
-#[Hidden(['password', 'remember_token', 'phone_otp_hash', 'pending_phone', 'phone_otp_expires_at', 'phone_otp_attempts', 'phone_otp_send_count', 'phone_otp_window_at', 'phone_otp_sent_at'])]
+#[Hidden(['email_otp_hash', 'email_otp_expires_at', 'email_otp_sent_at', 'email_otp_window_at', 'email_otp_attempts', 'email_otp_send_count', 'password', 'remember_token', 'phone_otp_hash', 'pending_phone', 'phone_otp_expires_at', 'phone_otp_attempts', 'phone_otp_send_count', 'phone_otp_window_at', 'phone_otp_sent_at'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -25,6 +25,11 @@ class User extends Authenticatable
         return $this->hasMany(SenderAddress::class, 'customer_id');
     }
 
+    public function pendingAccounts(): HasMany
+    {
+        return $this->hasMany(PendingAccount::class, 'customer_id');
+    }
+
     public function isStaff(): bool
     {
         return in_array($this->role, [UserRole::Admin, UserRole::Rider], true);
@@ -33,6 +38,7 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
+            'email_otp_expires_at' => 'datetime', 'email_otp_sent_at' => 'datetime', 'email_otp_window_at' => 'datetime', 'email_otp_attempts' => 'integer', 'email_otp_send_count' => 'integer',
             'email_verified_at' => 'datetime',
             'phone_verified_at' => 'datetime', 'phone_otp_expires_at' => 'datetime', 'phone_otp_sent_at' => 'datetime', 'phone_otp_window_at' => 'datetime', 'phone_otp_attempts' => 'integer', 'phone_otp_send_count' => 'integer', 'is_active' => 'boolean',
             'password' => 'hashed',

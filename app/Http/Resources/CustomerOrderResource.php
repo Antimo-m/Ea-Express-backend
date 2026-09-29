@@ -23,7 +23,7 @@ class CustomerOrderResource extends JsonResource
             'pricing_version' => $this->pricing_version, 'quoted_price_cents' => $this->quoted_price_cents, 'price_state' => $this->price_state, 'price_label' => $this->resource->priceLabel(), 'rate_snapshot' => ShippingQuote::customerData($this->rate_snapshot),
             'price_proposals' => $this->whenLoaded('priceProposals', fn () => $this->priceProposals->map(fn ($p) => ['id' => $p->id, 'price_cents' => $p->price_cents, 'previous_price_cents' => $p->previous_price_cents, 'reason' => $p->reason, 'state' => $p->state, 'created_at' => $p->created_at->toIso8601String(), 'responded_at' => $p->responded_at?->toIso8601String(), 'proposed_by' => $p->proposed_by])),
             'delivery_window' => $this->delivery_window, 'parcel_count' => $this->parcel_count, 'packages' => $this->packages, 'category' => $this->category, 'content_description' => $this->content_description, 'category_label' => OrderContent::label($this->category, $this->content_description), 'urgency' => $this->urgency, 'customer_notes' => $this->customer_notes,
-            'delivery_zone' => $this->delivery_zone, 'total_cents' => $this->price_cents === null ? null : ($this->parcel_value_cents ?? 0) + $this->price_cents,
+            'delivery_zone' => $this->delivery_zone, 'total_cents' => $this->resource->totalCents(),
             'receipt' => $this->resource->receiptData(),
             'price_cents' => $this->price_cents, 'tracking_active' => $this->tracking_started_at !== null, 'estimated_at' => $this->estimated_at?->toIso8601String(),
             'delivered_at' => $this->delivered_at?->toIso8601String(), 'created_at' => $this->created_at->toIso8601String(),

@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\OrderStatus;
 use App\Support\Money;
 use App\Support\RecipientRisk;
+use App\UserRole;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -23,12 +24,12 @@ class DashboardController extends Controller
         $shipments = $active->orderBy('pickup_date')->orderBy('pickup_from')->orderBy('id')->limit(3)->get();
         $recipientRisks = app(RecipientRisk::class)->forOrders($requests->concat($shipments));
 
-        return view('dashboard.index', [
+        return view($request->user()->role === UserRole::Rider ? 'dashboard.rider' : 'dashboard.index', [
             'metrics' => [
-                ['label' => 'Ordini in entrata', 'value' => (clone $incoming)->count(), 'note' => 'In attesa di conferma', 'icon' => 'inbox', 'tone' => 'orange'],
+                $request->user()->role === UserRole::Admin ? ['label' => 'Ordini in entrata', 'value' => (clone $incoming)->count(), 'note' => 'In attesa di conferma', 'icon' => 'inbox', 'tone' => 'orange'] : ['label' => 'Ritiri da effettuare', 'value' => (clone $base)->awaitingPickup()->count(), 'note' => 'Da ritirare', 'icon' => 'inbox', 'tone' => 'orange'],
                 ['label' => 'Spedizioni in corso', 'value' => (clone $active)->count(), 'note' => 'Affidate alla tua gestione', 'icon' => 'truck', 'tone' => 'blue'],
                 ['label' => 'Completati oggi', 'value' => (clone $completed)->count(), 'note' => 'Consegnati oggi', 'icon' => 'check2-circle', 'tone' => 'green'],
-                ['label' => 'Importi in corso', 'value' => Money::format((int) (clone $active)->sum('price_cents')), 'note' => 'Tariffe concordate, ancora da consegnare', 'icon' => 'wallet2', 'tone' => 'orange'],
+                $request->user()->role === UserRole::Rider ? ['label' => 'Consegne in uscita', 'value' => (clone $base)->where('status', OrderStatus::OutForDelivery)->count(), 'note' => 'In consegna', 'icon' => 'geo-alt', 'tone' => 'orange'] : ['label' => 'Importi in corso', 'value' => Money::format((int) (clone $active)->sum('price_cents')), 'note' => 'Tariffe concordate, ancora da consegnare', 'icon' => 'wallet2', 'tone' => 'orange'],
             ],
             'recipientRisks' => $recipientRisks, 'requests' => $requests,
             'shipments' => $shipments,

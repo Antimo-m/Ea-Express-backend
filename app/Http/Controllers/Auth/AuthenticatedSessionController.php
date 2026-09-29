@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Actions\SendEmailOtp;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
-use App\Support\PhoneVerification;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class AuthenticatedSessionController extends Controller
@@ -30,8 +31,14 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        if (PhoneVerification::enabled() && $request->user()->role !== UserRole::Admin && ! $request->user()->phone_verified_at) {
-            return redirect()->route('phone.notice');
+        if ($request->user()->role === UserRole::Rider && ! $request->user()->email_verified_at) {
+            try {
+                app(SendEmailOtp::class)->handle($request->user());
+            } catch (ValidationException $exception) {
+                return redirect()->route('email-otp.notice')->withErrors($exception->errors());
+            }
+
+            return redirect()->route('email-otp.notice');
         }
 
         return redirect()->intended(route('dashboard', absolute: false));

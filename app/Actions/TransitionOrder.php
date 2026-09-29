@@ -7,6 +7,7 @@ use App\Models\User;
 use App\OrderStatus;
 use App\Support\Money;
 use App\Support\RecipientRisk;
+use App\UserRole;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -22,6 +23,14 @@ class TransitionOrder
         DB::transaction(function () use ($order, $user, $data) {
             $user = User::query()->lockForUpdate()->findOrFail($user->id);
             abort_unless($user->is_active && $user->isStaff(), 403);
+            $rider = null;
+            if (($data['status'] ?? null) === OrderStatus::Accepted->value) {
+                abort_unless($user->role === UserRole::Admin, 403);
+                $rider = User::query()->where('role', UserRole::Rider)->where('is_active', true)->lockForUpdate()->find($data['rider_id'] ?? 0);
+                if (! $rider) {
+                    throw ValidationException::withMessages(['rider_id' => 'Seleziona un Rider attivo e disponibile.']);
+                }
+            }
             $locked = Order::query()->lockForUpdate()->findOrFail($order->id);
             Gate::forUser($user)->authorize('update', $locked);
             $next = OrderStatus::from($data['status']);
@@ -38,7 +47,11 @@ class TransitionOrder
                 $locked->carrier_status = 'delivered';
             }
             if ($next === OrderStatus::Accepted) {
-                $locked->rider_id = $user->id;
+                $beforeAssignment = $locked->only(['rider_id', 'assigned_by', 'assigned_at']);
+                $locked->rider_id = $rider->id;
+                $locked->assigned_by = $user->id;
+                $locked->assigned_at = now();
+                app(RecordEconomicAudit::class)->handle($user, $locked, 'rider.assigned', $beforeAssignment, $locked->only(['rider_id', 'assigned_by', 'assigned_at']));
                 if ($locked->pricing_version === 1) {
                     abort_if($locked->price_state === 'awaiting_customer' || ($locked->price_state !== 'agreed' && $locked->quoted_price_cents === null), 409, 'Concorda prima la tariffa con il cliente.');
                     $before = ['price_cents' => $locked->price_cents, 'price_state' => $locked->price_state];

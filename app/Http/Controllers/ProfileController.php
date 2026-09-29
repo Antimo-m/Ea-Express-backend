@@ -8,10 +8,12 @@ use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\OrderMessage;
 use App\Models\PaymentEntry;
+use App\Models\User;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -37,6 +39,8 @@ class ProfileController extends Controller
 
         if ($request->user()->isDirty('email')) {
             $request->user()->email_verified_at = null;
+            $request->user()->email_otp_hash = null;
+            $request->user()->email_otp_expires_at = null;
         }
 
         $request->user()->save();
@@ -53,15 +57,17 @@ class ProfileController extends Controller
             'password' => ['required', 'current_password'],
         ]);
 
-        $user = $request->user();
+        DB::transaction(function () use ($request): void {
+            $user = User::lockForUpdate()->findOrFail($request->user()->id);
 
-        if (Expense::where('user_id', $user->id)->exists() || PaymentEntry::where('user_id', $user->id)->exists() || OrderMessage::where('user_id', $user->id)->exists() || $user->role === UserRole::Admin || Order::query()->where('created_by', $user->id)->orWhere('rider_id', $user->id)->orWhere('rejected_by', $user->id)->exists() || OrderEvent::where('user_id', $user->id)->exists()) {
-            throw ValidationException::withMessages(['password' => 'L’account ha responsabilità o uno storico operativo. Contatta il responsabile per disabilitarlo.'])->errorBag('userDeletion');
-        }
+            if (Expense::where('user_id', $user->id)->exists() || PaymentEntry::where('user_id', $user->id)->exists() || OrderMessage::where('user_id', $user->id)->exists() || $user->role === UserRole::Admin || Order::query()->where('created_by', $user->id)->orWhere('rider_id', $user->id)->orWhere('rejected_by', $user->id)->exists() || OrderEvent::where('user_id', $user->id)->exists()) {
+                throw ValidationException::withMessages(['password' => 'L’account ha responsabilità o uno storico operativo. Contatta il responsabile per disabilitarlo.'])->errorBag('userDeletion');
+            }
+
+            $user->delete();
+        }, 3);
 
         Auth::logout();
-
-        $user->delete();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

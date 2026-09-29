@@ -9,5 +9,5 @@ Broadcast::connection('reverb')->channel('customer.{id}', function (User $user, 
 }, ['guards' => ['customer']]);
 
 Broadcast::connection('reverb')->channel('staff.{id}', function (User $user, string $id): bool {
-    return $user->is_active && $user->isStaff() && (string) $user->id === $id;
+    return $user->is_active && $user->isStaff() && ($user->role === UserRole::Admin || $user->email_verified_at !== null) && (string) $user->id === $id;
 }, ['guards' => ['web']]);

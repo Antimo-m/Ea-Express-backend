@@ -23,7 +23,8 @@ class CreateOrder
     public function handle(User $creator, array $data): Order
     {
         return DB::transaction(function () use ($creator, $data): Order {
-            User::query()->lockForUpdate()->findOrFail($creator->id);
+            $creator = User::query()->lockForUpdate()->findOrFail($creator->id);
+            abort_unless($creator->is_active && in_array($creator->role, [UserRole::Admin, UserRole::Customer], true), 403);
             $review = ($creator->role === UserRole::Customer || ! empty($data['checkout_token'])) ? app(CheckoutReview::class)->confirm($creator, $data) : null;
             if ($review && ($existing = Order::where('checkout_key', $review['key'])->where('created_by', $creator->id)->first())) {
                 return $existing;

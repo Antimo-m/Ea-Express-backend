@@ -1,7 +1,19 @@
-<x-ui.modal id="pending-create" title="Registra sospeso" description="Registra un credito o un debito e i riferimenti utili per seguirlo."><div class="modal-content-area"><form method="post" action="{{ route('pending.store') }}" class="form-stack mt-3" data-financial-form>@csrf<div class="field-grid"><x-ui.field name="subject" label="Soggetto" required maxlength="150"/><div><label for="direction" class="form-label">Direzione</label><select class="form-select" name="direction" id="direction"><option value="incoming">Entrata · ci devono denaro</option><option value="outgoing">Uscita · dobbiamo denaro</option></select></div><x-ui.field name="amount" label="Importo (€)" inputmode="decimal" required/><x-ui.field name="description" label="Descrizione" required maxlength="500"/><x-ui.field name="occurred_on" label="Data" type="date" :value="now('Europe/Rome')->toDateString()" required/><x-ui.field name="due_on" label="Scadenza" type="date"/><div><label class="form-label" for="customer_id">Cliente collegato</label><select class="form-select" id="customer_id" name="customer_id"><option value="">Nessuno</option>@foreach($customers as $customer)<option value="{{ $customer->id }}">{{ $customer->name }}</option>@endforeach</select></div><x-ui.field name="order_id" label="ID ordine (facoltativo)" type="number" min="1" help="Per un ordine consegnato, inserisci il residuo esatto. Il saldo verrà registrato anche nei suoi incassi."/></div><x-ui.field name="notes" label="Note" maxlength="4000"/><x-ui.icon-button action="add" label="Registra sospeso" type="submit" /></form></div></x-ui.modal>
+<x-ui.modal id="pending-create" title="Registra sospeso" description="Registra un credito o un debito e i riferimenti utili per seguirlo."><div class="modal-content-area"><form method="post" action="{{ route('pending.store') }}" class="form-stack mt-3" data-financial-form>@csrf<div class="field-grid"><div><label class="form-label" for="customer_id">Cliente / Account *</label><select class="form-select" id="customer_id" name="customer_id" required><option value="">Seleziona un cliente</option>@foreach($customers as $customer)<option value="{{ $customer->id }}">{{ $customer->name }} · {{ $customer->email }}@if($customer->business_type) · {{ $customer->business_type }}@endif @unless($customer->is_active) · Disattivato @endunless</option>@endforeach</select></div><x-ui.field name="subject" label="Soggetto" required maxlength="150"/><div><label for="direction" class="form-label">Direzione</label><select class="form-select" name="direction" id="direction"><option value="incoming">Entrata · il cliente deve pagare EA Express</option><option value="outgoing">Uscita · EA Express deve pagare il cliente</option></select></div><x-ui.field name="amount" label="Importo (€)" inputmode="decimal" required/><x-ui.field name="description" label="Descrizione" required maxlength="500"/><x-ui.field name="occurred_on" label="Data" type="date" :value="now('Europe/Rome')->toDateString()" required/><x-ui.field name="due_on" label="Scadenza" type="date"/><x-ui.field name="order_id" label="ID ordine (facoltativo)" type="number" min="1" help="Per un ordine consegnato, inserisci il residuo esatto. Il saldo verrà registrato anche nei suoi incassi."/></div><x-ui.field name="notes" label="Note" maxlength="4000"/><x-ui.icon-button action="add" label="Registra sospeso" type="submit" /></form></div></x-ui.modal>
 @foreach($accounts as $account)
+    @php($customerLabel = ($account->customer ? $account->customer->name.' · '.$account->customer->email : 'Cliente non associato · visibile solo all’amministratore').' · '.$account->subject)
+    @unless($account->customer_id)
+        <x-ui.modal :id="'pending-assign-'.$account->id" title="Associa cliente al sospeso storico" :description="$customerLabel"><div class="modal-content-area">
+            <p>Seleziona l’account a cui appartiene questo sospeso. Diventerà visibile nel suo portale. L’associazione non sarà modificabile.</p>
+            <form method="post" action="{{ route('pending.update', $account) }}" data-financial-form class="form-stack">@csrf @method('patch')
+                <input type="hidden" name="version" value="{{ $account->version }}"><input type="hidden" name="action" value="assign">
+                <label class="form-label" for="assign-customer-{{ $account->id }}">Cliente / Account</label>
+                <select class="form-select" id="assign-customer-{{ $account->id }}" name="customer_id" required><option value="">Seleziona un cliente</option>@foreach($customers as $customer)<option value="{{ $customer->id }}">{{ $customer->name }} · {{ $customer->email }}</option>@endforeach</select>
+                <button type="submit" class="btn btn-primary">Conferma associazione</button>
+            </form>
+        </div></x-ui.modal>
+    @endunless
     @if(in_array($account->state, ['open', 'partially_paid']))
-        <x-ui.modal :id="'pending-settle-'.$account->id" title="Registra pagamento" :description="$account->subject"><div class="modal-content-area">
+        <x-ui.modal :id="'pending-settle-'.$account->id" title="Registra pagamento" :description="$customerLabel"><div class="modal-content-area">
             <p class="amount-caption">Residuo <strong>{{ \App\Support\Money::format($account->amount_cents - $account->settled_cents) }}</strong></p>
             <form method="post" action="{{ route('pending.settle', $account) }}" data-financial-form class="form-stack">@csrf
                 <input type="hidden" name="version" value="{{ $account->version }}"><input type="hidden" name="submission_key" value="{{ \Illuminate\Support\Str::uuid() }}">
@@ -9,7 +21,7 @@
                 <x-ui.icon-button action="receive" label="Registra pagamento" type="submit" text />
             </form>
         </div></x-ui.modal>
-        <x-ui.modal :id="'pending-edit-'.$account->id" title="Modifica sospeso" :description="$account->subject"><div class="modal-content-area">
+        <x-ui.modal :id="'pending-edit-'.$account->id" title="Modifica sospeso" :description="$customerLabel"><div class="modal-content-area">
             <form method="post" action="{{ route('pending.update', $account) }}" data-financial-form class="form-stack">@csrf @method('patch')
                 <input type="hidden" name="version" value="{{ $account->version }}">
                 <x-ui.field :id="'edit-subject-'.$account->id" name="subject" label="Soggetto" :value="$account->subject" maxlength="150" required />
@@ -21,7 +33,7 @@
             </form>
         </div></x-ui.modal>
     @endif
-    <x-ui.modal :id="'pending-history-'.$account->id" class="ea-modal-wide" title="Storico pagamenti" :description="$account->subject">
+    <x-ui.modal :id="'pending-history-'.$account->id" class="ea-modal-wide" title="Storico pagamenti" :description="$customerLabel">
         <div class="modal-content-area">
             <div class="history-summary"><x-ui.pending-status :account="$account" /><span>Pagato <strong>{{ \App\Support\Money::format($account->settled_cents) }}</strong></span><span>Residuo <strong>{{ \App\Support\Money::format($account->amount_cents-$account->settled_cents) }}</strong></span></div>
             <p class="small text-secondary">Le correzioni aggiornano il bilancio alla data del pagamento originale. Il motivo e gli importi precedenti restano nello storico modifiche.</p>
@@ -37,7 +49,7 @@
     </x-ui.modal>
     @foreach($account->settlements as $settlement)
         @if($account->state !== 'cancelled')
-        <x-ui.modal :id="'settlement-edit-'.$settlement->id" title="Correggi pagamento" :description="$account->subject.' · pagamento #'.$settlement->id"><div class="modal-content-area">
+        <x-ui.modal :id="'settlement-edit-'.$settlement->id" title="Correggi pagamento" :description="$customerLabel.' · pagamento #'.$settlement->id"><div class="modal-content-area">
             <form method="post" action="{{ route('pending.settlements.update', [$account, $settlement]) }}" data-financial-form class="form-stack">@csrf @method('patch')<input type="hidden" name="version" value="{{ $account->version }}">
                 <x-ui.field :id="'correction-amount-'.$settlement->id" name="amount" label="Importo corretto (€)" :value="number_format($settlement->amount_cents/100,2,'.','')" inputmode="decimal" required />
                 <x-ui.field :id="'correction-reason-'.$settlement->id" name="reason" label="Motivo della correzione" maxlength="500" required />

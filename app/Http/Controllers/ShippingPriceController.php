@@ -39,7 +39,6 @@ class ShippingPriceController extends Controller
                 abort_if($customer, 403);
                 abort_if($locked->price_state === 'awaiting_customer', 409, 'Attendi la risposta alla proposta aperta.');
                 $proposal = $locked->priceProposals()->create(['proposed_by' => $user->id, 'previous_price_cents' => $locked->quoted_price_cents, 'price_cents' => Money::cents($data['price']), 'reason' => $data['reason'], 'state' => 'pending']);
-                $locked->rider_id = $locked->rider_id ?? $user->id;
                 if (! $locked->checkout_key) {
                     $locked->price_cents = null;
                 }

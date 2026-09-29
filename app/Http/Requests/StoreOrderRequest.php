@@ -6,6 +6,7 @@ use App\Support\BookingRules;
 use App\Support\CustomerIdentity;
 use App\Support\OrderContent;
 use App\Support\PostalCodeResolver;
+use App\UserRole;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -41,7 +42,7 @@ class StoreOrderRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return $this->user()?->isStaff() ?? false;
+        return $this->user()?->role === UserRole::Admin;
     }
 
     public function attributes(): array

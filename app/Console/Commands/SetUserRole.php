@@ -2,7 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Order;
 use App\Models\User;
+use App\OrderStatus;
 use App\UserRole;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +34,11 @@ class SetUserRole extends Command
             }
             if ($user->role === UserRole::Admin && $role !== UserRole::Admin && $users->where('role', UserRole::Admin)->count() <= 1) {
                 $this->error('Non puoi rimuovere l’ultimo amministratore.');
+
+                return self::FAILURE;
+            }
+            if ($user->role === UserRole::Rider && $role !== UserRole::Rider && Order::where('rider_id', $user->id)->whereNotIn('status', OrderStatus::closed())->exists()) {
+                $this->error('Riassegna le spedizioni attive prima di cambiare ruolo.');
 
                 return self::FAILURE;
             }
