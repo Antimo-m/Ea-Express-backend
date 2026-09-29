@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Actions\NotifyOrderParticipants;
+use App\Actions\NotifyAccountingParticipants;
 use App\Actions\RecordEconomicAudit;
 use App\Http\Requests\PendingAccountRequest;
 use App\Http\Requests\PendingAccountUpdateRequest;
@@ -143,7 +143,7 @@ class PendingAccountController extends Controller
                 }
                 $order->version++;
                 $order->save();
-                app(NotifyOrderParticipants::class)->handle($order, 'Pagamento registrato: '.Money::format($cents), $request->user()->id);
+                app(NotifyAccountingParticipants::class)->handle($order, 'Pagamento registrato: '.Money::format($cents), $request->user()->id);
             } elseif ($locked->direction === 'outgoing') {
                 $expense = new Expense(['description' => mb_substr($locked->subject.' — '.$locked->description, 0, 200), 'spent_on' => now('Europe/Rome')->toDateString()]);
                 $expense->user_id = $request->user()->id;

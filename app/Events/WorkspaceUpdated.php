@@ -33,6 +33,11 @@ class WorkspaceUpdated implements ShouldBroadcast, ShouldDispatchAfterCommit
             return [];
         }
 
+        if ($this->kind === 'accounting') {
+            return User::where('is_active', true)->where('role', UserRole::Admin)->pluck('id')
+                ->map(fn (int $id) => new PrivateChannel('staff.'.$id))->all();
+        }
+
         $channels = User::where('is_active', true)->where(fn ($query) => $query->where('id', $order->customer_id)->orWhereIn('role', [UserRole::Admin, UserRole::Rider]))->get()->filter(fn (User $user) => $user->role === UserRole::Customer ? $order->customer_id === $user->id : ($this->kind === 'order' || $user->can('view', $order)))->map(fn (User $user) => new PrivateChannel(($user->role === UserRole::Customer ? 'customer.' : 'staff.').$user->id))->values()->all();
         if ($this->kind === 'order' && $order->tracking_started_at) {
             $channels[] = new PrivateChannel('tracking.'.hash('sha256', $order->tracking_token));

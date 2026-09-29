@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\OrderStatus;
 use App\Support\Money;
+use App\Support\RecipientRisk;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -66,6 +67,12 @@ class TransitionOrder
             }
             if (! empty($data['estimated_at'])) {
                 $locked->estimated_at = Carbon::parse($data['estimated_at'], 'Europe/Rome')->utc();
+            }
+            if ($next === OrderStatus::Cancelled && ($data['cancellation_reason'] ?? 'other') === 'recipient_absent') {
+                if ($locked->status !== OrderStatus::DeliveryAttempted && ! $locked->events()->whereIn('status', [OrderStatus::OutForDelivery->value, OrderStatus::DeliveryAttempted->value])->exists()) {
+                    throw ValidationException::withMessages(['cancellation_reason' => 'Registra prima il tentativo di consegna al destinatario.']);
+                }
+                app(RecipientRisk::class)->record($locked, $user);
             }
             $locked->status = $next;
             $locked->version++;

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Actions\NotifyOrderParticipants;
+use App\Actions\NotifyAccountingParticipants;
 use App\Actions\RecordEconomicAudit;
 use App\Models\Order;
 use App\Models\PaymentEntry;
@@ -18,7 +18,7 @@ use Illuminate\Validation\ValidationException;
 
 class PaymentController extends Controller
 {
-    public function store(Request $request, Order $order, NotifyOrderParticipants $notify): RedirectResponse|JsonResponse
+    public function store(Request $request, Order $order, NotifyAccountingParticipants $notify): RedirectResponse|JsonResponse
     {
         abort_unless(Order::financialFor($request->user())->whereKey($order->id)->exists(), 404);
         $data = $request->validate(['received_amount' => [$request->input('action') === 'receive' && $order->shipping_type === 'external' ? 'required' : 'prohibited', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'], 'action' => ['required', 'in:receive,reverse,restore'], 'note' => ['exclude_if:action,receive', 'required', 'string', 'max:500'], 'version' => ['required', 'integer', 'min:1']]);

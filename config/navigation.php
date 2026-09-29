@@ -11,6 +11,7 @@ return [
         ['label' => 'Storico ordini', 'route' => 'orders.history', 'icon' => 'clock-history'],
     ],
     'Amministrazione e contabilità' => [
+        ['label' => 'Destinatari non affidabili', 'route' => 'recipient-incidents.index', 'icon' => 'person-exclamation', 'admin' => true],
         ['label' => 'Bilancio', 'route' => 'balance.index', 'icon' => 'wallet2'],
         ['label' => 'Sospesi', 'route' => 'pending.index', 'icon' => 'hourglass-split', 'admin' => true],
         ['label' => 'Statistiche Clienti', 'route' => 'stores.index', 'icon' => 'shop'],

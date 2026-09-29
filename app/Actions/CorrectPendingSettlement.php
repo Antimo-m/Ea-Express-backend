@@ -16,7 +16,7 @@ use Illuminate\Validation\ValidationException;
 
 class CorrectPendingSettlement
 {
-    public function __construct(private RecordEconomicAudit $audit, private NotifyOrderParticipants $notify) {}
+    public function __construct(private RecordEconomicAudit $audit, private NotifyAccountingParticipants $notify) {}
 
     public function handle(User $actor, PendingAccount $account, PendingSettlement $settlement, int $amount, string $reason, int $version, ?string $eaAmount = null): void
     {

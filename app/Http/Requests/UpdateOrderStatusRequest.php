@@ -16,6 +16,7 @@ class UpdateOrderStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'cancellation_reason' => ['exclude_unless:status,cancelled', 'sometimes', 'required', 'in:other,recipient_absent'],
             'status' => ['required', Rule::enum(OrderStatus::class)], 'version' => ['required', 'integer', 'min:1'],
             'note' => ['required_if:status,rejected,cancelled,delivery_issue,delivery_attempted,rescheduled', 'nullable', 'string', 'max:2000'],
             'public_note' => ['nullable', 'string', 'max:500'],
