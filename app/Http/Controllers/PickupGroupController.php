@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Support\RecipientRisk;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
@@ -27,6 +28,8 @@ class PickupGroupController extends Controller
         $selected = isset($data['group']) ? $groups->get($data['group']) : null;
         abort_if(isset($data['group']) && ! $selected, 404);
 
-        return view('pickups.index', compact('groups', 'selected', 'date', 'mode', 'counts', 'orders'));
+        $recipientRisks = app(RecipientRisk::class)->forOrders($selected ?? collect());
+
+        return view('pickups.index', compact('recipientRisks', 'groups', 'selected', 'date', 'mode', 'counts', 'orders'));
     }
 }

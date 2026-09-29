@@ -22,6 +22,7 @@ use App\Http\Controllers\PickupScheduleController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RealtimeController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\RecipientIncidentController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\ShippingPriceController;
 use App\Http\Controllers\ShippingRateController;
@@ -80,6 +81,8 @@ Route::middleware(['auth', EnsureStaff::class, EnsurePhoneVerified::class])->gro
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::patch('/notifications/read-all', [NotificationController::class, 'readAll'])->middleware('throttle:writes')->name('notifications.read-all');
     Route::patch('/notifications/{notification}', [NotificationController::class, 'update'])->middleware('throttle:writes')->name('notifications.update');
+    Route::get('/recipient-incidents', [RecipientIncidentController::class, 'index'])->name('recipient-incidents.index');
+    Route::patch('/recipient-incidents/{incident}', [RecipientIncidentController::class, 'update'])->middleware('throttle:writes')->name('recipient-incidents.update');
     Route::get('/pending', [PendingAccountController::class, 'index'])->name('pending.index');
     Route::post('/pending', [PendingAccountController::class, 'store'])->middleware('throttle:writes')->name('pending.store');
     Route::patch('/pending/{account}', [PendingAccountController::class, 'update'])->middleware('throttle:writes')->name('pending.update');

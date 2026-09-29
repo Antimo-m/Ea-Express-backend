@@ -19,6 +19,7 @@ class EconomicAuditPresenter
         'paid_at' => 'Incasso registrato il', 'settled_at' => 'Saldato il', 'voided_at' => 'Annullato il', 'receipt_voided_at' => 'Stornato il',
         'closed_through' => 'Registrazioni chiuse fino al', 'method' => 'Metodo storico', 'payment_method' => 'Metodo storico della spedizione',
         'city' => 'Località', 'postal_code' => 'CAP', 'delivery_time' => 'Tempi di consegna', 'is_active' => 'Attivo',
+        'recipient' => 'Dati destinatario', 'correction_reason' => 'Motivo rettifica', 'dismissed_at' => 'Segnalazione rimossa il',
         'customer_id' => 'Account cliente', 'order_id' => 'Ordine', 'pending_account_id' => 'Sospeso', 'settlement_id' => 'Pagamento',
         'pickup_date' => 'Data ritiro', 'pickup_from' => 'Inizio fascia', 'pickup_to' => 'Fine fascia',
     ];
@@ -44,6 +45,7 @@ class EconomicAuditPresenter
             $changes[] = ['label' => $label, 'before' => $entry->before === null ? null : $this->format($field, $previous), 'after' => $this->format($field, $current)];
         }
         $title = match ($entry->action) {
+            'recipient_incident.created' => 'Precedente destinatario registrato', 'recipient_incident.correct' => 'Dati del precedente corretti', 'recipient_incident.dismiss' => 'Segnalazione destinatario rimossa',
             'expense.created' => 'Spesa registrata', 'expense.updated', 'expense.corrected' => 'Spesa corretta', 'expense.voided' => 'Spesa annullata',
             'payment.received' => 'Incasso registrato', 'payment.reversed' => 'Movimento di storno registrato', 'payment.corrected' => 'Importo dell’incasso corretto',
             'receipt.receive' => 'Incasso confermato', 'receipt.reverse' => 'Incasso spostato negli storni', 'receipt.restore' => 'Incasso ripristinato', 'receipt.corrected' => 'Saldo della spedizione aggiornato', 'receipt.backfilled' => 'Storno storico riconosciuto',
@@ -64,6 +66,9 @@ class EconomicAuditPresenter
     {
         if ($value === null || $value === '') {
             return 'Non impostato';
+        }
+        if ($field === 'recipient' && is_array($value)) {
+            return implode(' · ', array_filter($value, fn ($part) => is_scalar($part) && $part !== ''));
         }
         if (str_ends_with($field, '_cents')) {
             return Money::format((int) $value);

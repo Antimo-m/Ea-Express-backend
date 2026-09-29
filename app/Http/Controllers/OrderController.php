@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\Support\CheckoutReview;
 use App\Support\OrderSelection;
+use App\Support\RecipientRisk;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,7 +29,9 @@ class OrderController extends Controller
             'orders.incoming' => 'Ordini in entrata', 'orders.in-progress' => 'Spedizioni in corso', default => 'Storico ordini'
         };
 
-        return view('orders.index', ['orders' => $query->latest()->orderByDesc('id')->paginate(15)->withQueryString(), 'title' => $title, 'section' => $section, 'currentCount' => $selection->query($request, 'orders.in-progress', false)->count()]);
+        $orders = $query->latest()->orderByDesc('id')->paginate(15)->withQueryString();
+
+        return view('orders.index', ['orders' => $orders, 'recipientRisks' => app(RecipientRisk::class)->forOrders($orders->getCollection()), 'title' => $title, 'section' => $section, 'currentCount' => $selection->query($request, 'orders.in-progress', false)->count()]);
     }
 
     public function create(): View
@@ -61,7 +64,7 @@ class OrderController extends Controller
     {
         Gate::authorize('view', $order);
 
-        return view('orders.show', ['order' => $order->loadSum('payments', 'amount_cents')->load(['customer:id,name', 'creator:id,name', 'rider', 'priceProposals' => fn ($q) => $q->with(['proposer', 'responder'])->latest()]), 'transitions' => $order->allowedTransitions(), 'canReschedulePickup' => Order::awaitingPickup()->whereKey($order->id)->exists(), 'events' => $order->events()->with('user')->latest()->orderByDesc('id')->paginate(30)]);
+        return view('orders.show', ['recipientRisk' => app(RecipientRisk::class)->forOrders(collect([$order]))[$order->id] ?? ['count' => 0, 'last_at' => null], 'order' => $order->loadSum('payments', 'amount_cents')->load(['customer:id,name', 'creator:id,name', 'rider', 'priceProposals' => fn ($q) => $q->with(['proposer', 'responder'])->latest()]), 'transitions' => $order->allowedTransitions(), 'canReschedulePickup' => Order::awaitingPickup()->whereKey($order->id)->exists(), 'events' => $order->events()->with('user')->latest()->orderByDesc('id')->paginate(30)]);
     }
 
     public function update(UpdateOrderStatusRequest $request, Order $order, TransitionOrder $transition): RedirectResponse
