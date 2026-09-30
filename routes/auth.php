@@ -13,7 +13,7 @@ Route::middleware(['guest', 'throttle:public-pages'])->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
 
-    Route::post('login', [AuthenticatedSessionController::class, 'store'])->middleware('throttle:login-ip');
+    Route::post('login', [AuthenticatedSessionController::class, 'store'])->middleware(['throttle:login-ip', 'throttle:login-account']);
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');

@@ -1,7 +1,10 @@
 <?php
 
+use App\Http\Middleware\LimitRequestInput;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 define('LARAVEL_START', microtime(true));
 
@@ -17,4 +20,12 @@ require __DIR__.'/../vendor/autoload.php';
 /** @var Application $app */
 $app = require_once __DIR__.'/../bootstrap/app.php';
 
-$app->handleRequest(Request::capture());
+Request::enableHttpMethodParameterOverride();
+$baseRequest = Symfony\Component\HttpFoundation\Request::createFromGlobals();
+try {
+    (new LimitRequestInput)->validatePayload($baseRequest);
+} catch (HttpException $exception) {
+    (new JsonResponse(['message' => $exception->getMessage()], $exception->getStatusCode()))->send();
+    exit;
+}
+$app->handleRequest(Request::createFromBase($baseRequest));

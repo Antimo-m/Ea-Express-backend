@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('api/v1/customer')->name('customer.')->middleware('throttle:customer-api')->group(function (): void {
     Route::get('csrf', [Auth::class, 'csrf']);
-    Route::post('auth/login', [Auth::class, 'login'])->middleware('throttle:customer-login');
+    Route::post('auth/login', [Auth::class, 'login'])->middleware(['throttle:customer-login', 'throttle:login-account']);
     Route::post('auth/register', [Auth::class, 'register'])->middleware('throttle:registration');
     Route::post('auth/forgot-password', [Auth::class, 'forgot'])->middleware('throttle:recovery');
     Route::post('auth/reset-password', [Auth::class, 'reset'])->middleware('throttle:reset-password');

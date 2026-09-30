@@ -46,6 +46,7 @@ class SendEmailOtp
         $hash = $recipient->email_otp_hash;
         try {
             $recipient->notify(new RiderEmailOtp($code));
+            session()->put('email_otp_challenge', ['user_id' => $recipient->id, 'fingerprint' => hash('sha256', $hash)]);
         } catch (Throwable $exception) {
             report($exception);
             User::whereKey($user->id)->where('email_otp_hash', $hash)->update(['email_otp_hash' => null, 'email_otp_expires_at' => null]);
