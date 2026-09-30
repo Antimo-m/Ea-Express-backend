@@ -44,11 +44,19 @@ class PaymentController extends Controller
             $before = $locked->only(['carrier_cost_cents', 'paid_at', 'paid_by', 'receipt_voided_at', 'receipt_voided_by', 'receipt_void_reason', 'version']);
             $netReceived = (int) PaymentEntry::where('order_id', $locked->id)->sum('amount_cents');
             abort_if($netReceived < 0 || ($restoring && $netReceived !== 0) || ($receiving && $netReceived !== 0), 409, 'Movimenti non coerenti: verifica lo storico prima di proseguire.');
+            $receivedAmount = 0;
+            if ($receiving) {
+                $remaining = $locked->price_cents - $netReceived;
+                $receivedAmount = $locked->shipping_type === 'external' ? Money::cents($data['received_amount']) : $remaining;
+                if ($receivedAmount <= 0 || $receivedAmount !== $remaining) {
+                    throw ValidationException::withMessages(['received_amount' => 'L’incasso diretto deve saldare esattamente il residuo con un importo positivo. Per i pagamenti parziali usa la sezione Sospesi.']);
+                }
+            }
             if ($receiving || (! $restoring && $netReceived > 0)) {
                 $entry = new PaymentEntry;
                 $entry->order_id = $locked->id;
                 $entry->user_id = $request->user()->id;
-                $entry->amount_cents = $receiving ? ($locked->shipping_type === 'external' ? Money::cents($data['received_amount']) : $locked->price_cents) : -$netReceived;
+                $entry->amount_cents = $receiving ? $receivedAmount : -$netReceived;
                 $entry->ea_amount_cents = $receiving ? $entry->amount_cents : -(int) PaymentEntry::where('order_id', $locked->id)->sum('ea_amount_cents');
                 $entry->method = $receiving ? 'cash' : PaymentEntry::where('order_id', $locked->id)->latest('id')->value('method');
                 $entry->note = $receiving ? '' : $data['note'];
@@ -58,8 +66,9 @@ class PaymentController extends Controller
             $locked->receipt_voided_at = ! $receiving && ! $restoring ? now() : null;
             $locked->receipt_voided_by = ! $receiving && ! $restoring ? $request->user()->id : null;
             $locked->receipt_void_reason = ! $receiving && ! $restoring ? $data['note'] : null;
-            $locked->paid_at = $receiving ? now() : null;
-            $locked->paid_by = $receiving ? $request->user()->id : null;
+            $fullyPaid = $receiving && $netReceived + $receivedAmount === $locked->price_cents;
+            $locked->paid_at = $fullyPaid ? now() : null;
+            $locked->paid_by = $fullyPaid ? $request->user()->id : null;
             $locked->version++;
             $locked->save();
             app(RecordEconomicAudit::class)->handle($request->user(), $locked, 'receipt.'.$data['action'], $before, [...$locked->only(array_keys($before)), 'reason' => $data['note'] ?? null]);
