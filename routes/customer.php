@@ -53,7 +53,7 @@ Route::prefix('api/v1/customer')->name('customer.')->middleware('throttle:custom
             Route::post('orders/{order}/messages', [Messages::class, 'store']);
             Route::patch('notifications/read-all', [Workspace::class, 'readAll']);
             Route::patch('notifications/{id}/read', [Workspace::class, 'readNotification']);
-            Route::patch('profile', [Workspace::class, 'profile']);
+            Route::patch('profile', [Workspace::class, 'profile'])->middleware('throttle:profile-update');
             Route::put('password', [Workspace::class, 'password']);
             Route::patch('preferences', [Workspace::class, 'preferences']);
         });

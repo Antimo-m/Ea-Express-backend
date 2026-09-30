@@ -51,6 +51,7 @@ class AppServiceProvider extends ServiceProvider
             Limit::perHour(3)->by('recovery-ip:'.$request->ip()),
             Limit::perHour(3)->by('recovery-email:'.hash('sha256', mb_strtolower(trim(is_string($request->input('email')) ? $request->input('email') : '')))),
         ]);
+        RateLimiter::for('profile-update', fn (Request $request) => [Limit::perMinute(5)->by('profile-user:'.$request->user()->id), Limit::perMinute(20)->by('profile-ip:'.$request->ip())]);
         RateLimiter::for('otp-send', fn (Request $request) => [Limit::perMinute(10)->by('otp-send-user:'.$request->user()->id), Limit::perHour(15)->by('otp-send-ip:'.$request->ip())]);
         RateLimiter::for('otp-check', fn (Request $request) => [Limit::perMinute(5)->by('otp-check:'.$request->user()->id), Limit::perHour(20)->by('otp-check-hour:'.$request->user()->id), Limit::perMinute(20)->by('otp-check-ip:'.$request->ip())]);
         RateLimiter::for('realtime-writes', fn (Request $request) => Limit::perMinute(60)->by('realtime-writes:'.($request->user()?->id ?? $request->ip())));

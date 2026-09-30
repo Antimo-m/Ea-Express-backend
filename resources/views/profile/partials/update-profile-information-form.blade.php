@@ -3,6 +3,7 @@
     <form method="post" action="{{ route('profile.update') }}" class="form-stack">@csrf @method('patch')
         <x-ui.field name="name" label="Nome e cognome" :value="old('name', $user->name)" autocomplete="name" maxlength="255" required />
         <x-ui.field name="email" label="Indirizzo email" type="email" :value="old('email', $user->email)" autocomplete="username" maxlength="255" required />
+        <x-ui.field name="current_password" id="profile_current_password" label="Password attuale (per cambiare email)" type="password" autocomplete="current-password" maxlength="72" help="Richiesta solo se modifichi l’indirizzo email." />
         <div><x-ui.icon-button action="edit" label="Salva dati" type="submit" /></div>
     </form>
 </section>
