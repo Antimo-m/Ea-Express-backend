@@ -54,9 +54,21 @@ Thumbs.db
 *.tar.gz
 *.crt
 
-# Test, fixture e risultati di verifica restano esclusivamente locali.
-/tests/
-/database/factories/
+# Suite di sicurezza riproducibile; gli altri strumenti di test restano locali.
+/tests/*
+!/tests/TestCase.php
+!/tests/Feature/
+/tests/Feature/*
+!/tests/Feature/PaymentIntegrityTest.php
+!/tests/Feature/PaymentConcurrencyTest.php
+!/tests/Feature/ShippingQuoteSecurityTest.php
+!/tests/Feature/WorkflowSecurityTest.php
+/database/factories/*
+!/database/factories/UserFactory.php
+!/database/factories/OrderFactory.php
+!/database/factories/ShippingRateFactory.php
+!/database/factories/PendingAccountFactory.php
+!/AIKIDO_REVIEW.md
 /phpunit.xml
 /phpunit.xml.dist
 /coverage/
