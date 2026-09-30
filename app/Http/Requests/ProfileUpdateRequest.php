@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\User;
+use App\Rules\SafePasswordLength;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -17,6 +18,7 @@ class ProfileUpdateRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'current_password' => [Rule::excludeIf($this->input('email') === $this->user()->email), 'bail', 'required', new SafePasswordLength, 'current_password:web'],
             'name' => ['required', 'string', 'max:255'],
             'email' => [
                 'required',

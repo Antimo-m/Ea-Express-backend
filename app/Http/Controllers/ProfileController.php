@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\UpdateProfile;
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\Expense;
 use App\Models\Order;
@@ -33,12 +34,12 @@ class ProfileController extends Controller
     /**
      * Update the user's profile information.
      */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
+    public function update(ProfileUpdateRequest $request, UpdateProfile $update): RedirectResponse
     {
-        DB::transaction(function () use ($request): void {
-            $user = User::lockForUpdate()->findOrFail($request->user()->id);
-            $user->fill($request->validated())->save();
-        }, 3);
+        $data = $request->validated();
+        if ($update->handle($request->user(), $request->safe()->only(['name', 'email']), $data['current_password'] ?? null)) {
+            $request->session()->regenerate();
+        }
 
         return Redirect::route('profile.edit')->with('status', 'profile-updated');
     }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Actions\ChangePassword;
+use App\Actions\UpdateProfile;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CustomerOrderResource;
 use App\Models\Order;
@@ -13,7 +14,7 @@ use App\Support\CustomerIdentity;
 use App\Support\NotificationInbox;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
@@ -77,14 +78,13 @@ class CustomerWorkspaceController extends Controller
         return response()->json(['message' => 'Notifiche lette.']);
     }
 
-    public function profile(Request $request): JsonResponse
+    public function profile(Request $request, UpdateProfile $update): JsonResponse
     {
-        $data = $request->validate([...CustomerIdentity::rules(), 'name' => ['required', 'string', 'max:150'], 'email' => ['required', 'email', 'lowercase', 'max:255', Rule::unique('users')->ignore($request->user()->id)]]);
-        DB::transaction(function () use ($request, $data): void {
-            $user = User::lockForUpdate()->findOrFail($request->user()->id);
-            $user->update(CustomerIdentity::normalize($data, $user->sender_type));
-            $request->user()->setRawAttributes($user->getAttributes(), true);
-        }, 3);
+        $data = $request->validate([...CustomerIdentity::rules(), 'current_password' => [Rule::excludeIf($request->input('email') === $request->user()->email), 'bail', 'required', new SafePasswordLength, 'current_password:customer'], 'name' => ['required', 'string', 'max:150'], 'email' => ['required', 'email', 'lowercase', 'max:255', Rule::unique('users')->ignore($request->user()->id)]]);
+        $profile = CustomerIdentity::normalize(Arr::except($data, ['current_password']), $request->user()->sender_type);
+        if ($update->handle($request->user(), $profile, $data['current_password'] ?? null)) {
+            $request->session()->regenerate();
+        }
 
         return response()->json(['message' => 'Profilo aggiornato.']);
     }
