@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Actions\RecoverAccount;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -27,10 +27,10 @@ class PasswordResetLinkController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'email' => ['required', 'email'],
+            'email' => ['required', 'email', 'max:255'],
         ]);
 
-        Password::sendResetLink($request->only('email'));
+        app(RecoverAccount::class)->send($request->input('email'), ['admin', 'rider']);
 
         return back()->with('status', 'Se esiste un account con questa email, riceverai il link di recupero.');
     }

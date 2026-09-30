@@ -47,7 +47,7 @@ Route::get('/', function () {
     return view('welcome');
 })->middleware('throttle:public-pages');
 
-Route::middleware(['auth', EnsureStaff::class, EnsureEmailVerified::class])->group(function () {
+Route::middleware(['auth', 'auth.session', EnsureStaff::class, EnsureEmailVerified::class])->group(function () {
     Route::get('/realtime/configuration', [RealtimeController::class, 'configuration'])->middleware('throttle:60,1');
     Route::post('/realtime/auth', [RealtimeController::class, 'authenticate'])->middleware('throttle:realtime-writes');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
@@ -115,7 +115,7 @@ Route::middleware(['auth', EnsureStaff::class, EnsureEmailVerified::class])->gro
 
 });
 
-Route::middleware(['auth', EnsureStaff::class, EnsureEmailVerified::class, 'throttle:writes'])->group(function () {
+Route::middleware(['auth', 'auth.session', EnsureStaff::class, EnsureEmailVerified::class, 'throttle:writes'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

@@ -6,6 +6,7 @@ use App\Support\BookingRules;
 use App\Support\CustomerIdentity;
 use App\Support\OrderContent;
 use App\Support\PostalCodeResolver;
+use App\Support\ShippingQuote;
 use App\UserRole;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -28,11 +29,28 @@ class StoreOrderRequest extends FormRequest
             }
         }
         try {
-            $postalCode = app(PostalCodeResolver::class)->resolve($this->input('delivery_city'), $this->input('delivery_postal_code'), $this->input('delivery_zone'), $this->input('delivery_address'), ($this->input('shipping_type') ?? 'regional'), $this->input('delivery_province'), $this->input('delivery_region'));
-            $this->merge(['delivery_postal_code' => $postalCode]);
+            $place = app(PostalCodeResolver::class)->canonical($this->input('delivery_city'), $this->input('delivery_postal_code'), $this->input('delivery_province'), $this->input('delivery_region'));
+            $location = ['delivery_city' => $place['name'], 'delivery_postal_code' => $place['postal_code']];
+            foreach (['province', 'region'] as $field) {
+                if ($this->filled('delivery_'.$field)) {
+                    $location['delivery_'.$field] = $place[$field];
+                }
+            }
+            $this->merge($location);
         } catch (ValidationException $exception) {
             $this->locationErrors = $exception->errors();
         }
+    }
+
+    public function validated(mixed $key = null, mixed $default = null): mixed
+    {
+        $data = ShippingQuote::measurements(parent::validated());
+        validator($data, [
+            'weight_kg' => ['nullable', 'numeric', 'min:0.01', 'max:10000'],
+            'max_dimension_cm' => ['nullable', 'numeric', 'min:1', 'max:500'],
+        ])->validate();
+
+        return data_get($data, $key, $default);
     }
 
     protected function getRedirectUrl(): string

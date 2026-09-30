@@ -27,17 +27,21 @@ class AppServiceProvider extends ServiceProvider
                 return rtrim(config('customer.frontend_url'), '/').'/reset-password?'.http_build_query(['token' => $token, 'email' => $user->email]);
             }
 
-            return route('password.reset', ['token' => $token, 'email' => $user->email]);
+            return rtrim(config('app.url'), '/').route('password.reset', ['token' => $token, 'email' => $user->email], false);
         });
         \Illuminate\Support\Facades\View::composer('components.navigation.header', function (View $view) {
             $view->with('unreadNotifications', auth()->user() ? app(NotificationInbox::class)->unreadCount(auth()->user()) : 0);
         });
-        foreach (['public-pages' => 120, 'registration' => 5, 'reset-password' => 10, 'login-ip' => 20, 'tracking' => 30, 'conversation' => 30, 'conversation-write' => 5] as $name => $limit) {
+        foreach (['public-pages' => 120, 'registration' => 5, 'login-ip' => 20, 'tracking' => 30, 'conversation' => 30, 'conversation-write' => 5] as $name => $limit) {
             RateLimiter::for($name, fn (Request $request) => Limit::perMinute($limit)->by($name.':'.$request->ip()));
         }
+        RateLimiter::for('reset-password', fn (Request $request) => [
+            Limit::perMinute(10)->by('reset-ip:'.$request->ip()),
+            Limit::perMinute(5)->by('reset-email:'.hash('sha256', mb_strtolower(trim(is_string($request->input('email')) ? $request->input('email') : '')))),
+        ]);
         RateLimiter::for('recovery', fn (Request $request) => [
             Limit::perHour(3)->by('recovery-ip:'.$request->ip()),
-            Limit::perHour(3)->by('recovery-email:'.hash('sha256', mb_strtolower(trim((string) $request->input('email'))))),
+            Limit::perHour(3)->by('recovery-email:'.hash('sha256', mb_strtolower(trim(is_string($request->input('email')) ? $request->input('email') : '')))),
         ]);
         RateLimiter::for('otp-send', fn (Request $request) => [Limit::perMinute(10)->by('otp-send-user:'.$request->user()->id), Limit::perHour(15)->by('otp-send-ip:'.$request->ip())]);
         RateLimiter::for('otp-check', fn (Request $request) => [Limit::perMinute(5)->by('otp-check:'.$request->user()->id), Limit::perHour(20)->by('otp-check-hour:'.$request->user()->id)]);

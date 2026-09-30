@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Actions\ChangePassword;
 use App\Http\Controllers\Controller;
 use App\Rules\SafePasswordLength;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 
 class PasswordController extends Controller
@@ -21,9 +21,9 @@ class PasswordController extends Controller
             'password' => [new SafePasswordLength, 'required', Password::defaults(), 'confirmed'],
         ]);
 
-        $request->user()->update([
-            'password' => Hash::make($validated['password']),
-        ]);
+        app(ChangePassword::class)->handle($request->user(), $validated['current_password'], $validated['password']);
+        $request->session()->put('password_hash_web', $request->user()->password);
+        $request->session()->regenerate();
 
         return back()->with('status', 'password-updated');
     }

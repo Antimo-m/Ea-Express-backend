@@ -15,7 +15,7 @@ class SendEmailOtp
     public function handle(User $user): void
     {
         $code = (string) random_int(100000, 999999);
-        $hash = DB::transaction(function () use ($user, &$code): string {
+        $recipient = DB::transaction(function () use ($user, &$code): User {
             $locked = User::query()->lockForUpdate()->findOrFail($user->id);
             abort_unless($locked->is_active && $locked->role === UserRole::Rider, 403);
             if ($locked->email_verified_at) {
@@ -41,10 +41,11 @@ class SendEmailOtp
             $locked->email_otp_send_count++;
             $locked->save();
 
-            return $locked->email_otp_hash;
+            return $locked;
         }, 3);
+        $hash = $recipient->email_otp_hash;
         try {
-            $user->notify(new RiderEmailOtp($code));
+            $recipient->notify(new RiderEmailOtp($code));
         } catch (Throwable $exception) {
             report($exception);
             User::whereKey($user->id)->where('email_otp_hash', $hash)->update(['email_otp_hash' => null, 'email_otp_expires_at' => null]);

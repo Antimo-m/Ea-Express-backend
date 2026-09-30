@@ -15,6 +15,7 @@ use App\Models\User;
 use App\OrderStatus;
 use App\Support\AccountingPeriod;
 use App\Support\Money;
+use App\Support\OrderPrice;
 use App\Support\ShippingEconomics;
 use App\UserRole;
 use Illuminate\Http\JsonResponse;
@@ -54,10 +55,13 @@ class PendingAccountController extends Controller
         abort_unless($cents > 0, 422, 'Importo maggiore di zero richiesto.');
         unset($data['amount']);
         DB::transaction(function () use ($data, $cents, $request): void {
+            $actor = User::lockForUpdate()->findOrFail($request->user()->id);
+            abort_unless($actor->is_active && $actor->role === UserRole::Admin, 403);
             $period = AccountingPeriod::lock();
             $period->assertOpen($data['occurred_on']);
             if (! empty($data['order_id'])) {
                 $order = Order::query()->lockForUpdate()->findOrFail($data['order_id']);
+                app(OrderPrice::class)->assertApproved($order);
                 $remaining = $order->price_cents - (int) PaymentEntry::where('order_id', $order->id)->sum('amount_cents');
                 abort_unless($data['direction'] === 'incoming' && $order->status === OrderStatus::Delivered && $order->price_cents !== null && ! $order->paid_at && ! $order->receipt_voided_at && $remaining === $cents, 422, 'Per una spedizione usa il residuo esatto di una consegna non saldata, in entrata.');
                 abort_if(PendingAccount::where('order_id', $order->id)->exists(), 409, 'Esiste già un sospeso per questa spedizione.');
@@ -77,6 +81,8 @@ class PendingAccountController extends Controller
         abort_unless($request->user()->role === UserRole::Admin, 403);
         $data = $request->validated();
         DB::transaction(function () use ($request, $account, $data): void {
+            $actor = User::lockForUpdate()->findOrFail($request->user()->id);
+            abort_unless($actor->is_active && $actor->role === UserRole::Admin, 403);
             $period = AccountingPeriod::lock();
             $locked = PendingAccount::query()->when($request->filled('id'), fn ($q) => $q->whereKey($request->integer('id')))->lockForUpdate()->findOrFail($account->id);
             abort_unless($locked->version === (int) $data['version'], 409, 'Sospeso aggiornato.');
@@ -122,6 +128,8 @@ class PendingAccountController extends Controller
         $data['method'] = 'cash';
         $cents = Money::cents($data['amount']);
         DB::transaction(function () use ($request, $account, $data, $cents): void {
+            $actor = User::lockForUpdate()->findOrFail($request->user()->id);
+            abort_unless($actor->is_active && $actor->role === UserRole::Admin, 403);
             $period = AccountingPeriod::lock();
             $period->assertOpen(now());
             // Use the same lock order as direct receipts: order, then pending account.
@@ -138,6 +146,7 @@ class PendingAccountController extends Controller
             $before = $locked->toArray();
             $settlement = $locked->settlements()->create(['user_id' => $request->user()->id, 'amount_cents' => $cents, 'method' => $data['method'], 'note' => $data['note'], 'submission_key' => $data['submission_key']]);
             if ($order) {
+                app(OrderPrice::class)->assertApproved($order);
                 abort_unless($order->status === OrderStatus::Delivered && ! $order->paid_at && ! $order->receipt_voided_at, 409, 'La spedizione non è saldabile.');
                 $entry = new PaymentEntry;
                 $entry->order_id = $order->id;
