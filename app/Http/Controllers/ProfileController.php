@@ -49,7 +49,7 @@ class ProfileController extends Controller
     public function destroy(Request $request): RedirectResponse
     {
         $request->validateWithBag('userDeletion', [
-            'password' => ['required', 'current_password'],
+            'password' => ['bail', 'required', 'string', 'max:72', 'current_password'],
         ]);
 
         DB::transaction(function () use ($request): void {

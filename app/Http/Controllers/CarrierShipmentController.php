@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Actions\NotifyOrderParticipants;
 use App\Actions\RecordEconomicAudit;
 use App\Models\Order;
+use App\Models\User;
 use App\OrderStatus;
 use App\Support\OrderPrice;
+use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,12 +21,23 @@ class CarrierShipmentController extends Controller
         Gate::authorize('update', $order);
         $data = $request->validate(['version' => ['required', 'integer'], 'carrier_name' => ['nullable', 'string', 'max:100'], 'carrier_tracking' => ['required', 'string', 'max:100'], 'carrier_status' => ['required', 'in:booked,handed_over,in_transit,delivery_issue'], 'estimated_at' => ['prohibited']]);
         DB::transaction(function () use ($request, $order, $data, $notify): void {
+            $actor = User::lockForUpdate()->findOrFail($request->user()->id);
+            abort_unless($actor->is_active && $actor->isStaff() && ($actor->role === UserRole::Admin || $actor->email_verified_at !== null), 403);
             $locked = Order::lockForUpdate()->findOrFail($order->id);
-            Gate::authorize('update', $locked);
+            Gate::forUser($actor)->authorize('update', $locked);
             abort_unless($locked->shipping_type === 'external' && $locked->version === (int) $data['version'], 409);
             abort_if(in_array($locked->status->value, OrderStatus::closed(), true), 409, 'La spedizione è chiusa.');
             app(OrderPrice::class)->assertApproved($locked);
             abort_if($locked->status === OrderStatus::Received, 409, 'Prendi prima in carico la spedizione.');
+            $allowed = match ($locked->carrier_status) {
+                null => ['booked', 'handed_over'],
+                'booked' => ['booked', 'handed_over'],
+                'handed_over' => ['handed_over', 'in_transit', 'delivery_issue'],
+                'in_transit' => ['in_transit', 'delivery_issue'],
+                'delivery_issue' => ['delivery_issue', 'in_transit'],
+                default => [],
+            };
+            abort_unless(in_array($data['carrier_status'], $allowed, true), 409, 'Passaggio del vettore non consentito.');
             $before = $locked->only(['carrier_name', 'carrier_tracking', 'carrier_status', 'carrier_handed_at', 'estimated_at']);
             $locked->carrier_name = $data['carrier_name'] ?? $locked->carrier_name;
             abort_unless($locked->carrier_name && $locked->price_cents !== null, 409, 'Conferma prima una tariffa con vettore.');

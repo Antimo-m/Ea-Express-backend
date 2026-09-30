@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Actions\SendEmailOtp;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Support\IntendedDestination;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -42,7 +43,7 @@ class AuthenticatedSessionController extends Controller
             return redirect()->route('email-otp.notice');
         }
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        return redirect(IntendedDestination::take($request));
     }
 
     /**

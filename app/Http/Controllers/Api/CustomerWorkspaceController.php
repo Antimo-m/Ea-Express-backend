@@ -102,7 +102,7 @@ class CustomerWorkspaceController extends Controller
 
     public function password(Request $request): JsonResponse
     {
-        $data = $request->validate(['current_password' => ['required', 'current_password:customer'], 'password' => ['required', 'confirmed', Password::min(12), new SafePasswordLength]]);
+        $data = $request->validate(['current_password' => ['bail', 'required', 'string', 'max:72', 'current_password:customer'], 'password' => ['required', 'confirmed', Password::min(12), new SafePasswordLength]]);
         app(ChangePassword::class)->handle($request->user(), $data['current_password'], $data['password']);
         $request->session()->put('password_hash_customer', $request->user()->password);
         $request->session()->regenerate();

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['user_id', 'entity_type', 'entity_id', 'action', 'before', 'after'])]
+#[Fillable(['request_id', 'user_id', 'entity_type', 'entity_id', 'action', 'before', 'after'])]
 class EconomicAudit extends Model
 {
     use HasFactory;

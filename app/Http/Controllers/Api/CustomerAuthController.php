@@ -24,7 +24,7 @@ class CustomerAuthController extends Controller
 
     public function login(Request $request): JsonResponse
     {
-        $data = $request->validate(['email' => ['required', 'email', 'max:255'], 'password' => ['required', 'string'], 'remember' => ['sometimes', 'boolean']]);
+        $data = $request->validate(['email' => ['required', 'email', 'max:255'], 'password' => ['required', 'string', 'max:72'], 'remember' => ['sometimes', 'boolean']]);
         if (! Auth::guard('customer')->attempt(['email' => $data['email'], 'password' => $data['password'], 'role' => UserRole::Customer->value, 'is_active' => true], $data['remember'] ?? false)) {
             throw ValidationException::withMessages(['email' => 'Email o password non corrette.']);
         }
