@@ -22,7 +22,7 @@ class UpdateOrderStatusRequest extends FormRequest
             'note' => ['required_if:status,rejected,cancelled,delivery_issue,delivery_attempted,rescheduled', 'nullable', 'string', 'max:2000'],
             'public_note' => ['nullable', 'string', 'max:500'],
             'price' => [Rule::requiredIf(fn () => $this->input('status') === 'accepted' && $this->route('order')->pricing_version !== 1), 'nullable', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'],
-            'estimated_at' => ['required_if:status,rescheduled', 'nullable', 'date_format:Y-m-d\TH:i', 'after:'.now('Europe/Rome')->format('Y-m-d H:i:s')],
+            'estimated_at' => ['prohibited_unless:status,rescheduled', 'required_if:status,rescheduled', 'nullable', 'date_format:Y-m-d\TH:i', 'after:'.now('Europe/Rome')->format('Y-m-d H:i:s')],
         ];
     }
 }

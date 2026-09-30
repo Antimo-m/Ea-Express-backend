@@ -28,7 +28,7 @@ Route::middleware(['guest', 'throttle:public-pages'])->group(function () {
         ->middleware('throttle:reset-password')->name('password.store');
 });
 
-Route::middleware(['auth', 'throttle:writes'])->group(function () {
+Route::middleware(['auth', 'auth.session', 'throttle:writes'])->group(function () {
     Route::get('verify-email-otp', [EmailOtpController::class, 'show'])->middleware(EnsureStaff::class)->name('email-otp.notice');
     Route::post('verify-email-otp/send', [EmailOtpController::class, 'store'])->middleware([EnsureStaff::class, 'throttle:otp-send'])->name('email-otp.send');
     Route::post('verify-email-otp/confirm', [EmailOtpController::class, 'update'])->middleware([EnsureStaff::class, 'throttle:otp-check'])->name('email-otp.verify');

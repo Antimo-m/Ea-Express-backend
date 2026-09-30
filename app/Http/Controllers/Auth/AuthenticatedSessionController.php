@@ -30,6 +30,7 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+        $request->session()->put('password_hash_web', $request->user()->password);
 
         if ($request->user()->role === UserRole::Rider && ! $request->user()->email_verified_at) {
             try {

@@ -29,6 +29,7 @@ class CreateOrder
             if ($review && ($existing = Order::where('checkout_key', $review['key'])->where('created_by', $creator->id)->first())) {
                 return $existing;
             }
+            $data = ShippingQuote::measurements($data);
             app(BookingRules::class)->validate($data);
             unset($data['checkout_token'], $data['payment_method']);
             $value = $data['parcel_value'] ?? null;

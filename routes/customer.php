@@ -20,7 +20,7 @@ Route::prefix('api/v1/customer')->name('customer.')->middleware('throttle:custom
     Route::post('auth/register', [Auth::class, 'register'])->middleware('throttle:registration');
     Route::post('auth/forgot-password', [Auth::class, 'forgot'])->middleware('throttle:recovery');
     Route::post('auth/reset-password', [Auth::class, 'reset'])->middleware('throttle:reset-password');
-    Route::middleware(['auth:customer', EnsureCustomer::class])->group(function (): void {
+    Route::middleware(['auth:customer', 'auth.session', EnsureCustomer::class])->group(function (): void {
         Route::get('realtime/configuration', [RealtimeController::class, 'configuration'])->middleware('throttle:60,1');
         Route::post('realtime/auth', [RealtimeController::class, 'authenticate'])->middleware('throttle:realtime-writes');
         Route::get('auth/me', [Auth::class, 'me']);

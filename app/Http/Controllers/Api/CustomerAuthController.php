@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\RecoverAccount;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Rules\SafePasswordLength;
@@ -10,9 +11,7 @@ use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 
@@ -30,6 +29,7 @@ class CustomerAuthController extends Controller
             throw ValidationException::withMessages(['email' => 'Email o password non corrette.']);
         }
         $request->session()->regenerate();
+        $request->session()->put('password_hash_customer', $request->user('customer')->password);
 
         return $this->me($request);
     }
@@ -43,6 +43,7 @@ class CustomerAuthController extends Controller
         $user->save();
         Auth::guard('customer')->login($user->refresh());
         $request->session()->regenerate();
+        $request->session()->put('password_hash_customer', $request->user('customer')->password);
 
         return $this->me($request)->setStatusCode(201);
     }
@@ -66,23 +67,17 @@ class CustomerAuthController extends Controller
     public function forgot(Request $request): JsonResponse
     {
         $data = $request->validate(['email' => ['required', 'email', 'max:255']]);
-        if (User::where('email', $data['email'])->where('role', UserRole::Customer)->where('is_active', true)->exists()) {
-            Password::sendResetLink($data);
-        }
+        app(RecoverAccount::class)->send($data['email'], ['customer']);
 
         return response()->json(['message' => 'Se esiste un account cliente con questa email, riceverai il link di recupero.']);
     }
 
     public function reset(Request $request): JsonResponse
     {
-        $data = $request->validate(['email' => ['required', 'email'], 'token' => ['required', 'string'], 'password' => ['required', 'confirmed', Rules\Password::min(12), new SafePasswordLength]]);
-        $status = Password::reset([...$data, 'role' => UserRole::Customer->value], function (User $user, string $password): void {
-            $user->password = Hash::make($password);
-            $user->remember_token = Str::random(60);
-            $user->save();
-        });
+        $data = $request->validate(['email' => ['required', 'email', 'max:255'], 'token' => ['required', 'string', 'max:128'], 'password' => ['required', 'confirmed', Rules\Password::min(12), new SafePasswordLength]]);
+        $status = app(RecoverAccount::class)->reset($data, ['customer']);
         if ($status !== Password::PASSWORD_RESET) {
-            throw ValidationException::withMessages(['email' => __($status)]);
+            throw ValidationException::withMessages(['email' => __(Password::INVALID_TOKEN)]);
         }
 
         return response()->json(['message' => 'Password aggiornata. Puoi accedere.']);

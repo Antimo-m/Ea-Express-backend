@@ -10,7 +10,9 @@ use App\Models\PendingSettlement;
 use App\Models\User;
 use App\OrderStatus;
 use App\Support\AccountingPeriod;
+use App\Support\OrderPrice;
 use App\Support\ShippingEconomics;
+use App\UserRole;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -21,6 +23,8 @@ class CorrectPendingSettlement
     public function handle(User $actor, PendingAccount $account, PendingSettlement $settlement, int $amount, string $reason, int $version, ?string $eaAmount = null): void
     {
         DB::transaction(function () use ($actor, $account, $settlement, $amount, $reason, $version, $eaAmount): void {
+            $actor = User::lockForUpdate()->findOrFail($actor->id);
+            abort_unless($actor->is_active && $actor->role === UserRole::Admin, 403);
             $period = AccountingPeriod::lock();
             $order = $account->order_id ? Order::lockForUpdate()->findOrFail($account->order_id) : null;
             $locked = PendingAccount::lockForUpdate()->findOrFail($account->id);
@@ -34,6 +38,7 @@ class CorrectPendingSettlement
             $before = $locked->toArray();
             $paymentBefore = $payment->toArray();
             if ($order) {
+                app(OrderPrice::class)->assertApproved($order);
                 abort_unless($order->status === OrderStatus::Delivered && ! $order->receipt_voided_at, 409, 'La spedizione non consente la correzione del saldo.');
                 $entry = PaymentEntry::where('pending_settlement_id', $payment->id)->lockForUpdate()->first();
                 abort_unless($entry && $entry->order_id === $order->id && $entry->amount_cents === $payment->amount_cents, 409, 'Movimento di incasso mancante o non coerente.');

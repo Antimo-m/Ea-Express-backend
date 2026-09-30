@@ -35,9 +35,9 @@ class ReportController extends Controller
         $payments = PaymentEntry::whereHas('order', fn ($q) => $q->financialFor($request->user()))->whereBetween('created_at', $period->utcRange());
         $general = PendingSettlement::whereHas('account', fn ($q) => $q->where('direction', 'incoming')->whereNull('order_id'))->when($request->user()->role !== UserRole::Admin, fn ($q) => $q->where('user_id', $request->user()->id))->whereBetween('created_at', $period->utcRange());
         $cash = (int) (clone $payments)->sum('amount_cents') + (int) (clone $general)->sum('amount_cents');
-        $expenses = Expense::visibleTo($request->user())->whereNull('voided_at')->whereBetween('spent_on', [$period->start->toDateString(), $period->end->toDateString()]);
+        $expenses = Expense::visibleTo($request->user())->whereNull('voided_at')->whereDate('spent_on', '>=', $period->start->toDateString())->whereDate('spent_on', '<=', $period->end->toDateString());
         $spent = (int) (clone $expenses)->sum('amount_cents');
-        $manual = FinancialMovement::whereNull('voided_at')->when($request->user()->role !== UserRole::Admin, fn ($q) => $q->whereRaw('1=0'))->whereBetween('occurred_on', [$period->start->toDateString(), $period->end->toDateString()]);
+        $manual = FinancialMovement::whereNull('voided_at')->when($request->user()->role !== UserRole::Admin, fn ($q) => $q->whereRaw('1=0'))->whereDate('occurred_on', '>=', $period->start->toDateString())->whereDate('occurred_on', '<=', $period->end->toDateString());
         $manualNet = (int) (clone $manual)->sum('amount_cents');
         $receiptEconomics = app(ShippingEconomics::class)->receipts($payments);
         $operatingNet = $cash - $spent + $manualNet;

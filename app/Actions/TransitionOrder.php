@@ -6,11 +6,13 @@ use App\Models\Order;
 use App\Models\User;
 use App\OrderStatus;
 use App\Support\Money;
+use App\Support\OrderPrice;
 use App\Support\RecipientRisk;
 use App\UserRole;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 class TransitionOrder
@@ -37,6 +39,15 @@ class TransitionOrder
             if ($locked->version !== (int) $data['version'] || ! in_array($next, $locked->allowedTransitions(), true)) {
                 throw ValidationException::withMessages(['status' => 'L’ordine è cambiato o il passaggio non è consentito. Ricarica la pagina.']);
             }
+            Validator::make($data, ['estimated_at' => ['prohibited_unless:status,rescheduled', 'required_if:status,rescheduled', 'nullable', 'date_format:Y-m-d\\TH:i', 'after:'.now('Europe/Rome')->format('Y-m-d H:i:s')]])->validate();
+            if (! in_array($next, [OrderStatus::Received, OrderStatus::Rejected, OrderStatus::Cancelled, OrderStatus::DeliveryIssue], true)) {
+                if ($next !== OrderStatus::Accepted || $locked->pricing_version === 1) {
+                    app(OrderPrice::class)->assertApproved($locked, $next === OrderStatus::Accepted, allowUnpricedLegacy: true);
+                }
+                if ($next !== OrderStatus::Accepted && $locked->pricing_version === 1) {
+                    abort_unless($locked->rider_id !== null, 409, 'Assegna prima un Rider.');
+                }
+            }
             if ($locked->status === OrderStatus::Rejected && ! $locked->recoverable()) {
                 throw ValidationException::withMessages(['status' => 'Il recupero è consentito soltanto entro un’ora dal rifiuto.']);
             }
@@ -53,7 +64,7 @@ class TransitionOrder
                 $locked->assigned_at = now();
                 app(RecordEconomicAudit::class)->handle($user, $locked, 'rider.assigned', $beforeAssignment, $locked->only(['rider_id', 'assigned_by', 'assigned_at']));
                 if ($locked->pricing_version === 1) {
-                    abort_if($locked->price_state === 'awaiting_customer' || ($locked->price_state !== 'agreed' && $locked->quoted_price_cents === null), 409, 'Concorda prima la tariffa con il cliente.');
+                    app(OrderPrice::class)->assertApproved($locked, true);
                     $before = ['price_cents' => $locked->price_cents, 'price_state' => $locked->price_state];
                     if ($locked->price_state !== 'agreed') {
                         $locked->price_cents = $locked->quoted_price_cents;
@@ -78,9 +89,8 @@ class TransitionOrder
             if ($next === OrderStatus::Delivered) {
                 $locked->delivered_at = now();
             }
-            if (! empty($data['estimated_at'])) {
-                $locked->estimated_at = Carbon::parse($data['estimated_at'], 'Europe/Rome')->utc();
-            }
+            $locked->estimated_at = $next === OrderStatus::Rescheduled
+                ? Carbon::parse($data['estimated_at'], 'Europe/Rome')->utc() : null;
             if ($next === OrderStatus::Cancelled && ($data['cancellation_reason'] ?? 'other') === 'recipient_absent') {
                 if ($locked->status !== OrderStatus::DeliveryAttempted && ! $locked->events()->whereIn('status', [OrderStatus::OutForDelivery->value, OrderStatus::DeliveryAttempted->value])->exists()) {
                     throw ValidationException::withMessages(['cancellation_reason' => 'Registra prima il tentativo di consegna al destinatario.']);

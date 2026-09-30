@@ -6,9 +6,9 @@ use App\Actions\NotifyOrderParticipants;
 use App\Actions\RecordEconomicAudit;
 use App\Models\Order;
 use App\OrderStatus;
+use App\Support\OrderPrice;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -17,12 +17,14 @@ class CarrierShipmentController extends Controller
     public function update(Request $request, Order $order, NotifyOrderParticipants $notify): RedirectResponse
     {
         Gate::authorize('update', $order);
-        $data = $request->validate(['version' => ['required', 'integer'], 'carrier_name' => ['nullable', 'string', 'max:100'], 'carrier_tracking' => ['required', 'string', 'max:100'], 'carrier_status' => ['required', 'in:booked,handed_over,in_transit,delivery_issue'], 'estimated_at' => ['nullable', 'date_format:Y-m-d\\TH:i']]);
+        $data = $request->validate(['version' => ['required', 'integer'], 'carrier_name' => ['nullable', 'string', 'max:100'], 'carrier_tracking' => ['required', 'string', 'max:100'], 'carrier_status' => ['required', 'in:booked,handed_over,in_transit,delivery_issue'], 'estimated_at' => ['prohibited']]);
         DB::transaction(function () use ($request, $order, $data, $notify): void {
             $locked = Order::lockForUpdate()->findOrFail($order->id);
             Gate::authorize('update', $locked);
             abort_unless($locked->shipping_type === 'external' && $locked->version === (int) $data['version'], 409);
             abort_if(in_array($locked->status->value, OrderStatus::closed(), true), 409, 'La spedizione è chiusa.');
+            app(OrderPrice::class)->assertApproved($locked);
+            abort_if($locked->status === OrderStatus::Received, 409, 'Prendi prima in carico la spedizione.');
             $before = $locked->only(['carrier_name', 'carrier_tracking', 'carrier_status', 'carrier_handed_at', 'estimated_at']);
             $locked->carrier_name = $data['carrier_name'] ?? $locked->carrier_name;
             abort_unless($locked->carrier_name && $locked->price_cents !== null, 409, 'Conferma prima una tariffa con vettore.');
@@ -34,9 +36,6 @@ class CarrierShipmentController extends Controller
             if (in_array($data['carrier_status'], ['handed_over', 'in_transit', 'delivery_issue'], true)) {
                 $locked->carrier_handed_at ??= now();
                 $locked->tracking_started_at ??= now();
-            }
-            if (! empty($data['estimated_at'])) {
-                $locked->estimated_at = Carbon::parse($data['estimated_at'], 'Europe/Rome')->utc();
             }
             $locked->version++;
             $locked->save();

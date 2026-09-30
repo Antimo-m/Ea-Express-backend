@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\NotifyOrderParticipants;
 use App\Actions\RecordEconomicAudit;
 use App\Models\Order;
+use App\Models\User;
 use App\OrderStatus;
 use App\Support\Money;
 use App\UserRole;
@@ -27,6 +28,8 @@ class ShippingPriceController extends Controller
         }
         $data = $request->validate(['action' => ['required', 'in:propose,accept,reject'], 'version' => ['required', 'integer', 'min:1'], 'price' => ['required_if:action,propose', 'nullable', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'], 'reason' => ['required_if:action,propose', 'nullable', 'string', 'max:1000'], 'response_note' => ['nullable', 'string', 'max:1000']]);
         DB::transaction(function () use ($order, $user, $customer, $data, $notify): void {
+            $user = User::lockForUpdate()->findOrFail($user->id);
+            abort_unless($user->is_active && ($customer ? $user->role === UserRole::Customer : $user->role === UserRole::Admin), 403);
             $locked = Order::query()->lockForUpdate()->findOrFail($order->id);
             if ($customer) {
                 abort_unless($locked->customer_id === $user->id, 404);

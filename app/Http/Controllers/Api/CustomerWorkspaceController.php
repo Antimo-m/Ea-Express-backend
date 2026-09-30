@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\ChangePassword;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CustomerOrderResource;
 use App\Models\Order;
@@ -12,6 +13,7 @@ use App\Support\CustomerIdentity;
 use App\Support\NotificationInbox;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
@@ -78,7 +80,11 @@ class CustomerWorkspaceController extends Controller
     public function profile(Request $request): JsonResponse
     {
         $data = $request->validate([...CustomerIdentity::rules(), 'name' => ['required', 'string', 'max:150'], 'email' => ['required', 'email', 'lowercase', 'max:255', Rule::unique('users')->ignore($request->user()->id)]]);
-        $request->user()->update(CustomerIdentity::normalize($data, $request->user()->sender_type));
+        DB::transaction(function () use ($request, $data): void {
+            $user = User::lockForUpdate()->findOrFail($request->user()->id);
+            $user->update(CustomerIdentity::normalize($data, $user->sender_type));
+            $request->user()->setRawAttributes($user->getAttributes(), true);
+        }, 3);
 
         return response()->json(['message' => 'Profilo aggiornato.']);
     }
@@ -97,8 +103,9 @@ class CustomerWorkspaceController extends Controller
     public function password(Request $request): JsonResponse
     {
         $data = $request->validate(['current_password' => ['required', 'current_password:customer'], 'password' => ['required', 'confirmed', Password::min(12), new SafePasswordLength]]);
-        $request->user()->password = $data['password'];
-        $request->user()->save();
+        app(ChangePassword::class)->handle($request->user(), $data['current_password'], $data['password']);
+        $request->session()->put('password_hash_customer', $request->user()->password);
+        $request->session()->regenerate();
 
         return response()->json(['message' => 'Password aggiornata.']);
     }

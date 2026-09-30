@@ -17,6 +17,7 @@ use App\Support\ShippingQuote;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
@@ -87,7 +88,7 @@ class CustomerOrderController extends Controller
             abort_unless($locked->customerEditable() && $locked->version === $request->integer('version'), 409, 'La richiesta è stata aggiornata o già accettata. Ricarica i dettagli.');
             $review = app(CheckoutReview::class)->confirm($request->user(), $request->validated(), $locked);
             $economicBefore = $locked->only(['price_cents', 'parcel_value_cents', 'shipping_rate_id', 'rate_snapshot']);
-            $data = CustomerIdentity::normalize($request->safe()->except(['version', 'parcel_value', 'checkout_token', 'payment_method']), $locked->sender_type);
+            $data = CustomerIdentity::normalize(Arr::except($request->validated(), ['version', 'parcel_value', 'checkout_token', 'payment_method']), $locked->sender_type);
             $scheduleBefore = $locked->pickupSchedule();
             $locked->fill($data);
             $scheduleAfter = $locked->pickupSchedule();
@@ -95,7 +96,7 @@ class CustomerOrderController extends Controller
             if ($scheduleChange) {
                 $locked->pickup_reminded_on = null;
             }
-            if ($locked->price_cents === null || $locked->isDirty(['shipping_type', 'weight_kg', 'max_dimension_cm', 'delivery_city', 'delivery_postal_code', 'delivery_zone', 'delivery_address'])) {
+            if ($locked->price_cents === null || $locked->isDirty(['shipping_type', 'weight_kg', 'max_dimension_cm', 'delivery_city', 'delivery_postal_code', 'delivery_zone', 'delivery_address', 'delivery_province', 'delivery_region', 'parcel_count', 'packages'])) {
                 $before = $locked->rate_snapshot;
                 app(ShippingQuote::class)->apply($locked, $review['quote']);
                 $locked->price_cents = $review['quote']['price_cents'];
