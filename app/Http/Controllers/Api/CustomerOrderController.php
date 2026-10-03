@@ -13,6 +13,7 @@ use App\OrderStatus;
 use App\Support\CheckoutReview;
 use App\Support\CustomerIdentity;
 use App\Support\Money;
+use App\Support\RiderOperations;
 use App\Support\ShippingQuote;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -91,6 +92,11 @@ class CustomerOrderController extends Controller
             $data = CustomerIdentity::normalize(Arr::except($request->validated(), ['version', 'parcel_value', 'checkout_token', 'payment_method']), $locked->sender_type);
             $scheduleBefore = $locked->pickupSchedule();
             $locked->fill($data);
+            foreach (['pickup', 'delivery'] as $kind) {
+                if ($locked->isDirty([$kind.'_address', $kind.'_street_number', $kind.'_postal_code', $kind.'_city'])) {
+                    $locked->{$kind.'_point'} = null;
+                }
+            }
             $scheduleAfter = $locked->pickupSchedule();
             $scheduleChange = $scheduleBefore === $scheduleAfter ? null : ['before' => $scheduleBefore, 'after' => $scheduleAfter];
             if ($scheduleChange) {
@@ -113,7 +119,7 @@ class CustomerOrderController extends Controller
             if ($economicBefore !== $economicAfter) {
                 app(RecordEconomicAudit::class)->handle($request->user(), $locked, 'order.economics_updated', $economicBefore, $economicAfter);
             }
-            $locked->events()->create(['user_id' => $request->user()->id, 'status' => $locked->status, 'public_note' => $scheduleChange ? 'Data o fascia del ritiro aggiornata dal cliente.' : 'Richiesta aggiornata dal cliente.', 'schedule_change' => $scheduleChange]);
+            $locked->events()->create(['rider_id' => $locked->rider_id, 'operational_zone' => app(RiderOperations::class)->zone($locked), 'user_id' => $request->user()->id, 'status' => $locked->status, 'public_note' => $scheduleChange ? 'Data o fascia del ritiro aggiornata dal cliente.' : 'Richiesta aggiornata dal cliente.', 'schedule_change' => $scheduleChange]);
             $notify->handle($locked, 'Richiesta modificata dal cliente', $request->user()->id);
 
             return $locked;
@@ -133,7 +139,7 @@ class CustomerOrderController extends Controller
             app(ShippingQuote::class)->estimate($locked);
             $locked->version++;
             $locked->save();
-            $locked->events()->create(['user_id' => $request->user()->id, 'status' => OrderStatus::Cancelled, 'public_note' => $data['reason']]);
+            $locked->events()->create(['rider_id' => $locked->rider_id, 'operational_zone' => app(RiderOperations::class)->zone($locked), 'user_id' => $request->user()->id, 'status' => OrderStatus::Cancelled, 'public_note' => $data['reason']]);
             $notify->handle($locked, 'Richiesta annullata dal cliente', $request->user()->id);
         }, 3);
 

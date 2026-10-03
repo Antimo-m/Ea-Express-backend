@@ -37,7 +37,7 @@ class SetUserRole extends Command
 
                 return self::FAILURE;
             }
-            if ($user->role === UserRole::Rider && $role !== UserRole::Rider && Order::where('rider_id', $user->id)->whereNotIn('status', OrderStatus::closed())->exists()) {
+            if ($user->isStaff() && $role !== $user->role && Order::where('rider_id', $user->id)->whereNotIn('status', OrderStatus::closed())->exists()) {
                 $this->error('Riassegna le spedizioni attive prima di cambiare ruolo.');
 
                 return self::FAILURE;

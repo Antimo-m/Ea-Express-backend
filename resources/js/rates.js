@@ -8,7 +8,7 @@ let selected;
 function updateRateFields() {
     const external = form.elements.shipping_type.value === 'external';
     form.querySelector('[data-external-rate-fields]').hidden = !external;
-    for (const input of form.querySelectorAll('[data-external-rate-fields] input')) input.disabled = !external || (Boolean(selected?.is_default) && ['max_weight_kg','max_dimension_cm'].includes(input.name));
+    for (const input of form.querySelectorAll('[data-external-rate-fields] input')) input.disabled = !external;
     form.elements.shipping_type.parentElement.hidden = Boolean(selected);
 }
 form?.elements.shipping_type.addEventListener('change', updateRateFields);
@@ -72,7 +72,7 @@ if (editor) {
         if (button.matches('[data-rate-create],[data-rate-edit]')) {
             form.reset(); form.querySelector('[data-modal-error]').textContent = '';
             form.querySelectorAll('[aria-invalid]').forEach(input => input.removeAttribute('aria-invalid'));
-            for (const name of ['city','area','postal_code','zone','street','delivery_time','source_reference','carrier_name','max_weight_kg','max_dimension_cm','delivery_days_min','delivery_days_max']) form.elements.namedItem(name).value = selected?.[name] || '';
+            for (const name of ['city','area','postal_code','zone','street','delivery_time','source_reference','carrier_name','delivery_days_min','delivery_days_max']) form.elements.namedItem(name).value = selected?.[name] || '';
             form.elements.postal_code.value = selected?.postal_codes?.join(', ') || selected?.postal_code || '';
             form.elements.source_reference.value = selected?.source_reference || 'Inserimento dal gestionale';
             editor.querySelector('[data-editor-history]').hidden = !selected;
@@ -80,15 +80,17 @@ if (editor) {
             form.elements.shipping_type.value = selected?.shipping_type || 'regional';
             form.elements.city.readOnly = Boolean(selected?.is_default);
             form.elements.shipping_type.querySelector('[value="regional"]').disabled = Boolean(selected?.is_default);
-            for (const name of ['postal_code','zone','street','max_weight_kg','max_dimension_cm']) form.elements.namedItem(name).disabled = Boolean(selected?.is_default);
+            for (const name of ['postal_code','zone','street']) form.elements.namedItem(name).disabled = Boolean(selected?.is_default);
             form.elements.carrier_cost.value = selected ? (selected.carrier_cost_cents / 100).toFixed(2) : '';
             form.elements.active.checked = selected ? selected.active : true;
             editor.querySelector('h2').textContent = selected ? 'Modifica tariffa' : 'Nuova tariffa';
             const save = editor.querySelector('[data-rate-save]');
             save.classList.toggle('action-add', !selected); save.classList.toggle('action-edit', !!selected);
             save.querySelector('.bi').className = `bi bi-${selected ? 'pencil' : 'plus-lg'}`;
-            save.setAttribute('aria-label', selected ? 'Salva tariffa' : 'Aggiungi tariffa'); save.title = save.getAttribute('aria-label');
-            save.querySelector(':scope > span:last-child').textContent = save.getAttribute('aria-label');
+            save.setAttribute('aria-label', selected ? 'Salva tariffa' : 'Aggiungi tariffa'); save.title = save.getAttribute('aria-label'); save.dataset.tooltip = save.getAttribute('aria-label');
+            const saveLabel = save.querySelector(':scope > span:not(.action-icon)');
+            if (saveLabel) { saveLabel.textContent = save.getAttribute('aria-label'); saveLabel.hidden = Boolean(selected); }
+            save.classList.toggle('action-with-text', !selected);
             updateRateFields();
             openDialog(editor);
         } else if (button.matches('[data-rate-archive]')) {
@@ -118,7 +120,7 @@ if (editor) {
     form.addEventListener('submit', event => {
         event.preventDefault();
         const data = Object.fromEntries(new FormData(form)); data.active = form.elements.active.checked;
-        for (const name of ['area','postal_code','zone','street','delivery_time','carrier_name','carrier_cost','max_weight_kg','max_dimension_cm','delivery_days_min','delivery_days_max']) if (!data[name]) data[name] = null;
+        for (const name of ['area','postal_code','zone','street','delivery_time','carrier_name','carrier_cost','delivery_days_min','delivery_days_max']) if (!data[name]) data[name] = null;
         data.postal_codes = form.elements.postal_code.disabled ? null : (data.postal_code || '').split(',').map(code => code.trim()).filter(Boolean);
         data.postal_code = data.postal_codes?.length === 1 ? data.postal_codes[0] : null;
         const id = selected?.id;

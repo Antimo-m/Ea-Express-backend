@@ -22,9 +22,14 @@ class BalanceController extends Controller
 {
     public function index(Request $request): View
     {
-        $data = $request->validate(['customer_id' => ['nullable', 'integer', 'exists:users,id'], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d']]);
+        $data = $request->validate(['year' => ['nullable', 'integer', 'between:2000,2100'], 'customer_id' => ['nullable', 'integer', 'exists:users,id'], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d']]);
         $start = Carbon::parse($data['from'] ?? now('Europe/Rome')->startOfMonth()->toDateString(), 'Europe/Rome')->startOfDay();
         $end = Carbon::parse($data['to'] ?? now('Europe/Rome')->toDateString(), 'Europe/Rome')->endOfDay();
+        if (! empty($data['year'])) {
+            $annual = ReportingPeriod::year((int) $data['year']);
+            $start = $annual->start;
+            $end = $annual->end;
+        }
         if ($end->lessThan($start) || $start->diffInDays($end) > 366) {
             throw ValidationException::withMessages(['to' => 'Scegli un intervallo ordinato, lungo al massimo un anno.']);
         }
@@ -61,7 +66,7 @@ class BalanceController extends Controller
         $pendingOutgoing = (int) (clone $pendingQuery)->where('direction', 'outgoing')->selectRaw('COALESCE(SUM(amount_cents-settled_cents),0) AS cents')->value('cents');
         $pendingImpact = $pendingIncoming - $pendingOutgoing;
         $finalNet = $operatingNet + $pendingImpact + $cashAdditions;
-        $customers = User::where('role', UserRole::Customer)->when($request->user()->role !== UserRole::Admin, fn ($q) => $q->whereIn('id', (clone $orders)->select('customer_id')))->orderBy('name')->get(['id', 'name']);
+        $customers = User::where('role', UserRole::Customer)->when($request->user()->role !== UserRole::Admin, fn ($q) => $q->whereIn('id', (clone $orders)->select('customer_id')))->orderBy('name')->get(['id', 'name', 'email']);
 
         return view('balance.index', [
             'grossIncome' => $grossIncome, 'totalExpenses' => $totalExpenses, 'cashAdditions' => $cashAdditions,

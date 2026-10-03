@@ -15,6 +15,13 @@ class ReportingPeriod
         return new self($start, $start->copy()->endOfMonth());
     }
 
+    public static function year(int $year): self
+    {
+        $start = Carbon::create($year, 1, 1, 0, 0, 0, 'Europe/Rome');
+
+        return new self($start, $start->copy()->endOfYear());
+    }
+
     /** @return array{Carbon, Carbon} */
     public function utcRange(): array
     {

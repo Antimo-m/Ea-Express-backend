@@ -65,6 +65,11 @@ class User extends Authenticatable
         return in_array($this->role, [UserRole::Admin, UserRole::Rider], true);
     }
 
+    public function canOperateDeliveries(): bool
+    {
+        return $this->is_active && ($this->role === UserRole::Admin || ($this->role === UserRole::Rider && $this->email_verified_at !== null));
+    }
+
     protected function casts(): array
     {
         return [

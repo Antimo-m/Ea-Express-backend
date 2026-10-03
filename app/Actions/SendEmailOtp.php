@@ -4,9 +4,11 @@ namespace App\Actions;
 
 use App\Models\User;
 use App\Notifications\RiderEmailOtp;
+use App\Support\SecurityEvent;
 use App\UserRole;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -46,7 +48,17 @@ class SendEmailOtp
         $hash = $recipient->email_otp_hash;
         try {
             $recipient->notify(new RiderEmailOtp($code));
-            session()->put('email_otp_challenge', ['user_id' => $recipient->id, 'fingerprint' => hash('sha256', $hash)]);
+            session()->put('email_otp_challenge', [
+                'user_id' => $recipient->id,
+                'fingerprint' => hash('sha256', $hash),
+                'challenge_id' => (string) Str::uuid(),
+                'type' => 'email_verification',
+                'session_binding' => hash_hmac('sha256', session()->getId(), (string) config('app.key')),
+                'issued_at' => now()->timestamp,
+                'expires_at' => $recipient->email_otp_expires_at->timestamp,
+            ]);
+            SecurityEvent::record('otp_challenge_created', $recipient->id);
+            SecurityEvent::record('otp_sent', $recipient->id);
         } catch (Throwable $exception) {
             report($exception);
             User::whereKey($user->id)->where('email_otp_hash', $hash)->update(['email_otp_hash' => null, 'email_otp_expires_at' => null]);

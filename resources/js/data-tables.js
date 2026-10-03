@@ -1,7 +1,7 @@
 let detailId = 0;
 export function enhanceDataTables(root = document) {
-    for (const table of root.querySelectorAll('main table:not([data-table-static])')) {
-        table.classList.add('data-table-adaptive');
+    for (const table of root.querySelectorAll('main table')) {
+        table.classList.add(table.hasAttribute('data-table-static') ? 'workspace-table' : 'data-table-adaptive');
         const headings = [...table.querySelectorAll('thead th')].map(cell => cell.textContent.trim());
         for (const row of table.querySelectorAll('tbody tr')) {
             if (row.dataset.adaptiveReady) continue;
@@ -12,6 +12,7 @@ export function enhanceDataTables(root = document) {
                 if (headings[column] && cell.colSpan === 1) cell.dataset.label = headings[column];
                 column += cell.colSpan || 1;
             }
+            if (table.hasAttribute('data-table-static')) continue;
             if (cells.length < 3 || cells.some(cell => cell.colSpan > 1)) continue;
             const secondary = cells.slice(1,-1);
             secondary.forEach(cell => { cell.classList.add('row-secondary'); cell.id ||= `row-detail-${++detailId}`; });

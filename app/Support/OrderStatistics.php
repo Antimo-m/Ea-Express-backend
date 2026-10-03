@@ -26,6 +26,19 @@ class OrderStatistics
         return new ReportingPeriod($start, $end);
     }
 
+    public function staffPeriod(Request $request): ReportingPeriod
+    {
+        $data = $request->validate(['period' => ['nullable', 'in:today,week,month,year,custom'], 'year' => ['required_if:period,year', 'nullable', 'integer', 'between:2000,2100'], 'month' => ['nullable', 'date_format:Y-m']]);
+        if (($data['period'] ?? null) === 'year') {
+            return ReportingPeriod::year((int) $data['year']);
+        }
+        if (($data['period'] ?? 'month') === 'month' && ! empty($data['month'])) {
+            return ReportingPeriod::month($data['month']);
+        }
+
+        return $this->period($request);
+    }
+
     /** @return Collection<int, mixed> */
     public function prices(Builder $query, bool $byAccount = false): Collection
     {
@@ -63,17 +76,18 @@ class OrderStatistics
     }
 
     /** @return list<array<string,mixed>> */
-    public function trend(Builder $query, ReportingPeriod $period): array
+    public function trend(Builder $query, ReportingPeriod $period, string $dateBasis = 'created_at'): array
     {
         $days = [];
         for ($day = $period->start->copy(); $day->lte($period->end); $day->addDay()) {
             $days[$day->toDateString()] = ['date' => $day->toDateString(), 'shipments' => 0, 'delivered' => 0, 'cancelled' => 0, 'regional_count' => 0, 'external_count' => 0, 'missing_values' => 0, 'missing_prices' => 0, 'value_cents' => 0, 'gross_cents' => 0, 'shipping_cents' => 0, 'net_cents' => 0];
         }
+        $dateExpression = $dateBasis === 'activity' ? "CASE WHEN status = 'delivered' THEN delivered_at ELSE created_at END" : 'created_at';
         $hourExpression = match ($query->getConnection()->getDriverName()) {
-            'sqlite' => "strftime('%Y-%m-%d %H:00:00', created_at)",
-            default => "DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00')",
+            'sqlite' => "strftime('%Y-%m-%d %H:00:00', {$dateExpression})",
+            default => "DATE_FORMAT({$dateExpression}, '%Y-%m-%d %H:00:00')",
         };
-        $rows = (clone $query)->whereBetween('created_at', $period->utcRange())->reorder()->selectRaw("{$hourExpression} AS utc_hour, COUNT(*) AS shipments,
+        $rows = (clone $query)->whereBetween($query->getConnection()->raw($dateExpression), $period->utcRange())->reorder()->selectRaw("{$hourExpression} AS utc_hour, COUNT(*) AS shipments,
             SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END) AS delivered,
             SUM(CASE WHEN status IN ('cancelled','rejected') THEN 1 ELSE 0 END) AS cancelled,
             SUM(CASE WHEN shipping_type = 'regional' THEN 1 ELSE 0 END) AS regional_count,
@@ -96,9 +110,9 @@ class OrderStatistics
     }
 
     /** @return array<string,mixed> */
-    public function customerReport(Builder $orders, ReportingPeriod $period): array
+    public function customerReport(Builder $orders, ReportingPeriod $period, string $dateBasis = 'created_at'): array
     {
-        $points = $this->trend($orders, $period);
+        $points = $this->trend($orders, $period, $dateBasis);
         $summary = [];
         foreach (['total' => 'shipments', 'delivered' => 'delivered', 'cancelled' => 'cancelled', 'regional_count' => 'regional_count', 'external_count' => 'external_count', 'gross_cents' => 'gross_cents', 'delivered_spend_cents' => 'shipping_cents', 'net_cents' => 'net_cents', 'missing_values' => 'missing_values', 'missing_prices' => 'missing_prices'] as $metric => $field) {
             $summary[$metric] = array_sum(array_column($points, $field));

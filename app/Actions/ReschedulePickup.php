@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\OrderStatus;
 use App\Support\BookingRules;
+use App\Support\RiderOperations;
 use App\Support\ShippingQuote;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -34,7 +35,7 @@ class ReschedulePickup
             $locked->save();
             $after = $locked->pickupSchedule();
             $message = 'Ritiro ripianificato al '.$locked->pickup_date->format('d/m/Y').' · '.$after['pickup_from'].'–'.$after['pickup_to'].'.';
-            $locked->events()->create(['user_id' => $actor->id, 'status' => $locked->status, 'note' => $data['reason'], 'public_note' => $message, 'schedule_change' => compact('before', 'after')]);
+            $locked->events()->create(['rider_id' => $locked->rider_id, 'operational_zone' => app(RiderOperations::class)->zone($locked), 'user_id' => $actor->id, 'status' => $locked->status, 'note' => $data['reason'], 'public_note' => $message, 'schedule_change' => compact('before', 'after')]);
             $this->notify->handle($locked, $message, $actor->id);
         }, 3);
     }

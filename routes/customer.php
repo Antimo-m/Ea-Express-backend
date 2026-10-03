@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\CustomerStatisticsController;
 use App\Http\Controllers\Api\CustomerWorkspaceController as Workspace;
 use App\Http\Controllers\Api\SenderAddressController;
 use App\Http\Controllers\RealtimeController;
+use App\Http\Controllers\RiderTrackingController;
 use App\Http\Controllers\ShippingPriceController;
 use App\Http\Controllers\ShippingRateController;
 use App\Http\Middleware\EnsureCustomer;
@@ -38,6 +39,7 @@ Route::prefix('api/v1/customer')->name('customer.')->middleware('throttle:custom
         Route::get('rates/quote', [ShippingRateController::class, 'quote']);
         Route::patch('orders/{order}/price', [ShippingPriceController::class, 'update'])->middleware('throttle:writes');
         Route::get('orders', [Orders::class, 'index']);
+        Route::get('orders/{order}/location', [RiderTrackingController::class, 'show'])->middleware('throttle:120,1');
         Route::get('orders/{order}', [Orders::class, 'show']);
         Route::get('orders/{order}/messages', [Messages::class, 'index']);
         Route::get('notifications/feed', [Workspace::class, 'feed']);

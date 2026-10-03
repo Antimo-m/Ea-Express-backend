@@ -1,9 +1,10 @@
 export function openDialog(dialog) {
     if (!dialog || dialog.open) return;
     normalizeDialogActions(dialog);
+    document.dispatchEvent(new Event('ea:controls-updated'));
     dialog.returnFocus = document.activeElement;
     dialog.showModal();
-    dialog.querySelector('input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])')?.focus();
+    dialog.querySelector('input:not([type="hidden"]):not(.ea-picker-source):not([disabled]), .ea-picker-trigger:not([disabled]), select:not(.ea-picker-source):not([disabled]), textarea:not([disabled])')?.focus();
 }
 export function closeDialog(dialog) {
     if (dialog.getAttribute('aria-busy') === 'true' || dialog.querySelector('form[aria-busy="true"]')) return;
@@ -49,7 +50,7 @@ for (const form of root.querySelectorAll('.ea-modal form')) {
     const icon = document.createElement('i'); icon.className = 'bi bi-arrow-left'; icon.setAttribute('aria-hidden', 'true');
     back.append(icon, document.createTextNode('Torna indietro'));
     for (const submit of submits) {
-        if (submit.classList.contains('icon-button') && !submit.classList.contains('action-with-text')) {
+        if (submit.classList.contains('icon-button') && !submit.classList.contains('action-edit') && !submit.classList.contains('action-with-text')) {
             submit.classList.add('action-with-text');
             const label = document.createElement('span'); label.textContent = submit.getAttribute('aria-label'); submit.append(label);
         }

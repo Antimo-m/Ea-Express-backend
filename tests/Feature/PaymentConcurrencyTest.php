@@ -37,7 +37,13 @@ $input = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR)
 config(['database.default' => 'sqlite', 'database.connections.sqlite.database' => $input['database'], 'database.connections.sqlite.url' => null, 'database.connections.sqlite.busy_timeout' => 5000, 'session.driver' => 'array', 'cache.default' => 'array', 'queue.default' => 'sync', 'broadcasting.default' => 'null']);
 Illuminate\Support\Facades\DB::purge('sqlite');
 $user = App\Models\User::findOrFail($input['user']);
-Illuminate\Support\Facades\Auth::guard('web')->setUser($user);
+$kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+$login = Illuminate\Http\Request::create('/login', 'POST', ['email' => $user->email, 'password' => 'password']);
+$loginResponse = $kernel->handle($login);
+$cookies = [];
+foreach ($loginResponse->headers->getCookies() as $cookie) {
+    $cookies[$cookie->getName()] = $cookie->getValue();
+}
 $paused = false;
 Illuminate\Support\Facades\DB::listen(function ($query) use (&$paused, $input): void {
     if (! $paused && Illuminate\Support\Facades\DB::transactionLevel() > 0 && str_contains($query->sql, '"orders"') && str_starts_with($query->sql, 'select')) {
@@ -56,7 +62,7 @@ while (! file_exists($input['gate']) && microtime(true) < $deadline) {
     usleep(1000);
 }
 touch($input['started']);
-$request = Illuminate\Http\Request::create('/balance/'.$input['order'].'/payment', 'POST', ['action' => 'receive', 'version' => 1, 'received_amount' => '10'], [], [], ['HTTP_ACCEPT' => 'application/json']);
+$request = Illuminate\Http\Request::create('/balance/'.$input['order'].'/payment', 'POST', ['action' => 'receive', 'version' => 1, 'received_amount' => '10'], $cookies, [], ['HTTP_ACCEPT' => 'application/json']);
 $response = $app->make(Illuminate\Contracts\Http\Kernel::class)->handle($request);
 echo json_encode(['status' => $response->getStatusCode(), 'body' => $response->getContent()], JSON_THROW_ON_ERROR);
 CODE;

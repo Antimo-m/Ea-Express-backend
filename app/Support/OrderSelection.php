@@ -14,7 +14,7 @@ class OrderSelection
 {
     public function query(Request $request, string $section, bool $filtered = true): Builder
     {
-        $filters = $request->validate(['shipping_type' => ['nullable', 'in:regional,external'], 'sender_type' => ['nullable', 'in:business,private,online_shop'], 'q' => ['nullable', 'string', 'max:100'], 'zone' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', Rule::enum(OrderStatus::class)], 'urgency' => ['nullable', 'in:urgent,standard'], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d']]);
+        $filters = $request->validate(['customer_id' => ['nullable', 'integer', 'exists:users,id'], 'rider_id' => ['nullable', 'integer', 'exists:users,id'], 'shipping_type' => ['nullable', 'in:regional,external'], 'sender_type' => ['nullable', 'in:business,private,online_shop'], 'q' => ['nullable', 'string', 'max:100'], 'zone' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', Rule::enum(OrderStatus::class)], 'urgency' => ['nullable', 'in:urgent,standard'], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d']]);
         if (! empty($filters['from']) && ! empty($filters['to']) && $filters['to'] < $filters['from']) {
             throw ValidationException::withMessages(['to' => 'La data finale precede quella iniziale.']);
         }
@@ -30,12 +30,12 @@ class OrderSelection
             return $query;
         }
         if (! empty($filters['q'])) {
-            $query->where(fn ($q) => $q->where('store_name', 'like', '%'.$filters['q'].'%')->orWhere('reference', 'like', '%'.$filters['q'].'%'));
+            $query->where(fn ($q) => $q->where('store_name', 'like', '%'.$filters['q'].'%')->orWhere('reference', 'like', '%'.$filters['q'].'%')->orWhere('recipient_name', 'like', '%'.$filters['q'].'%')->orWhereHas('customer', fn ($account) => $account->where('name', 'like', '%'.$filters['q'].'%')));
         }
         if (! empty($filters['zone'])) {
-            $query->where('delivery_city', 'like', '%'.$filters['zone'].'%');
+            $query->where(fn ($zone) => $zone->where('delivery_city', 'like', '%'.$filters['zone'].'%')->orWhere('delivery_zone', 'like', '%'.$filters['zone'].'%'));
         }
-        foreach (['status', 'urgency', 'sender_type', 'shipping_type'] as $field) {
+        foreach (['status', 'customer_id', 'rider_id', 'urgency', 'sender_type', 'shipping_type'] as $field) {
             if (! empty($filters[$field])) {
                 $query->where($field, $filters[$field]);
             }

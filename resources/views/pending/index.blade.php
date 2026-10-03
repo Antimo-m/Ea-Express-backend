@@ -1,26 +1,26 @@
 <x-app-layout title="Sospesi">
     <header class="page-heading"><div><span class="eyebrow">CONTROLLO DEI SALDI</span><h1>Sospesi</h1><p>Crediti e debiti, con ogni pagamento al suo posto.</p></div><x-ui.icon-button action="add" label="Registra sospeso" data-dialog-open="pending-create" aria-controls="pending-create" aria-haspopup="dialog" /></header>
+    <x-ui.filters :reset="route('pending.index')">
+        <x-slot:search><x-ui.field name="q" label="Cerca sospeso" :value="request('q')" placeholder="Cerca soggetto, cliente, descrizione…" /></x-slot:search>
+        <x-ui.filter-select name="state" label="Stato" :options="[''=>'Tutti','open'=>'Non pagato','partially_paid'=>'Parziale','paid'=>'Saldato','cancelled'=>'Annullato']" />
+        <x-ui.searchable-select name="customer_id" id="pending-customer" label="Cliente" :options="$customers" :value="request('customer_id')" />
+        <x-slot:secondary><x-ui.filter-select name="direction" label="Direzione" :options="[''=>'Tutte','incoming'=>'In entrata','outgoing'=>'In uscita']" size="md" /><x-ui.filter-select name="sort" label="Ordina per" default="recent" :options="['recent'=>'Più recenti','due'=>'Scadenza','remaining'=>'Residuo maggiore']" size="md" /></x-slot:secondary>
+        @foreach(['id'] as $selection)@if(request($selection))<input type="hidden" name="{{ $selection }}" value="{{ request($selection) }}" data-filter-label="{{ $selection === 'direction' ? 'Direzione' : 'Sospeso' }}">@endif @endforeach
+    </x-ui.filters>
     <section class="finance-kpis" aria-label="Residui dei sospesi filtrati">
         <article class="surface finance-kpi"><span class="kpi-symbol cash-in"><x-ui.icon name="arrow-down-left" /></span><div><span>Da incassare</span><strong>{{ \App\Support\Money::format((int)($totals['incoming'] ?? 0)) }}</strong><small>Crediti aperti e parziali</small></div></article>
         <article class="surface finance-kpi"><span class="kpi-symbol cash-out"><x-ui.icon name="arrow-up-right" /></span><div><span>Da pagare</span><strong>{{ \App\Support\Money::format((int)($totals['outgoing'] ?? 0)) }}</strong><small>Debiti aperti e parziali</small></div></article>
     </section>
-    <nav class="workspace-tabs" aria-label="Direzione dei sospesi">@foreach([''=>'Tutti','incoming'=>'In entrata','outgoing'=>'In uscita'] as $value=>$label)<a @class(['is-active'=>request('direction','')===$value]) @if(request('direction','')===$value) aria-current="page" @endif href="{{ route('pending.index', [...request()->except(['direction','page']), 'direction'=>$value]) }}">{{ $label }}</a>@endforeach</nav>
-    <x-ui.filters :reset="route('pending.index')">
-        @if(request('direction'))<input type="hidden" name="direction" value="{{ request('direction') }}">@endif
-        @if(request('id'))<input type="hidden" name="id" value="{{ request('id') }}">@endif
-        <x-ui.field name="q" label="Cerca sospeso" :value="request('q')" placeholder="Soggetto, cliente o descrizione" />
-        <div><label class="form-label" for="pending-customer">Cliente / Account</label><select class="form-select" id="pending-customer" name="customer_id"><option value="">Tutti i clienti</option>@foreach($customers as $customer)<option value="{{ $customer->id }}" @selected((string) request('customer_id') === (string) $customer->id)>{{ $customer->name }} · {{ $customer->email }}</option>@endforeach</select></div>
-        <div><label class="form-label" for="pending-state">Stato</label><select class="form-select" id="pending-state" name="state"><option value="">Tutti gli stati</option>@foreach(['open'=>'Non pagato','partially_paid'=>'Parziale','paid'=>'Saldato','cancelled'=>'Annullato'] as $value=>$label)<option value="{{ $value }}" @selected(request('state')===$value)>{{ $label }}</option>@endforeach</select></div>
-        <div><label class="form-label" for="pending-sort">Ordina per</label><select class="form-select" name="sort" id="pending-sort">@foreach(['recent'=>'Più recenti','due'=>'Scadenza','remaining'=>'Residuo maggiore'] as $value=>$label)<option value="{{ $value }}" @selected(request('sort','recent')===$value)>{{ $label }}</option>@endforeach</select></div>
-    </x-ui.filters>
+
+
     <p class="data-caption">{{ $accounts->total() }} sospesi · I riepiloghi rispettano ricerca e stato e comprendono entrambe le direzioni.</p>
     @foreach(['incoming'=>'Sospesi in entrata','outgoing'=>'Sospesi in uscita'] as $direction=>$label)
         @if(!request('direction') || request('direction')===$direction)
         <section class="surface workspace-section mb-4"><header class="section-heading"><div><span class="eyebrow">{{ $direction==='incoming' ? 'CREDITI' : 'DEBITI' }}</span><h2>{{ $label }}</h2></div><x-ui.icon :name="$direction==='incoming' ? 'arrow-down-left' : 'arrow-up-right'" :class="$direction==='incoming' ? 'cash-in' : 'cash-out'" /></header>
             <div class="table-responsive"><table class="table workspace-table" data-table-static><thead><tr><th>Cliente / Account</th><th>Soggetto / riferimento</th><th>Scadenza / stato</th><th>Totale</th><th>Pagato</th><th>Residuo</th><th>Azioni</th></tr></thead><tbody>
                 @forelse($accounts->where('direction',$direction) as $account)<tr>
-                    <td data-label="Cliente / Account"><strong>{{ $account->customer?->name ?? 'Cliente non associato' }}</strong>@if($account->customer)<small class="d-block text-break">{{ $account->customer->email }}</small>@if($account->customer->business_type)<small class="d-block">{{ $account->customer->business_type }}</small>@endif @if($account->customer->business_description)<small class="d-block text-secondary">{{ $account->customer->business_description }}</small>@endif @unless($account->customer->is_active)<small class="d-block">Account disattivato</small>@endunless @else<small class="d-block text-secondary">Visibile solo all’amministratore</small>@endif<small class="d-block">{{ $direction === 'incoming' ? 'Il cliente deve pagare EA Express' : 'EA Express deve pagare il cliente' }}</small></td>
-                    <td data-label="Soggetto"><strong>{{ $account->subject }}</strong><small class="d-block text-secondary">{{ $account->description }}</small><small class="d-block">#{{ $account->id }} · {{ $account->occurred_on->format('d/m/Y') }}</small>@if($account->order)<a class="small text-break" href="{{ route('orders.show',$account->order) }}">{{ $account->order->reference }}</a>@endif @if($account->notes)<small class="d-block text-secondary">{{ $account->notes }}</small>@endif</td>
+                    <td data-label="Cliente / Account"><strong>{{ $account->customer?->name ?? 'Cliente non associato' }}</strong>@if($account->customer)<small class="d-block text-break">Email: {{ $account->customer->email }}</small>@if($account->customer->business_type)<small class="d-block">{{ $account->customer->business_type }}</small>@endif @if($account->customer->business_description)<small class="d-block text-secondary">{{ $account->customer->business_description }}</small>@endif @unless($account->customer->is_active)<small class="d-block">Account disattivato</small>@endunless @else<small class="d-block text-secondary">Visibile solo all’amministratore</small>@endif<small class="d-block">{{ $direction === 'incoming' ? 'Il cliente deve pagare EA Express' : 'EA Express deve pagare il cliente' }}</small></td>
+                    <td data-label="Soggetto"><strong>{{ $account->subject }}</strong><small class="d-block text-secondary">Descrizione: {{ $account->description }}</small><small class="d-block">Sospeso: #{{ $account->id }} · Data: {{ $account->occurred_on->format('d/m/Y') }}</small>@if($account->order)<a class="small text-break" href="{{ route('orders.show',$account->order) }}">Ordine: {{ $account->order->reference }}</a>@endif @if($account->notes)<small class="d-block text-secondary">Note: {{ $account->notes }}</small>@endif</td>
                     <td data-label="Scadenza / stato"><span class="d-block mb-2">{{ $account->due_on?->format('d/m/Y') ?? 'Senza scadenza' }}</span><x-ui.pending-status :account="$account" /></td>
                     <td data-label="Totale" class="money">{{ \App\Support\Money::format($account->amount_cents) }}</td>
                     <td data-label="Pagato" class="money">{{ \App\Support\Money::format($account->settled_cents) }}</td>
@@ -32,6 +32,6 @@
         </section>
         @endif
     @endforeach
-    {{ $accounts->links() }}
+    {{ $accounts->links('components.ui.pagination') }}
     @include('pending.dialogs')
 </x-app-layout>

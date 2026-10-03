@@ -1,31 +1,20 @@
 <x-app-layout title="Destinatari non affidabili">
-    <header class="page-heading"><div><span class="eyebrow">ARCHIVIO INTERNO</span><h1>Destinatari non affidabili</h1><p>Precedenti di mancata consegna per destinatario assente. Le segnalazioni non bloccano le spedizioni.</p></div></header>
+    <header class="page-heading"><div><span class="eyebrow">ARCHIVIO INTERNO</span><h1>Destinatari non affidabili</h1><p>Precedenti di mancata consegna per destinatario assente. Le segnalazioni non bloccano le spedizioni.</p></div><span class="count-pill">{{ $activeProfiles }} destinatari con precedenti attivi</span></header>
+    <x-ui.filters :reset="route('recipient-incidents.index')">
+        <x-slot:search><x-ui.field name="q" label="Cerca destinatario" :value="request('q')" placeholder="Cerca nome, telefono, comune…" /></x-slot:search>
+        <x-ui.filter-select name="state" label="Segnalazioni" default="active" :value="$state" :options="['active'=>'Attive','restored'=>'Ripristinate','all'=>'Tutto lo storico']" size="md" />
+    </x-ui.filters>
+    <section class="recipient-register-summary" aria-label="Riepilogo segnalazioni"><article class="surface p-3"><span>Destinatari non affidabili</span><strong>{{ $activeProfiles }}</strong></article><article class="surface p-3"><span>Episodi attivi</span><strong>{{ $activeIncidents }}</strong></article><article class="surface p-3"><span>Destinatari ripristinati</span><strong>{{ $totalProfiles - $activeProfiles }}</strong></article></section>
+
+    <p class="data-caption">{{ $profiles->total() }} destinatari trovati</p>
     @forelse($profiles as $profile)
-        <section class="surface p-4 mb-4">
-            <h2 class="h5">{{ $profile->incidents->first()->recipient['recipient_name'] }}</h2>
-            <p>{{ $profile->active_count }} precedenti attivi · {{ $profile->incidents->first()->recipient['recipient_phone'] }}</p>
-            @foreach($profile->incidents as $incident)
-                <details class="mb-3"><summary>{{ $incident->occurred_at->timezone('Europe/Rome')->format('d/m/Y H:i') }} · {{ $incident->order->reference }} · {{ $incident->dismissed_at ? 'Segnalazione rimossa' : 'Destinatario assente' }}</summary>
-                    <p class="mt-2">{{ $incident->recipient['delivery_address'] }} {{ $incident->recipient['delivery_street_number'] ?? '' }} · {{ $incident->recipient['delivery_postal_code'] ?? '' }} {{ $incident->recipient['delivery_city'] }}</p>
-                    <a href="{{ route('orders.show', $incident->order) }}">Apri ordine</a> · <a href="{{ route('audits.index', ['type' => 'recipient_incidents', 'id' => $incident->id]) }}">Storico rettifiche</a>
-                    @if($incident->correction_reason)<p>Ultima rettifica: {{ $incident->correction_reason }}</p>@endif
-                    @unless($incident->dismissed_at)
-                        <form method="post" action="{{ route('recipient-incidents.update', $incident) }}" class="form-stack mt-3">@csrf @method('patch')
-                            <input type="hidden" name="version" value="{{ $incident->version }}">
-                            <div class="field-grid">
-                                @foreach(['recipient_name'=>'Nome destinatario','recipient_phone'=>'Telefono','delivery_address'=>'Indirizzo','delivery_street_number'=>'Civico','delivery_postal_code'=>'CAP','delivery_city'=>'Comune','delivery_province'=>'Provincia'] as $field=>$label)
-                                    <x-ui.field :id="$field.'-'.$incident->id" :name="$field" :label="$label" :value="$incident->recipient[$field] ?? ''" :required="$field !== 'delivery_province'" />
-                                @endforeach
-                            </div>
-                            <x-ui.field :id="'reason-'.$incident->id" name="correction_reason" label="Motivo della rettifica / rimozione" maxlength="500" required />
-                            <div class="row-actions"><button class="btn btn-primary" name="action" value="correct">Correggi dati del precedente</button><button class="btn btn-outline-danger" name="action" value="dismiss" formnovalidate data-confirm="Rimuovi segnalazione" data-confirm-name="{{ $incident->recipient['recipient_name'] }}">Rimuovi segnalazione</button></div>
-                        </form>
-                    @endunless
-                </details>
-            @endforeach
-        </section>
+        <a class="surface recipient-person-card" href="{{ route('recipient-incidents.show', $profile) }}">
+            <div><span class="data-label">Nome destinatario</span><x-orders.recipient-name :name="$profile->latestIncident->recipient['recipient_name']" :risk="['count' => $profile->active_count, 'last_at' => $profile->last_active_at]" tag="h2" />@if($profile->active_count === 0)<small class="text-secondary">Segnalazione rimossa · affidabilità ripristinata</small>@endif</div>
+            <div><span class="data-label">Località</span><span>{{ $profile->latestIncident->recipient['delivery_city'] ?? 'Non indicata' }}</span></div>
+            <span class="recipient-person-arrow" aria-hidden="true"><x-ui.icon name="arrow-right" /></span>
+        </a>
     @empty
-        <section class="surface p-4"><p>Nessun precedente registrato.</p></section>
+        <section class="surface empty-state"><x-ui.icon name="shield-check"/><h2>Nessun destinatario trovato</h2><p>Nessun precedente registrato per i filtri scelti. Le segnalazioni vengono registrate dagli esiti reali delle consegne.</p></section>
     @endforelse
-    {{ $profiles->links() }}
+    {{ $profiles->links('components.ui.pagination') }}
 </x-app-layout>

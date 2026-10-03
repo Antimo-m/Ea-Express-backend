@@ -3,7 +3,7 @@ import Pusher from 'pusher-js';
 export function connectWorkspace(request) {
   let stopped = false, echo;
   const seen = new Set();
-  const status = (state) => window.dispatchEvent(new CustomEvent('ea:realtime-status', { detail: state }));
+  const status = (state) => { window.eaRealtimeConnected = state === 'connected'; window.dispatchEvent(new CustomEvent('ea:realtime-status', { detail: state })); };
   request('/realtime/configuration').then(config => {
     if (stopped || !config.key) return;
     echo = new Echo({ broadcaster: 'reverb', client: new Pusher(config.key, {
@@ -22,6 +22,8 @@ export function connectWorkspace(request) {
       seen.add(event.event_id);
       if (seen.size > 1000) seen.delete(seen.values().next().value);
       window.dispatchEvent(new CustomEvent('ea:workspace-updated', { detail: event }));
+    }).listen('.rider.location-updated', event => {
+      window.dispatchEvent(new CustomEvent('ea:rider-location', { detail: event }));
     }).error(() => status('unavailable'));
   }).catch(() => status('unavailable'));
   return () => { stopped = true; echo?.disconnect(); };

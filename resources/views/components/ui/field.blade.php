@@ -1,10 +1,10 @@
-@props(['name', 'label', 'type' => 'text', 'id' => null, 'value' => null, 'bag' => 'default', 'help' => null])
+@props(['name', 'label', 'type' => 'text', 'id' => null, 'value' => null, 'bag' => 'default', 'help' => null, 'size' => null])
 @php
     $fieldId = $id ?? $name;
     $messages = $errors->getBag($bag)->get($name);
     $describedBy = trim(($help ? $fieldId.'-help ' : '').($messages ? $fieldId.'-error' : ''));
 @endphp
-<div @class(['field', 'field-amount' => in_array($name, ['price', 'amount', 'parcel_value']), 'field-quantity' => $type === 'number', 'field-phone' => $type === 'tel', 'field-time' => $type === 'time', 'field-date' => in_array($type, ['date', 'time', 'datetime-local'])])>
+<div @class(['field', 'field-small' => $size === 'small' || in_array($type, ['date', 'time', 'datetime-local', 'month']), 'field-amount' => in_array($name, ['price', 'amount', 'parcel_value']), 'field-quantity' => $type === 'number', 'field-phone' => $type === 'tel', 'field-time' => $type === 'time', 'field-date' => in_array($type, ['date', 'time', 'datetime-local'])])>
     <label class="form-label" for="{{ $fieldId }}">{{ $label }}</label>
     <div @class(['password-field' => $type === 'password'])>
         <input {{ $attributes->class(['form-control', 'is-invalid' => count($messages) > 0]) }} id="{{ $fieldId }}" name="{{ $name }}" type="{{ $type }}"

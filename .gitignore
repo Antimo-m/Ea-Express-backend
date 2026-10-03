@@ -76,6 +76,35 @@ Thumbs.db
 *.test.*
 *.spec.*
 
+!/tests/Feature/RiderTrackingTest.php
+
+!/tests/Feature/AdminOperationalAssignmentTest.php
+!/tests/Feature/WorkspacePresentationTest.php
+!/tests/pickers.browser.test.mjs
+!/tests/Feature/RiderAssignmentTest.php
+
+!/tests/Feature/WorkspaceRevisionTest.php
+!/tests/Feature/RecipientDetailTest.php
+!/tests/Feature/OrderActionLayoutTest.php
+
+!/tests/Feature/RiderOperationsTest.php
+!/tests/Feature/AnnualReportingTest.php
+
+!/tests/Feature/CustomerStatisticsDatesTest.php
+
+!/tests/Feature/OperationalInterfaceTest.php
+!/tests/Feature/RiderGpsHistoryTest.php
+
+!/tests/Feature/StaffAuthenticationSecurityTest.php
+!/tests/Feature/StaffOtpConcurrencyTest.php
+!/tests/Feature/OtpConcurrencyTest.php
+!/tests/Feature/RiderEmailOtpTest.php
+!/tests/Feature/SecurityBoundaryTest.php
+!/tests/Feature/EmailChangeSecurityTest.php
+!/tests/Feature/AccountRecoverySecurityTest.php
+
+!/tests/Feature/FilterSelectionTest.php
+
 # Report e revisioni interne rimangono esclusivamente locali.
 /[Rr][Ee][Pp][Oo][Rr][Tt]*
 /[Aa][Ii][Kk][Ii][Dd][Oo]*

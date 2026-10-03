@@ -8,5 +8,5 @@
     };
 @endphp
 @if ($message)
-    <div class="alert alert-success d-flex gap-2 align-items-start" role="status"><x-ui.icon name="check-circle" /><span>{{ $message }}</span></div>
+    <div data-toast class="alert alert-success d-flex gap-2 align-items-start" role="status"><x-ui.icon name="check-circle" /><span>{{ $message }}</span></div>
 @endif

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['user_id', 'status', 'note', 'public_note', 'schedule_change'])]
+#[Fillable(['rider_id', 'operational_zone', 'user_id', 'status', 'note', 'public_note', 'schedule_change'])]
 class OrderEvent extends Model
 {
     protected function casts(): array

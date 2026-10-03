@@ -1,3 +1,4 @@
+import './filter-toolbar';
 import './report-charts';
 import './data-tables';
 import './confirmations';
@@ -187,3 +188,26 @@ document.querySelector('[data-close-account-detail]')?.addEventListener('click',
     url.hash = '';
     window.history.replaceState(null, '', url);
 });
+
+import './rider-gps';
+import './theme';
+
+import "./tracking-panel";
+
+for (const form of document.querySelectorAll('[data-auth-form]')) {
+    form.addEventListener('submit', event => {
+        if (form.getAttribute('aria-busy') === 'true') { event.preventDefault(); return; }
+        form.setAttribute('aria-busy', 'true');
+        const button = form.querySelector('button[type="submit"]');
+        button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Accesso in corso…';
+    });
+}
+window.addEventListener('pageshow', event => {
+    if (event.persisted && document.querySelector('[data-auth-form][aria-busy="true"]')) location.reload();
+});
+
+import './rider-operations';
+
+
+
+import './toast-feedback';

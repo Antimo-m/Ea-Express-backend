@@ -6,6 +6,9 @@ use App\Actions\SendEmailOtp;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Support\IntendedDestination;
+use App\Support\RiderTracking;
+use App\Support\SecurityEvent;
+use App\Support\StaffAuthentication;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,7 +33,14 @@ class AuthenticatedSessionController extends Controller
     {
         $request->authenticate();
 
-        $request->session()->regenerate();
+        $authentication = app(StaffAuthentication::class);
+        $authentication->invalidateChallenge($request);
+        if (! $authentication->requiresVerification($request->user()) && $request->boolean('remember')) {
+            Auth::guard('web')->login($request->user(), true);
+        }
+        $request->session()->regenerate(true);
+        $authentication->begin($request, $request->user(), $request->boolean('remember'));
+        SecurityEvent::record($authentication->requiresVerification($request->user()) ? 'primary_authenticated' : 'authentication_completed', $request->user()->id);
         $request->session()->put('password_hash_web', $request->user()->password);
 
         if ($request->user()->role === UserRole::Rider && ! $request->user()->email_verified_at) {
@@ -51,6 +61,11 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        SecurityEvent::record('logout', $request->user()?->id);
+        app(StaffAuthentication::class)->invalidateChallenge($request);
+        if ($request->user()?->isStaff()) {
+            app(RiderTracking::class)->stopForRider($request->user());
+        }
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();

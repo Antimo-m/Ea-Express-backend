@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateOrderStatusRequest;
 use App\Models\Order;
 use App\Models\User;
 use App\Support\CheckoutReview;
+use App\Support\OperationalAssignees;
 use App\Support\OrderSelection;
 use App\Support\RecipientRisk;
 use App\UserRole;
@@ -31,7 +32,7 @@ class OrderController extends Controller
 
         $orders = $query->latest()->orderByDesc('id')->paginate(15)->withQueryString();
 
-        return view('orders.index', ['orders' => $orders, 'recipientRisks' => app(RecipientRisk::class)->forOrders($orders->getCollection()), 'title' => $title, 'section' => $section, 'currentCount' => $selection->query($request, 'orders.in-progress', false)->count()]);
+        return view('orders.index', ['orders' => $orders, 'recipientRisks' => app(RecipientRisk::class)->forOrders($orders->getCollection()), 'title' => $title, 'section' => $section, 'customers' => User::where('role', UserRole::Customer)->whereIn('id', $selection->query($request, $section, false)->select('customer_id'))->orderBy('name')->get(['id', 'name', 'email']), 'riders' => User::whereIn('id', $selection->query($request, $section, false)->select('rider_id'))->orderBy('name')->get(['id', 'name', 'email']), 'currentCount' => $selection->query($request, 'orders.in-progress', false)->count()]);
     }
 
     public function create(): View
@@ -64,7 +65,7 @@ class OrderController extends Controller
     {
         Gate::authorize('view', $order);
 
-        return view('orders.show', ['recipientRisk' => app(RecipientRisk::class)->forOrders(collect([$order]))[$order->id] ?? ['count' => 0, 'last_at' => null], 'order' => $order->loadSum('payments', 'amount_cents')->load(['customer:id,name', 'creator:id,name', 'rider', 'priceProposals' => fn ($q) => $q->with(['proposer', 'responder'])->latest()]), 'riders' => auth()->user()->role === UserRole::Admin ? User::where('role', UserRole::Rider)->where('is_active', true)->orderBy('name')->get(['id', 'name']) : collect(), 'transitions' => $order->allowedTransitions(), 'canReschedulePickup' => Order::awaitingPickup()->whereKey($order->id)->exists(), 'events' => $order->events()->with('user')->latest()->orderByDesc('id')->paginate(30)]);
+        return view('orders.show', ['recipientRisk' => app(RecipientRisk::class)->forOrders(collect([$order]))[$order->id] ?? ['count' => 0, 'last_at' => null], 'order' => $order->loadSum('payments', 'amount_cents')->load(['customer:id,name', 'creator:id,name', 'rider', 'priceProposals' => fn ($q) => $q->with(['proposer', 'responder'])->latest()]), 'riders' => auth()->user()->role === UserRole::Admin ? app(OperationalAssignees::class)->query(auth()->user())->orderBy('name')->orderBy('id')->get(['id', 'name']) : collect(), 'transitions' => $order->allowedTransitions(), 'canReschedulePickup' => Order::awaitingPickup()->whereKey($order->id)->exists(), 'events' => $order->events()->with('user')->oldest()->orderBy('id')->paginate(30, ['*'], 'events_page')]);
     }
 
     public function update(UpdateOrderStatusRequest $request, Order $order, TransitionOrder $transition): RedirectResponse

@@ -1,0 +1,33 @@
+<x-app-layout title="Attività giornaliera Rider">
+    <header class="page-heading"><div><span class="eyebrow">ATTIVITÀ GIORNALIERA RIDER</span><h1>{{ $rider->name }}</h1><p>{{ \Illuminate\Support\Carbon::parse($day['date'])->format('d/m/Y') }}@if($zone) · {{ $zone }}@endif</p></div><x-ui.icon-button action="back" label="Rider per zona" :href="route('rider-operations.index',['date'=>$day['date']])" text/></header>
+    <x-ui.filters layout="date" :reset="route('rider-operations.show', $rider)" compact>
+        <x-ui.field name="date" label="Data" type="date" :value="$day['date']" :max="now('Europe/Rome')->toDateString()" required/>
+        @if($zone)<input type="hidden" name="zone" value="{{ $zone }}" data-filter-label="Zona">@endif
+    </x-ui.filters>
+    <dl class="operations-kpis" aria-label="Riepilogo giornata">
+        <div><dt>Ordini associati</dt><dd>{{ $orders->count() }}</dd></div><div><dt>Consegnati</dt><dd>{{ $deliveries->count() }}</dd></div><div><dt>Rimanenti</dt><dd>{{ $remaining }}</dd></div><div><dt>Incassato netto</dt><dd>{{ \App\Support\Money::format($cash) }}</dd></div><div><dt>Quota EA</dt><dd>{{ \App\Support\Money::format($retained) }}</dd></div><div><dt>Tariffe delle consegne</dt><dd>{{ \App\Support\Money::format($tariff) }}</dd></div>
+    </dl>
+    <section class="surface section-panel mb-4"><h2 class="h5">Mappa della giornata</h2>@if(count($gpsPoints))<div class="operational-map" data-rider-history-map aria-label="Campioni GPS della giornata"></div><script type="application/json" data-rider-history-points>@json(['points'=>$gpsPoints,'map'=>$day['map']])</script><p class="small text-secondary">{{ count($gpsPoints) }} campioni GPS registrati. I punti mostrano posizioni ricevute; gli intervalli tra i punti non rappresentano un percorso verificato.</p>@else<p class="small text-secondary">Nessun campione GPS disponibile per questa giornata. Lo storico inizia dall’attivazione del campionamento e viene conservato per {{ config('tracking.history_days') }} giorni.</p>@endif</section>
+    <p class="data-caption">Gli incassi si riferiscono agli ordini consegnati da questo Rider nel giorno selezionato e includono i movimenti successivi registrati fino a oggi. Non rappresentano il contante materialmente riscosso dal Rider in quel giorno. Il valore del pacco non è incluso.</p>
+    @if($unallocated)<p class="small text-warning">{{ $unallocated }} movimenti fuori regione senza ripartizione EA/vettore: la quota EA mostrata segue il criterio del Bilancio e deve essere verificata.</p>@endif
+    <section class="surface section-panel"><h2 class="h5">Cronologia operativa</h2><ol class="rider-activity-timeline">
+        @forelse($activity as $item)
+            <li><time datetime="{{ $item['event']->created_at->toIso8601String() }}">{{ $item['event']->created_at->timezone('Europe/Rome')->format('H:i:s') }}</time><div><strong>{{ $item['event']->status->label() }} · {{ $item['order']->reference }}</strong><span>{{ $item['zone'] }}</span>@if($item['event']->note || $item['event']->public_note)<small>{{ $item['event']->note ?: $item['event']->public_note }}</small>@endif<small>Registrato da {{ $item['event']->user?->name ?? 'Operatore non disponibile' }}</small></div><x-ui.icon-button action="open" :label="'Apri ordine '.$item['order']->reference" :href="route('orders.show',$item['order'])"/></li>
+        @empty<li>Nessun evento operativo attribuibile al Rider in questa giornata.</li>@endforelse
+    </ol><p class="small text-secondary">I timestamp provengono dagli eventi registrati. Per gli eventi meno recenti, il Rider viene ricostruito dallo storico delle assegnazioni disponibile; le attività senza attribuzione verificabile non vengono assegnate arbitrariamente.</p></section>
+    <section class="mt-4"><h2 class="h5">Ordini associati <span class="count-badge">{{ $orders->count() }}</span></h2>
+        @forelse($orders as $order)
+            @php
+                $delivery = $deliveries->first(fn($item) => $item['order']->id === $order->id);
+                $dailyStatus = $day['today'] ? $order->status : ($delivery ? \App\OrderStatus::Delivered : ($activity->last(fn($item) => $item['order']->id === $order->id)['event']->status ?? $order->status));
+                $pickup = $order->events->first(fn($event) => $event->status === \App\OrderStatus::PickedUp);
+            @endphp
+            <article class="surface rider-daily-order"><header><div><strong>{{ $order->reference }}</strong><small>Cliente: {{ $order->displayName() }} · Destinatario: {{ $order->recipient_name }}</small></div><x-ui.status-badge :status="$dailyStatus"/><x-ui.icon-button action="open" :label="'Apri ordine '.$order->reference" :href="route('orders.show',$order)"/><x-ui.icon-button action="history" label="Storico rettifiche ordine" :href="route('audits.index',['type'=>'orders','id'=>$order->id])"/></header>
+                <dl><div><dt>Zona</dt><dd>{{ $delivery['zone'] ?? app(\App\Support\RiderOperations::class)->zone($order) }}</dd></div><div><dt>Ritiro registrato</dt><dd>{{ $pickup?->created_at->timezone('Europe/Rome')->format('d/m H:i:s') ?? 'Non registrato' }}</dd></div><div><dt>Consegna registrata</dt><dd>{{ $order->delivered_at?->timezone('Europe/Rome')->format('d/m H:i:s') ?? 'Non registrata' }}</dd></div><div><dt>Tariffa</dt><dd>{{ \App\Support\Money::format($order->price_cents) }}</dd></div><div><dt>Incasso netto ordine</dt><dd>{{ \App\Support\Money::format((int)$order->payments->sum('amount_cents')) }}</dd></div></dl>
+                @if($order->shipping_type === 'external')<p class="small text-secondary">Spedizione fuori regione · quote EA e vettore distinte nel registro.</p>@endif
+                <div class="rider-payment-ledger"><h3 class="h6">Incassi, rettifiche e storni registrati</h3>@forelse($order->payments as $payment)<p><time>{{ $payment->created_at->timezone('Europe/Rome')->format('d/m/Y H:i:s') }}</time><span>{{ $payment->note ?: 'Movimento registrato' }} · {{ $payment->user?->name }}</span><strong>{{ \App\Support\Money::format($payment->amount_cents) }}</strong><small>EA: {{ \App\Support\Money::format($payment->ea_amount_cents ?? $payment->amount_cents) }}</small></p>@empty<p class="small text-secondary">Nessun incasso registrato.</p>@endforelse</div>
+            </article>
+        @empty<div class="surface empty-state"><h2>Nessuna attività registrata</h2><p>Questo Rider non ha ordini attribuibili nella giornata selezionata.</p></div>@endforelse
+    </section>
+    <p class="small text-secondary mt-4">Le posizioni disponibili riguardano solo questa giornata e sono conservate per 30 giorni. I campioni non ricostruiscono ogni spostamento.</p>
+</x-app-layout>

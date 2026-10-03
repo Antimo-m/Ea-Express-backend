@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Models\User;
 use App\Support\SecurityEvent;
+use App\Support\StaffAuthentication;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -17,6 +18,7 @@ class UpdateProfile
         $emailChanged = DB::transaction(function () use ($user, $data, $currentPassword): bool {
             $locked = User::lockForUpdate()->findOrFail($user->id);
             abort_unless($locked->is_active && $locked->role === $user->role, 403);
+            app(StaffAuthentication::class)->assertComplete($locked);
             $locked->fill(Arr::only($data, ['name', 'email', 'sender_type', 'business_type', 'business_description']));
             $emailChanged = $locked->isDirty('email');
             if ($emailChanged && ($currentPassword === null || ! Hash::check($currentPassword, $locked->password))) {

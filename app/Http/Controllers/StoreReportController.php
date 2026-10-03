@@ -15,7 +15,7 @@ class StoreReportController extends Controller
 {
     public function index(Request $request, OrderStatistics $statistics): View
     {
-        $period = $statistics->period($request);
+        $period = $statistics->staffPeriod($request);
         $filters = $request->validate(['status' => ['nullable', Rule::enum(OrderStatus::class)], 'sender_type' => ['nullable', 'in:business,private,online_shop'], 'tariff' => ['nullable', 'integer', 'min:0'], 'q' => ['nullable', 'string', 'max:150'], 'sort' => ['nullable', 'in:volume,value,delivered,name'], 'order' => ['nullable', 'in:asc,desc']]);
         $query = Order::financialFor($request->user());
         foreach (['status', 'sender_type'] as $field) {
@@ -28,9 +28,15 @@ class StoreReportController extends Controller
         }
         $days = (int) $period->start->copy()->startOfDay()->diffInDays($period->end->copy()->startOfDay()) + 1;
         $previousPeriod = new ReportingPeriod($period->start->copy()->subDays($days), $period->start->copy()->subSecond());
+        if ($request->input('period') === 'year') {
+            $previousPeriod = ReportingPeriod::year($period->start->year - 1);
+        }
         $comparison = $statistics->summarize((clone $query)->whereBetween('created_at', $previousPeriod->utcRange()), false);
         $query->whereBetween('created_at', $period->utcRange());
         $trend = array_map(fn (array $point): array => ['label' => substr($point['date'], 8, 2).'/'.substr($point['date'], 5, 2), 'orders' => $point['shipments'], 'incoming' => 0, 'outgoing' => 0], $statistics->trend(clone $query, $period));
+        if ($request->input('period') === 'year') {
+            $trend = collect($trend)->groupBy(fn (array $point): string => substr($point['label'], 3))->map(fn ($points, $month): array => ['label' => $month.'/'.$period->start->year, 'orders' => $points->sum('orders'), 'incoming' => 0, 'outgoing' => 0])->values()->all();
+        }
         $detailOrders = null;
         $detailQuery = null;
         $summary = $statistics->summarize(clone $query, false);
