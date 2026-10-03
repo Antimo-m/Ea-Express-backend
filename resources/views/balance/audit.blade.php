@@ -11,5 +11,5 @@
             </article></li>
         @empty<li class="surface p-4">Nessun evento disponibile per questa registrazione.</li>@endforelse
     </ol>
-    {{ $entries->links() }}
+    {{ $entries->links('components.ui.pagination') }}
 </x-app-layout>

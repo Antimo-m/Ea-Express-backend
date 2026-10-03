@@ -10,6 +10,7 @@ use App\Models\OrderEvent;
 use App\Models\OrderMessage;
 use App\Models\PaymentEntry;
 use App\Models\User;
+use App\Support\StaffAuthentication;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -38,7 +39,8 @@ class ProfileController extends Controller
     {
         $data = $request->validated();
         if ($update->handle($request->user(), $request->safe()->only(['name', 'email']), $data['current_password'] ?? null)) {
-            $request->session()->regenerate();
+            $request->session()->regenerate(true);
+            app(StaffAuthentication::class)->begin($request, $request->user());
         }
 
         return Redirect::route('profile.edit')->with('status', 'profile-updated');

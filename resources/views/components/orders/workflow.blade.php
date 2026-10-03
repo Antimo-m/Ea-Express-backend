@@ -3,15 +3,50 @@
     $exceptions = [\App\OrderStatus::Rejected, \App\OrderStatus::Cancelled, \App\OrderStatus::DeliveryIssue, \App\OrderStatus::DeliveryAttempted];
     $primary = $order->status === \App\OrderStatus::Accepted ? \App\OrderStatus::RiderArriving : collect($transitions)->first(fn ($status) => !in_array($status, $exceptions));
     $alternatives = collect($transitions)->reject(fn ($status) => $status === $primary);
+    $needsPriceAgreement = $primary === \App\OrderStatus::Accepted && $order->pricing_version === 1 && ($order->price_state === 'awaiting_customer' || ($order->price_cents === null && $order->quoted_price_cents === null));
+    if ($needsPriceAgreement) { $primary = null; }
+    $formId = 'primary-transition-'.$order->id;
 @endphp
-<section class="surface workflow-panel mb-4" id="next-action"><div class="workflow-heading"><span class="workflow-icon"><x-ui.icon name="signpost-split" /></span><div><span class="eyebrow">IL PROSSIMO PASSO</span><h2 class="h5 mb-0">{{ $primary ? $primary->actionLabel() : 'Gestisci l’imprevisto' }}</h2></div></div>
-<p class="small text-secondary">Stato attuale: <strong>{{ $order->status->label() }}</strong>. {{ $order->status === \App\OrderStatus::Received ? 'Controlla percorso e orari, poi verifica la tariffa e prendi in carico la richiesta.' : 'Conferma il passaggio solo dopo aver effettuato l’operazione.' }}</p>
-@if($primary === \App\OrderStatus::Accepted && $order->pricing_version===1 && ($order->price_state==='awaiting_customer' || ($order->price_cents===null && $order->quoted_price_cents===null)))<p class="text-secondary">Concorda la tariffa prima di prendere in carico.</p>@php($primary=null)@endif
-@if($primary)<form method="post" action="{{ route('orders.update', $order) }}" class="form-stack">@csrf @method('patch')<input type="hidden" name="version" value="{{ $order->version }}"><input type="hidden" name="status" value="{{ $primary->value }}">
-@if($primary === \App\OrderStatus::Accepted)<label class="form-label" for="assigned-rider">Rider da assegnare</label><select id="assigned-rider" name="rider_id" class="form-select" required><option value="">Seleziona un Rider</option>@foreach($riders as $rider)<option value="{{ $rider->id }}" @selected(old('rider_id') == $rider->id)>{{ $rider->name }}</option>@endforeach</select>@if($riders->isEmpty())<p class="text-danger">Crea o riattiva un Rider prima di confermare la presa in carico.</p>@endif @endif
-@if($primary === \App\OrderStatus::Accepted && $order->pricing_version!==1)<x-ui.field name="price" label="Costo spedizione (€)" inputmode="decimal" :value="old('price')" placeholder="8,50" help="Compenso per il servizio, distinto dal valore della merce." required />@endif
-@if($primary === \App\OrderStatus::Rescheduled)<x-ui.field name="estimated_at" label="Nuova previsione" type="datetime-local" :value="old('estimated_at')" required /><x-ui.field name="note" label="Motivo della riprogrammazione" :value="old('note')" required maxlength="2000" />@else<details class="optional-fields"><x-ui.icon-button as="summary" action="edit" icon="chat-dots" label="Aggiungi nota al passaggio" text /><label for="public_note" class="form-label mt-2">Messaggio visibile nel tracking</label><textarea id="public_note" name="public_note" class="form-control" maxlength="500" rows="2">{{ old('public_note') }}</textarea><label for="primary-note" class="form-label mt-2">Nota interna (facoltativa)</label><textarea id="primary-note" name="note" class="form-control" rows="2" maxlength="2000">{{ old('note') }}</textarea></details>@endif
-<button class="btn {{ $primary === \App\OrderStatus::Delivered ? 'btn-success' : 'btn-primary' }}"><x-ui.icon name="check2-circle" /> {{ $primary->actionLabel() }}</button></form>@endif
-@if($alternatives->isNotEmpty())<section class="workflow-alternatives"><h3 class="h6">Altre azioni e imprevisti</h3><div class="alternative-actions">@foreach($alternatives as $next)<x-ui.action-dialog :id="'workflow-'.$order->id.'-'.$next->value" :action="in_array($next, [\App\OrderStatus::Cancelled, \App\OrderStatus::Rejected]) ? 'delete' : 'edit'" :title="$next->actionLabel()" :open="$errors->any() && old('status') === $next->value" text><form method="post" action="{{ route('orders.update', $order) }}" class="form-stack mt-2">@csrf @method('patch')<input type="hidden" name="version" value="{{ $order->version }}"><input type="hidden" name="status" value="{{ $next->value }}">@if($next === \App\OrderStatus::Cancelled)<label class="form-label" for="cancellation-reason">Tipo di annullamento</label><select class="form-select" id="cancellation-reason" name="cancellation_reason" required><option value="other">Altro motivo · nessuna segnalazione destinatario</option><option value="recipient_absent">Destinatario assente / mancata consegna</option></select><p class="small text-secondary">Il motivo destinatario assente registra un precedente interno, solo dopo un tentativo di consegna.</p>@endif
-@if(in_array($next, $exceptions))<x-ui.field :id="'note-'.$next->value" name="note" label="Motivo" :value="old('status') === $next->value ? old('note') : ''" maxlength="2000" required />@endif<x-ui.icon-button type="submit" :action="in_array($next, [\App\OrderStatus::Cancelled, \App\OrderStatus::Rejected]) ? 'delete' : 'edit'" :label="$next->actionLabel()" :data-confirm="in_array($next, [\App\OrderStatus::Cancelled, \App\OrderStatus::Rejected]) ? $next->actionLabel() : null" :data-confirm-name="$order->displayName()" text /></form></x-ui.action-dialog>@endforeach</div></section>@endif
+<section class="surface workflow-panel" id="next-action">
+    <header class="card-heading">
+        <div><span class="eyebrow">IL PROSSIMO PASSO</span><h2 class="h5 mb-0">{{ $primary ? $primary->actionLabel() : 'Gestisci l’imprevisto' }}</h2></div>
+        <div class="card-actions workflow-primary-actions">
+            @if($primary)<x-ui.icon-button type="submit" :form="$formId" action="confirm" :label="$primary->actionLabel()" text />@endif
+            <x-ui.icon-button action="message" :href="route('messages.show', $order)" label="Apri messaggi del cliente" />
+            @foreach($alternatives->filter(fn ($next) => in_array($next, [\App\OrderStatus::Cancelled, \App\OrderStatus::Rejected], true)) as $next)
+                <x-orders.transition-action :order="$order" :status="$next" />
+            @endforeach
+        </div>
+    </header>
+    <dl class="operation-facts mb-3"><div><dt>Stato attuale</dt><dd><x-ui.status-badge :status="$order->status" /></dd></div><div><dt>Rider</dt><dd>{{ $order->rider?->name ?: 'Da assegnare' }}</dd></div></dl>
+    <p class="small text-secondary">{{ $order->status === \App\OrderStatus::Received ? 'Controlla percorso e orari, poi verifica la tariffa e prendi in carico la richiesta.' : 'Conferma il passaggio solo dopo aver effettuato l’operazione.' }}</p>
+    @if($needsPriceAgreement)<p class="text-secondary">Concorda la tariffa prima di prendere in carico.</p>@endif
+    @if($primary)
+        <form id="{{ $formId }}" method="post" action="{{ route('orders.update', $order) }}" class="form-stack">
+            @csrf @method('patch')
+            <input type="hidden" name="version" value="{{ $order->version }}">
+            <input type="hidden" name="status" value="{{ $primary->value }}">
+            @if($primary === \App\OrderStatus::Accepted)
+                <div><label class="form-label" for="assigned-rider">Rider da assegnare</label><select id="assigned-rider" name="rider_id" class="form-select" required><option value="">Seleziona un Rider</option>@foreach($riders as $rider)<option value="{{ $rider->id }}" @selected(old('rider_id') == $rider->id)>{{ $rider->name }}{{ $rider->id === auth()->id() ? ' · Tu (Admin)' : '' }}</option>@endforeach</select></div>
+                @if($riders->isEmpty())<p class="text-danger">Crea o riattiva un Rider prima di confermare la presa in carico.</p>@endif
+                @if($order->pricing_version !== 1)<x-ui.field name="price" label="Costo spedizione (€)" inputmode="decimal" :value="old('price')" placeholder="8,50" help="Compenso per il servizio, distinto dal valore della merce." required />@endif
+            @endif
+            @if($primary === \App\OrderStatus::Rescheduled)
+                <x-ui.field name="estimated_at" label="Nuova previsione" type="datetime-local" :value="old('estimated_at')" required />
+                <x-ui.field name="note" label="Motivo della riprogrammazione" :value="old('note')" required maxlength="2000" />
+            @endif
+        </form>
+        @unless($primary === \App\OrderStatus::Rescheduled)
+            <x-ui.action-dialog :id="'transition-note-'.$order->id" action="edit" title="Aggiungi nota al passaggio">
+                <label for="public_note" class="form-label">Messaggio visibile nel tracking</label><textarea id="public_note" name="public_note" form="{{ $formId }}" class="form-control" maxlength="500" rows="2">{{ old('public_note') }}</textarea>
+                <label for="primary-note" class="form-label mt-2">Nota interna (facoltativa)</label><textarea id="primary-note" name="note" form="{{ $formId }}" class="form-control" rows="2" maxlength="2000">{{ old('note') }}</textarea>
+                <div class="modal-actions"><button type="button" class="btn btn-outline-secondary" data-dialog-close>Torna al passaggio</button></div>
+            </x-ui.action-dialog>
+        @endunless
+    @endif
+    @if($alternatives->contains(fn ($next) => !in_array($next, [\App\OrderStatus::Cancelled, \App\OrderStatus::Rejected], true)))
+        <section class="workflow-alternatives"><h3 class="h6">Altre azioni e imprevisti</h3><div class="card-actions">
+            @foreach($alternatives->reject(fn ($next) => in_array($next, [\App\OrderStatus::Cancelled, \App\OrderStatus::Rejected], true)) as $next)<x-orders.transition-action :order="$order" :status="$next" />@endforeach
+        </div></section>
+    @endif
 </section>

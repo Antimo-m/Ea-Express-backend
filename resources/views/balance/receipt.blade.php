@@ -1,7 +1,7 @@
 <article class="surface receipt-row">
     <div class="receipt-identity">
-        <a class="fw-semibold" href="{{ route('orders.show', $order) }}">{{ $order->displayName() }}</a>
-        <p class="small text-secondary text-break mb-1">{{ $order->reference }}</p>
+        <span class="data-label">Cliente / negozio</span><a class="fw-semibold" href="{{ route('orders.show', $order) }}">{{ $order->displayName() }}</a>
+        <p class="small text-secondary text-break mb-1">Ordine: {{ $order->reference }}</p>
         <strong>Tariffa prevista: {{ \App\Support\Money::format($order->price_cents) }}</strong>
         @if($order->paid_at)<p class="small mb-0">Incasso effettivo: {{ \App\Support\Money::format((int) $order->payments_sum_amount_cents) }}</p>@endif
         @if($order->receipt_voided_at)<p class="small text-secondary mb-0">Stornato il {{ $order->receipt_voided_at->timezone('Europe/Rome')->format('d/m/Y H:i') }} · {{ $order->receipt_void_reason }}</p>@endif

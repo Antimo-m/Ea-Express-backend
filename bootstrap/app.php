@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Middleware\EnsureActiveAccount;
+use App\Http\Middleware\EnsureStaffAuthentication;
 use App\Http\Middleware\LimitRequestInput;
 use App\Http\Middleware\PreservePageNavigation;
 use App\Http\Middleware\SecurityHeaders;
 use App\Support\SecurityEvent;
+use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -21,7 +23,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend([LimitRequestInput::class, SecurityHeaders::class]);
-        $middleware->web(append: [EnsureActiveAccount::class], replace: [StartSession::class => PreservePageNavigation::class]);
+        $middleware->web(append: [EnsureActiveAccount::class, EnsureStaffAuthentication::class], replace: [StartSession::class => PreservePageNavigation::class]);
+        $middleware->prependToPriorityList(AuthenticatesRequests::class, EnsureStaffAuthentication::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (ThrottleRequestsException $exception, Request $request): Response {

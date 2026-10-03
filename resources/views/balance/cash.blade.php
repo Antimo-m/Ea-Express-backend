@@ -12,7 +12,7 @@
     <details class="cash-register-history"><summary>Registrazioni e modifiche <span class="count-badge">{{ $cashEntries->total() }}</span></summary>
     @foreach($cashEntries as $entry)
     <article class="d-flex justify-content-between flex-wrap gap-3 border-top pt-3 mt-3">
-        <div><strong>{{ \App\Support\Money::format($entry->amount_cents) }}</strong><p class="small text-secondary mb-0">{{ $entry->occurred_on->format('d/m/Y') }} · {{ $entry->user->name }}{{ $entry->voided_at ? ' · Eliminata' : '' }}</p></div>
+        <div><span class="data-label">Importo contanti</span><strong>{{ \App\Support\Money::format($entry->amount_cents) }}</strong><p class="small text-secondary mb-0">Data: {{ $entry->occurred_on->format('d/m/Y') }} · Operatore: {{ $entry->user->name }}{{ $entry->voided_at ? ' · Eliminata' : '' }}</p></div>
         @unless($entry->voided_at)
         <div class="row-actions">
             <x-ui.action-dialog :id="'cash-edit-'.$entry->id" title="Modifica contanti" action="edit">
@@ -33,7 +33,7 @@
         @endunless
     </article>
     @endforeach
-    {{ $cashEntries->links() }}
+    {{ $cashEntries->links('components.ui.pagination') }}
     </details>
 </section>
 @endif

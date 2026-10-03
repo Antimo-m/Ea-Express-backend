@@ -8,6 +8,8 @@ use App\Models\Order;
 use App\Models\User;
 use App\OrderStatus;
 use App\Support\OrderPrice;
+use App\Support\RiderOperations;
+use App\Support\RiderTracking;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,13 +49,14 @@ class CarrierShipmentController extends Controller
             $locked->carrier_tracking = $data['carrier_tracking'];
             $locked->carrier_status = $data['carrier_status'];
             if (in_array($data['carrier_status'], ['handed_over', 'in_transit', 'delivery_issue'], true)) {
+                app(RiderTracking::class)->stop($locked);
                 $locked->carrier_handed_at ??= now();
                 $locked->tracking_started_at ??= now();
             }
             $locked->version++;
             $locked->save();
             $labels = ['booked' => 'Spedizione prenotata presso il vettore', 'handed_over' => 'Affidata al vettore', 'in_transit' => 'In transito con il vettore', 'delivery_issue' => 'Problema di consegna del vettore'];
-            $locked->events()->create(['user_id' => $request->user()->id, 'status' => $locked->status, 'public_note' => $labels[$data['carrier_status']]]);
+            $locked->events()->create(['rider_id' => $locked->rider_id, 'operational_zone' => app(RiderOperations::class)->zone($locked), 'user_id' => $request->user()->id, 'status' => $locked->status, 'public_note' => $labels[$data['carrier_status']]]);
             app(RecordEconomicAudit::class)->handle($request->user(), $locked, 'carrier.updated', $before, $locked->only(array_keys($before)));
             $notify->handle($locked, $labels[$data['carrier_status']], $request->user()->id);
         }, 3);

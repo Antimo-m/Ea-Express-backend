@@ -7,6 +7,7 @@ use App\Http\Requests\StoreRiderRequest;
 use App\Models\Order;
 use App\Models\User;
 use App\OrderStatus;
+use App\Support\RiderTracking;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -63,6 +64,7 @@ class AdminUserController extends Controller
             } else {
                 $target->is_active = $data['action'] === 'activate';
             }
+            app(RiderTracking::class)->stopForRider($target);
             $target->remember_token = Str::random(60);
             $target->save();
             if (config('session.driver') === 'database') {

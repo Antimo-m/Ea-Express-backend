@@ -10,7 +10,7 @@ const regions = createRefreshQueue(async () => {
   const fresh = new DOMParser().parseFromString(await response.text(), 'text/html');
   for (const region of document.querySelectorAll('[data-live-region]')) {
     const replacement = fresh.querySelector(`[data-live-region="${region.dataset.liveRegion}"]`);
-    if (region.querySelector('dialog[open], form[aria-busy="true"]') || (region.contains(document.activeElement) && document.activeElement.matches('input,select,textarea'))) continue;
+    if (region.querySelector('dialog[open], form[aria-busy="true"], .ea-picker-trigger[aria-expanded="true"]') || (region.contains(document.activeElement) && document.activeElement.matches('input,select,textarea,.ea-picker-trigger'))) continue;
     if (replacement) region.replaceChildren(...replacement.childNodes);
     bindFinancialForms(region);
   }
@@ -21,7 +21,7 @@ window.addEventListener('ea:workspace-polled', () => { if (!realtimeConnected) r
 window.addEventListener('ea:workspace-updated', () => regions.refresh());
 export async function staffRequest(path, { method = 'GET', data } = {}) {
   const response = await fetch(path, { method, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }, ...(data ? { body: JSON.stringify(data) } : {}) });
-  if (!response.ok) throw new Error(response.status === 401 || response.status === 419 ? 'Sessione scaduta. Accedi nuovamente.' : 'Aggiornamento non disponibile. Riprova.');
+  if (!response.ok) { const error = new Error(response.status === 401 || response.status === 419 ? 'Sessione scaduta. Accedi nuovamente.' : 'Aggiornamento non disponibile. Riprova.'); error.status = response.status; throw error; }
   return response.json();
 }
 if (document.body.dataset.notificationsUrl) {
@@ -74,19 +74,22 @@ if (chat) {
 let updating = false;
 window.addEventListener('ea:workspace-updated', async event => {
   const section = document.querySelector('[data-live-order]');
-  if (!section || section.querySelector('dialog[open], form[aria-busy="true"]') || updating || event.detail.kind === 'receipts' || event.detail.kind === 'messages' || (event.detail.order_id && Number(section.dataset.liveOrder) !== event.detail.order_id)) return;
+  if (!section || section.querySelector('dialog[open], form[aria-busy="true"], .ea-picker-trigger[aria-expanded="true"]') || updating || event.detail.kind === 'receipts' || event.detail.kind === 'messages' || (event.detail.order_id && Number(section.dataset.liveOrder) !== event.detail.order_id)) return;
   updating = true;
   try {
     const response = await fetch(location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' } });
     if (!response.ok || response.redirected) return;
     const fresh = new DOMParser().parseFromString(await response.text(), 'text/html');
-    if (section.querySelector('dialog[open], form[aria-busy="true"]')) return;
-    for (const selector of ['.order-overview', '.order-information', '.order-history']) {
+    if (section.querySelector('dialog[open], form[aria-busy="true"], .ea-picker-trigger[aria-expanded="true"]')) return;
+    for (const selector of ['.order-overview', '.order-information', '.order-focus-summary', '.order-tracking-summary', '.order-timeline']) {
       const current = section.querySelector(selector), replacement = fresh.querySelector(selector);
       if (current && replacement) current.replaceWith(replacement);
     }
     const workflow = section.querySelector('.order-workflow');
     if (workflow && !workflow.contains(document.activeElement)) workflow.replaceWith(fresh.querySelector('.order-workflow'));
+    const pointVersion = section.querySelector('[data-map-points] [name="version"]');
+    const freshPointVersion = fresh.querySelector('[data-map-points] [name="version"]');
+    if (pointVersion && freshPointVersion) pointVersion.value = freshPointVersion.value;
     bindFinancialForms(section);
   } finally { updating = false; }
 });

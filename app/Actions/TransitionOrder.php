@@ -6,8 +6,11 @@ use App\Models\Order;
 use App\Models\User;
 use App\OrderStatus;
 use App\Support\Money;
+use App\Support\OperationalAssignees;
 use App\Support\OrderPrice;
 use App\Support\RecipientRisk;
+use App\Support\RiderOperations;
+use App\Support\RiderTracking;
 use App\UserRole;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +31,7 @@ class TransitionOrder
             $rider = null;
             if (($data['status'] ?? null) === OrderStatus::Accepted->value) {
                 abort_unless($user->role === UserRole::Admin, 403);
-                $rider = User::query()->where('role', UserRole::Rider)->where('is_active', true)->lockForUpdate()->find($data['rider_id'] ?? 0);
+                $rider = app(OperationalAssignees::class)->query($user)->lockForUpdate()->find($data['rider_id'] ?? 0);
                 if (! $rider) {
                     throw ValidationException::withMessages(['rider_id' => 'Seleziona un Rider attivo e disponibile.']);
                 }
@@ -98,9 +101,12 @@ class TransitionOrder
                 app(RecipientRisk::class)->record($locked, $user);
             }
             $locked->status = $next;
+            if (! app(RiderTracking::class)->eligible($locked)) {
+                app(RiderTracking::class)->stop($locked);
+            }
             $locked->version++;
             $locked->save();
-            $locked->events()->create(['user_id' => $user->id, 'status' => $next, 'note' => $data['note'] ?? null, 'public_note' => $data['public_note'] ?? null]);
+            $locked->events()->create(['rider_id' => $locked->rider_id, 'operational_zone' => app(RiderOperations::class)->zone($locked), 'user_id' => $user->id, 'status' => $next, 'note' => $data['note'] ?? null, 'public_note' => $data['public_note'] ?? null]);
             if ($next === OrderStatus::Delivered) {
                 $this->mail->handle($locked, 'delivered');
             }

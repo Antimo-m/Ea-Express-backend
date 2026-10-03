@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\OrderStatus;
 use App\Support\Money;
+use App\Support\RiderOperations;
 use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -64,7 +65,7 @@ class ShippingPriceController extends Controller
             $locked->version++;
             $locked->save();
             app(RecordEconomicAudit::class)->handle($user, $proposal, 'price.'.$data['action'], $before, $proposal->toArray());
-            $locked->events()->create(['user_id' => $user->id, 'status' => $locked->status, 'public_note' => $title]);
+            $locked->events()->create(['rider_id' => $locked->rider_id, 'operational_zone' => app(RiderOperations::class)->zone($locked), 'user_id' => $user->id, 'status' => $locked->status, 'public_note' => $title]);
             $notify->handle($locked, $title, $user->id);
         }, 3);
 

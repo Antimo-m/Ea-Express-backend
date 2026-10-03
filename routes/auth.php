@@ -30,16 +30,18 @@ Route::middleware(['guest', 'throttle:public-pages'])->group(function () {
 
 Route::middleware(['auth', 'auth.session', 'throttle:writes'])->group(function () {
     Route::get('verify-email-otp', [EmailOtpController::class, 'show'])->middleware(EnsureStaff::class)->name('email-otp.notice');
-    Route::post('verify-email-otp/send', [EmailOtpController::class, 'store'])->middleware([EnsureStaff::class, 'throttle:otp-send'])->name('email-otp.send');
-    Route::post('verify-email-otp/confirm', [EmailOtpController::class, 'update'])->middleware([EnsureStaff::class, 'throttle:otp-check'])->name('email-otp.verify');
+    Route::post('verify-email-otp/send', [EmailOtpController::class, 'store'])->middleware([EnsureStaff::class, 'throttle:otp-send'])->block(10, 10)->name('email-otp.send');
+    Route::post('verify-email-otp/confirm', [EmailOtpController::class, 'update'])->middleware([EnsureStaff::class, 'throttle:otp-check'])->block(10, 10)->name('email-otp.verify');
 
     Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])
+        ->middleware(EnsureStaff::class)
         ->name('password.confirm');
 
-    Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
+    Route::post('confirm-password', [ConfirmablePasswordController::class, 'store'])->middleware(EnsureStaff::class);
 
-    Route::put('password', [PasswordController::class, 'update'])->name('password.update');
+    Route::put('password', [PasswordController::class, 'update'])->middleware(EnsureStaff::class)->name('password.update');
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
+        ->block(10, 10)
         ->name('logout');
 });

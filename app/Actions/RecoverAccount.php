@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Models\User;
+use App\Support\SecurityEvent;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -33,6 +34,7 @@ class RecoverAccount
             ], function (User $account, string $password): void {
                 $account->password = Hash::make($password);
                 $account->save();
+                SecurityEvent::record('password_reset', $account->id);
                 DB::afterCommit(fn () => event(new PasswordReset($account)));
             });
         }, 3);

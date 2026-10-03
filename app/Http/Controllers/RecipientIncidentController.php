@@ -18,12 +18,41 @@ class RecipientIncidentController extends Controller
     public function index(Request $request): View
     {
         abort_unless($request->user()->role === UserRole::Admin, 403);
+        $filters = $request->validate(['q' => ['nullable', 'string', 'max:100'], 'state' => ['nullable', 'in:active,restored,all']]);
+        $state = $filters['state'] ?? 'active';
+        $activeProfiles = RecipientRiskProfile::whereHas('incidents', fn ($query) => $query->whereNull('dismissed_at'))->count();
+        $totalProfiles = RecipientRiskProfile::whereHas('incidents')->count();
+        $activeIncidents = RecipientIncident::whereNull('dismissed_at')->count();
         $profiles = RecipientRiskProfile::query()->whereHas('incidents')
-            ->withCount(['incidents as active_count' => fn ($query) => $query->whereNull('dismissed_at')])
-            ->with(['incidents' => fn ($query) => $query->with('order:id,reference')->latest('occurred_at')->orderByDesc('id')])
-            ->latest('updated_at')->orderByDesc('id')->paginate(20);
+            ->when($state === 'active', fn ($query) => $query->whereHas('incidents', fn ($incidents) => $incidents->whereNull('dismissed_at')))
+            ->when($state === 'restored', fn ($query) => $query->whereDoesntHave('incidents', fn ($incidents) => $incidents->whereNull('dismissed_at')))
+            ->when($filters['q'] ?? null, fn ($query, $term) => $query->whereHas('incidents', function ($incidents) use ($term): void {
+                $incidents->where(function ($search) use ($term): void {
+                    $search->where('recipient->recipient_name', 'like', '%'.$term.'%')
+                        ->orWhere('recipient->recipient_phone', 'like', '%'.$term.'%')
+                        ->orWhere('recipient->delivery_city', 'like', '%'.$term.'%')
+                        ->orWhere('recipient->delivery_address', 'like', '%'.$term.'%');
+                });
+            }))
+            ->withCount(['incidents as active_count' => fn ($query) => $query->whereNull('dismissed_at'), 'incidents'])
+            ->withMax(['incidents as last_active_at' => fn ($query) => $query->whereNull('dismissed_at')], 'occurred_at')
+            ->with('latestIncident')
+            ->latest('updated_at')->orderByDesc('id')->paginate(20)->withQueryString();
 
-        return view('recipient-incidents.index', compact('profiles'));
+        return view('recipient-incidents.index', compact('profiles', 'activeProfiles', 'totalProfiles', 'activeIncidents', 'state'));
+    }
+
+    public function show(Request $request, RecipientRiskProfile $profile): View
+    {
+        abort_unless($request->user()->role === UserRole::Admin, 403);
+        $profile->load('latestIncident')->loadCount(['incidents as active_count' => fn ($query) => $query->whereNull('dismissed_at')]);
+        abort_unless($profile->latestIncident, 404);
+        $recipient = $profile->latestIncident->recipient;
+        $editableIncident = $profile->incidents()->whereNull('dismissed_at')->latest('occurred_at')->orderByDesc('id')->first();
+        $incidents = $profile->incidents()->with(['order' => fn ($query) => $query->withDisplayIdentity()])
+            ->latest('occurred_at')->orderByDesc('id')->paginate(20)->withQueryString();
+
+        return view('recipient-incidents.show', compact('profile', 'recipient', 'editableIncident', 'incidents'));
     }
 
     public function update(Request $request, RecipientIncident $incident, RecipientRisk $risk): RedirectResponse
@@ -58,6 +87,7 @@ class RecipientIncidentController extends Controller
             app(RecordEconomicAudit::class)->handle($request->user(), $locked, 'recipient_incident.'.$data['action'], $before, $locked->toArray());
         }, 3);
 
-        return redirect()->route('recipient-incidents.index')->with('status', 'Precedente aggiornato. I dati storici dell’ordine restano invariati.');
+        return redirect()->route('recipient-incidents.show', $incident->refresh()->recipient_risk_profile_id)
+            ->with('status', 'Precedente aggiornato. I dati storici dell’ordine restano invariati.');
     }
 }

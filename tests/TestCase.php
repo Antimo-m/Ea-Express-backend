@@ -2,6 +2,8 @@
 
 namespace Tests;
 
+use App\Models\User;
+use App\Support\StaffAuthentication;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
@@ -12,7 +14,33 @@ abstract class TestCase extends BaseTestCase
         parent::actingAs($user, $guard);
         $this->withSession(['password_hash_'.($guard ?? config('auth.defaults.guard')) => $user->getAuthPassword()]);
 
+        if (($guard ?? config('auth.defaults.guard')) === 'web' && $user instanceof User && $user->isStaff()) {
+            request()->setLaravelSession(app('session.store'));
+            app(StaffAuthentication::class)->begin(request(), $user);
+            app('session.store')->save();
+        }
+
         return $this;
+    }
+
+    public function withSession(array $data): static
+    {
+        parent::withSession($data);
+        app('session.store')->save();
+
+        return $this;
+    }
+
+    protected function prepareCookiesForRequest(): array
+    {
+        $this->defaultCookies[config('session.cookie')] = app('session.store')->getId();
+
+        return parent::prepareCookiesForRequest();
+    }
+
+    protected function prepareCookiesForJsonRequest(): array
+    {
+        return $this->prepareCookiesForRequest();
     }
 
     /** @param array<string,mixed> $data @return array<string,mixed> */

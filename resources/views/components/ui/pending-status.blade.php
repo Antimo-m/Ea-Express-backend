@@ -1,2 +1,2 @@
 @props(['account'])
-<span class="status-pill tone-{{ $account->statusTone() }}">{{ $account->statusLabel() }}</span>
+<x-ui.status-badge class="status-pill tone-{{ $account->statusTone() }}">{{ $account->statusLabel() }}</x-ui.status-badge>

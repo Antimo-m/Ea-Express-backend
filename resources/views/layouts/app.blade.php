@@ -2,15 +2,22 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head><x-ui.head :title="$title" /></head>
-<body data-notifications-url="{{ route('notifications.feed') }}" data-notification-scope="staff:{{ auth()->id() }}">
+<body class="ea-app" data-notifications-url="{{ route('notifications.feed') }}" data-notification-scope="staff:{{ auth()->id() }}">
 <a class="skip-link" href="#main-content">Vai al contenuto</a>
 <x-navigation.sidebar />
 <div class="app-workspace">
     <x-navigation.header :title="$title" />
+    @if(auth()->user()->canOperateDeliveries())
+    <div class="gps-bar" data-rider-gps="{{ auth()->id() }}" data-gps-state="disabled">
+        <span class="gps-badge" data-gps-badge role="status" aria-label="GPS disattivato" title="GPS disattivato · apri una consegna per condividere la posizione."><span class="gps-live-dot" aria-hidden="true"></span>GPS</span>
+        <span class="visually-hidden" data-gps-feedback>GPS disattivato · apri una consegna per condividere la posizione.</span>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-gps-stop hidden>Interrompi GPS</button>
+    </div>
+    @endif
     <main class="app-content" id="main-content" tabindex="-1">
         @isset($header)<header class="page-heading mb-4">{{ $header }}</header>@endisset
         <x-ui.flash />
-        @if($errors->any())<div class="alert alert-danger" role="alert"><strong>Controlla i dati inseriti.</strong><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
+        @if($errors->any())<div data-toast class="alert alert-danger" role="alert"><strong>Controlla i dati inseriti.</strong><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
         {{ $slot }}
     </main>
 </div>

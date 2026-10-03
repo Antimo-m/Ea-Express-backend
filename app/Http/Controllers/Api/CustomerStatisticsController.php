@@ -13,13 +13,15 @@ class CustomerStatisticsController extends Controller
 {
     public function __invoke(Request $request, OrderStatistics $statistics): JsonResponse
     {
+        $data = $request->validate(['date_basis' => ['sometimes', 'required', 'in:created_at,activity']]);
+        $dateBasis = $data['date_basis'] ?? 'created_at';
         $period = $statistics->period($request);
         $orders = Order::where('customer_id', $request->user()->id);
-        $report = $statistics->customerReport($orders, $period);
+        $report = $statistics->customerReport($orders, $period, $dateBasis);
         $summary = $report['summary'];
         $days = (int) $period->start->copy()->startOfDay()->diffInDays($period->end->copy()->startOfDay()) + 1;
         $previousPeriod = new ReportingPeriod($period->start->copy()->subDays($days), $period->start->copy()->subSecond());
-        $comparison = $statistics->customerReport($orders, $previousPeriod)['summary'];
+        $comparison = $statistics->customerReport($orders, $previousPeriod, $dateBasis)['summary'];
         $changes = [];
         foreach (['total', 'delivered', 'in_progress', 'cancelled', 'gross_cents', 'delivered_spend_cents', 'net_cents'] as $metric) {
             $changes[$metric] = $comparison[$metric] !== 0 ? round(($summary[$metric] - $comparison[$metric]) * 100 / abs($comparison[$metric]), 1) : null;
@@ -38,7 +40,7 @@ class CustomerStatisticsController extends Controller
             'to' => $period->end->toDateString(),
             'change_percent' => $changes['total'],
             'comparison_note' => 'Volumi mensili nello stesso periodo selezionato. I mesi iniziali e finali possono essere parziali.',
-            'date_basis' => 'created_at',
+            'date_basis' => $dateBasis,
             'revenue_basis' => 'delivered_merchandise_less_shipping',
         ]);
     }
