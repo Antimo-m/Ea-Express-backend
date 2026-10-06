@@ -125,7 +125,7 @@ class OperationalFlowTest extends TestCase
         foreach (['rider_arriving', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered'] as $index => $status) {
             $data = ['status' => $status, 'version' => $index + 2];
             $response = $this->patchJson('/orders/'.$order->slug, $data)->assertOk()->assertJsonPath('status', $status)->assertJsonPath('version', $index + 3);
-            $this->assertStringContainsString('Timeline ordine', $response->json('html'));
+            $this->assertStringContainsString('Il percorso dell’ordine', $response->json('html'));
             $this->assertSame($status, $order->fresh()->status->value);
             $this->patchJson('/orders/'.$order->slug, $data)->assertUnprocessable()->assertJsonValidationErrors('status');
             $this->assertSame($index + 2, $order->events()->count());

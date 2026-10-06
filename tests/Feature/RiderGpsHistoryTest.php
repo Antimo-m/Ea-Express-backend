@@ -16,7 +16,7 @@ class RiderGpsHistoryTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_gps_samples_are_encrypted_throttled_and_visible_only_in_authorized_daily_detail(): void
+    public function test_shared_gps_samples_remain_encrypted_and_throttled_without_daily_visualization(): void
     {
         $this->travelTo(now('Europe/Rome')->setDate(2026, 10, 2)->setTime(10, 0));
         $rider = User::factory()->create();
@@ -42,8 +42,8 @@ class RiderGpsHistoryTest extends TestCase
         $this->assertDatabaseCount('rider_gps_samples', 3);
         $this->assertSame(40.85, RiderGpsSample::first()->position['latitude']);
         $this->assertStringNotContainsString('latitude', DB::table('rider_gps_samples')->value('position'));
-        $this->actingAs($admin)->get('/rider-operations/'.$rider->slug.'?date=2026-10-02')->assertOk()->assertViewHas('gpsPoints', fn ($points) => count($points) === 3)->assertSee('3 campioni GPS');
-        $this->get('/rider-operations/'.$rider->slug.'?date=2026-10-01')->assertOk()->assertViewHas('gpsPoints', []);
+        $this->actingAs($admin)->get('/rider-operations/'.$rider->slug.'?date=2026-10-02')->assertOk()->assertDontSee('data-rider-history-map', false)->assertDontSee('campioni GPS');
+        $this->get('/rider-operations/'.$rider->slug.'?date=2026-10-01')->assertOk()->assertDontSee('data-rider-history-map', false);
         $this->actingAs($rider)->getJson('/rider-operations/'.$rider->slug)->assertForbidden();
         $this->actingAs(User::factory()->create(['role' => UserRole::Customer]))->getJson('/rider-operations/'.$rider->slug)->assertForbidden();
         RiderGpsSample::first()->update(['captured_at' => now()->subDays(31)]);

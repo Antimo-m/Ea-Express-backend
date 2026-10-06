@@ -10,6 +10,12 @@ class OrderDetail
 {
     public function view(Order $order): View
     {
-        return view('orders.show', ['recipientRisk' => app(RecipientRisk::class)->forOrders(collect([$order]))[$order->id] ?? ['count' => 0, 'last_at' => null], 'order' => $order->loadSum('payments', 'amount_cents')->load(['customer:id,slug,name', 'creator:id,slug,name', 'rider', 'priceProposals' => fn ($q) => $q->with(['proposer', 'responder'])->latest()]), 'riders' => auth()->user()->role === UserRole::Admin ? app(OperationalAssignees::class)->query(auth()->user())->orderBy('name')->orderBy('id')->get(['id', 'slug', 'name']) : collect(), 'transitions' => $order->allowedTransitions(), 'canReschedulePickup' => Order::awaitingPickup()->whereKey($order->id)->exists(), 'events' => $order->events()->with('user')->oldest()->orderBy('id')->paginate(30, ['*'], 'events_page')]);
+        $progressEvents = $order->events()->select('status')->selectRaw('MAX(created_at) as created_at')->groupBy('status')->get()->sortBy('created_at')->values();
+        $currentEvent = $order->events()->where('status', $order->status)->latest('created_at')->orderByDesc('id')->first();
+        if ($currentEvent) {
+            $progressEvents = $progressEvents->reject(fn ($event) => $event->status === $order->status)->push($currentEvent)->sortBy('created_at')->values();
+        }
+
+        return view('orders.show', ['progress' => app(OrderProgress::class)->forOrder($order, $progressEvents), 'recipientRisk' => app(RecipientRisk::class)->forOrders(collect([$order]))[$order->id] ?? ['count' => 0, 'last_at' => null], 'order' => $order->loadSum('payments', 'amount_cents')->load(['customer:id,slug,name', 'creator:id,slug,name', 'rider', 'priceProposals' => fn ($q) => $q->with(['proposer', 'responder'])->latest()]), 'riders' => auth()->user()->role === UserRole::Admin ? app(OperationalAssignees::class)->query(auth()->user())->orderBy('name')->orderBy('id')->get(['id', 'slug', 'name']) : collect(), 'transitions' => $order->allowedTransitions(), 'canReschedulePickup' => Order::awaitingPickup()->whereKey($order->id)->exists(), 'events' => $order->events()->with('user')->oldest()->orderBy('id')->paginate(30, ['*'], 'events_page')]);
     }
 }

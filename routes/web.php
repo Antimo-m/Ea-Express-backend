@@ -54,6 +54,7 @@ Route::middleware(['auth', 'auth.session', EnsureStaff::class, EnsureEmailVerifi
     Route::post('/realtime/auth', [RealtimeController::class, 'authenticate'])->middleware('throttle:realtime-writes');
     Route::get('/rider-operations', [RiderOperationsController::class, 'index'])->middleware(EnsureAdmin::class)->name('rider-operations.index');
     Route::get('/rider-operations/feed', [RiderOperationsController::class, 'feed'])->middleware([EnsureAdmin::class, 'throttle:60,1'])->name('rider-operations.feed');
+    Route::get('/rider-operations/detail', [RiderOperationsController::class, 'detail'])->middleware([EnsureAdmin::class, 'throttle:60,1'])->name('rider-operations.detail');
     Route::get('/rider-operations/{rider}', [RiderOperationsController::class, 'show'])->middleware(EnsureAdmin::class)->name('rider-operations.show');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/tracking/positions', [RiderTrackingController::class, 'index'])->middleware('throttle:60,1')->name('tracking.positions');
@@ -61,7 +62,6 @@ Route::middleware(['auth', 'auth.session', EnsureStaff::class, EnsureEmailVerifi
     Route::post('/orders/{order}/location/session', [RiderTrackingController::class, 'store'])->middleware('throttle:20,1')->name('tracking.start');
     Route::delete('/orders/{order}/location/session', [RiderTrackingController::class, 'destroy'])->middleware('throttle:20,1')->name('tracking.stop');
     Route::put('/orders/{order}/location', [RiderTrackingController::class, 'update'])->middleware('throttle:20,1')->name('tracking.update');
-    Route::patch('/orders/{order}/map-points', [RiderTrackingController::class, 'points'])->middleware('throttle:writes')->name('tracking.points');
 
     Route::get('/orders', fn () => redirect()->route(auth()->user()->role === UserRole::Rider ? 'orders.in-progress' : 'orders.incoming'))->name('orders.index');
     Route::get('/orders/incoming', [OrderController::class, 'index'])->name('orders.incoming');

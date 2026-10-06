@@ -1,38 +1,24 @@
-<x-app-layout title="Rider per zona">
-    <header class="page-heading"><div><span class="eyebrow">OPERATIVITÀ RIDER</span><h1>Rider per zona</h1><p>{{ $day['today'] ? 'Posizioni GPS e consegne in corso.' : 'Zone delle consegne effettuate nella giornata.' }}</p></div></header>
-    <x-ui.filters layout="date" :reset="route('rider-operations.index')" compact>
-        <x-ui.field name="date" label="Data" type="date" :value="$day['date']" :max="now('Europe/Rome')->toDateString()" required />
-        <nav class="period-options filter-view-options" aria-label="Raggruppamento attività"><button type="button" class="btn btn-outline-secondary btn-sm active" data-operations-view="rider" aria-pressed="true">Per Rider</button><button type="button" class="btn btn-outline-secondary btn-sm" data-operations-view="zone" aria-pressed="false">Per Zona</button></nav>
-    </x-ui.filters>
-    <section class="rider-operations" data-rider-operations data-feed="{{ route('rider-operations.feed', ['date'=>$day['date']]) }}" data-today="{{ $day['today'] ? 'true' : 'false' }}">
-        <dl class="operations-kpis" data-operations-kpis>@foreach(['total'=>'Consegne nella giornata','active'=>'In corso','delivered'=>'Completate','riders'=>'Rider operativi','zones'=>'Zone coperte'] as $key=>$label)<div><dt>{{ $label }}</dt><dd data-kpi="{{ $key }}">{{ $day['summary'][$key] }}</dd></div>@endforeach</dl>
-        <section class="surface section-panel rider-map-panel">
-            <header class="section-heading"><div><span class="eyebrow">{{ $day['today'] ? 'GPS LIVE' : 'STORICO' }}</span><h2 class="h5">{{ $day['today'] ? 'Posizione dei Rider' : 'Consegne del '.$day['date'] }}</h2></div><span class="small text-secondary" data-zone-updated></span></header>
-            @if($day['today'])
-                <div class="operational-map" data-operational-map aria-label="Mappa delle posizioni GPS aggiornate"></div>
-                <p class="small text-secondary" data-map-empty>Nessuna posizione GPS recente disponibile.</p>
-                <p class="small text-secondary">La mappa mostra soltanto GPS ricevuti negli ultimi 90 secondi. La zona indicata sotto è quella dell’ordine, non una localizzazione GPS.</p>
-            @else
-                <p class="small text-secondary">Lo storico usa le consegne e gli eventi registrati. Apri il dettaglio di un Rider per vedere i campioni GPS disponibili, conservati per 30 giorni.</p>
-            @endif
-            <p class="small text-danger" data-zone-error role="status" hidden></p>
+<x-app-layout title="Rider per Zona">
+    <header class="page-heading"><div><span class="eyebrow">CONTROLLO OPERATIVO</span><h1>Rider per Zona</h1><p>Programmazione, avanzamento e risultati della giornata.</p></div></header>
+    <x-ui.filters class="operations-day-filter" layout="date" :reset="route('rider-operations.index')" compact><x-ui.field name="date" label="Data" type="date" :value="$day['date']" required /></x-ui.filters>
+    <section class="rider-operations" data-rider-operations data-feed="{{ route('rider-operations.feed', ['date'=>$day['date']]) }}" data-detail-url="{{ route('rider-operations.detail', ['date'=>$day['date']]) }}">
+        <dl class="operations-kpis" aria-label="Riepilogo giornata">@foreach(['total'=>'Programmate','delivered'=>'Consegnate','undelivered'=>'Non consegnate','overdue'=>'In ritardo','riders'=>'Rider assegnati','zones'=>'Zone interessate'] as $key=>$label)<div><dt>{{ $label }}</dt><dd data-kpi="{{ $key }}">{{ $day['summary'][$key] }}</dd></div>@endforeach</dl>
+        <p class="data-caption">Le non consegnate includono gli ordini annullati o rifiutati; i ritardi riguardano solo ordini ancora aperti con una scadenza verificabile. Gli ordini rimangono nella data programmata anche quando vengono completati dopo.</p>
+        <section class="surface operations-explorer">
+            <header class="explorer-toolbar"><nav class="operations-perspectives" aria-label="Vista operativa"><button type="button" data-operations-view="zone" aria-pressed="true">Per Zona</button><button type="button" data-operations-view="rider" aria-pressed="false">Per Rider</button></nav><span class="small text-secondary" data-zone-updated></span></header>
+            <div class="explorer-layout">
+                <aside class="explorer-directory" aria-label="Elenco operativo">
+                    <label class="explorer-search"><x-ui.icon name="search" /><input type="search" data-operations-search placeholder="Cerca zona o Rider…" aria-label="Cerca zona o Rider"></label>
+                    <div class="explorer-refinements"><label>Mostra<select data-operations-filter><option value="all">Tutti</option><option value="open">Non consegnate</option><option value="late">In ritardo</option></select></label><label>Ordina<select data-operations-sort><option value="name">Nome</option><option value="late">Ritardi</option><option value="volume">Volume</option></select></label></div>
+                    <p class="explorer-result-count" data-operations-count></p>
+                    <div class="explorer-list" data-operations-list aria-label="Zone della giornata">@foreach($day['zones'] as $zone)<button type="button" class="explorer-item" data-operations-key="{{ $zone['key'] }}" aria-pressed="false"><strong>{{ $zone['name'] }}</strong><span>{{ $zone['total'] }} programmate · {{ $zone['delivered'] }} consegnate</span><small>{{ $zone['undelivered'] }} non consegnate · {{ $zone['overdue'] }} in ritardo</small></button>@endforeach</div>
+                </aside>
+                <section class="explorer-detail" data-operations-detail aria-label="Dettaglio selezione"><h2>Seleziona una zona</h2><p>Consulta assegnazioni e ordini della giornata.</p></section>
+            </div>
+            <p class="small text-danger explorer-feedback" data-zone-error role="status" hidden></p>
         </section>
-        <p class="data-caption">{{ $day['today'] ? 'Zone degli ordini assegnati · uno stesso Rider può avere ordini in più zone.' : 'Uno stesso Rider compare in ogni zona in cui ha effettuato consegne.' }}</p>
-        @if(!$day['today'] && $day['legacy_zones'])<p class="data-caption">{{ $day['legacy_zones'] }} consegne meno recenti usano la zona attualmente salvata nell’ordine, perché la zona originale non è disponibile.</p>@endif
-        <section class="unassigned-summary" data-unassigned-summary @if(!$day['summary']['unassigned']) hidden @endif><header><h2 class="h5">Da assegnare</h2><strong data-unassigned-count>{{ $day['summary']['unassigned'] }} ordini</strong></header><div class="rider-zone-chips" data-unassigned-zones>@foreach($day['unassigned'] as $zone)<a class="btn btn-outline-secondary btn-sm" href="{{ $zone['url'] }}">{{ $zone['name'] }} · {{ $zone['count'] }}</a>@endforeach</div></section>
-
-        <p class="small text-secondary">Incassato netto: pagamenti, rettifiche e storni degli ordini mostrati, registrati fino a oggi. Le tariffe previste sono distinte dagli incassi e dal valore del pacco.</p>
-        <div class="rider-card-grid" data-rider-grid>@forelse($day['riders'] as $rider)@include('rider-operations.card')@empty<p>Nessun Rider con attività registrata nella giornata.</p>@endforelse</div>
-        <div class="rider-zone-grid" data-zone-grid hidden>
-            @forelse($day['zones'] as $zone)
-                <section class="surface rider-zone"><header><h2>{{ $zone['name'] }}</h2><span class="count-badge">{{ count($zone['riders']) }} Rider</span></header>
-                    @foreach($zone['riders'] as $rider)
-                        <article class="rider-zone-person" data-rider-state="{{ $rider['state'] }}"><div><strong>{{ $rider['name'] }}</strong><span class="rider-state">{{ $rider['label'] }}</span><small>{{ $rider['active_count'] }} in corso · {{ $rider['delivered_count'] }} consegnate</small><small>{{ $rider['last_gps'] ? 'Ultimo GPS: '.\Illuminate\Support\Carbon::parse($rider['last_gps'])->timezone('Europe/Rome')->format('H:i:s') : 'GPS non disponibile' }}</small></div>@if($rider['url'])<x-ui.icon-button icon="person" action="open" :label="'Attività di '.$rider['name']" :href="$rider['url']"/>@endif</article>
-                    @endforeach
-                </section>
-            @empty<div class="surface empty-state"><h2>Nessuna consegna nella giornata</h2><p>Scegli un’altra data per consultare lo storico.</p></div>@endforelse
-        </div>
-        @php($initial = \Illuminate\Support\Arr::except($day, ['activity','deliveries','orders']))
+        <section class="surface section-panel mt-4" data-operations-history @if(!count($day['schedule_history'])) hidden @endif><h2 class="h5">Programmazioni variate</h2><p class="small text-secondary">Ultime 20 variazioni che hanno interessato questa data. Lo storico completo rimane nel relativo ordine.</p><div data-operations-history-items>@foreach($day['schedule_history'] as $change)<p class="small"><a href="{{ $change['url'] }}">{{ $change['reference'] }}</a> · {{ $change['before']['pickup_date'] }} → {{ $change['after']['pickup_date'] }} · {{ $change['operator'] }} · {{ $change['reason'] }}</p>@endforeach</div></section>
+        @php($initial = \Illuminate\Support\Arr::except($day, ['orders']))
         <script type="application/json" data-zone-initial>@json($initial)</script>
     </section>
 </x-app-layout>

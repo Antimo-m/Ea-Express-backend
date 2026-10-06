@@ -92,6 +92,7 @@ class TransitionOrder
             if ($next === OrderStatus::Delivered) {
                 $locked->delivered_at = now();
             }
+            $previousEstimate = $locked->estimated_at?->toIso8601String();
             $locked->estimated_at = $next === OrderStatus::Rescheduled
                 ? Carbon::parse($data['estimated_at'], 'Europe/Rome')->utc() : null;
             if ($next === OrderStatus::Cancelled && ($data['cancellation_reason'] ?? 'other') === 'recipient_absent') {
@@ -106,7 +107,7 @@ class TransitionOrder
             }
             $locked->version++;
             $locked->save();
-            $locked->events()->create(['rider_id' => $locked->rider_id, 'operational_zone' => app(RiderOperations::class)->zone($locked), 'user_id' => $user->id, 'status' => $next, 'note' => $data['note'] ?? null, 'public_note' => $data['public_note'] ?? null]);
+            $locked->events()->create(['rider_id' => $locked->rider_id, 'operational_zone' => app(RiderOperations::class)->zone($locked), 'user_id' => $user->id, 'status' => $next, 'note' => $data['note'] ?? null, 'public_note' => $data['public_note'] ?? null, 'schedule_change' => $next === OrderStatus::Rescheduled ? ['before' => ['estimated_at' => $previousEstimate], 'after' => ['estimated_at' => $locked->estimated_at->toIso8601String()]] : null]);
             if ($next === OrderStatus::Delivered) {
                 $this->mail->handle($locked, 'delivered');
             }

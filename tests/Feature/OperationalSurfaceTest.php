@@ -23,7 +23,7 @@ class OperationalSurfaceTest extends TestCase
         $this->actingAs($admin)->get('/tracking')->assertNotFound();
         $this->get('/stores')->assertNotFound();
         $this->get('/dashboard')->assertOk()->assertSee('data-tracking-panel', false)->assertDontSee('Mappa live')->assertDontSee('Statistiche clienti');
-        $this->get('/rider-operations')->assertOk()->assertSee('data-operational-map', false);
+        $this->get('/rider-operations')->assertOk()->assertDontSee('data-operational-map', false);
         $this->getJson('/tracking/positions')->assertOk()->assertJsonStructure(['data']);
         $this->getJson('/orders/'.$order->slug.'/location')->assertOk()->assertJsonPath('order_slug', $order->slug);
     }

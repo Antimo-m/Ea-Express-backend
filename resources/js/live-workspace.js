@@ -88,19 +88,24 @@ if (chat) {
   });
   refresh();
 }
-let updating = false;
-window.addEventListener('ea:workspace-updated', async event => {
+const orderRefresh = createRefreshQueue(async () => {
   const section = document.querySelector('[data-live-order]');
-  if (!section || section.querySelector('dialog[open], form[aria-busy="true"], .ea-picker-trigger[aria-expanded="true"]') || updating || event.detail.kind === 'order-action' || event.detail.kind === 'receipts' || event.detail.kind === 'messages' || (event.detail.order_slug && section.dataset.liveOrder !== event.detail.order_slug)) return;
-  updating = true;
-  try {
-    const response = await fetch(location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' } });
-    if (!response.ok || response.redirected) return;
-    const fresh = new DOMParser().parseFromString(await response.text(), 'text/html');
-    if (section.querySelector('dialog[open], form[aria-busy="true"], .ea-picker-trigger[aria-expanded="true"]')) return;
-    applyOrderSnapshot(fresh.documentElement.outerHTML);
-  } finally { updating = false; }
+  if (!section || section.querySelector('dialog[open], form[aria-busy="true"], .ea-picker-trigger[aria-expanded="true"]')) return;
+  const response = await fetch(location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' } });
+  if (!response.ok || response.redirected) return;
+  const fresh = new DOMParser().parseFromString(await response.text(), 'text/html');
+  if (section.querySelector('dialog[open], form[aria-busy="true"], .ea-picker-trigger[aria-expanded="true"]')) return;
+  applyOrderSnapshot(fresh.documentElement.outerHTML);
 });
+const refreshOrder = ({ detail = {} } = {}) => {
+  const section = document.querySelector('[data-live-order]');
+  if (!section || ['order-action', 'receipts', 'messages'].includes(detail.kind) || (detail.order_slug && section.dataset.liveOrder !== detail.order_slug)) return;
+  return orderRefresh.refresh();
+};
+window.addEventListener('ea:workspace-updated', refreshOrder);
+window.addEventListener('ea:workspace-polled', () => { if (!realtimeConnected) refreshOrder(); });
+window.addEventListener('pageshow', event => { if (event.persisted) refreshOrder(); });
+document.addEventListener('close', event => { if (event.target.closest('[data-live-order]')) refreshOrder(); }, true);
 
 const tracking = document.querySelector('[data-public-tracking]');
 if (tracking) {

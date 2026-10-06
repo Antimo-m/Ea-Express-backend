@@ -49,17 +49,17 @@ class WorkspacePresentationTest extends TestCase
         $operationalRider = User::factory()->create(['name' => 'Pierluigi Francesco Di Stefano Responsabile distribuzione della zona metropolitana']);
         $operationalOrder = null;
         for ($index = 0; $index < 9; $index++) {
-            $operationalOrder = Order::factory()->create(['rider_id' => $operationalRider->id, 'status' => OrderStatus::OutForDelivery, 'delivery_zone' => 'Zona operativa '.($index + 1).' - Area metropolitana e comuni limitrofi', 'price_cents' => 600]);
+            $operationalOrder = Order::factory()->create(['rider_id' => $operationalRider->id, 'pickup_date' => now('Europe/Rome')->toDateString(), 'status' => OrderStatus::OutForDelivery, 'delivery_zone' => 'Zona operativa '.($index + 1).' - Area metropolitana e comuni limitrofi', 'price_cents' => 600]);
         }
         $scaleRiders = User::factory()->count(20)->create();
         for ($index = 0; $index < 100; $index++) {
-            Order::factory()->create(['created_by' => $admin->id, 'rider_id' => $scaleRiders[$index % 20]->id, 'status' => OrderStatus::OutForDelivery, 'delivery_zone' => 'Area di prova '.($index % 15), 'price_cents' => 500]);
+            Order::factory()->create(['created_by' => $admin->id, 'rider_id' => $scaleRiders[$index % 20]->id, 'pickup_date' => now('Europe/Rome')->toDateString(), 'status' => OrderStatus::OutForDelivery, 'delivery_zone' => 'Area di prova '.($index % 15), 'price_cents' => 500]);
         }
         $tracking = app(RiderTracking::class);
         $session = $tracking->start($operationalOrder, $operationalRider);
         $tracking->update($operationalOrder, $operationalRider, ['session' => $session, 'latitude' => 40.8518, 'longitude' => 14.2681, 'accuracy' => 12, 'recorded_at' => now()->toIso8601String()]);
         $yesterday = now('Europe/Rome')->subDay()->setTime(10, 30)->utc();
-        $historicalOrder = Order::factory()->create(['rider_id' => $operationalRider->id, 'status' => OrderStatus::Delivered, 'delivered_at' => $yesterday, 'delivery_zone' => 'Aversa', 'price_cents' => 500]);
+        $historicalOrder = Order::factory()->create(['rider_id' => $operationalRider->id, 'pickup_date' => now('Europe/Rome')->subDay()->toDateString(), 'status' => OrderStatus::Delivered, 'delivered_at' => $yesterday, 'delivery_zone' => 'Aversa', 'price_cents' => 500]);
         $event = $historicalOrder->events()->create(['rider_id' => $operationalRider->id, 'operational_zone' => 'Aversa', 'user_id' => $admin->id, 'status' => OrderStatus::Delivered]);
         $event->forceFill(['created_at' => $yesterday])->save();
         $paths[] = '/rider-operations';
@@ -89,6 +89,7 @@ class WorkspacePresentationTest extends TestCase
             file_put_contents($directory.'/filters-active.html', $this->followingRedirects()->get('/orders/in-progress?status=out_for_delivery&zone=Zona&shipping_type=regional&urgency=urgent&page=2')->assertOk()->getContent());
             file_put_contents($directory.'/customer-custom.html', $this->get('/customers/'.$customer->slug.'?period=custom&from=2026-01-01&to=2026-01-31&status=delivered')->assertOk()->getContent());
             file_put_contents($directory.'/customer-year.html', $this->get('/customers/'.$customer->slug.'?period=year&year=2025&status=delivered')->assertOk()->getContent());
+            file_put_contents($directory.'/rider-orders.html', $this->get('/rider-operations/detail?date='.now('Europe/Rome')->toDateString())->assertOk()->getContent());
             file_put_contents($directory.'/rider-feed.json', $this->getJson('/rider-operations/feed')->assertOk()->getContent());
         }
         $this->app['auth']->forgetGuards();

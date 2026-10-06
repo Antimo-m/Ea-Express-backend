@@ -1,84 +1,104 @@
 import { staffRequest } from './live-workspace';
-import { observeTracking } from './tracking-state';
-import { createOperationalMap } from './operational-map';
+import { createRefreshQueue } from './refresh-queue';
 
 for (const panel of document.querySelectorAll('[data-rider-operations]')) {
-  const map = createOperationalMap(panel.querySelector('[data-operational-map]'));
-  let latest = JSON.parse(panel.querySelector('[data-zone-initial]').textContent);
-  function text(tag, value, className) {
-    const node = document.createElement(tag); node.textContent = value; if (className) node.className = className; return node;
-  }
-  function render(day) {
-    if (!day) { map.update([], latest?.map || {tiles:'',attribution:''}); latest = null; panel.querySelector('[data-zone-grid]').replaceChildren(text('p', 'Sessione scaduta. Ricarica la pagina.')); return; }
-    latest = day;
-    for (const [key,value] of Object.entries(day.summary)) { const node = panel.querySelector(`[data-kpi="${key}"]`); if (node) node.textContent = value; }
-    const unassigned = panel.querySelector('[data-unassigned-summary]'); unassigned.hidden = !day.summary.unassigned;
-    panel.querySelector('[data-unassigned-count]').textContent = `${day.summary.unassigned} ordini`;
-    const unassignedZones = panel.querySelector('[data-unassigned-zones]'); unassignedZones.replaceChildren();
-    for (const zone of day.unassigned) { const link = text('a', `${zone.name} · ${zone.count}`, 'btn btn-outline-secondary btn-sm'); link.href = zone.url; unassignedZones.append(link); }
-    const riders = panel.querySelector('[data-rider-grid]'); riders.replaceChildren();
-    const money = cents => new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(cents / 100);
-    for (const rider of day.riders) {
-      const card = text('article', '', 'surface rider-operational-card');
-      const stale = rider.last_gps && (Date.now() - Date.parse(rider.last_gps) >= 90000 || Date.now() - Date.parse(rider.last_recorded_gps) >= 90000);
-      card.dataset.riderState = stale && rider.state === 'live' ? 'stale' : rider.state;
-      const header = document.createElement('header'); header.append(text('h2',rider.name,'h5'),text('span',stale && rider.state === 'live' ? 'Tracking perso' : rider.label,'rider-state')); card.append(header);
-      const zones = text('div','','rider-zone-chips');
-      for (const zone of rider.zones) zones.append(text('span',`${zone.name} · ${zone.count}`,'status-badge'));
-      card.append(zones,text('p',`${rider.delivered_count} / ${rider.total_count} consegnate · ${rider.active_count} in corso`));
-      const progress = document.createElement('progress'); progress.max = Math.max(1,rider.total_count); progress.value = rider.delivered_count; progress.setAttribute('aria-label','Consegne completate'); card.append(progress);
-      const metrics = document.createElement('dl');
-      for (const [label,value] of [['Incassato netto',rider.cash_cents],['Tariffe previste',rider.expected_cents]]) { const group = document.createElement('div'); group.append(text('dt',label),text('dd',money(value))); metrics.append(group); }
-      card.append(metrics); if (rider.missing_prices) card.append(text('small',`${rider.missing_prices} tariffe ancora da definire.`));
-      const footer = document.createElement('footer');
-      const minutes = rider.last_gps ? Math.max(0,Math.floor((Date.now()-Date.parse(rider.last_gps))/60000)) : null;
-      footer.append(text('small',minutes === null ? 'GPS non disponibile' : `Ultimo GPS: ${minutes < 1 ? 'ora' : `${minutes} min fa`}`));
-      const actions = text('div','','row-actions');
-      const detail = text('a','','icon-button action-open'); detail.href = rider.url; detail.title = `Attività di ${rider.name}`; detail.setAttribute('aria-label',detail.title); detail.append(text('i','','bi bi-person'));
-      const locate = text('button','','icon-button action-open'); locate.type = 'button'; locate.dataset.mapRider = rider.slug; locate.title = `Posizione di ${rider.name}`; locate.setAttribute('aria-label',locate.title); locate.disabled = rider.state !== 'live' || stale; locate.append(text('i','','bi bi-geo-alt'));
-      actions.append(detail,locate); footer.append(actions); card.append(footer); riders.append(card);
+    let openLate = [], ordersScroll = 0, detailSignature;
+    let latest = JSON.parse(panel.querySelector('[data-zone-initial]').textContent), view = 'zone', selected, page = 1, generation = 0, controller;
+    const list = panel.querySelector('[data-operations-list]'), detail = panel.querySelector('[data-operations-detail]');
+    const search = panel.querySelector('[data-operations-search]'), filter = panel.querySelector('[data-operations-filter]'), sort = panel.querySelector('[data-operations-sort]');
+    const money = cents => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(cents / 100);
+    const node = (tag, value = '', className = '') => { const element = document.createElement(tag); element.textContent = value; element.className = className; return element; };
+    const groups = () => (view === 'zone' ? latest.zones : latest.riders).filter(group => group.name.toLocaleLowerCase('it').includes(search.value.toLocaleLowerCase('it')) && (filter.value === 'all' || (filter.value === 'late' ? group.overdue > 0 : group.undelivered > 0))).sort((a, b) => sort.value === 'volume' ? b.total - a.total || a.name.localeCompare(b.name, 'it') : sort.value === 'late' ? b.overdue - a.overdue || a.name.localeCompare(b.name, 'it') : a.name.localeCompare(b.name, 'it'));
+    function feedback(message = '') { const box = panel.querySelector('[data-zone-error]'); box.hidden = !message; box.textContent = message; }
+    async function loadOrders(url) {
+        controller?.abort(); controller = new AbortController(); const ticket = ++generation;
+        const body = detail.querySelector('[data-explorer-orders]'); if (!body) return;
+        body.setAttribute('aria-busy', 'true');
+        try {
+            const response = await fetch(url, { credentials: 'same-origin', signal: controller.signal, headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' } });
+            if (!response.ok || response.redirected) throw new Error('Ordini non disponibili. Riprova.');
+            const html = await response.text(); if (ticket !== generation) return;
+            body.replaceChildren(...new DOMParser().parseFromString(html, 'text/html').body.childNodes);
+            for (const row of body.querySelectorAll('[data-operation-order]')) if (openLate.includes(row.dataset.operationOrder)) row.querySelector('details')?.setAttribute('open', '');
+            body.scrollTop = ordersScroll; feedback();
+        } catch (error) { if (error.name !== 'AbortError') feedback(error.message); }
+        finally { if (ticket === generation) body.removeAttribute('aria-busy'); }
     }
-    if (!day.riders.length) riders.append(text('p','Nessun Rider con attività registrata nella giornata.'));
-    const grid = panel.querySelector('[data-zone-grid]'); grid.replaceChildren();
-    for (const zone of day.zones) {
-      const section = text('section', '', 'surface rider-zone');
-      const header = document.createElement('header'); header.append(text('h2', zone.name), text('span', `${zone.riders.length} Rider`, 'count-badge')); section.append(header);
-      for (const rider of zone.riders) {
-        const stale = rider.last_gps && (Date.now() - Date.parse(rider.last_gps) >= 90000 || (rider.last_recorded_gps && Date.now() - Date.parse(rider.last_recorded_gps) >= 90000));
-        const row = text('article', '', 'rider-zone-person'); row.dataset.riderState = stale && rider.state === 'live' ? 'stale' : rider.state;
-        const info = document.createElement('div');
-        info.append(text('strong', rider.name), text('span', stale && rider.state === 'live' ? 'Offline · GPS non aggiornato' : rider.label, 'rider-state'), text('small', `${rider.active_count} in corso · ${rider.delivered_count} consegnate`), text('small', rider.last_gps ? `Ultimo GPS: ${new Date(rider.last_gps).toLocaleTimeString('it-IT')}` : 'GPS non disponibile'));
-        row.append(info);
-        if (rider.url) {
-          const button = document.createElement('a'); button.href = rider.url; button.className = 'icon-button action-open'; button.setAttribute('aria-label', `Attività di ${rider.name}`); button.title = `Attività di ${rider.name}`;
-          const icon = text('i', '', 'bi bi-person'); icon.setAttribute('aria-hidden', 'true'); button.append(icon); row.append(button);
+    function detailUrl(group) {
+        const url = new URL(panel.dataset.detailUrl, location.origin);
+        if (view === 'zone') url.searchParams.set('zone', group.key);
+        else if (group.slug) url.searchParams.set('rider', group.slug);
+        else url.searchParams.set('unassigned', '1');
+        url.searchParams.set('page', page); return url;
+    }
+    function renderDetail(group) {
+        const focused = document.activeElement;
+        const focusHref = detail.contains(focused) ? focused.href : null;
+        openLate = [...detail.querySelectorAll('[data-operation-order]:has(details[open])')].map(row => row.dataset.operationOrder);
+        ordersScroll = detail.querySelector('[data-explorer-orders]')?.scrollTop || 0;
+        detail.replaceChildren();
+        if (!group) { detail.append(node('h2', 'Nessun risultato'), node('p', 'Modifica la ricerca o seleziona un’altra giornata.')); return; }
+        const heading = node('header', '', 'explorer-detail-heading');
+        const title = node('div'); title.append(node('span', view === 'zone' ? 'ZONA SELEZIONATA' : 'RIDER SELEZIONATO', 'eyebrow'), node('h2', group.name)); heading.append(title);
+        if (group.url) { const link = node('a', 'Dettaglio giornata', 'btn btn-outline-secondary btn-sm'); link.href = group.url; heading.append(link); }
+        detail.append(heading);
+        const metrics = node('dl', '', 'explorer-detail-metrics');
+        for (const [key, label] of [['total', 'Programmate'], ['delivered', 'Consegnate'], ['undelivered', 'Non consegnate'], ['overdue', 'In ritardo']]) { const item = node('div'); item.append(node('dt', label), node('dd', group[key])); metrics.append(item); }
+        detail.append(metrics);
+        const progress = node('progress'); progress.max = Math.max(1, group.total); progress.value = group.delivered; progress.setAttribute('aria-label', 'Spedizioni consegnate'); detail.append(progress);
+        const assignments = node('div', '', 'explorer-assignments');
+        assignments.append(node('span', view === 'zone' ? 'Rider assegnati' : 'Zone della giornata', 'data-label'));
+        for (const item of view === 'zone' ? group.riders : group.zones) assignments.append(node('span', view === 'zone' ? item.name : `${item.name} · ${item.count}`, 'assignment-name'));
+        if (view === 'zone' && !group.riders.length) assignments.append(node('span', 'Da assegnare'));
+        detail.append(assignments, node('p', `Tariffe ${money(group.expected_cents)} · Incassato netto ${money(group.cash_cents)} · Quota EA ${money(group.retained_cents)}`, 'explorer-economics'), node('p', 'Incassi, rettifiche e storni degli ordini programmati: movimenti registrati fino a oggi. Il valore merce è escluso.', 'data-caption'));
+        const body = node('div'); body.dataset.explorerOrders = ''; detail.append(body); loadOrders(detailUrl(group));
+        if (focusHref) [...detail.querySelectorAll('a')].find(link => link.href === focusHref)?.focus({ preventScroll: true });
+    }
+    function render({ refreshDetail = false } = {}) {
+        const visible = groups(), oldScroll = list.scrollTop, focusKey = list.contains(document.activeElement) ? document.activeElement.dataset.operationsKey : null;
+        if (!visible.some(group => group.key === selected)) { selected = visible[0]?.key; page = 1; }
+        list.replaceChildren(); list.setAttribute('aria-label', view === 'zone' ? 'Zone della giornata' : 'Rider della giornata');
+        for (const group of visible) {
+            const button = node('button', '', 'explorer-item'); button.type = 'button'; button.dataset.operationsKey = group.key; button.setAttribute('aria-pressed', String(group.key === selected));
+            const heading = node('span', '', 'explorer-item-heading'); heading.append(node('strong', group.name), node('span', group.total, 'explorer-volume')); button.append(heading);
+            const status = node('span', '', 'explorer-item-status'); status.append(node('span', `${group.delivered} consegnate`, 'operations-completed'), node('span', `${group.undelivered} non consegnate`)); if (group.overdue) status.append(node('span', `${group.overdue} in ritardo`, 'operations-overdue')); button.append(status); list.append(button);
         }
-        section.append(row);
-      }
-      grid.append(section);
+        list.scrollTop = oldScroll;
+        if (focusKey) [...list.querySelectorAll('button')].find(button => button.dataset.operationsKey === focusKey)?.focus({ preventScroll: true });
+        panel.querySelector('[data-operations-count]').textContent = `${visible.length} ${view === 'zone' ? 'zone' : 'Rider'} · ${latest.date}`;
+        for (const [key, value] of Object.entries(latest.summary)) { const item = panel.querySelector(`[data-kpi="${key}"]`); if (item) item.textContent = value; }
+        const history = panel.querySelector('[data-operations-history]');
+        history.hidden = !latest.schedule_history.length;
+        const historyItems = history.querySelector('[data-operations-history-items]'); historyItems.replaceChildren();
+        for (const change of latest.schedule_history) {
+            const item = node('p', '', 'small'), link = node('a', change.reference || 'Ordine');
+            if (change.url) link.href = change.url;
+            item.append(link, document.createTextNode(` · ${change.before.pickup_date} → ${change.after.pickup_date} · ${change.operator || 'Operatore'} · ${change.reason || ''} · ${new Date(change.at).toLocaleString('it-IT', { timeZone: 'Europe/Rome' })}`)); historyItems.append(item);
+        }
+        panel.querySelector('[data-zone-updated]').textContent = `Aggiornato ${new Date(latest.generated_at).toLocaleTimeString('it-IT')}`;
+        const signature = `${view}:${selected}:${page}`;
+        if (refreshDetail || signature !== detailSignature) { detailSignature = signature; renderDetail(visible.find(group => group.key === selected)); }
     }
-    if (!day.zones.length) grid.append(text('div', 'Nessuna consegna nella giornata selezionata.', 'surface empty-state'));
-    const fresh = day.locations.filter(item => Date.now() - Date.parse(item.location.received_at) < 90000 && Date.now() - Date.parse(item.location.recorded_at) < 90000);
-    map.update(fresh, day.map);
-    const empty = panel.querySelector('[data-map-empty]'); if (empty) empty.hidden = fresh.length > 0;
-    panel.querySelector('[data-zone-updated]').textContent = `Dati ricevuti: ${new Date(day.generated_at).toLocaleTimeString('it-IT')}`;
-  }
-  document.addEventListener('click', event => {
-    const toggle = event.target.closest('[data-operations-view]');
-    if (toggle) { const byRider = toggle.dataset.operationsView === 'rider'; panel.querySelector('[data-rider-grid]').hidden = !byRider; panel.querySelector('[data-zone-grid]').hidden = byRider; for (const button of document.querySelectorAll('[data-operations-view]')) { const selected = button === toggle; button.setAttribute('aria-pressed',String(selected)); button.classList.toggle('active',selected); } }
-    const locate = event.target.closest('[data-map-rider]'); if (locate && !locate.disabled) map.focusRider(locate.dataset.mapRider);
-  });
-  render(latest);
-  let cleanup = () => {}, clock;
-  if (panel.dataset.today === 'true') {
-    cleanup = observeTracking({ request: staffRequest, path: panel.dataset.feed, minIntervalMs: 2000, onData: render, onError(error) { const box = panel.querySelector('[data-zone-error]'); box.hidden = !error; box.textContent = error ? 'Aggiornamento non disponibile. I dati mostrati risalgono all’ultima risposta ricevuta.' : ''; } });
-    clock = setInterval(() => { if (!document.hidden && latest) render(latest); }, 15000);
-  }
-  window.addEventListener('pagehide', () => { cleanup(); clearInterval(clock); map.dispose(); }, { once: true });
-}
-
-for (const container of document.querySelectorAll('[data-rider-history-map]')) {
-  const data = JSON.parse(container.parentElement.querySelector('[data-rider-history-points]').textContent);
-  const map = createOperationalMap(container); map.update(data.points,data.map);
-  window.addEventListener('pagehide', () => map.dispose(), {once:true});
+    panel.addEventListener('click', event => {
+        const perspective = event.target.closest('[data-operations-view]');
+        if (perspective) { view = perspective.dataset.operationsView; selected = undefined; page = 1; for (const button of panel.querySelectorAll('[data-operations-view]')) button.setAttribute('aria-pressed', String(button === perspective)); render(); }
+        const choice = event.target.closest('[data-operations-key]');
+        if (choice) { selected = choice.dataset.operationsKey; page = 1; render(); }
+        const pagination = event.target.closest('[data-explorer-orders] .workspace-pagination a');
+        if (pagination) { event.preventDefault(); page = Number(new URL(pagination.href).searchParams.get('page') || 1); loadOrders(pagination.href); }
+    });
+    list.addEventListener('keydown', event => {
+        if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+        const buttons = [...list.querySelectorAll('button')], index = buttons.indexOf(document.activeElement);
+        if (index < 0) return;
+        event.preventDefault(); const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : Math.max(0, Math.min(buttons.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1))); buttons[next]?.focus();
+    });
+    search.addEventListener('input', render); filter.addEventListener('change', render); sort.addEventListener('change', render);
+    const queue = createRefreshQueue(async () => { try { const result = await staffRequest(panel.dataset.feed); if (result.date !== latest.date) return; latest = result; render({ refreshDetail: true }); feedback(); } catch { feedback('Aggiornamento non disponibile. Sono mostrati gli ultimi dati ricevuti.'); } });
+    const refresh = () => { if (!document.hidden) queue.refresh(); };
+    window.addEventListener('ea:workspace-updated', refresh); window.addEventListener('ea:workspace-polled', refresh); window.addEventListener('pageshow', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    const timer = setInterval(refresh, 30000);
+    window.addEventListener('pagehide', () => { clearInterval(timer); queue.dispose(); controller?.abort(); }, { once: true });
+    render();
 }

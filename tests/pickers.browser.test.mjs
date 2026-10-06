@@ -11,10 +11,10 @@ const chrome = process.env.EA_BROWSER_PATH || '/Applications/Google Chrome.app/C
 test('EA pickers and operational pages: keyboard, validation, long content, contrast and responsive', { skip: !existsSync(chrome), timeout: 180000 }, async t => {
     const temporary = mkdtempSync(join(tmpdir(), 'ea-ui-'));
     let browser, server, socket, phpServer;
-    let zoneFeedRequests = 0;
-    let actionRequests = 0, failNextAction = false;
+    let zoneFeedRequests = 0, operationFeedFixture = 'rider-feed.json', operationDetailFixture;
+    let actionRequests = 0, failNextAction = false, delayOrderRefresh = false;
     try {
-        execFileSync('php', ['artisan', 'test', '--compact', 'tests/Feature/WorkspacePresentationTest.php', 'tests/Feature/OperationalFlowTest.php', 'tests/Feature/OperationalSurfaceTest.php'], { env: { ...process.env, EA_UI_FIXTURE_DIR: temporary }, stdio: 'pipe' });
+        execFileSync('php', ['artisan', 'test', '--compact', 'tests/Feature/WorkspacePresentationTest.php', 'tests/Feature/OperationalFlowTest.php', 'tests/Feature/OperationalSurfaceTest.php', 'tests/Feature/OperationalDayTest.php'], { env: { ...process.env, EA_UI_FIXTURE_DIR: temporary }, stdio: 'pipe' });
         const manifest = JSON.parse(readFileSync('public/build/manifest.json'));
         const styles = ['resources/css/app.css', 'resources/css/experience.css'].map(key => `<link rel="stylesheet" href="/build/${manifest[key].file}">`).join('');
         const fixture = `<!doctype html><html lang="it"><head><meta name="viewport" content="width=device-width,initial-scale=1">${styles}</head><body><main style="padding:20px;max-width:800px;margin:auto">
@@ -47,14 +47,16 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             if (url.pathname === '/api/v1/customer/auth/me') { response.setHeader('Content-Type', 'application/json'); response.end(JSON.stringify({user:{id:1,name:'Centro Distribuzione Elettrodomestici Napoli Nord',email:'test@example.test',role:'customer',sender_type:'business'}})); return; }
             if (url.pathname === '/api/v1/customer/pending') { response.setHeader('Content-Type', 'application/json'); response.end(JSON.stringify({data:[],totals:{incoming:12550,outgoing:0},meta:{current_page:1,last_page:1,total:0}})); return; }
             if (/^\/orders\/[0-9a-f-]+\/location$/.test(url.pathname)) { response.setHeader('Content-Type', 'application/json'); response.end(JSON.stringify({order_slug:url.pathname.split('/')[2],state:'ready',eligible:false,status_label:'In consegna',rider:{name:'Amministratore operativo EA Express'},location:null,pickup:{point:null},delivery:{point:null}})); return; }
-            if (url.pathname === '/rider-operations/feed') { zoneFeedRequests++; response.setHeader('Content-Type','application/json'); response.end(readFileSync(join(temporary,'rider-feed.json'))); return; }
+            if (url.pathname === '/rider-operations/detail') { response.setHeader('Content-Type','text/html'); response.end(readFileSync(join(temporary, operationDetailFixture || (url.searchParams.get('page')==='2' ? 'zone-detail-page-2.html' : url.searchParams.get('date')==='2026-10-07' ? 'zone-detail-50.html' : 'rider-orders.html')))); return; }
+            if (url.pathname === '/rider-operations/feed') { zoneFeedRequests++; response.setHeader('Content-Type','application/json'); response.end(readFileSync(join(temporary,operationFeedFixture))); return; }
             if (url.pathname === '/fixture') { response.setHeader('Content-Type', 'text/html'); response.end(fixture); return; }
             const file = url.pathname.startsWith('/assets/') ? resolve(portal, 'dist', `.${url.pathname}`) : url.pathname.startsWith('/build/') ? resolve('public', `.${url.pathname}`) : ['/brand.svg', '/favicon.svg'].includes(url.pathname) ? resolve('public', `.${url.pathname}`) : url.pathname.startsWith('/resources/js/') ? resolve(`.${url.pathname}`) : join(temporary, url.pathname.slice(1));
             if (existsSync(file) && extname(file)) {
                 let data = readFileSync(file);
                 response.setHeader('Content-Type', ({ '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.woff': 'font/woff', '.svg': 'image/svg+xml' })[extname(file)] || 'application/octet-stream');
                 if (extname(file) === '.html') data = data.toString().replace(/https?:\/\/localhost(?::\d+)?/g, '').replace(/https?:\/\/[^/"\s]+\/build\//g, '/build/');
-                response.end(data); return;
+                if (delayOrderRefresh && url.pathname === '/ajax-order.html') setTimeout(() => response.end(data), 100);
+                else response.end(data); return;
             }
             response.setHeader('Content-Type', 'application/json');
             response.end(JSON.stringify(url.pathname.includes('configuration') ? { enabled: false } : { data: [], groups: [], unread: 0, available: false, now: '2026-10-02T09:00:00+02:00' }));
@@ -226,7 +228,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             assert.equal(await evaluate(`document.querySelector('[data-auth-form]').getAttribute('aria-busy')`), 'true');
             assert.equal(await evaluate(`document.querySelector('[data-auth-form] button[type="submit"]').disabled`), true);
         });
-        await t.test('login is centered and rider zones, map and dates work on desktop tablet and mobile', async () => {
+        await t.test('login is centered and operational zones and dates work on desktop tablet and mobile', async () => {
             for (const width of [375,768,1024,1280,1440]) {
                 await send('Emulation.setDeviceMetricsOverride', {width,height:1000,deviceScaleFactor:1,mobile:width<600});
                 await navigate('login.html');
@@ -234,34 +236,25 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 await navigate('orders_in-progress.html');
                 assert.ok(await evaluate(`Array.from(document.querySelectorAll('.filter-field-small input')).every(input=>input.getBoundingClientRect().height<=36)`));
                 await navigate('rider-operations.html');
-                assert.ok(await evaluate(`document.querySelectorAll('.rider-zone').length>=9`));
+                assert.ok(await evaluate(`document.querySelectorAll('.explorer-item').length>=9`));
                 assert.equal(await evaluate(`document.querySelector('[name="date"]').nextElementSibling.tagName`), 'BUTTON');
-                assert.ok(await evaluate(`document.querySelector('.map-rider-pin')?.href.includes('/orders/')`));
-                assert.equal(await evaluate(`document.querySelectorAll('.rider-operational-card[data-rider-state="live"]').length`), 1);
-                assert.ok(await evaluate(`document.querySelector('.map-zone').textContent.includes('Zona operativa')`));
-                assert.equal(await evaluate(`document.querySelector('[data-rider-grid]').hidden`),false);
+                assert.equal(await evaluate(`document.querySelector('[data-operational-map]')`), null);
+                await evaluate(`document.querySelector('[data-operations-view="rider"]').click()`);
+                assert.equal(await evaluate(`document.querySelector('[data-operations-view="rider"]').getAttribute('aria-pressed')`),'true');
                 await evaluate(`document.querySelector('[data-operations-view="zone"]').click()`);
-                assert.equal(await evaluate(`document.querySelector('[data-zone-grid]').hidden`),false);
-                if(width===375) assert.equal(await evaluate(`getComputedStyle(document.querySelector('.rider-zone-grid')).gridTemplateColumns.split(' ').length`),1);
                 if(width===1440) {
                     const originalFeed=readFileSync(join(temporary,'rider-feed.json'));
                     const changed=JSON.parse(originalFeed); changed.zones[0].name='Zona aggiornata realtime';
                     writeFileSync(join(temporary,'rider-feed.json'),JSON.stringify(changed));
                     const requestsBefore=zoneFeedRequests;
-                    await evaluate(`for(let i=0;i<8;i++)window.dispatchEvent(new CustomEvent('ea:rider-location',{detail:{order_slug:i+1}}))`);
-                    await new Promise(resolve=>setTimeout(resolve,2200));
-                    assert.equal(zoneFeedRequests-requestsBefore,1,'GPS burst is combined into one feed request');
-                    assert.equal(await evaluate(`document.querySelector('.rider-zone h2').textContent`),'Zona aggiornata realtime');
+                    await evaluate(`window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
+                    for(let i=0;i<100;i++){if(await evaluate(`document.querySelector('[data-operations-list]').textContent.includes('Zona aggiornata realtime')`))break;await new Promise(resolve=>setTimeout(resolve,20));}
+                    assert.ok(zoneFeedRequests>requestsBefore);
+                    assert.ok(await evaluate(`document.querySelector('[data-operations-list]').textContent.includes('Zona aggiornata realtime')`));
                     writeFileSync(join(temporary,'rider-feed.json'),originalFeed);
                 }
                 await navigate('rider-history.html');
-                const historicalRequests=zoneFeedRequests;
-                await evaluate(`window.dispatchEvent(new CustomEvent('ea:rider-location',{detail:{order_slug:1}}))`);
-                await new Promise(resolve=>setTimeout(resolve,100));
-                assert.equal(zoneFeedRequests,historicalRequests);
-
                 assert.equal(await evaluate(`document.querySelector('[data-operational-map]')`),null);
-                assert.ok(await evaluate(`document.querySelector('.rider-zone-person .icon-button').href.includes('date=')`));
                 await navigate('rider-detail.html');
                 assert.ok(await evaluate(`document.querySelector('.rider-activity-timeline time').textContent.includes('10:30')`));
             }
@@ -293,25 +286,55 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 assert.equal(await evaluate(`document.getElementById('choice').value`),String(count-1));
             }
         });
-        await t.test('rider view stays usable with 3 10 and 20 riders at four viewport sizes', async () => {
+        await t.test('Zone Explorer handles 5 15 30 50 zones and riders, keyboard and preserved realtime selection', async () => {
             const originalFeed=readFileSync(join(temporary,'rider-feed.json'));
-            const originalPage=readFileSync(join(temporary,'rider-operations.html'),'utf8');
             try {
-                for (const count of [3,10,20]) {
-                    const data=JSON.parse(originalFeed);data.riders=data.riders.filter(rider=>rider.total_count>0).slice(0,count);
+                for (const count of [5,15,30,50]) {
+                    const data=JSON.parse(readFileSync(join(temporary,`zones-${count}.json`)));
                     writeFileSync(join(temporary,'rider-feed.json'),JSON.stringify(data));
-                    writeFileSync(join(temporary,'rider-scale.html'),originalPage.replace(/(<script[^>]*data-zone-initial[^>]*>)[\s\S]*?(<\/script>)/,(_,start,end)=>start+JSON.stringify(data)+end));
-                    for (const width of [375,768,1280,1440]) {
+                    for (const width of [375,768,1024,1280,1440]) {
                         await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
-                        await navigate('rider-scale.html');
-                        assert.equal(await evaluate(`document.querySelectorAll('.rider-operational-card').length`),count);
+                        await navigate(`zones-${count}.html`);
+                        assert.equal(await evaluate(`document.querySelectorAll('.explorer-item').length`),count);
                         assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth`));
-                        assert.ok(await evaluate(`Array.from(document.querySelectorAll('.rider-operational-card')).every(card=>card.getBoundingClientRect().width<=innerWidth)`));
-                        await evaluate(`document.querySelector('[data-operations-view="zone"]').click()`);
-                        assert.equal(await evaluate(`document.querySelector('[data-zone-grid]').hidden`),false);
+                        assert.ok(await evaluate(`document.querySelector('.explorer-list').getBoundingClientRect().height<=575`));
+                        await evaluate(`document.querySelector('.explorer-item').focus()`);await key('ArrowDown');await key('Enter');
+                        assert.equal(await evaluate(`document.querySelector('.explorer-detail h2').textContent`),'Zona 01');
+                        await evaluate(`window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
+                        await new Promise(resolve=>setTimeout(resolve,150));
+                        assert.equal(await evaluate(`document.querySelector('.explorer-detail h2').textContent`),'Zona 01');
+                        await evaluate(`const search=document.querySelector('[data-operations-search]');search.value='Zona 00';search.dispatchEvent(new Event('input'))`);
+                        assert.equal(await evaluate(`document.querySelectorAll('.explorer-item').length`),1);
+                        assert.equal(await evaluate(`document.querySelector('.explorer-detail h2').textContent`),'Zona 00');
+                        await evaluate(`document.querySelector('[data-operations-search]').value='';document.querySelector('[data-operations-view="rider"]').click()`);
+                        assert.equal(await evaluate(`document.querySelectorAll('.explorer-item').length`),count);
                     }
                 }
             } finally {writeFileSync(join(temporary,'rider-feed.json'),originalFeed);}
+        });
+        await t.test('real daily data updates late counts and popovers without GPS or navigation', async () => {
+            operationFeedFixture='late-before.json';operationDetailFixture='late-orders-before.html';
+            try {
+                for(const width of [1440,1280,1024,768,375]){
+                    await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
+                    operationFeedFixture='late-before.json';operationDetailFixture='late-orders-before.html';
+                    await navigate('late-day.html');
+                    for(let i=0;i<100;i++){if(await evaluate(`document.querySelector('.delivery-late')`))break;await new Promise(resolve=>setTimeout(resolve,20));}
+                    assert.equal(await evaluate(`document.querySelector('[data-kpi="undelivered"]').textContent`),'4');
+                    await evaluate(`document.querySelector('.delivery-late summary').focus()`);await key('Enter');
+                    assert.equal(await evaluate(`document.querySelector('.delivery-late').open`),true);
+                    assert.ok(await evaluate(`document.querySelector('.delivery-late').textContent.includes('07/10/2026 23:59')`));
+                    await evaluate(`window.__dailyPage='same'`);
+                    operationFeedFixture='late-after.json';operationDetailFixture='late-orders-after.html';
+                    await evaluate(`window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
+                    for(let i=0;i<100;i++){if(await evaluate(`document.querySelector('[data-kpi="delivered"]').textContent==='17'`))break;await new Promise(resolve=>setTimeout(resolve,20));}
+                    assert.equal(await evaluate(`document.querySelector('[data-kpi="undelivered"]').textContent`),'3');
+                    assert.equal(await evaluate(`document.querySelector('[data-kpi="overdue"]').textContent`),'3');
+                    assert.equal(await evaluate(`window.__dailyPage`),'same');
+                    assert.equal(await evaluate(`document.querySelector('[data-operational-map]')`),null);
+                    if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`late-day-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+                }
+            } finally { operationFeedFixture='rider-feed.json';operationDetailFixture=undefined; }
         });
         await t.test('operational units expand with keyboard and keep state through realtime refresh', async () => {
             for (const width of [1440,1280,1024,768,375]) {
@@ -374,14 +397,12 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             await key('Escape'); await key('Escape');
             assert.equal(await evaluate(`document.activeElement.getAttribute('aria-label')`), 'Modifica dati o rimuovi segnalazione');
         });
-        await t.test('pickup action group submits original form, retains notes and shows cancellation dialog', async () => {
+        await t.test('pickup action group preserves confirmation and cancellation without the removed edit dialog', async () => {
             const orderFile = readdirSync(temporary).filter(file=>/^orders_\d+\.html$/.test(file)).find(file=>readFileSync(join(temporary,file),'utf8').includes('aria-label="Conferma pacco ritirato"'));
             assert.ok(orderFile);
             await navigate(orderFile);
             assert.equal(await evaluate(`document.querySelector('.workflow-primary-actions [type="submit"]').form.querySelector('[name="status"]').value`), 'picked_up');
-            await evaluate(`document.querySelector('[data-dialog-open^="transition-note-"]').click();document.querySelector('#primary-note').value='Nota interna conservata'`);
-            assert.equal(await evaluate(`new FormData(document.querySelector('[id^="primary-transition-"]')).get('note')`), 'Nota interna conservata');
-            await key('Escape');
+            assert.equal(await evaluate(`document.querySelector('[data-dialog-open^="transition-note-"]')`), null);
             await evaluate(`document.querySelector('.workflow-primary-actions [aria-label="Annulla spedizione"]').click()`);
             assert.equal(await evaluate(`document.querySelector('dialog[id$="-cancelled"]').open`), true);
             assert.equal(await evaluate(`document.querySelector('dialog[id$="-cancelled"] [name="cancellation_reason"]').value`), 'other');
@@ -467,7 +488,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             }
             return result;
         })()`);
-        const files = readdirSync(temporary).filter(file => file.endsWith('.html'));
+        const files = readdirSync(temporary).filter(file => file.endsWith('.html') && /<!doctype html>/i.test(readFileSync(join(temporary, file), 'utf8')));
         const failures = [];
         for (const width of [375, 768, 1024, 1280, 1440]) {
             await send('Emulation.setDeviceMetricsOverride', { width, height: 1000, deviceScaleFactor: 1, mobile: width < 600 });
@@ -529,7 +550,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 await evaluate(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
                 assert.ok(Math.abs(await evaluate('scrollY')-before)<3, status+' scroll moved from '+before+' to '+await evaluate('scrollY')+' geometry '+JSON.stringify(await evaluate(`({height:innerHeight,body:document.documentElement.scrollHeight,viewport:visualViewport.height,scale:visualViewport.scale})`)));
                 assert.ok(await evaluate(`document.querySelector('.order-workflow').textContent.includes(${JSON.stringify(label)})`));
-                assert.ok(await evaluate(`document.querySelector('.order-timeline').textContent.length>20`));
+                assert.ok(await evaluate(`document.querySelector('.shipment-progress').textContent.length>20`));
             }
             await navigate('ajax-order.html'); failNextAction=true;
             await evaluate(`const note=document.querySelector('[name="note"]');note.value='Mantieni questa nota';document.querySelector('#next-action').scrollIntoView();window.__documentMarker='unchanged';document.querySelector('#next-action .workflow-primary-actions > .action-confirm, #next-action .rider-assignment-controls > .action-confirm').click();`);
@@ -539,6 +560,23 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             assert.equal(await evaluate('window.__documentMarker'),'unchanged');
         });
 
+        await t.test('timeline keeps the latest backend state when events arrive during a pending refresh', async () => {
+            const original=readFileSync(join(temporary,'ajax-order.html'));
+            try {
+                await navigate('ajax-order.html');
+                await evaluate(`window.__remoteTimeline='same'`);
+                writeFileSync(join(temporary,'ajax-order.html'),JSON.parse(readFileSync(join(temporary,'ajax-rider_arriving.json'))).html);
+                delayOrderRefresh=true;
+                await evaluate(`window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
+                await new Promise(resolve=>setTimeout(resolve,50));
+                writeFileSync(join(temporary,'ajax-order.html'),JSON.parse(readFileSync(join(temporary,'ajax-picked_up.json'))).html);
+                await evaluate(`for(let i=0;i<8;i++)window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
+                for(let i=0;i<100;i++){if(await evaluate(`document.querySelector('[data-progress-status="picked_up"]').getAttribute('data-progress-state')==='current'`))break;await new Promise(resolve=>setTimeout(resolve,20));}
+                assert.equal(await evaluate(`document.querySelector('[data-progress-status="picked_up"]').getAttribute('data-progress-state')`),'current');
+                assert.equal(await evaluate(`document.querySelector('[data-live-order]').dataset.orderVersion`),'4');
+                assert.equal(await evaluate(`window.__remoteTimeline`),'same');
+            } finally { delayOrderRefresh=false;writeFileSync(join(temporary,'ajax-order.html'),original); }
+        });
         await t.test('compact booking, green confirmations, checkout and account prefill at all requested widths', async () => {
             for(const width of [1440,1280,1024,768,375]) {
                 await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
@@ -700,7 +738,7 @@ $app->handleRequest(Illuminate\\Http\\Request::capture());
             await new Promise(resolve=>setTimeout(resolve,200));
             writeFileSync(join(screenshots, `rate-editor-${width}.png`), Buffer.from((await send('Page.captureScreenshot', {format:'png',captureBeyondViewport:false})).data,'base64'));
             await navigate('orders_1.html');
-            await evaluate(`document.getElementById('order-tracking').scrollIntoView({behavior:'instant'})`);
+            await evaluate(`document.getElementById('order-progress-title').scrollIntoView({behavior:'instant'})`);
             await new Promise(resolve=>setTimeout(resolve,200));
             writeFileSync(join(screenshots, `tracking-${width}.png`), Buffer.from((await send('Page.captureScreenshot', {format:'png',captureBeyondViewport:false})).data,'base64'));
             }

@@ -33,7 +33,7 @@ class AdminOperationalAssignmentTest extends TestCase
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'rider_id' => $admin->id, 'assigned_by' => $admin->id, 'status' => 'accepted']);
         $this->assertDatabaseHas('economic_audits', ['entity_type' => 'orders', 'entity_id' => $order->id, 'action' => 'rider.assigned']);
         $this->patchJson('/orders/'.$order->slug, ['status' => 'rider_arriving', 'version' => 2])->assertOk();
-        $this->get('/orders/'.$order->slug)->assertSee('data-gps-start', false)->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
+        $this->get('/orders/'.$order->slug)->assertDontSee('data-gps-start', false)->assertSee('Il percorso dell’ordine')->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
         $session = $this->postJson('/orders/'.$order->slug.'/location/session')->assertOk()->json('session');
         $this->putJson('/orders/'.$order->slug.'/location', ['session' => $session, 'latitude' => 40.85, 'longitude' => 14.26, 'accuracy' => 12, 'recorded_at' => now()->toIso8601String()])->assertOk();
         $this->getJson('/orders/'.$order->slug.'/location')->assertJsonPath('state', 'live');

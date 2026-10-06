@@ -2,22 +2,23 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\RiderGpsSample;
+use App\Models\PaymentEntry;
 use App\Models\User;
 use App\OrderStatus;
-use App\Support\ReportingPeriod;
+use App\Support\DeliveryDeadline;
 use App\Support\RiderOperations;
 use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class RiderOperationsController extends Controller
 {
     private function date(Request $request): Carbon
     {
-        $data = $request->validate(['date' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:'.now('Europe/Rome')->toDateString()], 'zone' => ['nullable', 'string', 'max:255']]);
+        $data = $request->validate(['date' => ['nullable', 'date_format:Y-m-d'], 'zone' => ['nullable', 'string', 'max:255'], 'rider' => ['nullable', 'uuid', 'exists:users,slug']]);
 
         return Carbon::parse($data['date'] ?? now('Europe/Rome')->toDateString(), 'Europe/Rome')->startOfDay();
     }
@@ -30,39 +31,45 @@ class RiderOperationsController extends Controller
     public function feed(Request $request, RiderOperations $operations): JsonResponse
     {
         $day = $operations->day($this->date($request));
-        unset($day['activity'], $day['deliveries'], $day['orders']);
+        unset($day['orders']);
 
         return response()->json($day)->header('Cache-Control', 'private, no-store');
+    }
+
+    public function detail(Request $request, RiderOperations $operations): View
+    {
+        $date = $this->date($request);
+        $riderId = $request->filled('rider') ? User::where('slug', $request->input('rider'))->value('id') : null;
+        $query = $operations->query($date, $riderId, $request->input('zone'));
+        if ($request->boolean('unassigned')) {
+            $query->whereNull('rider_id');
+        }
+        $orders = $query->withDisplayIdentity()->with(['rider', 'events' => fn ($events) => $events->orderBy('id'), 'payments.user'])->orderBy('pickup_from')->orderBy('id')->paginate(20)->withQueryString();
+        $deadlines = $orders->getCollection()->mapWithKeys(fn ($order) => [$order->slug => app(DeliveryDeadline::class)->forOrder($order)]);
+
+        return view('rider-operations.orders', compact('orders', 'deadlines'));
     }
 
     public function show(Request $request, User $rider, RiderOperations $operations): View
     {
         abort_unless(in_array($rider->role, [UserRole::Rider, UserRole::Admin], true), 404);
-        $day = $operations->day($this->date($request), true, $rider->id);
+        $date = $this->date($request);
+        $day = $operations->day($date, $rider->id);
         $zone = $request->input('zone');
-        $matches = fn (array $item): bool => $item['rider_id'] === $rider->id && (! $zone || $item['zone'] === $zone);
-        $activity = $day['activity']->filter($matches)->sortBy(fn ($item) => $item['event']->created_at->format('Y-m-d H:i:s').sprintf('%012d', $item['event']->id))->values();
-        $deliveries = $day['deliveries']->filter($matches)->values();
-        $orders = $activity->merge($deliveries)->pluck('order')->unique('id')->values();
-        if ($day['today']) {
-            $orders = $orders->merge($day['orders']->filter(fn ($order) => $order->rider_id === $rider->id && ! $order->carrier_handed_at && ! in_array($order->status->value, [...OrderStatus::closed(), 'received'], true) && (! $zone || $operations->zone($order) === $zone)))->unique('id')->values();
-        }
-        $deliveredOrders = $deliveries->pluck('order')->unique('id');
-        $payments = $deliveredOrders->flatMap(fn ($order) => $order->payments);
-        $cash = (int) $payments->sum('amount_cents');
-        $retained = (int) $payments->sum(fn ($payment) => $payment->ea_amount_cents ?? $payment->amount_cents);
-        $unallocated = $deliveredOrders->where('shipping_type', 'external')->sum(fn ($order) => $order->payments->whereNull('ea_amount_cents')->count());
-        $tariff = (int) $deliveredOrders->sum('price_cents');
-        $zones = $deliveries->pluck('zone')->unique()->values();
+        $query = $operations->query($date, $rider->id, $zone);
+        $orders = (clone $query)->withDisplayIdentity()->with(['rider', 'events' => fn ($events) => $events->with('user')->orderBy('id'), 'payments.user'])->orderBy('pickup_from')->orderBy('id')->paginate(20)->withQueryString();
+        $activity = $operations->activity($orders->getCollection(), $rider->id);
+        $deliveries = $activity->filter(fn ($item) => $item['event']->status === OrderStatus::Delivered)->values();
+        $deliveredQuery = (clone $query)->where('status', OrderStatus::Delivered)->where('rider_id', $rider->id);
+        $deliveredCount = (clone $deliveredQuery)->count();
+        $payments = PaymentEntry::whereIn('order_id', (clone $deliveredQuery)->select('id'));
+        $cash = (int) (clone $payments)->sum('amount_cents');
+        $retained = (int) (clone $payments)->sum(DB::raw('COALESCE(ea_amount_cents, amount_cents)'));
+        $unallocated = (clone $payments)->whereNull('ea_amount_cents')->whereHas('order', fn ($query) => $query->where('shipping_type', 'external'))->count();
+        $tariff = (int) (clone $deliveredQuery)->sum('price_cents');
+        $remaining = (clone $query)->where('status', '!=', OrderStatus::Delivered)->count();
+        $deadlines = $orders->getCollection()->mapWithKeys(fn ($order) => [$order->slug => app(DeliveryDeadline::class)->forOrder($order)]);
 
-        $remaining = $day['today'] ? $orders->filter(fn ($order) => ! in_array($order->status->value, OrderStatus::closed(), true))->count() : $activity->groupBy(fn ($item) => $item['order']->id)->filter(fn ($items) => ! in_array($items->last()['event']->status->value, OrderStatus::closed(), true))->count();
-        $gpsPeriod = new ReportingPeriod($this->date($request), $this->date($request)->endOfDay());
-        $samples = RiderGpsSample::with('order:id,slug')->where('rider_id', $rider->id)->whereBetween('recorded_at', $gpsPeriod->utcRange())->where('captured_at', '>=', now()->subDays(config('tracking.history_days')))->when($zone, fn ($query) => $query->whereIn('order_id', $orders->pluck('id')->all()))->orderBy('recorded_at')->limit(1440)->get();
-        $gpsPoints = $samples->map(fn ($sample) => ['kind' => 'sample', 'rider_slug' => $rider->slug, 'rider_name' => $rider->name, 'reference' => 'Campione GPS', 'order_url' => route('orders.show', $sample->order), 'location' => [...$sample->position, 'recorded_at' => $sample->recorded_at->toIso8601String(), 'received_at' => $sample->captured_at->toIso8601String()]])->values()->all();
-        if ($gpsPoints) {
-            $gpsPoints[array_key_last($gpsPoints)]['kind'] = 'last-sample';
-        }
-
-        return view('rider-operations.show', compact('rider', 'day', 'zone', 'activity', 'deliveries', 'orders', 'cash', 'retained', 'tariff', 'zones', 'unallocated', 'gpsPoints', 'remaining'));
+        return view('rider-operations.show', compact('rider', 'day', 'zone', 'activity', 'deliveries', 'deliveredCount', 'orders', 'cash', 'retained', 'tariff', 'unallocated', 'remaining', 'deadlines'));
     }
 }

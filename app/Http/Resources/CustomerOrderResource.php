@@ -30,7 +30,7 @@ class CustomerOrderResource extends JsonResource
             'messages_count' => $this->whenCounted('messages'), 'unread_messages_count' => $this->whenCounted('unread_messages'),
             'can_edit' => $this->resource->customerEditable(), 'can_cancel' => $this->resource->customerEditable(),
             'rider' => $this->whenLoaded('rider', fn () => $this->rider ? ['slug' => $this->rider->slug, 'name' => $this->rider->name] : null),
-            'events' => $this->whenLoaded('events', fn () => $this->events->map(fn ($event) => ['slug' => $event->slug, 'status' => $event->status->value, 'label' => $event->schedule_change ? ($event->schedule_change['before'] ? 'Ritiro ripianificato' : 'Ritiro pianificato') : $event->status->label(), 'schedule_change' => $event->schedule_change, 'message' => $event->public_note, 'created_at' => $event->created_at->toIso8601String()])),
+            'events' => $this->whenLoaded('events', fn () => $this->events->map(fn ($event) => ['slug' => $event->slug, 'status' => $event->status->value, 'label' => isset($event->schedule_change['after']['pickup_date']) ? ($event->schedule_change['before'] ? 'Ritiro ripianificato' : 'Ritiro pianificato') : $event->status->label(), 'schedule_change' => $event->schedule_change, 'message' => $event->public_note, 'created_at' => $event->created_at->toIso8601String()])),
         ];
     }
 }

@@ -44,14 +44,15 @@ class WorkspaceRevisionTest extends TestCase
 
         $response = $this->actingAs($admin)->get(route('orders.show', $order));
 
-        $response->assertSee('id="order-tracking"', false)->assertSeeInOrder(['Richiesta iniziale', 'Rider assegnato:'])
+        $response->assertSee('id="order-progress-title"', false)->assertSeeInOrder(['Richiesta iniziale', 'Rider assegnato:'])
             ->assertDontSee('Tracking del cliente')->assertDontSee('Apri tracking cliente')
             ->assertSee('is-unreliable')->assertSee('recipient-status-danger');
         $document = new \DOMDocument;
         @$document->loadHTML($response->getContent());
         $xpath = new \DOMXPath($document);
-        $this->assertSame(0, $xpath->query('//*[@id="order-tracking"]/ancestor::details')->length);
-        $this->assertSame(1, $xpath->query('//*[@data-tracking-panel]')->length);
+        $this->assertSame(0, $xpath->query('//*[@id="order-progress-title"]/ancestor::details')->length);
+        $this->assertSame(0, $xpath->query('//*[@data-tracking-panel]')->length);
+        $this->assertSame(1, $xpath->query('//*[contains(@class,"shipment-progress")]')->length);
         $this->assertSame(0, $xpath->query('//*[contains(@class,"recipient-risk")]//summary')->length);
         $this->get(route('orders.history'))->assertSee('is-unreliable')->assertSee('NON AFFIDABILE');
         Order::factory()->create([...$order->only(RecipientIdentity::Fields), 'status' => OrderStatus::Accepted, 'rider_id' => $admin->id, 'pickup_date' => now('Europe/Rome')->toDateString()]);

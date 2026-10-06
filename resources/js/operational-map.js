@@ -5,7 +5,7 @@ function project(latitude, longitude, zoom) {
   return { x: (longitude + 180) / 360 * scale, y: (0.5 - Math.log((1 + sine) / (1 - sine)) / (4 * Math.PI)) * scale };
 }
 export function createOperationalMap(container) {
-  if (!container) return { update() {}, focusRider() {}, dispose() {} };
+  if (!container) return { update() {}, dispose() {} };
   let markers = [], configuration = {}, zoom = 11, center = null, userMoved = false, drag = null, disposed = false;
   const tiles = document.createElement('div'); tiles.className = 'map-tiles';
   const pins = document.createElement('div'); pins.className = 'map-pins';
@@ -43,14 +43,13 @@ export function createOperationalMap(container) {
     }
     for (const marker of markers) {
       const position = project(marker.location.latitude, marker.location.longitude, zoom);
-      const pin = document.createElement('a'); pin.className = marker.kind === 'sample' ? 'map-history-point' : 'map-rider-pin'; pin.href = marker.order_url;
+      const pin = document.createElement('a'); pin.className = 'map-rider-pin'; pin.href = marker.order_url;
       pin.style.left = `${position.x - left}px`; pin.style.top = `${position.y - top}px`;
       const name = document.createElement('strong'); name.className = 'map-name'; name.textContent = marker.rider_name;
       const context = document.createElement('small'); context.className = 'map-context'; context.textContent = marker.reference;
       const time = document.createElement('small'); time.textContent = `GPS ${new Date(marker.location.recorded_at).toLocaleTimeString('it-IT')}`;
-      const zone = document.createElement('small'); zone.className = 'map-context map-zone'; zone.textContent = marker.zone || '';
-      if (marker.kind !== 'sample') { pin.append(name, context); if (marker.zone) pin.append(zone); pin.append(time); }
-      const label = `${marker.rider_name} · ${marker.reference} · ${marker.zone || ''} · GPS ${new Date(marker.location.received_at || marker.location.recorded_at).toLocaleTimeString('it-IT')}`;
+      pin.append(name, context, time);
+      const label = `${marker.rider_name} · ${marker.reference} · GPS ${new Date(marker.location.received_at || marker.location.recorded_at).toLocaleTimeString('it-IT')}`;
       pin.title = label; pin.setAttribute('aria-label', label); pins.append(pin);
     }
   }
@@ -67,7 +66,6 @@ export function createOperationalMap(container) {
   const observer = new ResizeObserver(() => { if (!userMoved) fit(); draw(); }); observer.observe(container);
   return {
     update(items, config) { markers = items.filter(item => item.location && Number.isFinite(item.location.latitude) && Number.isFinite(item.location.longitude)); configuration = config; attribution.textContent = config.attribution; container.hidden = !markers.length; if (!userMoved || !center) fit(); draw(); },
-    focusRider(riderId) { const point = markers.find(item => item.rider_slug === riderId); if (!point) return; center = point.location; zoom = 15; userMoved = true; draw(); container.scrollIntoView({block:'center',behavior:'smooth'}); },
     dispose() { disposed = true; observer.disconnect(); },
   };
 }

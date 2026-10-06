@@ -18,6 +18,11 @@ class OrderEvent extends Model
         return ['schedule_change' => 'array', 'status' => OrderStatus::class];
     }
 
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

@@ -114,6 +114,9 @@ Thumbs.db
 !/tests/Feature/OperationalSurfaceTest.php
 !/tests/Feature/PublicSlugTest.php
 
+!/tests/Feature/OperationalDayTest.php
+!/tests/Feature/OrderProgressTest.php
+
 # Report e revisioni interne rimangono esclusivamente locali.
 /[Rr][Ee][Pp][Oo][Rr][Tt]*
 /[Aa][Ii][Kk][Ii][Dd][Oo]*

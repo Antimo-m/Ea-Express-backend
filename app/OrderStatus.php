@@ -56,6 +56,12 @@ enum OrderStatus: string
         };
     }
 
+    /** @return list<self> */
+    public static function deliveryStages(): array
+    {
+        return [self::Received, self::Accepted, self::PickupScheduled, self::RiderArriving, self::PickedUp, self::InTransit, self::OutForDelivery, self::Delivered];
+    }
+
     /** @return list<string> */
     public static function closed(): array
     {

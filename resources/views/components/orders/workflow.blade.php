@@ -36,13 +36,7 @@
                 <x-ui.field name="note" label="Motivo della riprogrammazione" :value="old('note')" required maxlength="2000" />
             @endif
         </form>
-        @unless($primary === \App\OrderStatus::Rescheduled)
-            <x-ui.action-dialog :id="'transition-note-'.$order->id" action="edit" title="Aggiungi nota al passaggio">
-                <label for="public_note" class="form-label">Messaggio visibile nel tracking</label><textarea id="public_note" name="public_note" form="{{ $formId }}" class="form-control" maxlength="500" rows="2">{{ old('public_note') }}</textarea>
-                <label for="primary-note" class="form-label mt-2">Nota interna (facoltativa)</label><textarea id="primary-note" name="note" form="{{ $formId }}" class="form-control" rows="2" maxlength="2000">{{ old('note') }}</textarea>
-                <div class="modal-actions"><button type="button" class="btn btn-outline-secondary" data-dialog-close>Torna al passaggio</button></div>
-            </x-ui.action-dialog>
-        @endunless
+
     @endif
     @if($alternatives->contains(fn ($next) => !in_array($next, [\App\OrderStatus::Cancelled, \App\OrderStatus::Rejected], true)))
         <section class="workflow-alternatives"><h3 class="h6">Altre azioni e imprevisti</h3><div class="card-actions">

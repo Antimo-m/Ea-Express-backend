@@ -11,7 +11,6 @@ for (const panel of document.querySelectorAll('[data-tracking-panel]')) {
   const label = panel.querySelector('[data-tracking-label]');
   const updated = panel.querySelector('[data-tracking-updated]');
   const errorBox = panel.querySelector('[data-tracking-error]');
-  const form = panel.querySelector('[data-map-points]');
   function render(data) {
     latest = data;
     if (!data) { message.textContent = 'Tracking non disponibile'; map.update([], {tiles:'',attribution:''}); placeholder.hidden = false; return; }
@@ -50,25 +49,4 @@ for (const panel of document.querySelectorAll('[data-tracking-panel]')) {
   } });
   const clock = setInterval(() => { if (latest) render(latest); }, 15000);
   window.addEventListener('pagehide', () => { cleanup(); clearInterval(clock); map.dispose(); }, { once: true });
-  if (form) {
-    form.querySelector('[data-use-rider-point]').addEventListener('click', () => {
-      const feedback = form.querySelector('[data-point-feedback]');
-      if (!latest?.location || Date.now() - Date.parse(latest.location.recorded_at) > 90000) { feedback.textContent = 'Serve una posizione GPS recente del Rider.'; return; }
-      form.elements.latitude.value = latest.location.latitude; form.elements.longitude.value = latest.location.longitude;
-      feedback.textContent = 'Verifica che il Rider si trovi all’indirizzo, poi conferma il punto.';
-    });
-    form.addEventListener('submit', async event => {
-      event.preventDefault();
-      const submit = form.querySelector('[type=submit]'), feedback = form.querySelector('[data-point-feedback]');
-      if (submit.disabled) return;
-      submit.disabled = true; submit.setAttribute('aria-busy', 'true');
-      try {
-        const result = await staffRequest(form.action, { method: 'PATCH', data: Object.fromEntries(new FormData(form)) });
-        form.elements.version.value = result.version;
-        feedback.textContent = 'Punto salvato. Ricarica la pagina prima di altre modifiche all’ordine.';
-        window.dispatchEvent(new CustomEvent('ea:rider-location', { detail: { order_slug: orderId } }));
-      } catch (error) { feedback.textContent = error.status === 409 ? 'L’ordine è cambiato. Ricarica la pagina prima di confermare.' : error.message; }
-      finally { submit.disabled = false; submit.removeAttribute('aria-busy'); }
-    });
-  }
 }

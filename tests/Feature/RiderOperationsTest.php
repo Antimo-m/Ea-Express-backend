@@ -33,7 +33,7 @@ class RiderOperationsTest extends TestCase
     private function delivery(User $rider, string $zone, string $time = '2026-10-01 10:30:00'): Order
     {
         $at = Carbon::parse($time, 'Europe/Rome')->utc();
-        $order = Order::factory()->create(['rider_id' => $rider->id, 'delivery_zone' => $zone, 'status' => OrderStatus::Delivered, 'delivered_at' => $at, 'assigned_at' => $at->copy()->subHour(), 'price_cents' => 500, 'parcel_value_cents' => 100000]);
+        $order = Order::factory()->create(['pickup_date' => substr($time, 0, 10), 'rider_id' => $rider->id, 'delivery_zone' => $zone, 'status' => OrderStatus::Delivered, 'delivered_at' => $at, 'assigned_at' => $at->copy()->subHour(), 'price_cents' => 500, 'parcel_value_cents' => 100000]);
         $order->events()->make(['rider_id' => $rider->id, 'operational_zone' => $zone, 'user_id' => $rider->id, 'status' => OrderStatus::PickedUp])->forceFill(['created_at' => $at->copy()->subMinutes(30)])->save();
         $order->events()->make(['rider_id' => $rider->id, 'operational_zone' => $zone, 'user_id' => $rider->id, 'status' => OrderStatus::Delivered])->forceFill(['created_at' => $at])->save();
 
@@ -54,17 +54,17 @@ class RiderOperationsTest extends TestCase
     public function test_global_pages_and_feed_are_admin_only(): void
     {
         $rider = User::factory()->create();
-        foreach (['/rider-operations', '/rider-operations/feed', '/rider-operations/'.$rider->slug] as $path) {
+        foreach (['/rider-operations', '/rider-operations/feed', '/rider-operations/detail', '/rider-operations/'.$rider->slug] as $path) {
             $this->getJson($path)->assertUnauthorized();
             $this->actingAs($rider)->getJson($path)->assertForbidden();
             $this->actingAs(User::factory()->create(['role' => UserRole::Customer]))->getJson($path)->assertForbidden();
             $this->app['auth']->forgetGuards();
         }
-        $this->actingAs($this->admin())->getJson('/rider-operations/feed?date=2026-10-03')->assertUnprocessable();
+        $this->actingAs($this->admin())->getJson('/rider-operations/feed?date=2026-10-03')->assertOk();
         $this->getJson('/rider-operations/feed?date=wrong')->assertUnprocessable();
     }
 
-    public function test_today_uses_dynamic_zones_and_fresh_real_gps_for_three_riders(): void
+    public function test_operational_zones_and_assignments_do_not_depend_on_gps_freshness(): void
     {
         $admin = $this->admin();
         $sara = User::factory()->create(['name' => 'Sara']);
@@ -72,22 +72,17 @@ class RiderOperationsTest extends TestCase
         $offline = User::factory()->create(['name' => 'Rider offline', 'is_active' => false]);
         $orders = collect();
         foreach ([$sara, $sara, $marco, $offline] as $index => $rider) {
-            $orders->push(Order::factory()->create(['rider_id' => $rider->id, 'status' => OrderStatus::OutForDelivery, 'delivery_zone' => $index < 2 ? 'Zona nuova Pozzuoli' : 'Area Salerno']));
+            $orders->push(Order::factory()->create(['pickup_date' => '2026-10-02', 'rider_id' => $rider->id, 'status' => OrderStatus::OutForDelivery, 'delivery_zone' => $index < 2 ? 'Zona nuova Pozzuoli' : 'Area Salerno']));
         }
         $order = $orders->first();
         $session = $this->actingAs($sara)->postJson('/orders/'.$order->slug.'/location/session')->assertOk()->json('session');
         $this->putJson('/orders/'.$order->slug.'/location', ['session' => $session, 'latitude' => 40.8518, 'longitude' => 14.2681, 'accuracy' => 12, 'recorded_at' => now()->toIso8601String()])->assertOk();
-        $feed = $this->actingAs($admin)->getJson('/rider-operations/feed')->assertOk()->assertJsonPath('today', true)->assertJsonCount(1, 'locations');
+        $feed = $this->actingAs($admin)->getJson('/rider-operations/feed')->assertOk()->assertJsonPath('today', true)->assertJsonMissingPath('locations');
         $zones = collect($feed->json('zones'))->keyBy('name');
-        $this->assertSame(2, $zones['Zona nuova Pozzuoli']['riders'][0]['active_count']);
-        $this->assertSame('live', $zones['Zona nuova Pozzuoli']['riders'][0]['state']);
-        $this->assertContains('offline', array_column($zones['Area Salerno']['riders'], 'state'));
-        $this->assertSame('Sara', $feed->json('locations.0.rider_name'));
+        $this->assertSame(2, $zones['Zona nuova Pozzuoli']['active']);
+        $this->assertSame('active', collect($feed->json('riders'))->firstWhere('slug', $sara->slug)['state']);
         $this->travel(91)->seconds();
-        $feed = $this->getJson('/rider-operations/feed')->assertOk()->assertJsonCount(0, 'locations');
-        $saraRow = collect($feed->json('zones'))->firstWhere('name', 'Zona nuova Pozzuoli')['riders'][0];
-        $this->assertSame('stale', $saraRow['state']);
-        $this->assertNotNull($saraRow['last_gps']);
+        $this->getJson('/rider-operations/feed')->assertJsonPath('summary.total', 4)->assertJsonMissingPath('locations');
     }
 
     public function test_history_places_rider_in_every_delivered_zone_and_ignores_current_zone_changes(): void
@@ -99,11 +94,11 @@ class RiderOperationsTest extends TestCase
         $this->delivery($rider, 'Napoli', '2026-10-01 12:30:00');
         $this->delivery($other, 'Aversa', '2026-10-01 13:30:00');
         $first->forceFill(['delivery_zone' => 'Zona cambiata'])->save();
-        $feed = $this->actingAs($this->admin())->getJson('/rider-operations/feed?date=2026-10-01')->assertOk()->assertJsonPath('today', false)->assertJsonCount(0, 'locations');
+        $feed = $this->actingAs($this->admin())->getJson('/rider-operations/feed?date=2026-10-01')->assertOk()->assertJsonPath('today', false)->assertJsonMissingPath('locations');
         $zones = collect($feed->json('zones'))->keyBy('name');
         $this->assertSame(['Aversa', 'Napoli'], $zones->keys()->all());
         $this->assertCount(2, $zones['Aversa']['riders']);
-        $this->assertSame(2, collect($zones['Aversa']['riders'])->firstWhere('slug', $rider->slug)['delivered_count']);
+        $this->assertSame(3, collect($feed->json('riders'))->firstWhere('slug', $rider->slug)['delivered']);
         $this->get('/rider-operations/'.$rider->slug.'?date=2026-10-01&zone=Aversa')->assertOk()->assertViewHas('deliveries', fn ($items) => $items->count() === 2)->assertViewHas('orders', fn ($items) => $items->count() === 2);
     }
 
@@ -134,7 +129,7 @@ class RiderOperationsTest extends TestCase
         $admin = $this->admin();
         $first = User::factory()->create();
         $second = User::factory()->create();
-        $order = Order::factory()->create(['rider_id' => $second->id, 'assigned_at' => Carbon::parse('2026-10-02 09:00:00', 'Europe/Rome')->utc(), 'status' => OrderStatus::OutForDelivery]);
+        $order = Order::factory()->create(['pickup_date' => '2026-10-01', 'rider_id' => $second->id, 'assigned_at' => Carbon::parse('2026-10-02 09:00:00', 'Europe/Rome')->utc(), 'status' => OrderStatus::OutForDelivery]);
         foreach ([['2026-10-01 08:00:00', null, $first->id], ['2026-10-02 09:00:00', $first->id, $second->id]] as [$at, $before, $after]) {
             EconomicAudit::create(['request_id' => (string) Str::uuid(), 'user_id' => $admin->id, 'entity_type' => 'orders', 'entity_id' => $order->id, 'action' => 'rider.assigned', 'before' => ['rider_id' => $before], 'after' => ['rider_id' => $after]]);
         }
@@ -151,7 +146,7 @@ class RiderOperationsTest extends TestCase
         $admin = $this->admin();
         $first = User::factory()->create();
         $second = User::factory()->create();
-        $order = Order::factory()->create(['rider_id' => $first->id, 'status' => OrderStatus::OutForDelivery, 'delivery_zone' => 'Aversa']);
+        $order = Order::factory()->create(['pickup_date' => '2026-10-02', 'rider_id' => $first->id, 'status' => OrderStatus::OutForDelivery, 'delivery_zone' => 'Aversa']);
         $this->actingAs($admin)->patch('/orders/'.$order->slug.'/rider', ['rider_id' => $second->slug, 'version' => 1])->assertSessionHasNoErrors()->assertRedirect();
         $this->assertDatabaseHas('order_events', ['order_id' => $order->id, 'rider_id' => $second->id, 'operational_zone' => 'Aversa', 'user_id' => $admin->id]);
         $this->patch('/orders/'.$order->slug, ['status' => 'delivered', 'version' => 2])->assertSessionHasNoErrors()->assertRedirect();
@@ -159,24 +154,24 @@ class RiderOperationsTest extends TestCase
         $this->get('/rider-operations/'.$second->slug.'?date=2026-10-02')->assertOk()->assertViewHas('deliveries', fn ($items) => $items->count() === 1);
     }
 
-    public function test_current_gps_cache_is_loaded_in_one_batch_with_database_cache(): void
+    public function test_daily_operations_do_not_read_the_shared_gps_cache(): void
     {
         config(['tracking.cache_store' => 'database']);
         $admin = $this->admin();
         $tracking = app(RiderTracking::class);
         for ($index = 0; $index < 12; $index++) {
             $rider = User::factory()->create();
-            $order = Order::factory()->create(['rider_id' => $rider->id, 'status' => OrderStatus::OutForDelivery, 'delivery_zone' => 'Zona '.$index]);
+            $order = Order::factory()->create(['pickup_date' => '2026-10-02', 'rider_id' => $rider->id, 'status' => OrderStatus::OutForDelivery, 'delivery_zone' => 'Zona '.$index]);
             $session = $tracking->start($order, $rider);
             $tracking->update($order, $rider, ['session' => $session, 'latitude' => 40.85, 'longitude' => 14.26, 'accuracy' => 12, 'recorded_at' => now()->toIso8601String()]);
         }
         $this->actingAs($admin);
         DB::enableQueryLog();
-        $this->getJson('/rider-operations/feed')->assertOk()->assertJsonCount(12, 'locations')->assertJsonMissingPath('gps_session_id');
+        $this->getJson('/rider-operations/feed')->assertOk()->assertJsonMissingPath('locations')->assertJsonMissingPath('gps_session_id');
         $queries = DB::getQueryLog();
         DB::disableQueryLog();
         $gpsReads = collect($queries)->filter(fn (array $query): bool => str_contains($query['query'], '"cache"') && str_starts_with(strtolower($query['query']), 'select'));
-        $this->assertCount(1, $gpsReads);
+        $this->assertCount(0, $gpsReads);
         $this->assertLessThan(20, count($queries));
     }
 
@@ -184,7 +179,7 @@ class RiderOperationsTest extends TestCase
     {
         $admin = $this->admin();
         $idle = User::factory()->create();
-        $this->actingAs($admin)->get('/rider-operations/'.$idle->slug.'?date=2026-10-01')->assertOk()->assertViewHas('cash', 0)->assertSee('Nessuna attività registrata');
+        $this->actingAs($admin)->get('/rider-operations/'.$idle->slug.'?date=2026-10-01')->assertOk()->assertViewHas('cash', 0)->assertSee('Nessun evento operativo attribuibile');
         $this->getJson('/rider-operations/feed?date=2026-09-30')->assertOk()->assertJsonCount(0, 'zones');
         for ($index = 0; $index < 24; $index++) {
             $this->delivery(User::factory()->create(['name' => 'Rider con nome molto lungo '.$index.' <script>alert(1)</script>']), 'Zona operativa '.$index);
@@ -194,6 +189,6 @@ class RiderOperationsTest extends TestCase
         $queries = DB::getQueryLog();
         DB::disableQueryLog();
         $this->assertLessThan(20, count($queries));
-        $this->get('/rider-operations?date=2026-10-01')->assertOk()->assertSee('&lt;script&gt;alert(1)&lt;/script&gt;', false)->assertDontSee('<script>alert(1)</script>', false);
+        $this->get('/rider-operations?date=2026-10-01')->assertOk()->assertDontSee('<script>alert(1)</script>', false);
     }
 }

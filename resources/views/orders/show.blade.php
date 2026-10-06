@@ -11,6 +11,7 @@
             <div><dt>Orario previsto</dt><dd>{{ $order->estimated_at?->timezone('Europe/Rome')->format('d/m/Y H:i') ?: 'Non disponibile' }}</dd></div>
         </dl>
     </section>
+    <x-orders.progress :progress="$progress" />
     <div class="order-detail-layout">
         <div class="order-data-stack"><section class="order-overview"><x-orders.card :order="$order" :action="false" :recipient-risk="$recipientRisk" /></section>
 
@@ -44,12 +45,6 @@
             @endcan
         </aside>
     </div>
-    <section class="surface order-tracking p-4 mt-4" id="order-tracking" aria-labelledby="order-tracking-title">
-        <div class="order-tracking-summary"><header class="section-heading"><h2 id="order-tracking-title">Tracking</h2><x-ui.status-badge class="status-pill tone-{{ $order->status->tone() }}">{{ $order->status->label() }}</x-ui.status-badge></header>
-        <p class="small text-secondary">Ultimo aggiornamento: <time datetime="{{ $order->updated_at->toIso8601String() }}">{{ $order->updated_at->timezone('Europe/Rome')->format('d/m/Y H:i') }}</time> · Rider: {{ $order->rider?->name ?: 'Rider da assegnare' }}</p></div>
-        <x-orders.live-map :order="$order" editable />
-        <div class="order-timeline"><h3 class="h5 mt-4">Timeline ordine <span class="count-pill">{{ $events->total() }}</span></h3>
-        <x-orders.timeline :events="$events" /></div>
-    </section>
+    <section class="surface order-event-history p-4 mt-4"><h2 class="h5">Cronologia ordine <span class="count-pill">{{ $events->total() }}</span></h2><x-orders.timeline :events="$events" /></section>
 </div>
 </x-app-layout>

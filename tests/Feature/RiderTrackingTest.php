@@ -154,14 +154,14 @@ class RiderTrackingTest extends TestCase
         $this->getJson('/api/v1/customer/orders/'.$order->slug.'/location')->assertJsonPath('state', 'carrier')->assertJsonPath('location', null);
     }
 
-    public function test_map_points_require_staff_ownership_and_current_version(): void
+    public function test_removed_map_point_editor_has_no_endpoint_and_shared_gps_keeps_permissions(): void
     {
         $order = $this->order();
         $data = ['kind' => 'pickup', 'latitude' => 40.85, 'longitude' => 14.26, 'version' => 1];
         $this->actingAs(User::factory()->create())->patchJson('/orders/'.$order->slug.'/map-points', $data)->assertNotFound();
-        $this->actingAs($order->rider)->patchJson('/orders/'.$order->slug.'/map-points', $data)->assertOk()->assertJsonPath('version', 2);
-        $this->assertSame(['latitude' => 40.85, 'longitude' => 14.26], $order->fresh()->pickup_point);
-        $this->patchJson('/orders/'.$order->slug.'/map-points', $data)->assertConflict();
+        $this->actingAs($order->rider)->patchJson('/orders/'.$order->slug.'/map-points', $data)->assertNotFound();
+        $this->assertNull($order->fresh()->pickup_point);
+        $this->assertSame(1, $order->fresh()->version);
         $this->getJson('/orders/'.$order->slug.'/location')->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
         $this->actingAs($order->customer, 'customer')->getJson('/api/v1/customer/orders/'.$order->slug.'/location')->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     }
@@ -186,7 +186,7 @@ class RiderTrackingTest extends TestCase
         $order = $this->order();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $this->actingAs($admin)->get('/dashboard')->assertOk()->assertSee('Rider in strada');
-        $this->get('/orders/'.$order->slug)->assertOk()->assertSee('Segui la consegna');
+        $this->get('/orders/'.$order->slug)->assertOk()->assertSee('Il percorso dell’ordine')->assertDontSee('data-tracking-panel', false);
         $this->get('/orders/in-progress')->assertOk()->assertSee($order->reference);
         $this->get('/tracking')->assertNotFound();
         $this->actingAs($order->rider)->get('/dashboard')->assertOk()->assertSee('data-rider-gps', false);
