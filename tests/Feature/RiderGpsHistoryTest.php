@@ -42,10 +42,10 @@ class RiderGpsHistoryTest extends TestCase
         $this->assertDatabaseCount('rider_gps_samples', 3);
         $this->assertSame(40.85, RiderGpsSample::first()->position['latitude']);
         $this->assertStringNotContainsString('latitude', DB::table('rider_gps_samples')->value('position'));
-        $this->actingAs($admin)->get('/rider-operations/'.$rider->id.'?date=2026-10-02')->assertOk()->assertViewHas('gpsPoints', fn ($points) => count($points) === 3)->assertSee('3 campioni GPS');
-        $this->get('/rider-operations/'.$rider->id.'?date=2026-10-01')->assertOk()->assertViewHas('gpsPoints', []);
-        $this->actingAs($rider)->getJson('/rider-operations/'.$rider->id)->assertForbidden();
-        $this->actingAs(User::factory()->create(['role' => UserRole::Customer]))->getJson('/rider-operations/'.$rider->id)->assertForbidden();
+        $this->actingAs($admin)->get('/rider-operations/'.$rider->slug.'?date=2026-10-02')->assertOk()->assertViewHas('gpsPoints', fn ($points) => count($points) === 3)->assertSee('3 campioni GPS');
+        $this->get('/rider-operations/'.$rider->slug.'?date=2026-10-01')->assertOk()->assertViewHas('gpsPoints', []);
+        $this->actingAs($rider)->getJson('/rider-operations/'.$rider->slug)->assertForbidden();
+        $this->actingAs(User::factory()->create(['role' => UserRole::Customer]))->getJson('/rider-operations/'.$rider->slug)->assertForbidden();
         RiderGpsSample::first()->update(['captured_at' => now()->subDays(31)]);
         $this->artisan('tracking:prune-history')->assertSuccessful();
         $this->assertDatabaseCount('rider_gps_samples', 2);

@@ -54,7 +54,7 @@ class StaffAuthenticationSecurityTest extends TestCase
     public function test_partial_sessions_cannot_call_alternate_sensitive_endpoints(): void
     {
         $user = $this->loginPending();
-        foreach ([['PATCH', '/profile'], ['DELETE', '/profile'], ['POST', '/settings/users'], ['PATCH', '/settings/users/'.$user->id], ['PATCH', '/settings'], ['POST', '/balance/123/payment'], ['POST', '/movements'], ['POST', '/expenses'], ['PATCH', '/settings/accounting'], ['GET', '/reports'], ['GET', '/economic-audits'], ['GET', '/realtime/configuration'], ['POST', '/realtime/auth'], ['PATCH', '/orders/123'], ['POST', '/orders'], ['PATCH', '/recipient-incidents/123']] as [$method, $uri]) {
+        foreach ([['PATCH', '/profile'], ['DELETE', '/profile'], ['POST', '/settings/users'], ['PATCH', '/settings/users/'.$user->slug], ['PATCH', '/settings'], ['POST', '/balance/123/payment'], ['POST', '/movements'], ['POST', '/expenses'], ['PATCH', '/settings/accounting'], ['GET', '/reports'], ['GET', '/economic-audits'], ['GET', '/realtime/configuration'], ['POST', '/realtime/auth'], ['PATCH', '/orders/123'], ['POST', '/orders'], ['PATCH', '/recipient-incidents/123']] as [$method, $uri]) {
             $response = $this->json($method, $uri, ['name' => 'Attacker', 'current_password' => 'password']);
             $this->assertSame(403, $response->status(), $method.' '.$uri);
         }

@@ -15,8 +15,7 @@ class SenderAddressRequest extends FormRequest
 
     public function rules(): array
     {
-        return [...CustomerIdentity::rules(),
-            'sender_type' => ['required', 'in:business,private,online_shop'],
+        return [...CustomerIdentity::rules(required: true),
             'store_name' => ['required', 'string', 'max:150'],
             'pickup_address' => ['required', 'string', 'max:255'],
             'pickup_street_number' => ['required', 'string', 'max:20'],

@@ -26,9 +26,9 @@ if (root) {
     const old = session;
     forget(); say('Condivisione GPS disattivata.');
     if (old) {
-      try { await staffRequest(`/orders/${old.order_id}/location/session`, { method: 'DELETE', data: { session: old.session } }); }
+      try { await staffRequest(`/orders/${old.order_slug}/location/session`, { method: 'DELETE', data: { session: old.session } }); }
       catch { say('GPS disattivato sul dispositivo. Il server non è raggiungibile: l’ultima posizione scadrà automaticamente.'); }
-      window.dispatchEvent(new CustomEvent('ea:rider-location', { detail: { order_id: old.order_id } }));
+      window.dispatchEvent(new CustomEvent('ea:rider-location', { detail: { order_slug: old.order_slug } }));
     }
   }
   async function send() {
@@ -36,11 +36,11 @@ if (root) {
     const point = latest, active = session, currentGeneration = generation;
     sending = true;
     try {
-      await staffRequest(`/orders/${active.order_id}/location`, { method: 'PUT', data: { session: active.session, latitude: point.latitude, longitude: point.longitude, accuracy: point.accuracy, recorded_at: new Date(point.timestamp).toISOString() } });
+      await staffRequest(`/orders/${active.order_slug}/location`, { method: 'PUT', data: { session: active.session, latitude: point.latitude, longitude: point.longitude, accuracy: point.accuracy, recorded_at: new Date(point.timestamp).toISOString() } });
       if (generation !== currentGeneration) return;
       previous = { ...point, sentAt: Date.now() }; backoffUntil = 0;
       say(`GPS condiviso · precisione ${Math.round(point.accuracy)} m · ${new Date().toLocaleTimeString('it-IT')}`, true);
-      window.dispatchEvent(new CustomEvent('ea:rider-location', { detail: { order_id: active.order_id } }));
+      window.dispatchEvent(new CustomEvent('ea:rider-location', { detail: { order_slug: active.order_slug } }));
     } catch (error) {
       if (generation !== currentGeneration) return;
       if ([401, 403, 404, 409, 419].includes(error.status)) { forget(); say('Tracking terminato o assegnazione cambiata. Riapri la consegna per continuare.'); }
@@ -87,11 +87,11 @@ if (root) {
     if (!session) return;
     const active = session;
     try {
-      const state = await staffRequest(`/orders/${active.order_id}/location`);
+      const state = await staffRequest(`/orders/${active.order_slug}/location`);
       if (session === active && !state.eligible) { forget(); say('Tracking terminato per questa spedizione.'); }
     } catch (error) { if (session === active && [401,403,404,419].includes(error.status)) forget(); }
   });
   setInterval(() => { if (previous && Date.now() - previous.sentAt >= 90000) setState(false); send(); }, 10000);
   try { session = JSON.parse(sessionStorage.getItem(storageKey)); } catch { session = null; }
-  if (session?.session && session?.order_id) { stopButton.hidden = false; watch(); }
+  if (session?.session && session?.order_slug) { stopButton.hidden = false; watch(); }
 }

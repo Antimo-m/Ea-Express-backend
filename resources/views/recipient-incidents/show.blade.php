@@ -29,7 +29,7 @@
                     @if($incident->correction_reason)<div><dt>Ultima rettifica</dt><dd>{{ $incident->correction_reason }}</dd></div>@endif
                     @if($incident->dismissed_at)<div><dt>Segnalazione rimossa il</dt><dd>{{ $incident->dismissed_at->timezone('Europe/Rome')->format('d/m/Y H:i') }}</dd></div>@endif
                 </dl>
-                <div class="row-actions mt-3"><x-ui.icon-button icon="box-arrow-up-right" action="open" :href="route('orders.show', $incident->order)" label="Apri ordine" text /><x-ui.icon-button action="history" :href="route('audits.index', ['type' => 'recipient_incidents', 'id' => $incident->id])" label="Storico rettifiche" text /></div>
+                <div class="row-actions mt-3"><x-ui.icon-button icon="box-arrow-up-right" action="open" :href="route('orders.show', $incident->order)" label="Apri ordine" text /><x-ui.icon-button action="history" :href="route('audits.index', ['type' => 'recipient_incidents', 'slug'=>$incident->slug])" label="Storico rettifiche" text /></div>
             </article>
         @endforeach
         {{ $incidents->links('components.ui.pagination') }}

@@ -4,13 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Actions\ReschedulePickup;
 use App\Models\Order;
+use App\Support\OrderDetail;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
 class PickupScheduleController extends Controller
 {
-    public function update(Request $request, Order $order, ReschedulePickup $reschedule): RedirectResponse
+    public function update(Request $request, Order $order, ReschedulePickup $reschedule): RedirectResponse|JsonResponse
     {
         Gate::authorize('view', $order);
         Gate::authorize('update', $order);
@@ -20,6 +22,12 @@ class PickupScheduleController extends Controller
             'reason' => ['required', 'string', 'max:500'], 'version' => ['required', 'integer', 'min:1'],
         ]);
         $reschedule->handle($request->user(), $order, $data);
+
+        if ($request->expectsJson()) {
+            $order->refresh();
+
+            return response()->json(['message' => 'Ritiro ripianificato.', 'status' => $order->status->value, 'version' => $order->version, 'html' => app(OrderDetail::class)->view($order)->render()]);
+        }
 
         return redirect()->route('orders.show', $order)->with('status', 'Ritiro ripianificato. Nuovi orari e storico salvati.');
     }

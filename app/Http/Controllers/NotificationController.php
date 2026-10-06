@@ -21,9 +21,9 @@ class NotificationController extends Controller
         return response()->json($inbox->feed($request->user()));
     }
 
-    public function history(Request $request, int $orderId, NotificationInbox $inbox): JsonResponse
+    public function history(Request $request, Order $order, NotificationInbox $inbox): JsonResponse
     {
-        return response()->json($inbox->history($request->user(), $orderId));
+        return response()->json($inbox->history($request->user(), $order->id));
     }
 
     public function update(Request $request, string $notification): RedirectResponse

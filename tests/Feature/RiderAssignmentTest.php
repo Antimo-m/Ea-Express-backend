@@ -32,19 +32,19 @@ class RiderAssignmentTest extends TestCase
         if ($directory = getenv('EA_RIDER_UI_CAPTURE')) {
             file_put_contents($directory.'/admin-order.html', $this->get(route('orders.show', $order))->getContent());
         }
-        $this->patch(route('orders.update', $order), ['status' => 'accepted', 'version' => 1, 'price' => '12.50', 'rider_id' => $rider->id])->assertSessionHasNoErrors()->assertRedirect();
+        $this->patch(route('orders.update', $order), ['status' => 'accepted', 'version' => 1, 'price' => '12.50', 'rider_id' => $rider->slug])->assertSessionHasNoErrors()->assertRedirect();
         $this->assertSame($rider->id, $order->fresh()->rider_id);
         $this->assertSame($admin->id, $order->fresh()->assigned_by);
         $this->assertNotNull($order->fresh()->assigned_at);
         $this->assertDatabaseHas('economic_audits', ['entity_id' => $order->id, 'action' => 'rider.assigned', 'user_id' => $admin->id]);
-        $this->patchJson(route('orders.update', $order), ['status' => 'accepted', 'version' => 1, 'price' => '9', 'rider_id' => $rider->id])->assertUnprocessable();
+        $this->patchJson(route('orders.update', $order), ['status' => 'accepted', 'version' => 1, 'price' => '9', 'rider_id' => $rider->slug])->assertUnprocessable();
     }
 
     public function test_rider_is_denied_every_administrative_endpoint_and_order_creation(): void
     {
         $rider = User::factory()->create();
         $this->actingAs($rider);
-        foreach (['/balance', '/pending', '/reports', '/stores', '/economic-audits', '/movements', '/settings', '/settings/users', '/settings/users/create', '/rates', '/rates/quote', '/orders/create'] as $path) {
+        foreach (['/balance', '/pending', '/reports', '/customers', '/economic-audits', '/movements', '/settings', '/settings/users', '/settings/users/create', '/rates', '/rates/quote', '/orders/create'] as $path) {
             $this->getJson($path)->assertForbidden();
         }
         foreach (['/orders', '/orders/checkout/edit', '/rates', '/expenses', '/movements', '/pending', '/settings/users'] as $path) {
@@ -69,11 +69,11 @@ class RiderAssignmentTest extends TestCase
         foreach ([$incoming, $theirs] as $hidden) {
             $this->get(route('orders.show', $hidden))->assertNotFound();
             $this->get(route('messages.show', $hidden))->assertNotFound();
-            $this->get(route('labels.index', ['ids' => [$hidden->id]]))->assertNotFound();
+            $this->get(route('labels.index', ['ids' => [$hidden->slug]]))->assertNotFound();
             $this->patchJson(route('orders.update', $hidden), ['status' => 'rider_arriving', 'version' => 1])->assertForbidden();
             $this->postJson(route('messages.store', $hidden), ['body' => 'Intrusione'])->assertForbidden();
         }
-        foreach (['/orders/incoming', '/orders/in-progress', '/pickups', '/tracking', '/dashboard'] as $path) {
+        foreach (['/orders/incoming', '/orders/in-progress', '/pickups', '/dashboard'] as $path) {
             $this->get($path)->assertOk()->assertDontSee($incoming->reference)->assertDontSee($theirs->reference);
         }
         $this->get(route('orders.show', $mine))->assertOk()->assertSee($mine->reference);
@@ -90,10 +90,10 @@ class RiderAssignmentTest extends TestCase
         $second = User::factory()->create();
         $order = Order::factory()->create(['rider_id' => $first->id, 'status' => OrderStatus::Accepted]);
         app(NotifyOrderParticipants::class)->handle($order, 'Ordine assegnato', $admin->id);
-        $this->actingAs($admin)->patch(route('orders.rider', $order), ['rider_id' => $second->id, 'version' => 1])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->patch(route('orders.rider', $order), ['rider_id' => $second->slug, 'version' => 1])->assertSessionHasNoErrors();
         $this->actingAs($first)->get(route('orders.show', $order))->assertNotFound();
         $this->get('/notifications')->assertDontSee($order->reference);
-        $this->getJson('/notifications/orders/'.$order->id)->assertJsonCount(0, 'data');
+        $this->getJson('/notifications/orders/'.$order->slug)->assertNotFound();
         $this->actingAs($second)->get(route('orders.show', $order))->assertOk();
         $this->actingAs($admin)->patch(route('users.update', $second), ['action' => 'deactivate'])->assertSessionHasErrors('action');
         $this->patch(route('users.update', $first), ['action' => 'deactivate'])->assertSessionHasNoErrors();
@@ -109,7 +109,7 @@ class RiderAssignmentTest extends TestCase
         $this->assertSame(0, $rider->notifications()->count());
         $this->assertSame(1, $admin->notifications()->count());
         $channels = collect((new WorkspaceUpdated($order->id, 'order'))->broadcastOn())->map(fn ($channel) => $channel->name)->all();
-        $this->assertNotContains('private-staff.'.$rider->id, $channels);
+        $this->assertNotContains('private-staff.'.$rider->slug, $channels);
         $this->actingAs($admin)->get('/settings/users')->assertSee($rider->email)->assertDontSee($customer->email);
     }
 
@@ -118,8 +118,8 @@ class RiderAssignmentTest extends TestCase
         $rider = User::factory()->create();
         $order = Order::factory()->create(['rider_id' => $rider->id, 'status' => OrderStatus::Accepted, 'price_cents' => 1250, 'parcel_value_cents' => 5000]);
         if ($directory = getenv('EA_RIDER_UI_CAPTURE')) {
-            file_put_contents($directory.'/labels.html', $this->actingAs($rider)->get(route('labels.index', ['ids' => [$order->id]]))->getContent());
+            file_put_contents($directory.'/labels.html', $this->actingAs($rider)->get(route('labels.index', ['ids' => [$order->slug]]))->getContent());
         }
-        $this->actingAs($rider)->get(route('labels.index', ['ids' => [$order->id]]))->assertSeeInOrder(['Mittente / ritiro', 'Destinatario', 'Informazioni operative', 'Totale finale', '62,50']);
+        $this->actingAs($rider)->get(route('labels.index', ['ids' => [$order->slug]]))->assertSeeInOrder(['Mittente / ritiro', 'Destinatario', 'Informazioni operative', 'Totale finale', '62,50']);
     }
 }

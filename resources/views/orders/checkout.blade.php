@@ -16,14 +16,14 @@
         <p class="small text-secondary">Il valore della merce è distinto dalla tariffa e non rappresenta un incasso del servizio.</p>
         @if($review['quote']['reason'])<p role="status">{{ $review['quote']['reason'] }}</p>@endif
     </section>
-    <div class="d-flex flex-wrap gap-3">
+    <div class="checkout-actions">
         <form method="post" action="{{ route('orders.checkout.edit') }}">@csrf
             @foreach($review['data'] as $name => $value)
                 @if(!is_array($value))<input type="hidden" name="{{ $name }}" value="{{ $value }}">@else
                     @foreach($value as $index => $item)@foreach($item as $field => $number)<input type="hidden" name="{{ $name }}[{{ $index }}][{{ $field }}]" value="{{ $number }}">@endforeach @endforeach
                 @endif
             @endforeach
-            <button class="btn btn-outline-secondary" type="submit">Modifica dati</button>
+            <button class="btn btn-outline-secondary" type="submit">Torna indietro</button>
         </form>
         @if($review['checkout_token'])
         <form method="post" action="{{ route('orders.store') }}">@csrf
@@ -33,7 +33,7 @@
                 @endif
             @endforeach
             <input type="hidden" name="checkout_token" value="{{ $review['checkout_token'] }}">
-            <button class="btn btn-primary" type="submit">Conferma e crea ritiro</button>
+            <button class="btn btn-success checkout-continue" type="submit">Conferma e crea ritiro</button>
         </form>
         @endif
     </div>

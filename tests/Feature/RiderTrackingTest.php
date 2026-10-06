@@ -25,7 +25,7 @@ class RiderTrackingTest extends TestCase
 
     private function start(Order $order): string
     {
-        return $this->actingAs($order->rider, 'web')->postJson('/orders/'.$order->id.'/location/session')->assertOk()->json('session');
+        return $this->actingAs($order->rider, 'web')->postJson('/orders/'.$order->slug.'/location/session')->assertOk()->json('session');
     }
 
     private function position(string $session, array $overrides = []): array
@@ -39,25 +39,25 @@ class RiderTrackingTest extends TestCase
         $order = $this->order();
         Event::fake([RiderLocationUpdated::class]);
         $session = $this->start($order);
-        $this->putJson('/orders/'.$order->id.'/location', $this->position($session))->assertOk();
-        $this->getJson('/orders/'.$order->id.'/location')->assertOk()->assertJsonPath('location.latitude', 40.8518)->assertJsonPath('state', 'live')->assertJsonMissingPath('session');
-        $this->actingAs($order->customer, 'customer')->getJson('/api/v1/customer/orders/'.$order->id.'/location')->assertOk()->assertJsonPath('location.longitude', 14.2681);
-        $this->actingAs(User::factory()->create(['role' => UserRole::Customer]), 'customer')->getJson('/api/v1/customer/orders/'.$order->id.'/location')->assertNotFound();
-        $this->actingAs(User::factory()->create(), 'web')->getJson('/orders/'.$order->id.'/location')->assertNotFound();
-        $this->actingAs(User::factory()->create(['role' => UserRole::Admin]), 'web')->getJson('/orders/'.$order->id.'/location')->assertOk();
+        $this->putJson('/orders/'.$order->slug.'/location', $this->position($session))->assertOk();
+        $this->getJson('/orders/'.$order->slug.'/location')->assertOk()->assertJsonPath('location.latitude', 40.8518)->assertJsonPath('state', 'live')->assertJsonMissingPath('session');
+        $this->actingAs($order->customer, 'customer')->getJson('/api/v1/customer/orders/'.$order->slug.'/location')->assertOk()->assertJsonPath('location.longitude', 14.2681);
+        $this->actingAs(User::factory()->create(['role' => UserRole::Customer]), 'customer')->getJson('/api/v1/customer/orders/'.$order->slug.'/location')->assertNotFound();
+        $this->actingAs(User::factory()->create(), 'web')->getJson('/orders/'.$order->slug.'/location')->assertNotFound();
+        $this->actingAs(User::factory()->create(['role' => UserRole::Admin]), 'web')->getJson('/orders/'.$order->slug.'/location')->assertOk();
         Event::assertDispatched(RiderLocationUpdated::class, fn ($event) => $event->orderId === $order->id);
-        $this->assertSame(['order_id' => $order->id], (new RiderLocationUpdated($order->id))->broadcastWith());
+        $this->assertSame(['order_slug' => $order->slug], (new RiderLocationUpdated($order->id))->broadcastWith());
         $this->assertArrayNotHasKey('gps_session_id', $order->fresh()->toArray());
     }
 
     public function test_anonymous_and_other_riders_cannot_read_or_write_gps(): void
     {
         $order = $this->order();
-        $this->getJson('/api/v1/customer/orders/'.$order->id.'/location')->assertUnauthorized();
-        $this->postJson('/orders/'.$order->id.'/location/session')->assertUnauthorized();
-        $this->actingAs(User::factory()->create())->postJson('/orders/'.$order->id.'/location/session')->assertNotFound();
-        $this->putJson('/orders/'.$order->id.'/location', $this->position((string) Str::uuid()))->assertNotFound();
-        $this->actingAs(User::factory()->create(['role' => UserRole::Admin]))->postJson('/orders/'.$order->id.'/location/session')->assertNotFound();
+        $this->getJson('/api/v1/customer/orders/'.$order->slug.'/location')->assertUnauthorized();
+        $this->postJson('/orders/'.$order->slug.'/location/session')->assertUnauthorized();
+        $this->actingAs(User::factory()->create())->postJson('/orders/'.$order->slug.'/location/session')->assertNotFound();
+        $this->putJson('/orders/'.$order->slug.'/location', $this->position((string) Str::uuid()))->assertNotFound();
+        $this->actingAs(User::factory()->create(['role' => UserRole::Admin]))->postJson('/orders/'.$order->slug.'/location/session')->assertNotFound();
     }
 
     public static function inactiveStates(): array
@@ -69,18 +69,18 @@ class RiderTrackingTest extends TestCase
     public function test_gps_cannot_start_outside_operational_states(string $status): void
     {
         $order = $this->order(['status' => $status]);
-        $this->actingAs($order->rider)->postJson('/orders/'.$order->id.'/location/session')->assertConflict();
+        $this->actingAs($order->rider)->postJson('/orders/'.$order->slug.'/location/session')->assertConflict();
     }
 
     public function test_stop_removes_coordinates_and_rejects_previous_session(): void
     {
         $order = $this->order();
         $session = $this->start($order);
-        $this->putJson('/orders/'.$order->id.'/location', $this->position($session))->assertOk();
-        $this->deleteJson('/orders/'.$order->id.'/location/session', ['session' => $session])->assertOk();
+        $this->putJson('/orders/'.$order->slug.'/location', $this->position($session))->assertOk();
+        $this->deleteJson('/orders/'.$order->slug.'/location/session', ['session' => $session])->assertOk();
         $this->assertNull(app(RiderTracking::class)->cache()->get('gps:'.$session));
-        $this->putJson('/orders/'.$order->id.'/location', $this->position($session))->assertConflict();
-        $this->getJson('/orders/'.$order->id.'/location')->assertJsonPath('location', null)->assertJsonPath('state', 'ready');
+        $this->putJson('/orders/'.$order->slug.'/location', $this->position($session))->assertConflict();
+        $this->getJson('/orders/'.$order->slug.'/location')->assertJsonPath('location', null)->assertJsonPath('state', 'ready');
     }
 
     public function test_new_session_replaces_previous_order_and_prevents_late_stop_from_old_device(): void
@@ -90,7 +90,7 @@ class RiderTrackingTest extends TestCase
         $next = $this->order(['rider_id' => $order->rider_id]);
         $new = $this->start($next);
         $this->assertNull($order->fresh()->gps_session_id);
-        $this->deleteJson('/orders/'.$next->id.'/location/session', ['session' => $old])->assertConflict();
+        $this->deleteJson('/orders/'.$next->slug.'/location/session', ['session' => $old])->assertConflict();
         $this->assertSame($new, $next->fresh()->gps_session_id);
     }
 
@@ -98,16 +98,16 @@ class RiderTrackingTest extends TestCase
     {
         $order = $this->order();
         $session = $this->start($order);
-        $this->putJson('/orders/'.$order->id.'/location', $this->position($session))->assertOk();
-        $this->patchJson('/orders/'.$order->id, ['version' => 1, 'status' => 'delivered'])->assertRedirect();
+        $this->putJson('/orders/'.$order->slug.'/location', $this->position($session))->assertOk();
+        $this->patchJson('/orders/'.$order->slug, ['version' => 1, 'status' => 'delivered'])->assertOk();
         $this->assertNull($order->fresh()->gps_session_id);
-        $this->getJson('/orders/'.$order->id.'/location')->assertJsonPath('state', 'completed')->assertJsonPath('location', null);
-        $this->putJson('/orders/'.$order->id.'/location', $this->position($session))->assertConflict();
+        $this->getJson('/orders/'.$order->slug.'/location')->assertJsonPath('state', 'completed')->assertJsonPath('location', null);
+        $this->putJson('/orders/'.$order->slug.'/location', $this->position($session))->assertConflict();
         $other = $this->order();
         $old = $this->start($other);
-        $this->actingAs(User::factory()->create(['role' => UserRole::Admin]))->patch('/orders/'.$other->id.'/rider', ['version' => 1, 'rider_id' => User::factory()->create()->id])->assertRedirect();
+        $this->actingAs(User::factory()->create(['role' => UserRole::Admin]))->patch('/orders/'.$other->slug.'/rider', ['version' => 1, 'rider_id' => User::factory()->create()->slug])->assertRedirect();
         $this->assertNull($other->fresh()->gps_session_id);
-        $this->actingAs($other->rider)->putJson('/orders/'.$other->id.'/location', $this->position($old))->assertNotFound();
+        $this->actingAs($other->rider)->putJson('/orders/'.$other->slug.'/location', $this->position($old))->assertNotFound();
     }
 
     public function test_stale_location_is_retained_temporarily_then_expires(): void
@@ -115,11 +115,11 @@ class RiderTrackingTest extends TestCase
         $this->freezeTime();
         $order = $this->order();
         $session = $this->start($order);
-        $this->putJson('/orders/'.$order->id.'/location', $this->position($session))->assertOk();
+        $this->putJson('/orders/'.$order->slug.'/location', $this->position($session))->assertOk();
         $this->travel(2)->minutes();
-        $this->getJson('/orders/'.$order->id.'/location')->assertJsonPath('state', 'stale')->assertJsonPath('location.latitude', 40.8518);
+        $this->getJson('/orders/'.$order->slug.'/location')->assertJsonPath('state', 'stale')->assertJsonPath('location.latitude', 40.8518);
         $this->travel(14)->minutes();
-        $this->getJson('/orders/'.$order->id.'/location')->assertJsonPath('location', null)->assertJsonPath('state', 'locating');
+        $this->getJson('/orders/'.$order->slug.'/location')->assertJsonPath('location', null)->assertJsonPath('state', 'locating');
     }
 
     public function test_invalid_old_future_and_out_of_order_positions_are_rejected(): void
@@ -128,42 +128,42 @@ class RiderTrackingTest extends TestCase
         $order = $this->order();
         $session = $this->start($order);
         foreach ([['latitude' => 91], ['longitude' => -181], ['accuracy' => 501], ['recorded_at' => now()->subMinutes(3)->toIso8601String()], ['recorded_at' => now()->addMinute()->toIso8601String()]] as $invalid) {
-            $this->putJson('/orders/'.$order->id.'/location', $this->position($session, $invalid))->assertUnprocessable()->assertJsonValidationErrors(array_keys($invalid));
+            $this->putJson('/orders/'.$order->slug.'/location', $this->position($session, $invalid))->assertUnprocessable()->assertJsonValidationErrors(array_keys($invalid));
         }
         $valid = $this->position($session);
-        $this->putJson('/orders/'.$order->id.'/location', $valid)->assertOk();
+        $this->putJson('/orders/'.$order->slug.'/location', $valid)->assertOk();
         $this->travel(6)->seconds();
-        $this->putJson('/orders/'.$order->id.'/location', $valid)->assertConflict();
-        $this->putJson('/orders/'.$order->id.'/location', $this->position($session))->assertOk();
+        $this->putJson('/orders/'.$order->slug.'/location', $valid)->assertConflict();
+        $this->putJson('/orders/'.$order->slug.'/location', $this->position($session))->assertOk();
         $this->travel(1)->seconds();
-        $this->putJson('/orders/'.$order->id.'/location', $this->position($session))->assertTooManyRequests();
+        $this->putJson('/orders/'.$order->slug.'/location', $this->position($session))->assertTooManyRequests();
     }
 
     public function test_public_tracking_has_no_location_and_carrier_or_disabled_rider_has_no_gps(): void
     {
         $order = $this->order();
         $session = $this->start($order);
-        $this->putJson('/orders/'.$order->id.'/location', $this->position($session))->assertOk();
+        $this->putJson('/orders/'.$order->slug.'/location', $this->position($session))->assertOk();
         $this->get('/track/'.$order->tracking_token)->assertOk()->assertDontSee('40.8518');
         $rider = $order->rider;
         $rider->is_active = false;
         $rider->save();
-        $this->actingAs($order->customer, 'customer')->getJson('/api/v1/customer/orders/'.$order->id.'/location')->assertJsonPath('location', null);
+        $this->actingAs($order->customer, 'customer')->getJson('/api/v1/customer/orders/'.$order->slug.'/location')->assertJsonPath('location', null);
         $order->carrier_handed_at = now();
         $order->save();
-        $this->getJson('/api/v1/customer/orders/'.$order->id.'/location')->assertJsonPath('state', 'carrier')->assertJsonPath('location', null);
+        $this->getJson('/api/v1/customer/orders/'.$order->slug.'/location')->assertJsonPath('state', 'carrier')->assertJsonPath('location', null);
     }
 
     public function test_map_points_require_staff_ownership_and_current_version(): void
     {
         $order = $this->order();
         $data = ['kind' => 'pickup', 'latitude' => 40.85, 'longitude' => 14.26, 'version' => 1];
-        $this->actingAs(User::factory()->create())->patchJson('/orders/'.$order->id.'/map-points', $data)->assertNotFound();
-        $this->actingAs($order->rider)->patchJson('/orders/'.$order->id.'/map-points', $data)->assertOk()->assertJsonPath('version', 2);
+        $this->actingAs(User::factory()->create())->patchJson('/orders/'.$order->slug.'/map-points', $data)->assertNotFound();
+        $this->actingAs($order->rider)->patchJson('/orders/'.$order->slug.'/map-points', $data)->assertOk()->assertJsonPath('version', 2);
         $this->assertSame(['latitude' => 40.85, 'longitude' => 14.26], $order->fresh()->pickup_point);
-        $this->patchJson('/orders/'.$order->id.'/map-points', $data)->assertConflict();
-        $this->getJson('/orders/'.$order->id.'/location')->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
-        $this->actingAs($order->customer, 'customer')->getJson('/api/v1/customer/orders/'.$order->id.'/location')->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+        $this->patchJson('/orders/'.$order->slug.'/map-points', $data)->assertConflict();
+        $this->getJson('/orders/'.$order->slug.'/location')->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
+        $this->actingAs($order->customer, 'customer')->getJson('/api/v1/customer/orders/'.$order->slug.'/location')->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     }
 
     public function test_logout_and_session_expiry_clear_tracking(): void
@@ -171,7 +171,7 @@ class RiderTrackingTest extends TestCase
         $this->freezeTime();
         $order = $this->order();
         $session = $this->start($order);
-        $this->putJson('/orders/'.$order->id.'/location', $this->position($session))->assertOk();
+        $this->putJson('/orders/'.$order->slug.'/location', $this->position($session))->assertOk();
         $this->post('/logout')->assertRedirect();
         $this->assertNull($order->fresh()->gps_session_id);
         $this->assertNull(app(RiderTracking::class)->cache()->get('gps:'.$session));
@@ -186,11 +186,11 @@ class RiderTrackingTest extends TestCase
         $order = $this->order();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $this->actingAs($admin)->get('/dashboard')->assertOk()->assertSee('Rider in strada');
-        $this->get('/orders/'.$order->id)->assertOk()->assertSee('Segui la consegna');
+        $this->get('/orders/'.$order->slug)->assertOk()->assertSee('Segui la consegna');
         $this->get('/orders/in-progress')->assertOk()->assertSee($order->reference);
-        $this->get('/tracking')->assertOk()->assertSee('Mappa live');
+        $this->get('/tracking')->assertNotFound();
         $this->actingAs($order->rider)->get('/dashboard')->assertOk()->assertSee('data-rider-gps', false);
-        $this->actingAs($order->customer, 'customer')->getJson('/api/v1/customer/dashboard')->assertOk()->assertJsonPath('live_order.id', $order->id);
+        $this->actingAs($order->customer, 'customer')->getJson('/api/v1/customer/dashboard')->assertOk()->assertJsonPath('live_order.slug', $order->slug);
         $this->actingAs(User::factory()->create(['role' => UserRole::Customer]), 'customer')->getJson('/api/v1/customer/dashboard')->assertOk()->assertJsonPath('live_order', null);
     }
 }

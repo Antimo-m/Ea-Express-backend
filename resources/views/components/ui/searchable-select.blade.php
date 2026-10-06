@@ -5,7 +5,7 @@
     <select data-searchable data-filter-label="{{ $label }}" name="{{ $name }}" id="{{ $id }}" {{ $attributes->class(['form-select']) }}>
         <option value="">{{ $placeholder }}</option>
         @foreach($options as $option)
-            <option value="{{ $option->id }}" @selected((string)$value === (string)$option->id)>{{ $option->name }}@if($option->email) · {{ $option->email }}@endif</option>
+            <option value="{{ $option->slug }}" @selected((string)$value === (string)$option->slug)>{{ $option->name }}@if($option->email) · {{ $option->email }}@endif</option>
         @endforeach
     </select>
 </div>

@@ -21,7 +21,7 @@ class RiderTrackingController extends Controller
 
     public function index(Request $request, RiderTracking $tracking): JsonResponse
     {
-        $orders = Order::visibleTo($request->user())->with('rider:id,name,role,is_active,email_verified_at')
+        $orders = Order::visibleTo($request->user())->with('rider:id,slug,name,role,is_active,email_verified_at')
             ->whereNotNull('gps_session_id')->whereIn('status', RiderTracking::ACTIVE_STATUSES)
             ->whereNull('carrier_handed_at')->orderBy('id')->limit(100)->get();
 
@@ -32,7 +32,7 @@ class RiderTrackingController extends Controller
     {
         $tracking->authorizeRider($request->user(), $order);
 
-        return response()->json(['session' => $tracking->start($order, $request->user()), 'order_id' => $order->id]);
+        return response()->json(['session' => $tracking->start($order, $request->user()), 'order_slug' => $order->slug]);
     }
 
     public function update(Request $request, Order $order, RiderTracking $tracking): JsonResponse

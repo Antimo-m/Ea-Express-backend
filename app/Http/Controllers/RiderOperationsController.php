@@ -57,8 +57,8 @@ class RiderOperationsController extends Controller
 
         $remaining = $day['today'] ? $orders->filter(fn ($order) => ! in_array($order->status->value, OrderStatus::closed(), true))->count() : $activity->groupBy(fn ($item) => $item['order']->id)->filter(fn ($items) => ! in_array($items->last()['event']->status->value, OrderStatus::closed(), true))->count();
         $gpsPeriod = new ReportingPeriod($this->date($request), $this->date($request)->endOfDay());
-        $samples = RiderGpsSample::where('rider_id', $rider->id)->whereBetween('recorded_at', $gpsPeriod->utcRange())->where('captured_at', '>=', now()->subDays(config('tracking.history_days')))->when($zone, fn ($query) => $query->whereIn('order_id', $orders->pluck('id')->all()))->orderBy('recorded_at')->limit(1440)->get();
-        $gpsPoints = $samples->map(fn ($sample) => ['kind' => 'sample', 'rider_id' => $rider->id, 'rider_name' => $rider->name, 'reference' => 'Campione GPS', 'order_url' => route('orders.show', $sample->order_id), 'location' => [...$sample->position, 'recorded_at' => $sample->recorded_at->toIso8601String(), 'received_at' => $sample->captured_at->toIso8601String()]])->values()->all();
+        $samples = RiderGpsSample::with('order:id,slug')->where('rider_id', $rider->id)->whereBetween('recorded_at', $gpsPeriod->utcRange())->where('captured_at', '>=', now()->subDays(config('tracking.history_days')))->when($zone, fn ($query) => $query->whereIn('order_id', $orders->pluck('id')->all()))->orderBy('recorded_at')->limit(1440)->get();
+        $gpsPoints = $samples->map(fn ($sample) => ['kind' => 'sample', 'rider_slug' => $rider->slug, 'rider_name' => $rider->name, 'reference' => 'Campione GPS', 'order_url' => route('orders.show', $sample->order), 'location' => [...$sample->position, 'recorded_at' => $sample->recorded_at->toIso8601String(), 'received_at' => $sample->captured_at->toIso8601String()]])->values()->all();
         if ($gpsPoints) {
             $gpsPoints[array_key_last($gpsPoints)]['kind'] = 'last-sample';
         }

@@ -48,7 +48,7 @@ class RiderTracking
     /** @return array<string, mixed> */
     public function snapshot(Order $order, ?array $cachedPositions = null): array
     {
-        $order->loadMissing('rider:id,name,role,is_active,email_verified_at');
+        $order->loadMissing('rider:id,slug,name,role,is_active,email_verified_at');
         $eligible = $this->eligible($order) && $order->rider?->canOperateDeliveries();
         $location = $eligible && $order->gps_session_id ? $this->position($order->gps_session_id, $cachedPositions) : null;
         $state = match (true) {
@@ -66,7 +66,7 @@ class RiderTracking
         }
 
         return [
-            'order_id' => $order->id, 'reference' => $order->reference,
+            'order_slug' => $order->slug, 'reference' => $order->reference,
             'status' => $order->status->value, 'status_label' => $order->status->label(),
             'state' => $state, 'eligible' => (bool) $eligible,
             'rider' => $order->rider ? ['name' => $order->rider->name] : null,

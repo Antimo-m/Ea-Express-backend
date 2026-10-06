@@ -18,7 +18,7 @@ class PendingSettlementController extends Controller
         $data = $request->validated();
         $correct->handle($request->user(), $account, $settlement, Money::cents($data['amount']), $data['reason'], (int) $data['version'], $data['ea_amount'] ?? null);
         $message = 'Pagamento corretto. Saldo, residuo e bilancio aggiornati.';
-        $redirect = route('pending.index', ['id' => $account->id, 'direction' => $account->direction]);
+        $redirect = route('pending.index', ['slug' => $account->slug, 'direction' => $account->direction]);
 
         return $request->expectsJson() ? response()->json(compact('message', 'redirect')) : redirect($redirect)->with('status', $message);
     }

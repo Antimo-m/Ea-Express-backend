@@ -2,15 +2,16 @@
 
 namespace App\Support;
 
+use App\SenderType;
 use Illuminate\Validation\Rule;
 
 class CustomerIdentity
 {
     /** @return array<string, array<int, mixed>> */
-    public static function rules(): array
+    public static function rules(bool $required = false): array
     {
         return [
-            'sender_type' => ['sometimes', 'required', Rule::in(['business', 'private', 'online_shop'])],
+            'sender_type' => [...($required ? [] : ['sometimes']), 'required', Rule::enum(SenderType::class)],
             'business_type' => ['nullable', 'string', 'max:100'],
             'business_description' => ['nullable', 'string', 'max:500'],
         ];

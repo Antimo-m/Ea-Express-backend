@@ -11,7 +11,7 @@ class CustomerPendingResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
+            'slug' => $this->slug,
             'direction' => $this->direction,
             'direction_label' => $this->direction === 'incoming' ? 'Devi pagare EA Express' : 'EA Express deve pagarti',
             'subject' => $this->subject,
@@ -25,7 +25,7 @@ class CustomerPendingResource extends JsonResource
             'due_on' => $this->due_on?->toDateString(),
             'settled_at' => $this->settled_at?->toIso8601String(),
             'settlements' => $this->whenLoaded('settlements', fn () => $this->settlements->map(fn (PendingSettlement $settlement): array => [
-                'id' => $settlement->id,
+                'slug' => $settlement->slug,
                 'amount_cents' => $settlement->amount_cents,
                 'created_at' => $settlement->created_at->toIso8601String(),
                 'updated_at' => $settlement->updated_at->toIso8601String(),

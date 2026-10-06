@@ -1,3 +1,5 @@
+import { restoreOrderPreviews } from './operational-orders';
+import { applyOrderSnapshot } from './order-snapshot';
 import { connectWorkspace } from './workspace-realtime';
 import { observeMessageReceipts } from './message-receipts';
 import { createRefreshQueue } from './refresh-queue';
@@ -11,7 +13,22 @@ const regions = createRefreshQueue(async () => {
   for (const region of document.querySelectorAll('[data-live-region]')) {
     const replacement = fresh.querySelector(`[data-live-region="${region.dataset.liveRegion}"]`);
     if (region.querySelector('dialog[open], form[aria-busy="true"], .ea-picker-trigger[aria-expanded="true"]') || (region.contains(document.activeElement) && document.activeElement.matches('input,select,textarea,.ea-picker-trigger'))) continue;
-    if (replacement) region.replaceChildren(...replacement.childNodes);
+    if (replacement) {
+      const oldRows = new Map([...region.querySelectorAll('[data-operational-order]')].map(row => [row.dataset.operationalOrder, row.dataset.orderState]));
+      const openSlugs = [...region.querySelectorAll('[data-order-preview-toggle][aria-expanded="true"]')].map(button => button.closest('[data-operational-order]').dataset.operationalOrder);
+      const focused = document.activeElement;
+      const focusSlug = focused?.closest('[data-operational-order]')?.dataset.operationalOrder;
+      const focusPreview = focused?.matches('[data-order-preview-toggle]');
+      region.replaceChildren(...replacement.childNodes);
+      restoreOrderPreviews(region, openSlugs);
+      for (const row of region.querySelectorAll('[data-operational-order]')) {
+        const previous = oldRows.get(row.dataset.operationalOrder);
+        if (previous !== undefined && previous !== row.dataset.orderState) row.classList.add('is-updated');
+        if (previous === undefined) row.classList.add('is-new');
+        if (row.dataset.operationalOrder === focusSlug) row.querySelector(focusPreview ? '[data-order-preview-toggle]' : '[data-order-link]')?.focus({ preventScroll: true });
+      }
+      window.dispatchEvent(new CustomEvent('ea:order-list-rendered', { detail: { region: region.dataset.liveRegion } }));
+    }
     bindFinancialForms(region);
   }
 });
@@ -45,20 +62,20 @@ if (chat) {
       cleanup();
       list.replaceChildren();
       [...result.data].reverse().forEach(message => {
-        const article = document.createElement('article'); article.dataset.messageId = message.id;
-        article.className = `message-bubble ${message.sender === 'courier' ? 'message-team' : ''}`;
-        const author = document.createElement('strong'); author.textContent = message.sender === 'courier' ? 'EA-Express' : 'Cliente';
+        const article = document.createElement('article'); article.dataset.messageId = message.slug;
+        article.className = `message-bubble ${message.sender === 'team' ? 'message-team' : ''}`;
+        const author = document.createElement('strong'); author.textContent = message.sender === 'team' ? 'EA-Express' : 'Cliente';
         const body = document.createElement('p'); body.className = 'message-body mb-1 mt-2'; body.textContent = message.body;
-        const meta = document.createElement('small'); meta.textContent = new Date(message.created_at).toLocaleString('it-IT') + (message.sender === 'courier' ? ` · ${message.read_at ? 'Letto' : message.delivered_at ? 'Consegnato' : 'Inviato'}` : '');
+        const meta = document.createElement('small'); meta.textContent = new Date(message.created_at).toLocaleString('it-IT') + (message.sender === 'team' ? ` · ${message.read_at ? 'Letto' : message.delivered_at ? 'Consegnato' : 'Inviato'}` : '');
         article.append(author, body, meta); list.append(article);
       });
       list.scrollTop = atEnd ? list.scrollHeight : oldScroll;
-      if (form) cleanup = observeMessageReceipts(list, result.data, (ids, state) => staffRequest(`${location.pathname}/read`, { method: 'PATCH', data: { ids, state } }), 'courier', error => { feedback.textContent = error.message; });
+      if (form) cleanup = observeMessageReceipts(list, result.data, (ids, state) => staffRequest(`${location.pathname}/read`, { method: 'PATCH', data: { ids, state } }), 'team', error => { feedback.textContent = error.message; });
     } catch (error) { feedback.textContent = error.message; }
     finally { loading = false; if (again) { again = false; refresh(); } }
   }
   window.addEventListener('ea:workspace-updated', event => {
-    if (!event.detail.order_id || event.detail.order_id === Number(chat.dataset.liveChat)) refresh();
+    if (!event.detail.order_slug || event.detail.order_slug === chat.dataset.liveChat) refresh();
   });
   let submissionKey, submittedBody;
   form?.addEventListener('submit', async event => {
@@ -74,23 +91,14 @@ if (chat) {
 let updating = false;
 window.addEventListener('ea:workspace-updated', async event => {
   const section = document.querySelector('[data-live-order]');
-  if (!section || section.querySelector('dialog[open], form[aria-busy="true"], .ea-picker-trigger[aria-expanded="true"]') || updating || event.detail.kind === 'receipts' || event.detail.kind === 'messages' || (event.detail.order_id && Number(section.dataset.liveOrder) !== event.detail.order_id)) return;
+  if (!section || section.querySelector('dialog[open], form[aria-busy="true"], .ea-picker-trigger[aria-expanded="true"]') || updating || event.detail.kind === 'order-action' || event.detail.kind === 'receipts' || event.detail.kind === 'messages' || (event.detail.order_slug && section.dataset.liveOrder !== event.detail.order_slug)) return;
   updating = true;
   try {
     const response = await fetch(location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' } });
     if (!response.ok || response.redirected) return;
     const fresh = new DOMParser().parseFromString(await response.text(), 'text/html');
     if (section.querySelector('dialog[open], form[aria-busy="true"], .ea-picker-trigger[aria-expanded="true"]')) return;
-    for (const selector of ['.order-overview', '.order-information', '.order-focus-summary', '.order-tracking-summary', '.order-timeline']) {
-      const current = section.querySelector(selector), replacement = fresh.querySelector(selector);
-      if (current && replacement) current.replaceWith(replacement);
-    }
-    const workflow = section.querySelector('.order-workflow');
-    if (workflow && !workflow.contains(document.activeElement)) workflow.replaceWith(fresh.querySelector('.order-workflow'));
-    const pointVersion = section.querySelector('[data-map-points] [name="version"]');
-    const freshPointVersion = fresh.querySelector('[data-map-points] [name="version"]');
-    if (pointVersion && freshPointVersion) pointVersion.value = freshPointVersion.value;
-    bindFinancialForms(section);
+    applyOrderSnapshot(fresh.documentElement.outerHTML);
   } finally { updating = false; }
 });
 

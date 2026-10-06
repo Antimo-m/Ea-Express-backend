@@ -44,7 +44,7 @@ export function observeTracking({ request, path, orderId, onData, onError, minIn
     }
   }
   const change = event => {
-    if (!orderId || !event.detail?.order_id || Number(event.detail.order_id) === Number(orderId)) refresh();
+    if (!orderId || !event.detail?.order_slug || String(event.detail.order_slug) === String(orderId)) refresh();
   };
   const visible = () => { if (!document.hidden) refresh(); };
   window.addEventListener('ea:rider-location', change);

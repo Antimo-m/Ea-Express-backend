@@ -22,7 +22,7 @@ class OperationalAssignees
 
     public function rule(User $actor): Exists
     {
-        return Rule::exists(User::class, 'id')->where(fn (Builder $query) => $this->constrain($query, $actor));
+        return Rule::exists(User::class, 'slug')->where(fn (Builder $query) => $this->constrain($query, $actor));
     }
 
     private function constrain(Builder|EloquentBuilder $query, User $actor): void

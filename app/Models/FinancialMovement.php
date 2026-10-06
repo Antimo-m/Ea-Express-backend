@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\HasPublicSlug;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class FinancialMovement extends Model
 {
     use HasFactory;
+    use HasPublicSlug;
 
     public const array Kinds = ['cash' => 'Contanti', 'income' => 'Entrata aggiuntiva', 'extra_expense' => 'Spesa extra', 'adjustment_in' => 'Rettifica positiva', 'adjustment_out' => 'Rettifica negativa'];
 

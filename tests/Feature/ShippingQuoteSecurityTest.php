@@ -152,7 +152,7 @@ class ShippingQuoteSecurityTest extends TestCase
         $order = Order::sole();
         $order->price_state = 'rejected';
         $order->save();
-        $this->postJson('/api/v1/customer/orders/'.$order->id.'/checkout', $this->payload(['version' => 1, 'weight_kg' => 2]))->assertConflict();
+        $this->postJson('/api/v1/customer/orders/'.$order->slug.'/checkout', $this->payload(['version' => 1, 'weight_kg' => 2]))->assertConflict();
         $this->assertSame('rejected', $order->fresh()->price_state);
         $this->assertSame($customer->id, $order->customer_id);
     }

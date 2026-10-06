@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\HasPublicSlug;
 use App\UserRole;
 use Database\Factories\ExpenseFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -16,6 +17,8 @@ class Expense extends Model
 {
     /** @use HasFactory<ExpenseFactory> */
     use HasFactory;
+
+    use HasPublicSlug;
 
     protected function casts(): array
     {

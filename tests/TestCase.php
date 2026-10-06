@@ -53,7 +53,7 @@ abstract class TestCase extends BaseTestCase
     }
 
     /** @param array<string,mixed> $data @return array<string,mixed> */
-    protected function checkoutData(array $data, ?int $orderId = null): array
+    protected function checkoutData(array $data, ?string $orderId = null): array
     {
         $path = $orderId ? '/api/v1/customer/orders/'.$orderId.'/checkout' : '/api/v1/customer/orders/checkout';
         $review = $this->postJson($path, $data)->assertOk()->json();

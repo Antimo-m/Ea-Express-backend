@@ -31,10 +31,9 @@ Route::prefix('api/v1/customer')->name('customer.')->middleware('throttle:custom
         Route::delete('sender-address', [SenderAddressController::class, 'destroy'])->middleware('throttle:writes');
         Route::get('booking-rules', BookingRulesController::class);
         Route::get('pending', [CustomerPendingController::class, 'index']);
-        Route::get('pending/{account}', [CustomerPendingController::class, 'show'])->whereNumber('account');
+        Route::get('pending/{account}', [CustomerPendingController::class, 'show']);
         Route::get('statistics', CustomerStatisticsController::class);
         Route::get('dashboard', [Workspace::class, 'dashboard']);
-        Route::get('couriers', [Workspace::class, 'couriers']);
         Route::get('rates', [ShippingRateController::class, 'index']);
         Route::get('rates/quote', [ShippingRateController::class, 'quote']);
         Route::patch('orders/{order}/price', [ShippingPriceController::class, 'update'])->middleware('throttle:writes');
@@ -43,7 +42,7 @@ Route::prefix('api/v1/customer')->name('customer.')->middleware('throttle:custom
         Route::get('orders/{order}', [Orders::class, 'show']);
         Route::get('orders/{order}/messages', [Messages::class, 'index']);
         Route::get('notifications/feed', [Workspace::class, 'feed']);
-        Route::get('notifications/orders/{orderId}', [Workspace::class, 'history'])->whereNumber('orderId');
+        Route::get('notifications/orders/{order}', [Workspace::class, 'history']);
         Route::get('notifications', [Workspace::class, 'notifications']);
         Route::patch('orders/{order}/messages/read', [Messages::class, 'read'])->middleware('throttle:realtime-writes');
         Route::middleware('throttle:writes')->group(function (): void {

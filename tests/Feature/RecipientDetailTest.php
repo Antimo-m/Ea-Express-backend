@@ -116,10 +116,10 @@ class RecipientDetailTest extends TestCase
         $response = $this->actingAs($admin)->patch(route('recipient-incidents.update', $incident), $data);
 
         $incident->refresh();
-        $response->assertSessionHasNoErrors()->assertRedirect(route('recipient-incidents.show', $incident->recipient_risk_profile_id));
+        $response->assertSessionHasNoErrors()->assertRedirect(route('recipient-incidents.show', $incident->profile));
         $this->assertSame('Pierluigi Francesco Di Stefano', $incident->recipient['recipient_name']);
         $this->assertSame($before, $order->fresh()->toArray());
         $this->assertDatabaseHas('economic_audits', ['entity_type' => 'recipient_incidents', 'entity_id' => $incident->id, 'action' => 'recipient_incident.correct']);
-        $this->get(route('recipient-incidents.show', $incident->recipient_risk_profile_id))->assertSee('Pierluigi Francesco Di Stefano');
+        $this->get(route('recipient-incidents.show', $incident->profile))->assertSee('Pierluigi Francesco Di Stefano');
     }
 }

@@ -9,7 +9,7 @@
     <div class="row-actions">
         @if($order->pendingAccount && $order->pendingAccount->state !== 'cancelled')
             <x-ui.pending-status :account="$order->pendingAccount" />
-            @if(auth()->user()->role === \App\UserRole::Admin)<a class="btn btn-outline-primary btn-sm" href="{{ route('pending.index', ['id' => $order->pendingAccount->id, 'direction' => $order->pendingAccount->direction]) }}">Gestisci sospeso</a>@endif
+            @if(auth()->user()->role === \App\UserRole::Admin)<a class="btn btn-outline-primary btn-sm" href="{{ route('pending.index', ['slug' => $order->pendingAccount->slug, 'direction' => $order->pendingAccount->direction]) }}">Gestisci sospeso</a>@endif
         @else
             @unless($order->paid_at || $order->receipt_voided_at)
                 <x-ui.action-dialog :id="'receipt-'.$order->id" action="receive" title="Registra incasso" :description="$order->reference">
@@ -22,15 +22,15 @@
                     </form>
                 </x-ui.action-dialog>
             @endunless
-            <x-ui.action-dialog :id="'receipt-state-'.$order->id" :action="$order->receipt_voided_at ? 'restore' : 'delete'" :title="$order->receipt_voided_at ? 'Ripristina incasso' : 'Storna incasso'" :description="$order->reference">
+            <x-ui.action-dialog :id="'receipt-state-'.$order->id" action="confirm" :title="$order->receipt_voided_at ? 'Ripristina incasso' : 'Storna incasso'" :description="$order->reference">
                 <form method="post" action="{{ route('payments.store', $order) }}" data-financial-form class="form-stack">
                     @csrf<input type="hidden" name="version" value="{{ $order->version }}"><input type="hidden" name="action" value="{{ $order->receipt_voided_at ? 'restore' : 'reverse' }}">
                     <p class="text-secondary small">{{ $order->receipt_voided_at ? 'Il ripristino riporta la spedizione tra gli incassi da registrare. Non registra un pagamento.' : ($order->paid_at ? 'Lo storno compensa l’incasso registrato e lo sposta in Storni.' : 'L’incasso viene spostato in Storni. Nessuna uscita di cassa viene registrata perché non è stato ricevuto denaro.') }}</p>
                     <x-ui.field name="note" :id="'receipt-reason-'.$order->id" :label="$order->receipt_voided_at ? 'Motivo del ripristino' : 'Motivo dello storno'" maxlength="500" required />
-                    <x-ui.icon-button type="submit" :action="$order->receipt_voided_at ? 'restore' : 'delete'" :label="$order->receipt_voided_at ? 'Ripristina incasso' : 'Conferma storno'" text />
+                    <x-ui.icon-button type="submit" action="confirm" :label="$order->receipt_voided_at ? 'Ripristina incasso' : 'Conferma storno'" text />
                 </form>
             </x-ui.action-dialog>
         @endif
-        @if(auth()->user()->role === \App\UserRole::Admin)<x-ui.icon-button action="history" label="Storico dell’incasso" :href="route('audits.index', ['type' => 'orders', 'id' => $order->id])" />@endif
+        @if(auth()->user()->role === \App\UserRole::Admin)<x-ui.icon-button action="history" label="Storico dell’incasso" :href="route('audits.index', ['type' => 'orders', 'slug'=>$order->slug])" />@endif
     </div>
 </article>

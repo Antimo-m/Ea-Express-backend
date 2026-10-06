@@ -1,3 +1,6 @@
+import { attachShippingQuote } from './shipping-quote';
+import './order-actions';
+import './operational-orders';
 import './filter-toolbar';
 import './report-charts';
 import './data-tables';
@@ -116,35 +119,17 @@ for (const conversation of document.querySelectorAll('[data-conversation-list]')
 document.querySelector('[data-select-labels]')?.addEventListener('click', (event) => { const boxes = [...event.target.closest('form').querySelectorAll('input[name="ids[]"]')]; const checked = !boxes.every(box => box.checked); boxes.forEach(box => { box.checked = checked; }); });
 const quoteBox = document.querySelector('[data-shipping-quote]');
 if (quoteBox) {
-    const form = quoteBox.closest('form'); let timer; let requestNumber = 0;
-    const loadQuote = () => {
-        clearTimeout(timer); const current = ++requestNumber;
-        quoteBox.textContent = 'Verifica Comune e CAP in corso…';
-        const territoryFeedback = form.querySelector('[data-territory-feedback]');
-        territoryFeedback.textContent = '';
-        for (const field of ['delivery_city', 'delivery_postal_code']) form.elements[field].removeAttribute('aria-invalid');
-        timer = setTimeout(async () => {
-            const city = form.elements.delivery_city.value.trim(); const postal = form.elements.delivery_postal_code.value.trim();
-            if (!city || (postal && !/^[0-9]{5}$/.test(postal))) return;
-            quoteBox.textContent = 'Calcolo tariffa…';
-            try {
-                const response = await fetch(`/rates/quote?${new URLSearchParams({city, postal_code: postal, shipping_type:form.elements.shipping_type.value, street:form.elements.delivery_address.value, zone:form.elements.delivery_zone.value, province:form.elements.delivery_province.value, region:form.elements.delivery_region.value})}`, {headers: {'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest'}});
-                if (!response.ok) throw new Error('quote'); const data = await response.json();
-                if (current !== requestNumber) return;
-                if (!postal && data.territory_valid && data.postal_code) form.elements.delivery_postal_code.value = data.postal_code;
-                territoryFeedback.textContent = data.territory_valid === false ? data.reason : '';
-                if (data.territory_valid === false) {
-                    for (const field of ['delivery_city', 'delivery_postal_code']) form.elements[field].setAttribute('aria-invalid', 'true');
-                }
-                quoteBox.textContent = data.available ? `Prezzo spedizione previsto: ${new Intl.NumberFormat('it-IT', {style:'currency', currency:'EUR'}).format(data.price_cents / 100)} · ${data.delivery_time || 'Tempi da verificare'}` : data.reason;
-            } catch { if (current === requestNumber) quoteBox.textContent = 'Tariffa da verificare. Il servizio non è disponibile al momento.'; }
-        }, 350);
-    };
-    for (const name of ['delivery_city','delivery_postal_code','shipping_type','delivery_address','delivery_zone','delivery_province','delivery_region']) form.elements[name].addEventListener('input', loadQuote);
+    const form = quoteBox.closest('form');
+    attachShippingQuote(quoteBox);
     const updateService = () => {for (const name of ['delivery_province','delivery_region']) form.elements[name].required = form.elements.shipping_type.value === 'external';};
-    form.elements.shipping_type.addEventListener('change', updateService); updateService(); loadQuote();
+    form.elements.shipping_type.addEventListener('change', updateService); updateService();
     const type = form.elements.package_type; const description = form.elements.package_description;
-    const updatePackage = () => { description.required = type.value === 'other'; }; type.addEventListener('change', updatePackage); updatePackage();
+    const updatePackage = () => {
+        const custom = type.value === 'other';
+        description.required = custom;
+        const group = form.querySelector('[data-package-description]');
+        if (group) { group.hidden = !custom; description.disabled = !custom; }
+    }; type.addEventListener('change', updatePackage); updatePackage();
 }
 
 document.querySelector('[data-print-all-labels]')?.addEventListener('click', (event) => { const form = event.target.closest('form'); form.querySelectorAll('input[name="ids[]"]').forEach(box => { box.checked = true; }); form.requestSubmit(); });
@@ -178,17 +163,6 @@ if (contentChoice) {
     contentChoice.addEventListener('change', updateContent); updateContent();
 }
 
-document.querySelector('[data-close-account-detail]')?.addEventListener('click', () => {
-    document.getElementById('account-detail').hidden = true;
-    const selected = document.querySelector('.account-card.is-selected');
-    selected?.classList.remove('is-selected');
-    selected?.querySelector('a')?.focus();
-    const url = new URL(window.location.href);
-    for (const key of ['customer_id', 'unassigned', 'store', 'email', 'tariff', 'detail_page']) url.searchParams.delete(key);
-    url.hash = '';
-    window.history.replaceState(null, '', url);
-});
-
 import './rider-gps';
 import './theme';
 
@@ -211,3 +185,17 @@ import './rider-operations';
 
 
 import './toast-feedback';
+
+const accountChoice = document.querySelector('.staff-booking-form [name="customer_id"]');
+accountChoice?.addEventListener('change', () => {
+    const identity = JSON.parse(accountChoice.selectedOptions[0]?.dataset.identity || 'null');
+    if (!identity) return;
+    const form = accountChoice.form;
+    const radio = form.querySelector(`[name="sender_type"][value="${identity.sender_type}"]`);
+    if (radio) { radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); }
+    for (const [name, value] of Object.entries({ store_name: identity.name, contact_email: identity.email, business_type: identity.business_type, business_description: identity.business_description })) {
+        form.elements[name].value = value || '';
+        form.elements[name].dispatchEvent(new Event('input', { bubbles: true }));
+        form.elements[name].dispatchEvent(new Event('change', { bubbles: true }));
+    }
+});

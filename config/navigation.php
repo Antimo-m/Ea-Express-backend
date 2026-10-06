@@ -11,9 +11,8 @@ return [
     'Rider e clienti' => [
         ['label' => 'Rider', 'route' => 'users.index', 'icon' => 'people', 'admin' => true],
         ['label' => 'Rider per zona', 'route' => 'rider-operations.index', 'icon' => 'people', 'admin' => true],
-        ['label' => 'Mappa live', 'route' => 'tracking.index', 'icon' => 'geo-alt'],
         ['label' => 'Messaggi', 'route' => 'messages.index', 'icon' => 'chat-dots'],
-        ['label' => 'Clienti e statistiche', 'route' => 'stores.index', 'icon' => 'shop', 'admin' => true],
+        ['label' => 'Clienti', 'route' => 'customers.index', 'icon' => 'shop', 'admin' => true],
         ['label' => 'Destinatari non affidabili', 'route' => 'recipient-incidents.index', 'icon' => 'person-exclamation', 'admin' => true],
     ],
     'Contabilità e analisi' => [

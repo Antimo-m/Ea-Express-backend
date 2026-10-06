@@ -11,7 +11,9 @@ export function confirmAction({ name, action = 'Elimina', description = '', onCo
     dialog.querySelector('[data-confirm-summary]').textContent = action === 'Elimina' ? `Sei sicuro di voler eliminare «${name}»?` : `Confermi l’operazione «${action}» su «${name}»?`;
     dialog.querySelector('[data-confirm-description]').textContent = description;
     dialog.querySelector('[data-modal-error]').textContent = '';
-    dialog.querySelector('[data-confirm-label]').textContent = action;
+    const confirm = dialog.querySelector('[data-confirm-action]');
+    const label = `Conferma: ${action}`;
+    confirm.setAttribute('aria-label', label); confirm.title = label; confirm.dataset.tooltip = label;
     openDialog(dialog);
 }
 
@@ -25,7 +27,7 @@ if (dialog) {
         if (submitted.has(form)) { event.preventDefault(); event.stopImmediatePropagation(); return; }
         if (approved.has(form)) {
             approved.delete(form);
-            if (!form.hasAttribute('data-financial-form')) {
+            if (!form.hasAttribute('data-financial-form') && !form.hasAttribute('data-order-action')) {
                 submitted.add(form);
                 form.setAttribute('aria-busy', 'true');
                 queueMicrotask(() => form.querySelectorAll('button').forEach(button => { button.disabled = true; }));
@@ -46,6 +48,7 @@ if (dialog) {
         dialog.setAttribute('aria-busy', 'true');
         const buttons = [...dialog.querySelectorAll('button')];
         buttons.forEach(button => { button.disabled = true; });
+        dialog.querySelector('[data-confirm-action]').setAttribute('aria-busy', 'true');
         try {
             await operation();
             dialog.removeAttribute('aria-busy');
@@ -56,6 +59,7 @@ if (dialog) {
             busy = false;
             dialog.removeAttribute('aria-busy');
             buttons.forEach(button => { button.disabled = false; });
+            dialog.querySelector('[data-confirm-action]').removeAttribute('aria-busy');
         }
     });
     window.addEventListener('pageshow', event => {

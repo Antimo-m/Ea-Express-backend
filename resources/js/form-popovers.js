@@ -1,3 +1,4 @@
+import { createConfirmButton } from './confirm-button.js';
 let active;
 let sequence = 0;
 const selector = 'select:not([multiple]), input[type="date"], input[type="time"], input[type="datetime-local"], input[type="month"], input[list]';
@@ -41,6 +42,7 @@ export function attachFormPopovers(root = document) {
             else if (control.type === 'month' && control.value) text.textContent = new Date(`${control.value}-01T12:00:00`).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
             else if (control.type === 'datetime-local' && control.value) text.textContent = new Date(control.value).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' });
             else text.textContent = control.value || (control.type === 'time' ? 'Scegli orario…' : control.hasAttribute('list') ? 'Scegli o scrivi…' : 'Scegli data…');
+            if (control.dataset.inlineLabel) text.textContent = `${control.dataset.inlineLabel}: ${text.textContent}`;
             if (control.closest('[data-filter-toolbar]')) text.textContent = `${control.dataset.filterLabel || label()}: ${text.textContent}`;
             trigger.disabled = control.disabled || control.readOnly || control.getAttribute('aria-busy') === 'true';
             trigger.setAttribute('aria-label', `${label()}${control.required ? ' (obbligatorio)' : ''}: ${text.textContent}`);
@@ -57,7 +59,7 @@ export function attachFormPopovers(root = document) {
             if (active?.control === control) { active.close(); return; }
             active?.close(false);
             const panel = document.createElement('div');
-            panel.id = popupId; panel.className = 'form-popover ea-picker-popup';
+            panel.id = popupId; panel.className = `form-popover ea-picker-popup${control.type === 'time' ? ' picker-time' : ''}`;
             panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', label());
             panel.setAttribute('popover', 'manual');
             const host = control.closest('dialog') || document.body;
@@ -67,7 +69,7 @@ export function attachFormPopovers(root = document) {
                 panel.setAttribute('aria-modal', String(isMobile()));
                 if (isMobile()) { panel.style.removeProperty('width'); panel.style.removeProperty('left'); panel.style.removeProperty('top'); return; }
                 const rect = trigger.getBoundingClientRect();
-                const width = Math.min(control.tagName === 'SELECT' || control.hasAttribute('list') ? Math.max(rect.width, 280) : 340, innerWidth - 24);
+                const width = Math.min(control.tagName === 'SELECT' || control.hasAttribute('list') ? Math.max(rect.width, 280) : control.type === 'time' ? 260 : 340, innerWidth - 24);
                 panel.style.width = `${width}px`;
                 panel.style.left = `${Math.max(12, Math.min(rect.left, innerWidth - width - 12))}px`;
                 const height = panel.offsetHeight;
@@ -218,7 +220,7 @@ function renderSelect(control, content, commit, reposition) {
             if (event.key === 'Enter') { event.preventDefault(); if (freeText) commit(search.value); else list.querySelector('[role="option"]:not(:disabled)')?.click(); }
         });
         content.prepend(search);
-        if (freeText) content.insertBefore(makeButton('Conferma testo', () => commit(search.value)), list);
+        if (freeText) content.insertBefore(createConfirmButton('Conferma testo', () => commit(search.value)), list);
     }
     content.append(list); draw();
     return () => draw();
@@ -235,7 +237,7 @@ function renderTime(control, content, commit, initial = control.value) {
     });
     const candidate = control.cloneNode(); candidate.removeAttribute('id'); candidate.removeAttribute('name');
     const feedback = document.createElement('p'); feedback.className = 'picker-feedback'; feedback.setAttribute('role', 'status');
-    const confirm = makeButton('✓ Conferma orario', () => { validate(); if (!confirm.disabled) commit(candidate.value); });
+    const confirm = createConfirmButton('Conferma orario', () => { validate(); if (!confirm.disabled) commit(candidate.value); });
     const validate = () => {
         candidate.min = control.min; candidate.max = control.max; candidate.step = control.step;
         candidate.value = inputs.map(input => input.value.padStart(2, '0')).join(':');
@@ -300,7 +302,7 @@ function renderDateTime(control, content, commit, reposition) {
     const candidate = control.cloneNode(); candidate.removeAttribute('id'); candidate.removeAttribute('name');
     const feedback = document.createElement('p'); feedback.setAttribute('role', 'status'); feedback.className = 'picker-feedback';
     let clock;
-    const confirm = makeButton('✓ Conferma data e ora', () => { validate(); if (!confirm.disabled) commit(candidate.value); });
+    const confirm = createConfirmButton('Conferma data e ora', () => { validate(); if (!confirm.disabled) commit(candidate.value); });
     const validate = () => {
         candidate.value = `${dateControl.value}T${clock?.value() || '09:00'}`;
         confirm.disabled = !clock?.valid() || !candidate.validity.valid;

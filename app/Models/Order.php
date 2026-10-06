@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\OrderStatus;
+use App\Support\HasPublicSlug;
 use App\UserRole;
 use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -21,6 +22,8 @@ class Order extends Model
 {
     /** @use HasFactory<OrderFactory> */
     use HasFactory;
+
+    use HasPublicSlug;
 
     protected $attributes = ['version' => 1, 'shipping_type' => 'regional', 'carrier_cost_cents' => 0];
 
@@ -102,7 +105,7 @@ class Order extends Model
     #[Scope]
     protected function withDisplayIdentity(Builder $query): void
     {
-        $query->with(['customer:id,name', 'creator:id,name']);
+        $query->with(['customer:id,slug,name', 'creator:id,slug,name']);
     }
 
     public function customer(): BelongsTo

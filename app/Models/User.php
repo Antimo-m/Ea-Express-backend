@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\HasPublicSlug;
 use App\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -20,6 +21,8 @@ class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    use HasPublicSlug;
 
     protected $attributes = ['sender_type' => 'business'];
 

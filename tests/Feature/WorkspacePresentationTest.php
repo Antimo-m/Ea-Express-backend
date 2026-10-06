@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Order;
 use App\Models\PendingAccount;
 use App\Models\RecipientIncident;
+use App\Models\RecipientRiskProfile;
 use App\Models\ShippingRate;
 use App\Models\User;
 use App\OrderStatus;
@@ -42,9 +43,9 @@ class WorkspacePresentationTest extends TestCase
         ShippingRate::factory()->create(['delivery_time' => 'Consegna entro tre giorni lavorativi dalla conferma amministratore']);
         $order->messages()->create(['user_id' => $customer->id, 'sender' => 'customer', 'body' => 'Consegna in Via Giovanni Battista Pergolesi 145, Napoli. Citofonare a Pierluigi Di Stefano.']);
         $this->actingAs($admin);
-        $paths = ['/dashboard', '/orders/incoming', '/orders/in-progress', '/orders/history', '/orders/'.$order->id, '/orders/'.$incoming->id, '/orders/create', '/tracking', '/pickups', '/rates', '/settings/users', '/balance', '/pending', '/reports', '/stores', '/messages', '/messages/'.$order->id, '/profile', '/settings', '/economic-audits?type=orders&id='.$order->id, '/recipient-incidents', '/recipient-incidents/'.RecipientIncident::sole()->recipient_risk_profile_id];
+        $paths = ['/dashboard', '/orders/incoming', '/orders/in-progress', '/orders/history', '/orders/'.$order->slug, '/orders/'.$incoming->slug, '/orders/create', '/pickups', '/rates', '/settings/users', '/balance', '/pending', '/reports', '/customers', '/customers/'.$customer->slug, '/messages', '/messages/'.$order->slug, '/profile', '/settings', '/economic-audits?type=orders&slug='.$order->slug, '/recipient-incidents', '/recipient-incidents/'.RecipientIncident::sole()->profile->slug];
         $pickupOrder = Order::factory()->create(['rider_id' => $admin->id, 'status' => OrderStatus::RiderArriving, 'recipient_name' => 'Pierluigi Francesco Di Stefano', 'store_name' => $customer->name]);
-        $paths[] = '/orders/'.$pickupOrder->id;
+        $paths[] = '/orders/'.$pickupOrder->slug;
         $operationalRider = User::factory()->create(['name' => 'Pierluigi Francesco Di Stefano Responsabile distribuzione della zona metropolitana']);
         $operationalOrder = null;
         for ($index = 0; $index < 9; $index++) {
@@ -62,7 +63,7 @@ class WorkspacePresentationTest extends TestCase
         $event = $historicalOrder->events()->create(['rider_id' => $operationalRider->id, 'operational_zone' => 'Aversa', 'user_id' => $admin->id, 'status' => OrderStatus::Delivered]);
         $event->forceFill(['created_at' => $yesterday])->save();
         $paths[] = '/rider-operations';
-        $paths[] = '/rider-operations/'.$operationalRider->id.'?date='.now('Europe/Rome')->subDay()->toDateString();
+        $paths[] = '/rider-operations/'.$operationalRider->slug.'?date='.now('Europe/Rome')->subDay()->toDateString();
         $directory = getenv('EA_UI_FIXTURE_DIR');
         if (! $directory) {
             $this->withoutVite();
@@ -71,14 +72,23 @@ class WorkspacePresentationTest extends TestCase
             $response = $this->get($path)->assertOk();
             if ($directory) {
                 file_put_contents($directory.'/'.str_replace('/', '_', trim(parse_url($path, PHP_URL_PATH), '/')).'.html', $response->getContent());
+                $canonical = preg_replace_callback('#/(orders|messages|recipient-incidents|rider-operations)/([0-9a-f-]{36})#', function ($match): string {
+                    $model = match ($match[1]) {
+                        'orders', 'messages' => Order::class, 'recipient-incidents' => RecipientRiskProfile::class, 'rider-operations' => User::class
+                    };
+
+                    return '/'.$match[1].'/'.$model::where('slug', $match[2])->value('id');
+                }, $path);
+                file_put_contents($directory.'/'.str_replace('/', '_', trim(parse_url($canonical, PHP_URL_PATH), '/')).'.html', $response->getContent());
             }
         }
         if ($directory) {
-            file_put_contents($directory.'/rider-detail.html', $this->get('/rider-operations/'.$operationalRider->id.'?date='.now('Europe/Rome')->subDay()->toDateString())->assertOk()->getContent());
+            file_put_contents($directory.'/customer-detail.html', $this->get('/customers/'.$customer->slug)->assertOk()->getContent());
+            file_put_contents($directory.'/rider-detail.html', $this->get('/rider-operations/'.$operationalRider->slug.'?date='.now('Europe/Rome')->subDay()->toDateString())->assertOk()->getContent());
             file_put_contents($directory.'/rider-history.html', $this->get('/rider-operations?date='.now('Europe/Rome')->subDay()->toDateString())->assertOk()->getContent());
-            file_put_contents($directory.'/filters-active.html', $this->get('/orders/in-progress?status=out_for_delivery&zone=Zona&shipping_type=regional&urgency=urgent&page=2')->assertOk()->getContent());
-            file_put_contents($directory.'/statistics-custom.html', $this->get('/stores?period=custom&from=2026-01-01&to=2026-01-31&status=delivered')->assertOk()->getContent());
-            file_put_contents($directory.'/statistics-year.html', $this->get('/stores?period=year&year=2025&status=delivered')->assertOk()->getContent());
+            file_put_contents($directory.'/filters-active.html', $this->followingRedirects()->get('/orders/in-progress?status=out_for_delivery&zone=Zona&shipping_type=regional&urgency=urgent&page=2')->assertOk()->getContent());
+            file_put_contents($directory.'/customer-custom.html', $this->get('/customers/'.$customer->slug.'?period=custom&from=2026-01-01&to=2026-01-31&status=delivered')->assertOk()->getContent());
+            file_put_contents($directory.'/customer-year.html', $this->get('/customers/'.$customer->slug.'?period=year&year=2025&status=delivered')->assertOk()->getContent());
             file_put_contents($directory.'/rider-feed.json', $this->getJson('/rider-operations/feed')->assertOk()->getContent());
         }
         $this->app['auth']->forgetGuards();
@@ -91,6 +101,6 @@ class WorkspacePresentationTest extends TestCase
         $this->actingAs($admin);
         $this->getJson('/movements')->assertOk()->assertJsonStructure(['data']);
         $this->get('/orders/in-progress?q='.urlencode($customer->name))->assertSee('Pierluigi Francesco Di Stefano')->assertSee($customer->name);
-        $this->get('/orders/'.$order->id)->assertSee('125,50')->assertSee('Consegna entro tre giorni lavorativi');
+        $this->get('/orders/'.$order->slug)->assertSee('125,50')->assertSee('Consegna entro tre giorni lavorativi');
     }
 }

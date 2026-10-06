@@ -46,19 +46,19 @@ class ReportController extends Controller
             $cashDays[$day] ??= ['incoming' => 0, 'outgoing' => 0];
             $cashDays[$day][$amount >= 0 ? 'incoming' : 'outgoing'] += abs($amount);
         };
-        foreach ((clone $payments)->select(['id', 'created_at', 'amount_cents', 'ea_amount_cents'])->lazyById(500) as $payment) {
+        foreach ((clone $payments)->select(['id', 'slug', 'created_at', 'amount_cents', 'ea_amount_cents'])->lazyById(500) as $payment) {
             $addCash($payment->created_at->timezone('Europe/Rome')->format('d/m'), $payment->amount_cents);
         }
-        foreach ((clone $general)->select(['id', 'created_at', 'amount_cents'])->lazyById(500) as $payment) {
+        foreach ((clone $general)->select(['id', 'slug', 'created_at', 'amount_cents'])->lazyById(500) as $payment) {
             $addCash($payment->created_at->timezone('Europe/Rome')->format('d/m'), $payment->amount_cents);
         }
-        foreach ((clone $expenses)->select(['id', 'spent_on', 'amount_cents'])->lazyById(500) as $expense) {
+        foreach ((clone $expenses)->select(['id', 'slug', 'spent_on', 'amount_cents'])->lazyById(500) as $expense) {
             $addCash($expense->spent_on->format('d/m'), -$expense->amount_cents);
         }
-        foreach ((clone $manual)->select(['id', 'occurred_on', 'amount_cents'])->lazyById(500) as $movement) {
+        foreach ((clone $manual)->select(['id', 'slug', 'occurred_on', 'amount_cents'])->lazyById(500) as $movement) {
             $addCash($movement->occurred_on->format('d/m'), $movement->amount_cents);
         }
-        $topCustomers = (clone $cohort)->whereNotNull('customer_id')->select('customer_id')->selectRaw('COUNT(*) AS shipments')->groupBy('customer_id')->with('customer:id,name')->orderByDesc('shipments')->orderBy('customer_id')->limit(5)->get();
+        $topCustomers = (clone $cohort)->whereNotNull('customer_id')->select('customer_id')->selectRaw('COUNT(*) AS shipments')->groupBy('customer_id')->with('customer:id,slug,name')->orderByDesc('shipments')->orderBy('customer_id')->limit(5)->get();
         $zones = (clone $cohort)->select('delivery_city')->selectRaw('COUNT(*) as total')->groupBy('delivery_city')->orderByDesc('total')->orderBy('delivery_city')->limit(10)->get();
         $days = [];
         foreach (app(OrderStatistics::class)->trend($cohort, $period) as $point) {

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\HasPublicSlug;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class ShippingRate extends Model
 {
     use HasFactory;
+    use HasPublicSlug;
 
     public function successor(): HasOne
     {

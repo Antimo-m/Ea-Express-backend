@@ -2931,33 +2931,15 @@ html:has(dialog[open]) { overflow: hidden; }
 .audit-changes dd { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: .85rem; margin: 0; overflow-wrap: anywhere; }
 .audit-before { color: var(--ea-muted); }
 .audit-changes dd > strong { color: var(--ea-ink); }
-.account-card-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 20px; margin: 24px 0; }
-.account-card { min-width: 0; padding: 24px; display: flex; flex-direction: column; }
-.account-card.is-selected { border-color: var(--ea-brand); }
-.account-card header { display: flex; gap: 12px; align-items: flex-start; }
-.account-card header > div { min-width: 0; flex: 1; }
-.account-card h2 { font-size: 1.05rem; margin: 8px 0 0; line-height: 1.4; }
-.account-card h2 a { color: var(--ea-ink); text-decoration: none; }
-.account-symbol { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: var(--ea-orange-soft); color: var(--ea-brand); flex-shrink: 0; }
-.account-volume { display: flex; align-items: center; gap: 14px; padding: 22px 0; }
-.account-volume > strong { font-size: 2.2rem; letter-spacing: -.04em; }
-.account-volume > span { font-size: .8rem; }
-.account-volume small { display: block; color: var(--ea-muted); margin-top: 4px; }
-.account-card h3 { color: var(--ea-muted); font-size: .75rem; }
 .account-tariffs { list-style: none; padding: 0; margin: 0 0 20px; }
 .account-tariffs a { display: flex; justify-content: space-between; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--ea-line); text-decoration: none; color: var(--ea-ink); font-size: .8rem; flex-wrap: wrap; }
 .account-tariffs a:hover { color: var(--ea-brand); }
-.account-card footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: auto; padding-top: 18px; border-top: 1px solid var(--ea-line); flex-wrap: wrap; }
-.account-card footer > span { font-size: .75rem; color: var(--ea-muted); }
-.account-card footer > strong { font-size: 1.35rem; }
 .account-order-list { list-style: none; padding: 0; }
 .account-order-list li { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; padding: 16px 0; border-bottom: 1px solid var(--ea-line); font-size: .85rem; }
 .account-order-list li > div { flex: 1; min-width: min(230px,100%); }
 .account-order-list small { display: block; color: var(--ea-muted); margin-top: 6px; }
-@media (max-width: 1399px) { .account-card-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (max-width: 767px) {
- .account-card-grid { grid-template-columns: minmax(0,1fr); }
- .account-card, .audit-event { padding: 16px; }
+ .audit-event { padding: 16px; }
  .audit-timeline > li { padding-left: 40px; }
  .audit-marker { width: 30px; height: 30px; font-size: .8rem; }
  .audit-timeline > li::before { left: 14px; top: 30px; }
@@ -2977,7 +2959,7 @@ html:has(dialog[open]) { overflow: hidden; }
 .shipment-count { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; min-width: 2.25rem; min-height: 2rem; padding: .3rem .65rem; border-radius: .65rem; background: var(--ea-orange-soft); color: var(--ea-brand); font-size: .9rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
 .order-form-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; padding-top: 12px; }
 .order-form-actions > * { min-width: 112px; }
-#account-detail[hidden], [data-custom-content][hidden] { display: none !important; }
+[data-custom-content][hidden] { display: none !important; }
 @media (max-width: 991px) { .app-sidebar .brand .brand-logo { width: 100px; } }
 
 /* Common modal hierarchy and action alignment. */

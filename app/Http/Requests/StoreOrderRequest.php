@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\User;
 use App\Support\BookingRules;
 use App\Support\CustomerIdentity;
 use App\Support\OrderContent;
@@ -20,6 +21,16 @@ class StoreOrderRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        if ($this->missing('sender_type') && $this->user()?->role === UserRole::Customer) {
+            $this->merge(['sender_type' => $this->user()->sender_type]);
+        }
+        if ($this->missing('sender_type') && $this->user()?->role === UserRole::Admin && $this->filled('customer_id') && is_scalar($this->input('customer_id'))) {
+            $customer = User::where('role', UserRole::Customer)->where('is_active', true)->where('slug', $this->input('customer_id'))->first();
+            if ($customer) {
+                $this->merge(['sender_type' => $customer->sender_type]);
+            }
+        }
+
         if (! is_string($this->input('delivery_city')) || ($this->input('delivery_postal_code') !== null && ! is_string($this->input('delivery_postal_code')))) {
             return;
         }
@@ -105,7 +116,7 @@ class StoreOrderRequest extends FormRequest
             'pickup_street_number' => ['required', 'string', 'max:20'], 'pickup_postal_code' => ['required', 'regex:/^[0-9]{5}$/D'],
             'delivery_street_number' => ['required', 'string', 'max:20'], 'delivery_postal_code' => ['required', 'regex:/^[0-9]{5}$/D'],
             'package_type' => ['required', 'in:standard,fragile,other'], 'package_description' => ['required_if:package_type,other', 'nullable', 'string', 'max:255'],
-            'customer_id' => ['nullable', Rule::exists('users', 'id')->where('role', 'customer')->where('is_active', true)],
+            'customer_id' => ['nullable', Rule::exists('users', 'slug')->where('role', 'customer')->where('is_active', true), 'uuid'],
             'packages' => ['sometimes', 'required', 'array', 'list', 'min:1', 'max:100', 'size:'.$this->integer('parcel_count')],
             'packages.*' => ['required', 'array:weight_kg,length_cm,width_cm,height_cm'],
             'packages.*.weight_kg' => ['required', 'numeric', 'min:0.01', 'max:1000'],

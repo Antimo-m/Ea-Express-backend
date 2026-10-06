@@ -39,7 +39,7 @@ class PaymentIntegrityTest extends TestCase
         $order = $this->order();
         $before = $order->fresh()->getAttributes();
         $this->actingAs(User::factory()->create(['role' => UserRole::Admin]))
-            ->postJson('/balance/'.$order->id.'/payment', [
+            ->postJson('/balance/'.$order->slug.'/payment', [
                 'action' => 'receive', 'version' => 1, 'received_amount' => $amount,
                 'price_cents' => 1, 'paid_at' => now()->toIso8601String(), 'ea_amount_cents' => 99999,
             ])->assertUnprocessable()->assertJsonValidationErrors('received_amount');
@@ -52,7 +52,7 @@ class PaymentIntegrityTest extends TestCase
     {
         $order = $this->order();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $path = '/balance/'.$order->id.'/payment';
+        $path = '/balance/'.$order->slug.'/payment';
         $this->actingAs($admin)->postJson($path, ['action' => 'receive', 'version' => 1, 'received_amount' => '10,00'])->assertOk();
         $this->assertNotNull($order->fresh()->paid_at);
         $this->assertSame($admin->id, $order->fresh()->paid_by);
@@ -74,7 +74,7 @@ class PaymentIntegrityTest extends TestCase
         $order = $this->order();
         $account = PendingAccount::factory()->create(['order_id' => $order->id, 'customer_id' => $order->customer_id, 'amount_cents' => 1000]);
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $path = '/pending/'.$account->id.'/settlements';
+        $path = '/pending/'.$account->slug.'/settlements';
         $first = ['version' => 1, 'amount' => '6', 'submission_key' => (string) Str::uuid()];
         $this->actingAs($admin)->postJson($path, $first)->assertOk();
         $this->assertNull($order->fresh()->paid_at);
@@ -88,7 +88,7 @@ class PaymentIntegrityTest extends TestCase
         foreach (['0', '-1', '4.01'] as $amount) {
             $this->postJson($path, ['version' => 2, 'amount' => $amount, 'submission_key' => (string) Str::uuid()])->assertUnprocessable();
         }
-        $this->postJson('/balance/'.$order->id.'/payment', ['action' => 'receive', 'version' => 2, 'received_amount' => '4'])->assertConflict();
+        $this->postJson('/balance/'.$order->slug.'/payment', ['action' => 'receive', 'version' => 2, 'received_amount' => '4'])->assertConflict();
         $this->assertSame($orderBefore, $order->fresh()->getAttributes());
         $this->assertSame($accountBefore, $account->fresh()->getAttributes());
         $this->assertDatabaseCount('economic_audits', $auditCount);
@@ -104,7 +104,7 @@ class PaymentIntegrityTest extends TestCase
     {
         $order = $this->order(['shipping_type' => 'regional', 'price_cents' => 0, 'quoted_price_cents' => 0]);
         $this->actingAs(User::factory()->create(['role' => UserRole::Admin]))
-            ->postJson('/balance/'.$order->id.'/payment', ['action' => 'receive', 'version' => 1])->assertUnprocessable();
+            ->postJson('/balance/'.$order->slug.'/payment', ['action' => 'receive', 'version' => 1])->assertUnprocessable();
         $this->assertNull($order->fresh()->paid_at);
         $this->assertDatabaseCount('payment_entries', 0);
     }

@@ -19,7 +19,7 @@ document.addEventListener('click', event => {
     if (button) closeDialog(button.closest('dialog'));
 });
 document.addEventListener('cancel', event => {
-    if (!event.target.matches('dialog')) return;
+    if (!event.target.matches('dialog') || event.target.hasAttribute('data-filter-dialog')) return;
     event.preventDefault();
     closeDialog(event.target);
 }, true);
@@ -50,7 +50,7 @@ for (const form of root.querySelectorAll('.ea-modal form')) {
     const icon = document.createElement('i'); icon.className = 'bi bi-arrow-left'; icon.setAttribute('aria-hidden', 'true');
     back.append(icon, document.createTextNode('Torna indietro'));
     for (const submit of submits) {
-        if (submit.classList.contains('icon-button') && !submit.classList.contains('action-edit') && !submit.classList.contains('action-with-text')) {
+        if (submit.classList.contains('icon-button') && !submit.classList.contains('action-edit') && !submit.classList.contains('action-confirm') && !submit.classList.contains('action-with-text')) {
             submit.classList.add('action-with-text');
             const label = document.createElement('span'); label.textContent = submit.getAttribute('aria-label'); submit.append(label);
         }

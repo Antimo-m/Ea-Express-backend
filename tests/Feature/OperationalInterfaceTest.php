@@ -31,13 +31,13 @@ class OperationalInterfaceTest extends TestCase
         $response = $this->actingAs($admin)->getJson('/rider-operations/feed')->assertOk()
             ->assertJsonPath('summary.total', 4)->assertJsonPath('summary.delivered', 1)->assertJsonPath('summary.active', 1)->assertJsonPath('summary.unassigned', 2)->assertJsonPath('summary.riders', 1)->assertJsonPath('summary.zones', 2)
             ->assertJsonPath('unassigned.0.count', 2)->assertJsonMissingPath('orders')->assertJsonMissingPath('gps_session_id');
-        $row = collect($response->json('riders'))->firstWhere('id', $rider->id);
+        $row = collect($response->json('riders'))->firstWhere('slug', $rider->slug);
         $this->assertSame(2, $row['total_count']);
         $this->assertSame(400, $row['cash_cents']);
         $this->assertSame(1100, $row['expected_cents']);
         $this->assertSame(['Aversa', 'Nola'], collect($row['zones'])->pluck('name')->sort()->values()->all());
         $this->assertContains('Aversa', array_column($response->json('zones'), 'name'));
-        $this->get('/rider-operations/'.$rider->id)->assertOk()->assertViewHas('orders', fn ($orders) => $orders->count() === 2);
+        $this->get('/rider-operations/'.$rider->slug)->assertOk()->assertViewHas('orders', fn ($orders) => $orders->count() === 2);
     }
 
     public function test_twenty_riders_one_hundred_orders_and_fifteen_zones_keep_queries_bounded(): void
@@ -63,17 +63,17 @@ class OperationalInterfaceTest extends TestCase
         $replacement = User::factory()->create();
         $order = Order::factory()->create(['created_by' => $admin->id, 'rider_id' => $replacement->id, 'status' => OrderStatus::Delivered, 'delivered_at' => now(), 'delivery_zone' => 'Nola']);
         $order->events()->make(['rider_id' => $original->id, 'operational_zone' => 'Aversa', 'user_id' => $original->id, 'status' => OrderStatus::OutForDelivery])->forceFill(['created_at' => now()->subDay()])->save();
-        $response = $this->actingAs($admin)->getJson('/rider-operations/feed?date=2026-10-01')->assertOk()->assertJsonPath('summary.active', 1)->assertJsonPath('summary.delivered', 0)->assertJsonPath('summary.total', 1)->assertJsonPath('riders.0.id', $original->id)->assertJsonPath('riders.0.zones.0.name', 'Aversa')->assertJsonPath('zones.0.name', 'Aversa');
-        $this->get('/rider-operations/'.$original->id.'?date=2026-10-01')->assertOk()->assertViewHas('remaining', 1)->assertSee('In consegna');
+        $response = $this->actingAs($admin)->getJson('/rider-operations/feed?date=2026-10-01')->assertOk()->assertJsonPath('summary.active', 1)->assertJsonPath('summary.delivered', 0)->assertJsonPath('summary.total', 1)->assertJsonPath('riders.0.slug', $original->slug)->assertJsonPath('riders.0.zones.0.name', 'Aversa')->assertJsonPath('zones.0.name', 'Aversa');
+        $this->get('/rider-operations/'.$original->slug.'?date=2026-10-01')->assertOk()->assertViewHas('remaining', 1)->assertSee('In consegna');
     }
 
     public function test_period_presets_keep_customer_filter_and_reset_all_independent_pages(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $customer = User::factory()->create(['role' => UserRole::Customer]);
-        $html = $this->actingAs($admin)->get('/balance?customer_id='.$customer->id.'&cash_page=8&orders_page=9')->assertOk()->getContent();
+        $html = $this->actingAs($admin)->get('/balance?customer_id='.$customer->slug.'&cash_page=8&orders_page=9')->assertOk()->getContent();
         $this->assertSame(1, preg_match('/<nav class="period-options"[^>]*>(.*?)<\/nav>/s', $html, $matches));
-        $this->assertStringContainsString('customer_id='.$customer->id, $matches[1]);
+        $this->assertStringContainsString('customer_id='.$customer->slug, $matches[1]);
         $this->assertStringNotContainsString('cash_page', $matches[1]);
         $this->assertStringNotContainsString('orders_page', $matches[1]);
         $this->assertStringContainsString('year='.now('Europe/Rome')->year, $matches[1]);

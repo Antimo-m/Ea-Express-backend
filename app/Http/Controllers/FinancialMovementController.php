@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Support\AccountingPeriod;
 use App\Support\Money;
 use App\Support\OrderStatistics;
+use App\Support\PublicReferences;
 use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -23,9 +24,10 @@ class FinancialMovementController extends Controller
     public function index(Request $request, OrderStatistics $statistics): JsonResponse
     {
         abort_unless($request->user()->role === UserRole::Admin, 403);
-        $data = $request->validate(['customer_id' => ['nullable', 'integer', 'min:1'], 'kind' => ['nullable', Rule::in(array_keys(FinancialMovement::Kinds))], 'state' => ['nullable', 'in:active,voided,all']]);
+        $data = $request->validate(['customer_id' => ['nullable', 'uuid', 'exists:users,slug'], 'kind' => ['nullable', Rule::in(array_keys(FinancialMovement::Kinds))], 'state' => ['nullable', 'in:active,voided,all']]);
+        $data = PublicReferences::ids($data);
         $period = $statistics->period($request);
-        $query = FinancialMovement::with(['customer:id,name', 'order:id,reference', 'user:id,name'])->whereDate('occurred_on', '>=', $period->start->toDateString())->whereDate('occurred_on', '<=', $period->end->toDateString())->when($data['customer_id'] ?? null, fn ($q, $id) => $q->where('customer_id', $id))->when($data['kind'] ?? null, fn ($q, $kind) => $q->where('kind', $kind));
+        $query = FinancialMovement::with(['customer:id,slug,name', 'order:id,slug,reference', 'user:id,slug,name'])->whereDate('occurred_on', '>=', $period->start->toDateString())->whereDate('occurred_on', '<=', $period->end->toDateString())->when($data['customer_id'] ?? null, fn ($q, $id) => $q->where('customer_id', $id))->when($data['kind'] ?? null, fn ($q, $kind) => $q->where('kind', $kind));
         if (($data['state'] ?? 'active') !== 'all') {
             $query->whereNull('voided_at', not: ($data['state'] ?? 'active') === 'voided');
         }
@@ -37,7 +39,7 @@ class FinancialMovementController extends Controller
     {
         abort_unless($request->user()->role === UserRole::Admin, 403);
 
-        return response()->json(['data' => $movement->load(['customer:id,name', 'order:id,reference', 'user:id,name'])]);
+        return response()->json(['data' => $movement->load(['customer:id,slug,name', 'order:id,slug,reference', 'user:id,slug,name'])]);
     }
 
     public function store(FinancialMovementRequest $request): RedirectResponse|JsonResponse
@@ -52,7 +54,7 @@ class FinancialMovementController extends Controller
 
     private function save(FinancialMovementRequest $request, ?FinancialMovement $movement = null): RedirectResponse|JsonResponse
     {
-        $data = $request->validated();
+        $data = PublicReferences::ids($request->validated());
         $cents = Money::cents($data['amount']);
         if ($cents < 1) {
             throw ValidationException::withMessages(['amount' => 'Inserisci un importo maggiore di zero.']);

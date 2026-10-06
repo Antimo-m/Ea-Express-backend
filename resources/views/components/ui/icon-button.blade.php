@@ -3,6 +3,7 @@
     $action ??= match ($icon) { 'chat-dots', 'chat-left-text' => 'message', 'send' => 'send', 'plus-lg' => 'add', 'pencil', 'pencil-square' => 'edit', 'trash', 'trash3' => 'delete', 'search', 'filter' => 'search', 'printer' => 'print', 'arrow-left' => 'back', default => 'neutral' };
     $icon ??= match ($action) { 'message' => 'chat-dots', 'confirm' => 'check-lg', 'send' => 'send', 'add' => 'plus-lg', 'edit' => 'pencil', 'delete' => 'trash', 'search' => 'search', 'reset' => 'arrow-counterclockwise', 'receive' => 'cash-coin', 'restore' => 'arrow-counterclockwise', 'history' => 'clock-history', 'open' => 'box-arrow-up-right', 'operate' => 'arrow-right', 'back' => 'arrow-left', 'print', 'print-multiple' => 'printer', default => 'three-dots' };
     if ($action === 'edit' && in_array($icon, ['pencil', 'pencil-square'], true)) { $text = false; }
+    if ($action === 'confirm') { $icon = 'check-lg'; $text = false; $variant = 'success'; }
     if ($action === 'message') { $text = false; }
     $tag = $href ? 'a' : (in_array($as, ['button', 'summary'], true) ? $as : 'button');
 @endphp

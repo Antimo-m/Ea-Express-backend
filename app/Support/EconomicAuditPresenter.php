@@ -85,7 +85,7 @@ class EconomicAuditPresenter
             return OrderStatus::tryFrom((string) $value)?->label() ?? (string) $value;
         }
         if (in_array($field, ['state', 'price_state'])) {
-            return ['open' => 'Non pagato', 'partially_paid' => 'Parziale', 'paid' => 'Saldato', 'cancelled' => 'Annullato', 'agreed' => 'Concordato', 'awaiting_customer' => 'In attesa del cliente', 'awaiting_rider' => 'In attesa del corriere', 'rejected' => 'Rifiutato', 'pending' => 'In attesa', 'accepted' => 'Accettato'][$value] ?? (string) $value;
+            return ['open' => 'Non pagato', 'partially_paid' => 'Parziale', 'paid' => 'Saldato', 'cancelled' => 'Annullato', 'agreed' => 'Concordato', 'awaiting_customer' => 'In attesa del cliente', 'awaiting_rider' => 'In attesa del rider', 'rejected' => 'Rifiutato', 'pending' => 'In attesa', 'accepted' => 'Accettato'][$value] ?? (string) $value;
         }
         if (in_array($field, ['method', 'payment_method'])) {
             return PaymentMethod::Labels[$value] ?? (string) $value;

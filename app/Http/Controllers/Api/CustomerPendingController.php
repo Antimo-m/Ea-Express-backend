@@ -31,9 +31,9 @@ class CustomerPendingController extends Controller
         ]);
     }
 
-    public function show(Request $request, int $account): CustomerPendingResource
+    public function show(Request $request, string $account): CustomerPendingResource
     {
-        $pending = $request->user('customer')->pendingAccounts()->findOrFail($account);
+        $pending = $request->user('customer')->pendingAccounts()->where('slug', $account)->firstOrFail();
         $pending->load(['settlements' => fn ($q) => $q->latest()->orderByDesc('id')]);
 
         return new CustomerPendingResource($pending);

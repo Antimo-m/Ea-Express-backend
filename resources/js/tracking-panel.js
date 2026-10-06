@@ -18,7 +18,7 @@ for (const panel of document.querySelectorAll('[data-tracking-panel]')) {
     const orders = orderId ? [data] : data.data;
     const active = orders.filter(item => item.location);
     const freshPositions = orders.filter(item => item.state === 'live' && item.location && Date.now() - Date.parse(item.location.recorded_at) < 90000 && Date.now() - Date.parse(item.location.received_at) < 90000);
-    map.update(freshPositions.map(item => ({ location: item.location, rider_name: item.rider?.name || 'Rider', reference: item.reference, order_url: `/orders/${item.order_id}` })), orders[0]?.map || {tiles:'',attribution:''});
+    map.update(freshPositions.map(item => ({ location: item.location, rider_name: item.rider?.name || 'Rider', reference: item.reference, order_url: `/orders/${item.order_slug}` })), orders[0]?.map || {tiles:'',attribution:''});
     placeholder.hidden = freshPositions.length > 0;
     if (orderId) {
       message.textContent = trackingMessage(data);
@@ -38,7 +38,7 @@ for (const panel of document.querySelectorAll('[data-tracking-panel]')) {
       const roster = panel.querySelector('[data-rider-roster]');
       roster.replaceChildren();
       for (const order of orders) {
-        const link = document.createElement('a'); link.href = `/orders/${order.order_id}`;
+        const link = document.createElement('a'); link.href = `/orders/${order.order_slug}`;
         const name = document.createElement('strong'); name.textContent = order.rider?.name || 'Rider';
         const state = document.createElement('span'); state.textContent = `${order.reference} · ${trackingMessage(order)}`;
         link.append(name, state); roster.append(link);
@@ -61,14 +61,14 @@ for (const panel of document.querySelectorAll('[data-tracking-panel]')) {
       event.preventDefault();
       const submit = form.querySelector('[type=submit]'), feedback = form.querySelector('[data-point-feedback]');
       if (submit.disabled) return;
-      submit.disabled = true;
+      submit.disabled = true; submit.setAttribute('aria-busy', 'true');
       try {
         const result = await staffRequest(form.action, { method: 'PATCH', data: Object.fromEntries(new FormData(form)) });
         form.elements.version.value = result.version;
         feedback.textContent = 'Punto salvato. Ricarica la pagina prima di altre modifiche all’ordine.';
-        window.dispatchEvent(new CustomEvent('ea:rider-location', { detail: { order_id: Number(orderId) } }));
+        window.dispatchEvent(new CustomEvent('ea:rider-location', { detail: { order_slug: orderId } }));
       } catch (error) { feedback.textContent = error.status === 409 ? 'L’ordine è cambiato. Ricarica la pagina prima di confermare.' : error.message; }
-      finally { submit.disabled = false; }
+      finally { submit.disabled = false; submit.removeAttribute('aria-busy'); }
     });
   }
 }

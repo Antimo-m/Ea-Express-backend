@@ -10,6 +10,7 @@ use App\Http\Requests\CustomerOrderRequest;
 use App\Http\Resources\CustomerOrderResource;
 use App\Models\Order;
 use App\OrderStatus;
+use App\SenderType;
 use App\Support\CheckoutReview;
 use App\Support\CustomerIdentity;
 use App\Support\Money;
@@ -26,7 +27,7 @@ class CustomerOrderController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
-        $data = $request->validate(['shipping_type' => ['nullable', 'in:regional,external'], 'sender_type' => ['nullable', 'in:business,private,online_shop'], 'q' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', Rule::enum(OrderStatus::class)], 'kind' => ['nullable', 'in:pickup'], 'courier' => ['nullable', 'integer', 'min:1'], 'has_messages' => ['nullable', 'boolean'], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d'], 'page' => ['nullable', 'integer', 'min:1']]);
+        $data = $request->validate(['shipping_type' => ['nullable', 'in:regional,external'], 'sender_type' => ['nullable', Rule::enum(SenderType::class)], 'q' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', Rule::enum(OrderStatus::class)], 'kind' => ['nullable', 'in:pickup'], 'courier' => ['prohibited'], 'has_messages' => ['nullable', 'boolean'], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d'], 'page' => ['nullable', 'integer', 'min:1']]);
         $query = Order::where('customer_id', $request->user()->id)->withDisplayIdentity()->with('rider')->withCount(['messages', 'messages as unread_messages_count' => fn ($q) => $q->whereNotNull('user_id')->whereNull('read_at')]);
         if (! empty($data['shipping_type'])) {
             $query->where('shipping_type', $data['shipping_type']);
@@ -36,9 +37,6 @@ class CustomerOrderController extends Controller
         }
         if (! empty($data['q'])) {
             $query->where(fn ($q) => $q->where('reference', 'like', '%'.$data['q'].'%')->orWhere('store_name', 'like', '%'.$data['q'].'%')->orWhere('recipient_name', 'like', '%'.$data['q'].'%')->orWhere('delivery_city', 'like', '%'.$data['q'].'%'));
-        }
-        if (! empty($data['courier'])) {
-            $query->where('rider_id', $data['courier']);
         }
         if ($request->boolean('has_messages')) {
             $query->whereHas('messages');
@@ -63,7 +61,7 @@ class CustomerOrderController extends Controller
     {
         $this->authorizeOwner($request, $order);
 
-        return new CustomerOrderResource($order->load(['customer:id,name', 'creator:id,name', 'rider', 'priceProposals' => fn ($q) => $q->latest(), 'events' => fn ($q) => $q->orderBy('id')]));
+        return new CustomerOrderResource($order->load(['customer:id,slug,name', 'creator:id,slug,name', 'rider', 'priceProposals' => fn ($q) => $q->latest(), 'events' => fn ($q) => $q->orderBy('id')]));
     }
 
     public function review(CustomerOrderRequest $request, CheckoutReview $review, ?Order $order = null): JsonResponse

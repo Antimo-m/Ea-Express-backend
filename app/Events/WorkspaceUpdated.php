@@ -35,8 +35,8 @@ class WorkspaceUpdated implements ShouldBroadcast, ShouldDispatchAfterCommit
         }
 
         if ($this->kind === 'accounting') {
-            return User::where('is_active', true)->where('role', UserRole::Admin)->pluck('id')
-                ->map(fn (int $id) => new PrivateChannel('staff.'.$id))->all();
+            return User::where('is_active', true)->where('role', UserRole::Admin)->pluck('slug')
+                ->map(fn (string $id) => new PrivateChannel('staff.'.$id))->all();
         }
 
         $channels = User::where('is_active', true)->where(function ($query) use ($order): void {
@@ -45,7 +45,7 @@ class WorkspaceUpdated implements ShouldBroadcast, ShouldDispatchAfterCommit
             if (! in_array($order->status, [OrderStatus::Received, OrderStatus::Rejected], true)) {
                 $query->orWhere(fn ($rider) => $rider->where('role', UserRole::Rider)->where('id', $order->rider_id));
             }
-        })->get(['id', 'role'])->map(fn (User $user) => new PrivateChannel(($user->role === UserRole::Customer ? 'customer.' : 'staff.').$user->id))->all();
+        })->get(['id', 'slug', 'role'])->map(fn (User $user) => new PrivateChannel(($user->role === UserRole::Customer ? 'customer.' : 'staff.').$user->slug))->all();
         if ($this->kind === 'order' && $order->tracking_started_at) {
             $channels[] = new PrivateChannel('tracking.'.hash('sha256', $order->tracking_token));
         }
@@ -64,6 +64,6 @@ class WorkspaceUpdated implements ShouldBroadcast, ShouldDispatchAfterCommit
             return ['event_id' => $this->eventId, 'kind' => $this->kind];
         }
 
-        return ['event_id' => $this->eventId, 'order_id' => $this->orderId, 'kind' => $this->kind];
+        return ['event_id' => $this->eventId, 'order_slug' => Order::whereKey($this->orderId)->value('slug'), 'kind' => $this->kind];
     }
 }

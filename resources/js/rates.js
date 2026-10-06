@@ -14,7 +14,7 @@ function updateRateFields() {
 form?.elements.shipping_type.addEventListener('change', updateRateFields);
 editor?.querySelector('[data-editor-history]').addEventListener('click', () => {
     document.querySelector(`[data-rate] [data-rate-history]`)?.blur();
-    const card = [...document.querySelectorAll('[data-rate]')].find(card => JSON.parse(card.dataset.rate).id === selected.id);
+    const card = [...document.querySelectorAll('[data-rate]')].find(card => JSON.parse(card.dataset.rate).slug === selected.slug);
     closeDialog(editor);
     card?.querySelector('[data-rate-history]').click();
 });
@@ -96,23 +96,23 @@ if (editor) {
         } else if (button.matches('[data-rate-archive]')) {
             const rate = selected;
             confirmAction({name: [rate.city, rate.zone, rate.postal_code, money(rate.price_cents)].filter(Boolean).join(' · '), action: 'Archivia tariffa', description: 'Le spedizioni precedenti mantengono il prezzo salvato.', onConfirm: async () => {
-                await request(`/rates/${rate.id}`, 'DELETE');
+                await request(`/rates/${rate.slug}`, 'DELETE');
                 await refresh().catch(() => { feedback.textContent = 'Tariffa archiviata. Ricarica la pagina per aggiornare le card.'; });
             }});
         } else if (button.matches('[data-rate-toggle]')) {
             const rate = selected;
             if (rate.active) {
                 confirmAction({name: rate.city, action: 'Disattiva tariffa', description: 'La tariffa non sarà disponibile per nuove richieste.', onConfirm: async () => {
-                    await request(`/rates/${rate.id}/state`, 'PATCH', {active: false});
+                    await request(`/rates/${rate.slug}/state`, 'PATCH', {active: false});
                     await refresh().catch(() => { feedback.textContent = 'Tariffa disattivata. Ricarica la pagina per aggiornare le card.'; });
                 }});
             } else {
-                await mutate(null, () => request(`/rates/${rate.id}/state`, 'PATCH', {active: true}));
+                await mutate(null, () => request(`/rates/${rate.slug}/state`, 'PATCH', {active: true}));
             }
         } else {
             const content = history.querySelector('[data-history-content]'); content.textContent = 'Caricamento…'; openDialog(history);
             try {
-                const result = await request(`/rates/${selected.id}/history`);
+                const result = await request(`/rates/${selected.slug}/history`);
                 content.replaceChildren(...result.data.map(rate => {const row = document.createElement('p'); row.className = 'history-row'; row.textContent = `${new Date(rate.created_at).toLocaleString('it-IT')} · ${rate.city} · Area: ${rate.area || '—'} · CAP: ${(rate.postal_codes || [rate.postal_code]).filter(Boolean).join(', ') || 'da verificare'} · ${money(rate.price_cents)} · Tempi: ${rate.delivery_time || '—'}${rate.shipping_type === 'external' ? ` · Vettore: ${rate.carrier_name || '—'} · Costo vettore: ${money(rate.carrier_cost_cents)}` : ''} · ${rate.archived_at ? 'Archiviata' : rate.active ? 'Attiva' : 'Inattiva / sostituita'} · ${rate.source_reference}`; return row;}));
             } catch(error) {content.textContent = error.message;}
         }
@@ -123,7 +123,7 @@ if (editor) {
         for (const name of ['area','postal_code','zone','street','delivery_time','carrier_name','carrier_cost','delivery_days_min','delivery_days_max']) if (!data[name]) data[name] = null;
         data.postal_codes = form.elements.postal_code.disabled ? null : (data.postal_code || '').split(',').map(code => code.trim()).filter(Boolean);
         data.postal_code = data.postal_codes?.length === 1 ? data.postal_codes[0] : null;
-        const id = selected?.id;
+        const id = selected?.slug;
         mutate(editor, () => request(id ? `/rates/${id}` : '/rates', 'POST', data));
     });
 }

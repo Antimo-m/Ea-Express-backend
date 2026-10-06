@@ -23,7 +23,7 @@ class CustomerStatisticsDatesTest extends TestCase
         Order::factory()->create(['customer_id' => $customer->id, 'status' => OrderStatus::Received, 'created_at' => '2026-10-02 12:00:00']);
         Order::factory()->create(['customer_id' => $other->id, 'status' => OrderStatus::Delivered, 'created_at' => '2026-10-02 12:00:00', 'delivered_at' => '2026-10-02 15:00:00', 'parcel_value_cents' => 999999]);
 
-        $this->actingAs($customer, 'customer')->getJson('/api/v1/customer/statistics?period=today&date_basis=activity&customer_id='.$other->id)
+        $this->actingAs($customer, 'customer')->getJson('/api/v1/customer/statistics?period=today&date_basis=activity&customer_id='.$other->slug)
             ->assertOk()->assertJsonPath('date_basis', 'activity')->assertJsonPath('total', 2)->assertJsonPath('delivered', 1)->assertJsonPath('in_progress', 1)
             ->assertJsonPath('gross_cents', 6000)->assertJsonPath('delivered_spend_cents', 500)->assertJsonPath('net_cents', 5500)
             ->assertJsonPath('trend.0.date', '2026-10-02')->assertJsonPath('trend.0.shipments', 2)->assertJsonPath('trend.0.delivered', 1)->assertJsonPath('trend.0.net_cents', 5500)

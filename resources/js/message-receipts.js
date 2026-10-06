@@ -15,17 +15,17 @@ export function observeMessageReceipts(container, messages, acknowledge, ownSend
   const read = () => { if (!document.hidden) send([...visible], 'read'); };
   const observer = new IntersectionObserver(entries => {
     entries.forEach(entry => {
-      const id = Number(entry.target.dataset.messageId);
+      const id = entry.target.dataset.messageId;
       if (entry.isIntersecting && entry.intersectionRect.height >= Math.min(80, entry.boundingClientRect.height)) visible.add(id);
       else visible.delete(id);
     });
     clearTimeout(timer); timer = setTimeout(read, 250);
   }, { threshold: [0, 0.25, 0.5, 0.75, 1] });
   incoming.forEach(message => {
-    const element = container.querySelector(`[data-message-id="${message.id}"]`);
+    const element = container.querySelector(`[data-message-id="${message.slug}"]`);
     if (element) observer.observe(element);
   });
-  send(incoming.filter(message => !message.delivered_at).map(message => message.id), 'delivered');
+  send(incoming.filter(message => !message.delivered_at).map(message => message.slug), 'delivered');
   document.addEventListener('visibilitychange', read);
   return () => { stopped = true; clearTimeout(timer); observer.disconnect(); document.removeEventListener('visibilitychange', read); };
 }

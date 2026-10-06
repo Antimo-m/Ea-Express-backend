@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Support\HasPublicSlug;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PaymentEntry extends Model
 {
+    use HasPublicSlug;
+
     protected function casts(): array
     {
         return ['ea_amount_cents' => 'integer', 'amount_cents' => 'integer'];

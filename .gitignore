@@ -105,6 +105,15 @@ Thumbs.db
 
 !/tests/Feature/FilterSelectionTest.php
 
+!/tests/Feature/OperationalFlowTest.php
+
+!/tests/Feature/CustomerPortalTest.php
+!/tests/Feature/CustomerExperienceTest.php
+
+# Verifiche riproducibili delle superfici operative e dei riferimenti pubblici.
+!/tests/Feature/OperationalSurfaceTest.php
+!/tests/Feature/PublicSlugTest.php
+
 # Report e revisioni interne rimangono esclusivamente locali.
 /[Rr][Ee][Pp][Oo][Rr][Tt]*
 /[Aa][Ii][Kk][Ii][Dd][Oo]*

@@ -2,7 +2,7 @@
 <article class="surface order-card mb-3">
     <header class="card-heading order-card-head">
         <div class="min-width-0"><span class="data-label">Cliente / negozio</span><h2><a href="{{ route('orders.show', $order) }}">{{ $order->displayName() }}</a></h2><span class="order-reference">Ordine: {{ $order->reference }}</span></div>
-        <div class="card-actions"><x-ui.status-badge :status="$order->status" />@if($action)<x-ui.icon-button action="print" label="Stampa etichetta" :href="route('labels.index', ['ids' => [$order->id]])" target="_blank" rel="noopener" /><x-ui.icon-button action="open" label="Apri ordine" :href="route('orders.show', $order)" />@endif</div>
+        <div class="card-actions"><x-ui.status-badge :status="$order->status" />@if($action)<x-ui.icon-button action="print" label="Stampa etichetta" :href="route('labels.index', ['ids' => [$order->slug]])" target="_blank" rel="noopener" /><x-ui.icon-button action="open" label="Apri ordine" :href="route('orders.show', $order)" />@endif</div>
     </header>
     <dl class="operation-facts">
         <div><dt>Nome destinatario / affidabilità</dt><dd><x-orders.recipient-name :name="$order->recipient_name" :risk="$recipientRisk" /></dd></div>

@@ -9,10 +9,12 @@ use App\Http\Requests\UpdateOrderStatusRequest;
 use App\Models\Order;
 use App\Models\User;
 use App\Support\CheckoutReview;
-use App\Support\OperationalAssignees;
+use App\Support\OrderDetail;
 use App\Support\OrderSelection;
+use App\Support\PublicReferences;
 use App\Support\RecipientRisk;
 use App\UserRole;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -21,23 +23,30 @@ use Illuminate\View\View;
 
 class OrderController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
         $section = $request->route()->getName();
         $selection = app(OrderSelection::class);
         $query = $selection->query($request, $section)->withDisplayIdentity()->with('rider');
+        if ($section !== 'orders.history') {
+            $query->with(['events' => fn ($events) => $events->latest()->orderByDesc('id')->limit(4)]);
+        }
         $title = match ($section) {
             'orders.incoming' => 'Ordini in entrata', 'orders.in-progress' => 'Spedizioni in corso', default => 'Storico ordini'
         };
 
-        $orders = $query->latest()->orderByDesc('id')->paginate(15)->withQueryString();
+        $orders = $query->latest()->orderByDesc('id')->paginate(20)->withQueryString();
 
-        return view('orders.index', ['orders' => $orders, 'recipientRisks' => app(RecipientRisk::class)->forOrders($orders->getCollection()), 'title' => $title, 'section' => $section, 'customers' => User::where('role', UserRole::Customer)->whereIn('id', $selection->query($request, $section, false)->select('customer_id'))->orderBy('name')->get(['id', 'name', 'email']), 'riders' => User::whereIn('id', $selection->query($request, $section, false)->select('rider_id'))->orderBy('name')->get(['id', 'name', 'email']), 'currentCount' => $selection->query($request, 'orders.in-progress', false)->count()]);
+        if ($orders->currentPage() > $orders->lastPage()) {
+            return redirect()->route($section, [...$request->query(), 'page' => $orders->lastPage()]);
+        }
+
+        return view('orders.index', ['orders' => $orders, 'recipientRisks' => app(RecipientRisk::class)->forOrders($orders->getCollection()), 'title' => $title, 'section' => $section, 'customers' => User::where('role', UserRole::Customer)->whereIn('id', $selection->query($request, $section, false)->select('customer_id'))->orderBy('name')->get(['id', 'slug', 'name', 'email']), 'riders' => User::whereIn('id', $selection->query($request, $section, false)->select('rider_id'))->orderBy('name')->get(['id', 'slug', 'name', 'email']), 'currentCount' => $selection->query($request, 'orders.in-progress', false)->count()]);
     }
 
     public function create(): View
     {
-        return view('orders.create', ['customers' => User::where('role', UserRole::Customer)->where('is_active', true)->orderBy('name')->get(['id', 'name', 'email'])]);
+        return view('orders.create', ['customers' => User::where('role', UserRole::Customer)->where('is_active', true)->orderBy('name')->get(['id', 'slug', 'name', 'email', 'sender_type', 'business_type', 'business_description'])]);
     }
 
     public function store(StoreOrderRequest $request, CreateOrder $create, CheckoutReview $review): RedirectResponse|View
@@ -65,12 +74,18 @@ class OrderController extends Controller
     {
         Gate::authorize('view', $order);
 
-        return view('orders.show', ['recipientRisk' => app(RecipientRisk::class)->forOrders(collect([$order]))[$order->id] ?? ['count' => 0, 'last_at' => null], 'order' => $order->loadSum('payments', 'amount_cents')->load(['customer:id,name', 'creator:id,name', 'rider', 'priceProposals' => fn ($q) => $q->with(['proposer', 'responder'])->latest()]), 'riders' => auth()->user()->role === UserRole::Admin ? app(OperationalAssignees::class)->query(auth()->user())->orderBy('name')->orderBy('id')->get(['id', 'name']) : collect(), 'transitions' => $order->allowedTransitions(), 'canReschedulePickup' => Order::awaitingPickup()->whereKey($order->id)->exists(), 'events' => $order->events()->with('user')->oldest()->orderBy('id')->paginate(30, ['*'], 'events_page')]);
+        return app(OrderDetail::class)->view($order);
     }
 
-    public function update(UpdateOrderStatusRequest $request, Order $order, TransitionOrder $transition): RedirectResponse
+    public function update(UpdateOrderStatusRequest $request, Order $order, TransitionOrder $transition): RedirectResponse|JsonResponse
     {
-        $transition->handle($order, $request->user(), $request->validated());
+        $transition->handle($order, $request->user(), PublicReferences::ids($request->validated()));
+
+        if ($request->expectsJson()) {
+            $order->refresh();
+
+            return response()->json(['message' => 'Stato aggiornato.', 'status' => $order->status->value, 'version' => $order->version, 'html' => app(OrderDetail::class)->view($order)->render()]);
+        }
 
         return redirect()->route('orders.show', $order)->with('status', 'Stato aggiornato.');
     }

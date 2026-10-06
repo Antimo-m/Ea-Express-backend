@@ -2,13 +2,13 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head><x-ui.head :title="$title" /></head>
-<body class="ea-app" data-notifications-url="{{ route('notifications.feed') }}" data-notification-scope="staff:{{ auth()->id() }}">
+<body class="ea-app" data-notifications-url="{{ route('notifications.feed') }}" data-notification-scope="staff:{{ auth()->user()->slug }}">
 <a class="skip-link" href="#main-content">Vai al contenuto</a>
 <x-navigation.sidebar />
 <div class="app-workspace">
     <x-navigation.header :title="$title" />
     @if(auth()->user()->canOperateDeliveries())
-    <div class="gps-bar" data-rider-gps="{{ auth()->id() }}" data-gps-state="disabled">
+    <div class="gps-bar" data-rider-gps="{{ auth()->user()->slug }}" data-gps-state="disabled">
         <span class="gps-badge" data-gps-badge role="status" aria-label="GPS disattivato" title="GPS disattivato · apri una consegna per condividere la posizione."><span class="gps-live-dot" aria-hidden="true"></span>GPS</span>
         <span class="visually-hidden" data-gps-feedback>GPS disattivato · apri una consegna per condividere la posizione.</span>
         <button type="button" class="btn btn-outline-secondary btn-sm" data-gps-stop hidden>Interrompi GPS</button>
@@ -26,7 +26,7 @@
     <p class="confirmation-summary" data-confirm-summary></p>
     <p class="confirmation-summary" data-confirm-description></p>
     <p role="alert" data-modal-error></p>
-    <footer class="modal-actions"><button type="button" class="btn modal-back" data-dialog-close><x-ui.icon name="arrow-left"/> Torna indietro</button><button type="button" class="btn btn-danger" data-confirm-action><x-ui.icon name="trash"/><span data-confirm-label>Elimina</span></button></footer>
+    <footer class="modal-actions"><button type="button" class="btn modal-back" data-dialog-close><x-ui.icon name="arrow-left"/> Torna indietro</button><x-ui.icon-button action="confirm" label="Conferma operazione" data-confirm-action /></footer>
 </x-ui.modal>
 </body>
 </html>

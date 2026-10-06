@@ -33,7 +33,7 @@ class ShippingRateController extends Controller
         }))->when($data['area'] ?? null, fn ($q, $area) => $q->where('area', $area));
         $rates = $query->orderByDesc('is_default')->orderBy('area')->orderBy('city')->orderBy('id')->paginate(18)->withQueryString();
         if ($request->user()->role === UserRole::Customer) {
-            $rates->through(fn (ShippingRate $rate) => $rate->only(['id', 'is_default', 'city', 'zone', 'street', 'area', 'postal_code', 'postal_codes', 'price_cents', 'delivery_time', 'shipping_type', 'max_weight_kg', 'max_dimension_cm', 'delivery_days_min', 'delivery_days_max']));
+            $rates->through(fn (ShippingRate $rate) => $rate->only(['slug', 'is_default', 'city', 'zone', 'street', 'area', 'postal_code', 'postal_codes', 'price_cents', 'delivery_time', 'shipping_type', 'max_weight_kg', 'max_dimension_cm', 'delivery_days_min', 'delivery_days_max']));
         }
         $areas = ShippingRate::whereNull('archived_at')->whereDoesntHave('successor')->when(! $isAdmin, fn ($q) => $q->where('active', true))->whereNotNull('area')->distinct()->orderBy('area')->pluck('area');
 

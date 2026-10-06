@@ -1,7 +1,7 @@
 @props(['order', 'status', 'text' => true])
 @php($critical = in_array($status, [\App\OrderStatus::Cancelled, \App\OrderStatus::Rejected], true))
 <x-ui.action-dialog :id="'workflow-'.$order->id.'-'.$status->value" :action="$critical ? 'delete' : 'operate'" :title="$status->actionLabel()" :open="$errors->any() && old('status') === $status->value" :text="$critical ? false : $text">
-    <form method="post" action="{{ route('orders.update', $order) }}" class="form-stack">
+    <form data-order-action method="post" action="{{ route('orders.update', $order) }}" class="form-stack">
         @csrf @method('patch')
         <input type="hidden" name="version" value="{{ $order->version }}">
         <input type="hidden" name="status" value="{{ $status->value }}">
@@ -16,6 +16,6 @@
         @if(in_array($status, [\App\OrderStatus::Cancelled, \App\OrderStatus::Rejected, \App\OrderStatus::DeliveryIssue, \App\OrderStatus::DeliveryAttempted], true))
             <x-ui.field :id="'note-'.$order->id.'-'.$status->value" name="note" label="Motivo" :value="old('status') === $status->value ? old('note') : ''" maxlength="2000" required />
         @endif
-        <x-ui.icon-button type="submit" :action="$critical ? 'delete' : 'confirm'" :label="$status->actionLabel()" :data-confirm="$critical ? $status->actionLabel() : null" :data-confirm-name="$order->displayName()" text />
+        <x-ui.icon-button type="submit" action="confirm" :label="$status->actionLabel()" :data-confirm="$critical ? $status->actionLabel() : null" :data-confirm-name="$order->displayName()" text />
     </form>
 </x-ui.action-dialog>

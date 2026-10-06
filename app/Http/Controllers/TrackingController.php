@@ -11,11 +11,6 @@ use Illuminate\View\View;
 
 class TrackingController extends Controller
 {
-    public function index(Request $request): View
-    {
-        return view('tracking.index', ['orders' => Order::visibleTo($request->user())->withDisplayIdentity()->with('rider:id,name')->whereNotNull('tracking_started_at')->latest('updated_at')->orderByDesc('id')->paginate(15)]);
-    }
-
     public function realtime(Request $request, string $token): JsonResponse
     {
         $order = Order::where('tracking_token', $token)->whereNotNull('tracking_started_at')->firstOrFail();
@@ -45,6 +40,6 @@ class TrackingController extends Controller
             $returnLabel = 'Torna alle spedizioni';
         }
 
-        return view('tracking.public', ['returnUrl' => $returnUrl, 'returnLabel' => $returnLabel, 'shippingType' => $order->shipping_type, 'carrierTracking' => $order->carrier_tracking, 'carrierStatus' => $order->carrier_status, 'deliveryFrom' => $order->estimated_delivery_from, 'deliveryTo' => $order->estimated_delivery_to, 'reference' => $order->reference, 'status' => $order->status, 'estimated' => $order->estimated_at, 'events' => $order->events()->select(['id', 'status', 'public_note', 'created_at'])->latest()->orderByDesc('id')->paginate(30)]);
+        return view('tracking.public', ['returnUrl' => $returnUrl, 'returnLabel' => $returnLabel, 'shippingType' => $order->shipping_type, 'carrierTracking' => $order->carrier_tracking, 'carrierStatus' => $order->carrier_status, 'deliveryFrom' => $order->estimated_delivery_from, 'deliveryTo' => $order->estimated_delivery_to, 'reference' => $order->reference, 'status' => $order->status, 'estimated' => $order->estimated_at, 'events' => $order->events()->select(['id', 'slug', 'status', 'public_note', 'created_at'])->latest()->orderByDesc('id')->paginate(30)]);
     }
 }

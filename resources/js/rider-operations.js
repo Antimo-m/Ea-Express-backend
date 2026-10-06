@@ -35,7 +35,7 @@ for (const panel of document.querySelectorAll('[data-rider-operations]')) {
       footer.append(text('small',minutes === null ? 'GPS non disponibile' : `Ultimo GPS: ${minutes < 1 ? 'ora' : `${minutes} min fa`}`));
       const actions = text('div','','row-actions');
       const detail = text('a','','icon-button action-open'); detail.href = rider.url; detail.title = `Attività di ${rider.name}`; detail.setAttribute('aria-label',detail.title); detail.append(text('i','','bi bi-person'));
-      const locate = text('button','','icon-button action-open'); locate.type = 'button'; locate.dataset.mapRider = rider.id; locate.title = `Posizione di ${rider.name}`; locate.setAttribute('aria-label',locate.title); locate.disabled = rider.state !== 'live' || stale; locate.append(text('i','','bi bi-geo-alt'));
+      const locate = text('button','','icon-button action-open'); locate.type = 'button'; locate.dataset.mapRider = rider.slug; locate.title = `Posizione di ${rider.name}`; locate.setAttribute('aria-label',locate.title); locate.disabled = rider.state !== 'live' || stale; locate.append(text('i','','bi bi-geo-alt'));
       actions.append(detail,locate); footer.append(actions); card.append(footer); riders.append(card);
     }
     if (!day.riders.length) riders.append(text('p','Nessun Rider con attività registrata nella giornata.'));

@@ -28,17 +28,17 @@ class AdminOperationalAssignmentTest extends TestCase
         $admin = User::factory()->unverified()->create(['role' => UserRole::Admin]);
         $order = Order::factory()->create(['status' => OrderStatus::Received, 'pricing_version' => 1, 'price_state' => 'agreed', 'price_cents' => 12550, 'quoted_price_cents' => 12550]);
 
-        $this->actingAs($admin)->get('/orders/'.$order->id)->assertViewHas('riders', fn ($riders) => $riders->contains('id', $admin->id));
-        $this->patchJson('/orders/'.$order->id, ['status' => 'accepted', 'rider_id' => $admin->id, 'version' => 1])->assertRedirect();
+        $this->actingAs($admin)->get('/orders/'.$order->slug)->assertViewHas('riders', fn ($riders) => $riders->contains('id', $admin->id));
+        $this->patchJson('/orders/'.$order->slug, ['status' => 'accepted', 'rider_id' => $admin->slug, 'version' => 1])->assertOk();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'rider_id' => $admin->id, 'assigned_by' => $admin->id, 'status' => 'accepted']);
         $this->assertDatabaseHas('economic_audits', ['entity_type' => 'orders', 'entity_id' => $order->id, 'action' => 'rider.assigned']);
-        $this->patchJson('/orders/'.$order->id, ['status' => 'rider_arriving', 'version' => 2])->assertRedirect();
-        $this->get('/orders/'.$order->id)->assertSee('data-gps-start', false)->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
-        $session = $this->postJson('/orders/'.$order->id.'/location/session')->assertOk()->json('session');
-        $this->putJson('/orders/'.$order->id.'/location', ['session' => $session, 'latitude' => 40.85, 'longitude' => 14.26, 'accuracy' => 12, 'recorded_at' => now()->toIso8601String()])->assertOk();
-        $this->getJson('/orders/'.$order->id.'/location')->assertJsonPath('state', 'live');
+        $this->patchJson('/orders/'.$order->slug, ['status' => 'rider_arriving', 'version' => 2])->assertOk();
+        $this->get('/orders/'.$order->slug)->assertSee('data-gps-start', false)->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
+        $session = $this->postJson('/orders/'.$order->slug.'/location/session')->assertOk()->json('session');
+        $this->putJson('/orders/'.$order->slug.'/location', ['session' => $session, 'latitude' => 40.85, 'longitude' => 14.26, 'accuracy' => 12, 'recorded_at' => now()->toIso8601String()])->assertOk();
+        $this->getJson('/orders/'.$order->slug.'/location')->assertJsonPath('state', 'live');
         foreach (['picked_up' => 3, 'in_transit' => 4, 'out_for_delivery' => 5, 'delivered' => 6] as $status => $version) {
-            $this->patchJson('/orders/'.$order->id, ['status' => $status, 'version' => $version])->assertRedirect();
+            $this->patchJson('/orders/'.$order->slug, ['status' => $status, 'version' => $version])->assertOk();
         }
 
         $this->assertSame(OrderStatus::Delivered, $order->fresh()->status);
@@ -53,12 +53,12 @@ class AdminOperationalAssignmentTest extends TestCase
         $rider = User::factory()->create();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $order = Order::factory()->create(['status' => OrderStatus::OutForDelivery, 'rider_id' => $rider->id]);
-        $this->actingAs($rider)->postJson('/orders/'.$order->id.'/location/session')->assertOk();
+        $this->actingAs($rider)->postJson('/orders/'.$order->slug.'/location/session')->assertOk();
 
-        $this->actingAs($admin)->patchJson('/orders/'.$order->id.'/rider', ['rider_id' => $admin->id, 'version' => 1])->assertRedirect();
+        $this->actingAs($admin)->patchJson('/orders/'.$order->slug.'/rider', ['rider_id' => $admin->slug, 'version' => 1])->assertOk();
         $this->assertNull($order->fresh()->gps_session_id);
         $this->assertSame($admin->id, $order->fresh()->rider_id);
-        $this->postJson('/orders/'.$order->id.'/location/session')->assertOk();
+        $this->postJson('/orders/'.$order->slug.'/location/session')->assertOk();
         $this->post('/logout')->assertRedirect();
         $this->assertNull($order->fresh()->gps_session_id);
     }
@@ -70,7 +70,7 @@ class AdminOperationalAssignmentTest extends TestCase
         $order = Order::factory()->create(['status' => OrderStatus::Accepted]);
         $this->actingAs($admin);
         foreach ($targets as $target) {
-            $this->patchJson('/orders/'.$order->id.'/rider', ['rider_id' => $target->id, 'version' => 1])->assertUnprocessable()->assertJsonValidationErrors('rider_id');
+            $this->patchJson('/orders/'.$order->slug.'/rider', ['rider_id' => $target->slug, 'version' => 1])->assertUnprocessable()->assertJsonValidationErrors('rider_id');
         }
         $this->assertNull($order->fresh()->rider_id);
         $this->assertDatabaseCount('order_events', 0);
@@ -107,7 +107,7 @@ class AdminOperationalAssignmentTest extends TestCase
     public function test_admin_cannot_share_gps_for_an_order_assigned_to_someone_else(): void
     {
         $order = Order::factory()->create(['status' => OrderStatus::OutForDelivery, 'rider_id' => User::factory()]);
-        $this->actingAs(User::factory()->create(['role' => UserRole::Admin]))->postJson('/orders/'.$order->id.'/location/session')->assertNotFound();
+        $this->actingAs(User::factory()->create(['role' => UserRole::Admin]))->postJson('/orders/'.$order->slug.'/location/session')->assertNotFound();
         $this->assertNull($order->fresh()->gps_session_id);
     }
 }

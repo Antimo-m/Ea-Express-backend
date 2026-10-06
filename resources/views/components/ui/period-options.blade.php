@@ -1,7 +1,7 @@
 @props(['route', 'period', 'balance' => false])
 @php
     $today = now('Europe/Rome');
-    $preserved = collect(request()->except(['page','detail_page','period','year','month','from','to']))->reject(fn ($value, $key) => str_ends_with($key, '_page'))->all();
+    $preserved = [...request()->route()->parameters(), ...collect(request()->except(['page','detail_page','period','year','month','from','to']))->reject(fn ($value, $key) => str_ends_with($key, '_page'))->all()];
     $ranges = ['today'=>['Oggi',$today->copy()->startOfDay()], 'week'=>['Settimana',$today->copy()->startOfWeek()], 'month'=>['Mese',$today->copy()->startOfMonth()], 'year'=>['Anno',$today->copy()->startOfYear()]];
 @endphp
 <nav class="period-options" aria-label="Periodo di analisi">

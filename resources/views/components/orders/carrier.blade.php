@@ -7,7 +7,7 @@
         <x-ui.field name="carrier_tracking" label="Codice tracking del vettore" :value="old('carrier_tracking', $order->carrier_tracking)" maxlength="100" required/>
         <div><label for="carrier_status" class="form-label">Stato comunicato dal vettore</label><select class="form-select" id="carrier_status" name="carrier_status">@foreach(['booked'=>'Prenotata','handed_over'=>'Affidata al vettore','in_transit'=>'In transito','delivery_issue'=>'Problema di consegna'] as $value=>$label)<option value="{{ $value }}" @selected(old('carrier_status',$order->carrier_status)===$value)>{{ $label }}</option>@endforeach</select></div>
         <p class="small text-secondary">Tracking e aggiornamenti del vettore sono facoltativi. Avanza la spedizione con i consueti pulsanti del flusso.</p>
-        <x-ui.icon-button action="edit" label="Aggiorna vettore" type="submit" text/>
+        <x-ui.icon-button action="confirm" label="Aggiorna vettore" type="submit" text/>
     </form>
     @endif
     @endcan

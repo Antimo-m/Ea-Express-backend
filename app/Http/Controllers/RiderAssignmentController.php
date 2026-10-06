@@ -8,9 +8,12 @@ use App\Models\Order;
 use App\Models\User;
 use App\OrderStatus;
 use App\Support\OperationalAssignees;
+use App\Support\OrderDetail;
+use App\Support\PublicReferences;
 use App\Support\RiderOperations;
 use App\Support\RiderTracking;
 use App\UserRole;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,9 +21,10 @@ use Illuminate\Validation\ValidationException;
 
 class RiderAssignmentController extends Controller
 {
-    public function update(Request $request, Order $order): RedirectResponse
+    public function update(Request $request, Order $order): RedirectResponse|JsonResponse
     {
-        $data = $request->validate(['rider_id' => ['required', 'integer', app(OperationalAssignees::class)->rule($request->user())], 'version' => ['required', 'integer', 'min:1']]);
+        $data = $request->validate(['rider_id' => ['required', 'uuid', app(OperationalAssignees::class)->rule($request->user())], 'version' => ['required', 'integer', 'min:1']]);
+        $data = PublicReferences::ids($data);
         DB::transaction(function () use ($request, $order, $data): void {
             $admin = User::lockForUpdate()->findOrFail($request->user()->id);
             abort_unless($admin->is_active && $admin->role === UserRole::Admin, 403);
@@ -45,6 +49,12 @@ class RiderAssignmentController extends Controller
             app(RecordEconomicAudit::class)->handle($admin, $locked, 'rider.assigned', $before, $locked->only(['rider_id', 'assigned_by', 'assigned_at']));
             app(NotifyOrderParticipants::class)->handle($locked, 'Rider assegnato', $admin->id);
         }, 3);
+
+        if ($request->expectsJson()) {
+            $order->refresh();
+
+            return response()->json(['message' => 'Assegnazione aggiornata.', 'status' => $order->status->value, 'version' => $order->version, 'html' => app(OrderDetail::class)->view($order)->render()]);
+        }
 
         return back()->with('status', 'Assegnazione aggiornata.');
     }

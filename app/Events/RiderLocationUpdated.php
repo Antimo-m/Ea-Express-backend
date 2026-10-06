@@ -27,7 +27,7 @@ class RiderLocationUpdated implements ShouldBroadcastNow
             $query->where('role', UserRole::Admin)
                 ->orWhere(fn ($q) => $q->where('role', UserRole::Customer)->where('id', $order->customer_id))
                 ->orWhere(fn ($q) => $q->where('role', UserRole::Rider)->whereNotNull('email_verified_at')->where('id', $order->rider_id));
-        })->get(['id', 'role'])->map(fn (User $user) => new PrivateChannel(($user->role === UserRole::Customer ? 'customer.' : 'staff.').$user->id))->all();
+        })->get(['id', 'slug', 'role'])->map(fn (User $user) => new PrivateChannel(($user->role === UserRole::Customer ? 'customer.' : 'staff.').$user->slug))->all();
     }
 
     public function broadcastAs(): string
@@ -38,6 +38,6 @@ class RiderLocationUpdated implements ShouldBroadcastNow
     /** @return array{order_id: int} */
     public function broadcastWith(): array
     {
-        return ['order_id' => $this->orderId];
+        return ['order_slug' => Order::whereKey($this->orderId)->value('slug')];
     }
 }

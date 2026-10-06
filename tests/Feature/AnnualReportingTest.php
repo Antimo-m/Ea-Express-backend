@@ -50,10 +50,10 @@ class AnnualReportingTest extends TestCase
             Order::factory()->create(['customer_id' => $customer->id, 'created_at' => Carbon::parse($date, 'Europe/Rome')->utc(), 'price_cents' => 500]);
         }
         Order::factory()->create(['created_at' => Carbon::parse('2024-05-01', 'UTC'), 'price_cents' => 900]);
-        $response = $this->actingAs($admin)->get('/stores?period=year&year=2024&customer_id='.$customer->id)->assertOk()->assertViewHas('summary', fn ($summary) => $summary['total'] === 3)->assertViewHas('detail', fn ($summary) => $summary['total'] === 2)->assertViewHas('trend', fn ($points) => count($points) === 12 && array_sum(array_column($points, 'orders')) === 3)->assertViewHas('previousPeriod', fn ($period) => $period->start->year === 2023 && $period->end->toDateString() === '2023-12-31');
+        $response = $this->actingAs($admin)->get('/customers/'.$customer->slug.'?period=year&year=2024')->assertOk()->assertViewHas('summary', fn ($summary) => $summary['total'] === 2)->assertViewHas('trend', fn ($points) => count($points) === 12 && array_sum(array_column($points, 'orders')) === 2)->assertViewHas('previousPeriod', fn ($period) => $period->start->year === 2023 && $period->end->toDateString() === '2023-12-31');
         $response->assertSee('year=2024', false);
-        $this->get('/stores?period=month&month=2024-02')->assertOk()->assertViewHas('summary', fn ($summary) => $summary['total'] === 1)->assertViewHas('period', fn ($period) => $period->end->toDateString() === '2024-02-29');
-        $this->getJson('/stores?period=year')->assertUnprocessable();
-        $this->getJson('/stores?period=month&month=2024-13')->assertUnprocessable();
+        $this->get('/customers/'.$customer->slug.'?period=month&month=2024-02')->assertOk()->assertViewHas('summary', fn ($summary) => $summary['total'] === 1)->assertViewHas('period', fn ($period) => $period->end->toDateString() === '2024-02-29');
+        $this->getJson('/customers/'.$customer->slug.'?period=year')->assertUnprocessable();
+        $this->getJson('/customers/'.$customer->slug.'?period=month&month=2024-13')->assertUnprocessable();
     }
 }

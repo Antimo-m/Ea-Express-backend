@@ -67,7 +67,7 @@ export function createOperationalMap(container) {
   const observer = new ResizeObserver(() => { if (!userMoved) fit(); draw(); }); observer.observe(container);
   return {
     update(items, config) { markers = items.filter(item => item.location && Number.isFinite(item.location.latitude) && Number.isFinite(item.location.longitude)); configuration = config; attribution.textContent = config.attribution; container.hidden = !markers.length; if (!userMoved || !center) fit(); draw(); },
-    focusRider(riderId) { const point = markers.find(item => item.rider_id === Number(riderId)); if (!point) return; center = point.location; zoom = 15; userMoved = true; draw(); container.scrollIntoView({block:'center',behavior:'smooth'}); },
+    focusRider(riderId) { const point = markers.find(item => item.rider_slug === riderId); if (!point) return; center = point.location; zoom = 15; userMoved = true; draw(); container.scrollIntoView({block:'center',behavior:'smooth'}); },
     dispose() { disposed = true; observer.disconnect(); },
   };
 }

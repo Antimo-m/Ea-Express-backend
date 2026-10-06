@@ -18,8 +18,8 @@ class OrderLabelController extends Controller
 
             return view('orders.labels', compact('orders'));
         }
-        $data = $request->validate(['ids' => ['required', 'array', 'min:1', 'max:100'], 'ids.*' => ['required', 'integer', 'distinct', 'min:1']]);
-        $orders = Order::visibleTo($request->user())->whereIn('id', $data['ids'])->orderBy('pickup_date')->orderBy('id')->get();
+        $data = $request->validate(['ids' => ['required', 'array', 'min:1', 'max:100'], 'ids.*' => ['required', 'uuid', 'distinct']]);
+        $orders = Order::visibleTo($request->user())->whereIn('slug', $data['ids'])->orderBy('pickup_date')->orderBy('id')->get();
         abort_unless($orders->count() === count($data['ids']), 404);
         abort_if($orders->sum('parcel_count') > 500, 422, 'Stampa al massimo 500 colli per documento.');
 

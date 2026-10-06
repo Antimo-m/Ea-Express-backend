@@ -1,6 +1,6 @@
 @props(['reset', 'label' => 'Applica filtri', 'compact' => true, 'accent' => null, 'layout' => 'data'])
 <form method="get" {{ $attributes->class(['filter-bar', 'filter-toolbar', 'filters-orange' => $accent === 'orange', 'filter-toolbar--'.$layout]) }} data-filter-toolbar aria-label="Filtri di ricerca">
-    @isset($search)<div class="filter-search">{{ $search }}</div>@endisset
+    @isset($search)<div class="filter-search"><x-ui.icon name="search" />{{ $search }}</div>@endisset
     @isset($period)<div class="filter-period" aria-label="Periodo">{{ $period }}</div>@endisset
     <div class="filter-primary" data-filter-primary>{{ $slot }}</div>
     @isset($secondary)

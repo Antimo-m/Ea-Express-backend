@@ -16,6 +16,7 @@ use App\OrderStatus;
 use App\Support\AccountingPeriod;
 use App\Support\Money;
 use App\Support\OrderPrice;
+use App\Support\PublicReferences;
 use App\Support\ShippingEconomics;
 use App\UserRole;
 use Illuminate\Http\JsonResponse;
@@ -29,20 +30,21 @@ class PendingAccountController extends Controller
     public function index(Request $request): View
     {
         abort_unless($request->user()->role === UserRole::Admin, 403);
-        $data = $request->validate(['customer_id' => ['nullable', 'integer', 'exists:users,id'], 'id' => ['nullable', 'integer', 'min:1'], 'direction' => ['nullable', 'in:incoming,outgoing'], 'state' => ['nullable', 'in:open,partially_paid,paid,cancelled'], 'q' => ['nullable', 'string', 'max:150'], 'sort' => ['nullable', 'in:recent,due,remaining']]);
-        $query = PendingAccount::query()->when($data['customer_id'] ?? null, fn ($q, $id) => $q->where('customer_id', $id))->when($data['id'] ?? null, fn ($q, $id) => $q->whereKey($id))
+        $data = $request->validate(['customer_id' => ['nullable', 'uuid', 'exists:users,slug'], 'slug' => ['nullable', 'uuid'], 'direction' => ['nullable', 'in:incoming,outgoing'], 'state' => ['nullable', 'in:open,partially_paid,paid,cancelled'], 'q' => ['nullable', 'string', 'max:150'], 'sort' => ['nullable', 'in:recent,due,remaining']]);
+        $data = PublicReferences::ids($data);
+        $query = PendingAccount::query()->when($data['customer_id'] ?? null, fn ($q, $id) => $q->where('customer_id', $id))->when($data['slug'] ?? null, fn ($q, $slug) => $q->where('slug', $slug))
             ->when($data['q'] ?? null, fn ($q, $term) => $q->where(fn ($search) => $search->where('subject', 'like', '%'.$term.'%')->orWhere('description', 'like', '%'.$term.'%')->orWhereHas('customer', fn ($customer) => $customer->where(fn ($identity) => $identity->where('name', 'like', '%'.$term.'%')->orWhere('email', 'like', '%'.$term.'%')->orWhere('business_description', 'like', '%'.$term.'%')))))
             ->when($data['state'] ?? null, fn ($q, $state) => $q->where('state', $state));
         $totals = (clone $query)->whereIn('state', ['open', 'partially_paid'])->selectRaw('direction, SUM(amount_cents - settled_cents) AS remaining')->groupBy('direction')->pluck('remaining', 'direction');
         $list = (clone $query)->when($data['direction'] ?? null, fn ($q, $direction) => $q->where('direction', $direction))
-            ->with(['customer:id,name,email,business_type,business_description,is_active', 'order:id,reference,shipping_type', 'settlements' => fn ($q) => $q->with('user:id,name')->latest()->orderByDesc('id')]);
+            ->with(['customer:id,slug,name,email,business_type,business_description,is_active', 'order:id,slug,reference,shipping_type', 'settlements' => fn ($q) => $q->with('user:id,slug,name')->latest()->orderByDesc('id')]);
         match ($data['sort'] ?? 'recent') {
             'due' => $list->orderByRaw('CASE WHEN due_on IS NULL THEN 1 ELSE 0 END')->orderBy('due_on'),
             'remaining' => $list->orderByRaw('(amount_cents - settled_cents) DESC'),
             default => $list->latest(),
         };
         $accounts = $list->orderByDesc('id')->paginate(20)->withQueryString();
-        $customers = User::where('role', UserRole::Customer)->orderBy('name')->get(['id', 'name', 'email', 'business_type', 'business_description', 'is_active']);
+        $customers = User::where('role', UserRole::Customer)->orderBy('name')->get(['id', 'slug', 'name', 'email', 'business_type', 'business_description', 'is_active']);
 
         return view('pending.index', compact('accounts', 'totals', 'customers'));
     }
@@ -50,7 +52,7 @@ class PendingAccountController extends Controller
     public function store(PendingAccountRequest $request): JsonResponse|RedirectResponse
     {
         abort_unless($request->user()->role === UserRole::Admin, 403);
-        $data = $request->validated();
+        $data = PublicReferences::ids($request->validated());
         $cents = Money::cents($data['amount']);
         abort_unless($cents > 0, 422, 'Importo maggiore di zero richiesto.');
         unset($data['amount']);
@@ -79,7 +81,7 @@ class PendingAccountController extends Controller
     public function update(PendingAccountUpdateRequest $request, PendingAccount $account): JsonResponse|RedirectResponse
     {
         abort_unless($request->user()->role === UserRole::Admin, 403);
-        $data = $request->validated();
+        $data = PublicReferences::ids($request->validated());
         DB::transaction(function () use ($request, $account, $data): void {
             $actor = User::lockForUpdate()->findOrFail($request->user()->id);
             abort_unless($actor->is_active && $actor->role === UserRole::Admin, 403);
@@ -123,7 +125,7 @@ class PendingAccountController extends Controller
     public function settle(PendingSettlementRequest $request, PendingAccount $account): JsonResponse|RedirectResponse
     {
         abort_unless($request->user()->role === UserRole::Admin, 403);
-        $data = $request->validated();
+        $data = PublicReferences::ids($request->validated());
         $data['note'] = '';
         $data['method'] = 'cash';
         $cents = Money::cents($data['amount']);

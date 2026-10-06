@@ -11,13 +11,13 @@ class RealtimeController extends Controller
 {
     public function configuration(Request $request): JsonResponse
     {
-        return response()->json(['key' => config('broadcasting.connections.reverb.key'), 'host' => config('realtime.host'), 'port' => config('realtime.port'), 'scheme' => config('realtime.scheme'), 'channel' => ($request->user()->role === UserRole::Customer ? 'customer.' : 'staff.').$request->user()->id]);
+        return response()->json(['key' => config('broadcasting.connections.reverb.key'), 'host' => config('realtime.host'), 'port' => config('realtime.port'), 'scheme' => config('realtime.scheme'), 'channel' => ($request->user()->role === UserRole::Customer ? 'customer.' : 'staff.').$request->user()->slug]);
     }
 
     public function authenticate(Request $request): mixed
     {
         $data = $request->validate(['socket_id' => ['required', 'regex:/^\d+\.\d+$/D'], 'channel_name' => ['required', 'string', 'max:100']]);
-        $expected = 'private-'.($request->user()->role === UserRole::Customer ? 'customer.' : 'staff.').$request->user()->id;
+        $expected = 'private-'.($request->user()->role === UserRole::Customer ? 'customer.' : 'staff.').$request->user()->slug;
         abort_unless(hash_equals($expected, $data['channel_name']), 403);
 
         require base_path('routes/channels.php');

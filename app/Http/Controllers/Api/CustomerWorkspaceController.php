@@ -7,7 +7,6 @@ use App\Actions\UpdateProfile;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CustomerOrderResource;
 use App\Models\Order;
-use App\Models\User;
 use App\OrderStatus;
 use App\Rules\SafePasswordLength;
 use App\Support\CustomerIdentity;
@@ -34,14 +33,6 @@ class CustomerWorkspaceController extends Controller
         ], 'live_order' => ($liveOrder = (clone $active)->withDisplayIdentity()->with('rider')->whereNotNull('rider_id')->orderByRaw('CASE WHEN gps_session_id IS NOT NULL THEN 0 ELSE 1 END')->latest('updated_at')->orderByDesc('id')->first()) ? new CustomerOrderResource($liveOrder) : null, 'recent' => CustomerOrderResource::collection((clone $base)->withDisplayIdentity()->with('rider')->latest()->orderByDesc('id')->limit(5)->get()), 'next_pickups' => CustomerOrderResource::collection((clone $active)->withDisplayIdentity()->with('rider')->whereDoesntHave('events', fn ($q) => $q->where('status', OrderStatus::PickedUp))->orderBy('pickup_date')->orderBy('pickup_from')->orderBy('id')->limit(3)->get())]);
     }
 
-    public function couriers(Request $request): JsonResponse
-    {
-        $orders = Order::where('customer_id', $request->user()->id)->whereNotNull('rider_id');
-        $riders = User::whereIn('id', (clone $orders)->select('rider_id'))->select(['id', 'name'])->orderBy('name')->get();
-
-        return response()->json(['data' => $riders]);
-    }
-
     public function notifications(Request $request): JsonResponse
     {
         if ($request->boolean('grouped')) {
@@ -51,7 +42,9 @@ class CustomerWorkspaceController extends Controller
         }
         $items = $request->user()->notifications()->latest()->orderByDesc('id')->paginate(20);
 
-        return response()->json(['data' => $items->getCollection()->map(fn ($n) => ['id' => $n->id, 'title' => $n->data['title'], 'reference' => $n->data['reference'], 'order_id' => $n->data['order_id'], 'is_message' => $n->data['message'] ?? false, 'read_at' => $n->read_at?->toIso8601String(), 'created_at' => $n->created_at->toIso8601String()]), 'meta' => ['current_page' => $items->currentPage(), 'last_page' => $items->lastPage(), 'unread' => $request->user()->unreadNotifications()->count()]]);
+        $slugs = Order::whereIn('id', $items->getCollection()->map(fn ($item) => $item->data['order_id']))->pluck('slug', 'id')->all();
+
+        return response()->json(['data' => $items->getCollection()->map(fn ($item) => app(NotificationInbox::class)->item($item, $slugs)), 'meta' => ['current_page' => $items->currentPage(), 'last_page' => $items->lastPage(), 'unread' => $request->user()->unreadNotifications()->count()]]);
     }
 
     public function feed(Request $request, NotificationInbox $inbox): JsonResponse
@@ -59,9 +52,9 @@ class CustomerWorkspaceController extends Controller
         return response()->json($inbox->feed($request->user()));
     }
 
-    public function history(Request $request, int $orderId, NotificationInbox $inbox): JsonResponse
+    public function history(Request $request, Order $order, NotificationInbox $inbox): JsonResponse
     {
-        return response()->json($inbox->history($request->user(), $orderId));
+        return response()->json($inbox->history($request->user(), $order->id));
     }
 
     public function readNotification(Request $request, string $id): JsonResponse

@@ -43,7 +43,7 @@ class WorkflowSecurityTest extends TestCase
     public function test_assigned_rider_cannot_record_or_forge_external_receipts(): void
     {
         $order = $this->order(['status' => OrderStatus::Delivered, 'delivered_at' => now()]);
-        $this->actingAs($order->rider)->postJson('/balance/'.$order->id.'/payment', [
+        $this->actingAs($order->rider)->postJson('/balance/'.$order->slug.'/payment', [
             'action' => 'receive', 'version' => 1, 'received_amount' => '999999', 'role' => 'admin', 'user_id' => 1, 'ea_amount' => '999999', 'paid_at' => now()->toIso8601String(),
         ])->assertForbidden();
         $this->assertDatabaseCount('payment_entries', 0);
@@ -55,12 +55,12 @@ class WorkflowSecurityTest extends TestCase
     {
         $order = $this->order();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $path = '/balance/'.$order->id.'/payment';
+        $path = '/balance/'.$order->slug.'/payment';
         $data = ['action' => 'receive', 'version' => 1, 'received_amount' => '6'];
         $this->actingAs($admin)->postJson($path, $data)->assertUnprocessable();
         $this->assertDatabaseCount('payment_entries', 0);
         $this->assertNull($order->fresh()->paid_at);
-        $this->patchJson('/orders/'.$order->id, ['status' => 'delivered', 'version' => 1])->assertRedirect();
+        $this->patchJson('/orders/'.$order->slug, ['status' => 'delivered', 'version' => 1])->assertOk();
         $data['version'] = 2;
         $this->postJson($path, [...$data, 'price_cents' => 1, 'carrier_cost_cents' => 1, 'ea_amount_cents' => 99999])->assertOk();
         $this->postJson($path, $data)->assertUnprocessable();
@@ -82,15 +82,15 @@ class WorkflowSecurityTest extends TestCase
         $order = $this->order(['price_state' => $priceState]);
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $order->priceProposals()->create(['proposed_by' => $admin->id, 'price_cents' => 600, 'previous_price_cents' => 500, 'reason' => 'Test', 'state' => $proposalState]);
-        $this->actingAs($order->rider)->patchJson('/orders/'.$order->id, ['status' => 'delivered', 'version' => 1])->assertConflict();
+        $this->actingAs($order->rider)->patchJson('/orders/'.$order->slug, ['status' => 'delivered', 'version' => 1])->assertConflict();
         $this->assertSame(OrderStatus::OutForDelivery, $order->fresh()->status);
         $this->assertDatabaseCount('order_events', 0);
         $order->status = OrderStatus::Delivered;
         $order->delivered_at = now();
         $order->save();
-        $this->actingAs($admin)->postJson('/balance/'.$order->id.'/payment', ['action' => 'receive', 'version' => 1, 'received_amount' => '6'])->assertConflict();
+        $this->actingAs($admin)->postJson('/balance/'.$order->slug.'/payment', ['action' => 'receive', 'version' => 1, 'received_amount' => '6'])->assertConflict();
         $account = PendingAccount::factory()->create(['order_id' => $order->id, 'customer_id' => $order->customer_id, 'direction' => 'incoming', 'amount_cents' => 600]);
-        $this->postJson('/pending/'.$account->id.'/settlements', ['version' => 1, 'amount' => '6', 'submission_key' => (string) Str::uuid()])->assertConflict();
+        $this->postJson('/pending/'.$account->slug.'/settlements', ['version' => 1, 'amount' => '6', 'submission_key' => (string) Str::uuid()])->assertConflict();
         $this->assertDatabaseCount('payment_entries', 0);
         $this->assertDatabaseCount('pending_settlements', 0);
         $this->assertNull($order->fresh()->paid_at);
@@ -101,9 +101,9 @@ class WorkflowSecurityTest extends TestCase
         $order = $this->order(['status' => OrderStatus::Received, 'rider_id' => null]);
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $rider = User::factory()->create();
-        $this->actingAs($admin)->patchJson('/orders/'.$order->id.'/price', ['action' => 'propose', 'version' => 1, 'price' => '6', 'reason' => 'Nuova tariffa'])->assertOk();
-        $this->actingAs($order->customer, 'customer')->patchJson('/api/v1/customer/orders/'.$order->id.'/price', ['action' => 'reject', 'version' => 2])->assertOk();
-        $this->actingAs($admin, 'web')->patchJson('/orders/'.$order->id, ['status' => 'accepted', 'version' => 3, 'rider_id' => $rider->id, 'price' => '6'])->assertConflict();
+        $this->actingAs($admin)->patchJson('/orders/'.$order->slug.'/price', ['action' => 'propose', 'version' => 1, 'price' => '6', 'reason' => 'Nuova tariffa'])->assertOk();
+        $this->actingAs($order->customer, 'customer')->patchJson('/api/v1/customer/orders/'.$order->slug.'/price', ['action' => 'reject', 'version' => 2])->assertOk();
+        $this->actingAs($admin, 'web')->patchJson('/orders/'.$order->slug, ['status' => 'accepted', 'version' => 3, 'rider_id' => $rider->slug, 'price' => '6'])->assertConflict();
         $this->assertSame('rejected', $order->fresh()->price_state);
         $this->assertSame(OrderStatus::Received, $order->fresh()->status);
         $this->assertNull($order->fresh()->rider_id);
@@ -114,12 +114,12 @@ class WorkflowSecurityTest extends TestCase
         $order = $this->order(['status' => OrderStatus::Received, 'rider_id' => null]);
         $rider = User::factory()->create();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $this->actingAs($admin)->patchJson('/orders/'.$order->id.'/price', ['action' => 'propose', 'version' => 1, 'price' => '8', 'reason' => 'Nuova tariffa'])->assertOk();
-        $this->actingAs($order->customer, 'customer')->patchJson('/api/v1/customer/orders/'.$order->id.'/price', ['action' => 'accept', 'version' => 2])->assertOk();
-        $this->actingAs($admin, 'web')->patchJson('/orders/'.$order->id, ['status' => 'accepted', 'version' => 3, 'rider_id' => $rider->id])->assertRedirect();
+        $this->actingAs($admin)->patchJson('/orders/'.$order->slug.'/price', ['action' => 'propose', 'version' => 1, 'price' => '8', 'reason' => 'Nuova tariffa'])->assertOk();
+        $this->actingAs($order->customer, 'customer')->patchJson('/api/v1/customer/orders/'.$order->slug.'/price', ['action' => 'accept', 'version' => 2])->assertOk();
+        $this->actingAs($admin, 'web')->patchJson('/orders/'.$order->slug, ['status' => 'accepted', 'version' => 3, 'rider_id' => $rider->slug])->assertOk();
         $this->actingAs($rider, 'web');
         foreach (['rider_arriving', 'picked_up', 'out_for_delivery', 'delivered'] as $status) {
-            $this->patchJson('/orders/'.$order->id, ['status' => $status, 'version' => $order->fresh()->version])->assertRedirect();
+            $this->patchJson('/orders/'.$order->slug, ['status' => $status, 'version' => $order->fresh()->version])->assertOk();
         }
         $this->assertSame(OrderStatus::Delivered, $order->fresh()->status);
         $this->assertSame(800, $order->fresh()->price_cents);
@@ -129,8 +129,8 @@ class WorkflowSecurityTest extends TestCase
     {
         $order = $this->order();
         $eta = now('Europe/Rome')->addDay()->format('Y-m-d\TH:i');
-        $this->actingAs($order->rider)->patchJson('/orders/'.$order->id, ['status' => 'delivered', 'version' => 1, 'estimated_at' => $eta])->assertUnprocessable()->assertJsonValidationErrors('estimated_at');
-        $this->patchJson('/orders/'.$order->id.'/carrier', ['version' => 1, 'carrier_tracking' => 'TRACK', 'carrier_status' => 'booked', 'estimated_at' => $eta])->assertUnprocessable()->assertJsonValidationErrors('estimated_at');
+        $this->actingAs($order->rider)->patchJson('/orders/'.$order->slug, ['status' => 'delivered', 'version' => 1, 'estimated_at' => $eta])->assertUnprocessable()->assertJsonValidationErrors('estimated_at');
+        $this->patchJson('/orders/'.$order->slug.'/carrier', ['version' => 1, 'carrier_tracking' => 'TRACK', 'carrier_status' => 'booked', 'estimated_at' => $eta])->assertUnprocessable()->assertJsonValidationErrors('estimated_at');
         $this->assertNull($order->fresh()->estimated_at);
         $this->assertSame(OrderStatus::OutForDelivery, $order->fresh()->status);
     }
@@ -152,22 +152,22 @@ class WorkflowSecurityTest extends TestCase
     {
         $order = $this->order(['status' => OrderStatus::DeliveryAttempted]);
         $order->events()->create(['user_id' => $order->rider_id, 'status' => OrderStatus::PickedUp]);
-        $this->actingAs($order->rider)->patchJson('/orders/'.$order->id, ['status' => 'rescheduled', 'version' => 1, 'note' => 'Nuovo appuntamento'])->assertUnprocessable();
-        $this->patchJson('/orders/'.$order->id, ['status' => 'rescheduled', 'version' => 1, 'note' => 'Nuovo appuntamento', 'estimated_at' => now('Europe/Rome')->addDay()->format('Y-m-d\TH:i')])->assertRedirect();
+        $this->actingAs($order->rider)->patchJson('/orders/'.$order->slug, ['status' => 'rescheduled', 'version' => 1, 'note' => 'Nuovo appuntamento'])->assertUnprocessable();
+        $this->patchJson('/orders/'.$order->slug, ['status' => 'rescheduled', 'version' => 1, 'note' => 'Nuovo appuntamento', 'estimated_at' => now('Europe/Rome')->addDay()->format('Y-m-d\TH:i')])->assertOk();
         $this->assertNotNull($order->fresh()->estimated_at);
-        $this->patchJson('/orders/'.$order->id, ['status' => 'out_for_delivery', 'version' => 2])->assertRedirect();
+        $this->patchJson('/orders/'.$order->slug, ['status' => 'out_for_delivery', 'version' => 2])->assertOk();
         $this->assertNull($order->fresh()->estimated_at);
     }
 
     public function test_skipped_steps_wrong_rider_and_stale_versions_cannot_mutate_orders(): void
     {
         $order = $this->order(['status' => OrderStatus::Received]);
-        $this->actingAs(User::factory()->create(['role' => UserRole::Admin]))->patchJson('/orders/'.$order->id, ['status' => 'delivered', 'version' => 1])->assertUnprocessable();
+        $this->actingAs(User::factory()->create(['role' => UserRole::Admin]))->patchJson('/orders/'.$order->slug, ['status' => 'delivered', 'version' => 1])->assertUnprocessable();
         $order->status = OrderStatus::OutForDelivery;
         $order->save();
-        $this->actingAs(User::factory()->create())->patchJson('/orders/'.$order->id, ['status' => 'delivered', 'version' => 1])->assertForbidden();
-        $this->actingAs($order->rider)->patchJson('/orders/'.$order->id, ['status' => 'delivered', 'version' => 1])->assertRedirect();
-        $this->patchJson('/orders/'.$order->id, ['status' => 'delivery_issue', 'version' => 1, 'note' => 'Replay'])->assertUnprocessable();
+        $this->actingAs(User::factory()->create())->patchJson('/orders/'.$order->slug, ['status' => 'delivered', 'version' => 1])->assertForbidden();
+        $this->actingAs($order->rider)->patchJson('/orders/'.$order->slug, ['status' => 'delivered', 'version' => 1])->assertOk();
+        $this->patchJson('/orders/'.$order->slug, ['status' => 'delivery_issue', 'version' => 1, 'note' => 'Replay'])->assertUnprocessable();
         $this->assertSame(OrderStatus::Delivered, $order->fresh()->status);
         $this->assertDatabaseCount('order_events', 1);
     }
@@ -183,7 +183,7 @@ class WorkflowSecurityTest extends TestCase
     public function test_payment_authorization_does_not_depend_on_the_route_middleware(): void
     {
         $order = $this->order(['status' => OrderStatus::Delivered]);
-        $request = Request::create('/balance/'.$order->id.'/payment', 'POST', ['action' => 'receive', 'version' => 1, 'received_amount' => '6']);
+        $request = Request::create('/balance/'.$order->slug.'/payment', 'POST', ['action' => 'receive', 'version' => 1, 'received_amount' => '6']);
         $request->setUserResolver(fn () => $order->rider);
         try {
             app(PaymentController::class)->store($request, $order, app(NotifyAccountingParticipants::class));
@@ -211,9 +211,9 @@ class WorkflowSecurityTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $proposal = $order->priceProposals()->create(['proposed_by' => $admin->id, 'price_cents' => $proposalPrice, 'previous_price_cents' => 500, 'reason' => 'Test', 'state' => $proposalState]);
         $before = $order->fresh()->getAttributes();
-        $data = ['status' => 'accepted', 'version' => 1, 'rider_id' => $order->rider_id, 'price' => '0.01', 'price_state' => 'agreed', 'quoted_price_cents' => 1];
-        $this->actingAs($order->rider)->patchJson('/orders/'.$order->id, [...$data, 'role' => 'admin'])->assertForbidden();
-        $this->actingAs($admin)->patchJson('/orders/'.$order->id, $data)->assertConflict();
+        $data = ['status' => 'accepted', 'version' => 1, 'rider_id' => $order->rider?->slug, 'price' => '0.01', 'price_state' => 'agreed', 'quoted_price_cents' => 1];
+        $this->actingAs($order->rider)->patchJson('/orders/'.$order->slug, [...$data, 'role' => 'admin'])->assertForbidden();
+        $this->actingAs($admin)->patchJson('/orders/'.$order->slug, $data)->assertConflict();
         $this->assertSame($before, $order->fresh()->getAttributes());
         $this->assertSame($proposalState, $proposal->fresh()->state);
         $this->assertDatabaseCount('order_events', 0);
@@ -235,7 +235,7 @@ class WorkflowSecurityTest extends TestCase
         $order = $this->order(['status' => $current]);
         $before = $order->fresh()->getAttributes();
         $data = ['status' => $next, 'version' => 1, 'note' => 'Test', 'estimated_at' => now('Europe/Rome')->addDay()->format('Y-m-d\TH:i')];
-        $this->actingAs($order->rider)->patchJson('/orders/'.$order->id, $data)->assertUnprocessable()->assertJsonValidationErrors('estimated_at');
+        $this->actingAs($order->rider)->patchJson('/orders/'.$order->slug, $data)->assertUnprocessable()->assertJsonValidationErrors('estimated_at');
         try {
             app(TransitionOrder::class)->handle($order, $order->rider, $data);
             $this->fail('An ETA was accepted outside rescheduling.');
@@ -249,10 +249,10 @@ class WorkflowSecurityTest extends TestCase
     public function test_pickup_schedule_ignores_an_injected_delivery_eta(): void
     {
         $order = $this->order(['status' => OrderStatus::Accepted]);
-        $this->actingAs($order->rider)->patchJson('/orders/'.$order->id.'/pickup-schedule', [
+        $this->actingAs($order->rider)->patchJson('/orders/'.$order->slug.'/pickup-schedule', [
             'version' => 1, 'pickup_date' => now('Europe/Rome')->addDays(2)->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00',
             'reason' => 'Cambio appuntamento', 'estimated_at' => now('Europe/Rome')->addDays(3)->format('Y-m-d\TH:i'),
-        ])->assertRedirect();
+        ])->assertOk();
         $this->assertNull($order->fresh()->estimated_at);
         $this->assertSame(OrderStatus::PickupScheduled, $order->fresh()->status);
     }

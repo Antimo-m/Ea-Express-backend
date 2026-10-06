@@ -39,7 +39,7 @@ class CreateOrder
             unset($data['customer_id']);
             $order = new Order($data);
             if ($creator->isStaff() && $customerId) {
-                $customer = User::where('role', UserRole::Customer)->where('is_active', true)->findOrFail($customerId);
+                $customer = User::where('role', UserRole::Customer)->where('is_active', true)->where(is_int($customerId) ? 'id' : 'slug', $customerId)->firstOrFail();
                 $order->customer_id = $customer->id;
                 $order->contact_email = $customer->email;
             }

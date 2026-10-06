@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Order;
 use App\OrderStatus;
+use App\SenderType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -14,7 +15,8 @@ class OrderSelection
 {
     public function query(Request $request, string $section, bool $filtered = true): Builder
     {
-        $filters = $request->validate(['customer_id' => ['nullable', 'integer', 'exists:users,id'], 'rider_id' => ['nullable', 'integer', 'exists:users,id'], 'shipping_type' => ['nullable', 'in:regional,external'], 'sender_type' => ['nullable', 'in:business,private,online_shop'], 'q' => ['nullable', 'string', 'max:100'], 'zone' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', Rule::enum(OrderStatus::class)], 'urgency' => ['nullable', 'in:urgent,standard'], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d']]);
+        $filters = $request->validate(['customer_id' => ['nullable', 'uuid', 'exists:users,slug'], 'rider_id' => ['nullable', 'uuid', 'exists:users,slug'], 'shipping_type' => ['nullable', 'in:regional,external'], 'sender_type' => ['nullable', Rule::enum(SenderType::class)], 'q' => ['nullable', 'string', 'max:100'], 'zone' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', Rule::enum(OrderStatus::class)], 'urgency' => ['nullable', 'in:urgent,standard'], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d']]);
+        $filters = PublicReferences::ids($filters);
         if (! empty($filters['from']) && ! empty($filters['to']) && $filters['to'] < $filters['from']) {
             throw ValidationException::withMessages(['to' => 'La data finale precede quella iniziale.']);
         }

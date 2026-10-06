@@ -33,9 +33,9 @@ class RiderOperations
                     ->orWhereHas('events', fn ($events) => $events->where(fn ($identity) => $identity->where('rider_id', $selectedRiderId)->orWhere('user_id', $selectedRiderId)))
                     ->orWhereIn('id', EconomicAudit::where('entity_type', 'orders')->where('action', 'rider.assigned')->where(fn ($audit) => $audit->where('before->rider_id', $selectedRiderId)->orWhere('after->rider_id', $selectedRiderId))->select('entity_id'));
             });
-        })->withSum('payments as cash_cents', 'amount_cents')->with(['rider:id,name,role,is_active,email_verified_at', 'events' => fn ($events) => $events->whereBetween('created_at', $period->utcRange())->with('user:id,name,role')->orderBy('created_at')->orderBy('id')])->when($includePayments, fn ($query) => $query->withDisplayIdentity()->with(['payments' => fn ($payments) => $payments->orderBy('created_at')->orderBy('id'), 'payments.user:id,name']))->orderBy('id')->get();
+        })->withSum('payments as cash_cents', 'amount_cents')->with(['rider:id,slug,name,role,is_active,email_verified_at', 'events' => fn ($events) => $events->whereBetween('created_at', $period->utcRange())->with('user:id,slug,name,role')->orderBy('created_at')->orderBy('id')])->when($includePayments, fn ($query) => $query->withDisplayIdentity()->with(['payments' => fn ($payments) => $payments->orderBy('created_at')->orderBy('id'), 'payments.user:id,slug,name']))->orderBy('id')->get();
         $audits = EconomicAudit::where('entity_type', 'orders')->where('action', 'rider.assigned')->whereIn('entity_id', $orders->modelKeys())->orderBy('created_at')->orderBy('id')->get()->groupBy('entity_id');
-        $riders = User::whereIn('role', [UserRole::Rider, UserRole::Admin])->orderBy('name')->get(['id', 'name', 'is_active', 'email_verified_at', 'role'])->keyBy('id');
+        $riders = User::whereIn('role', [UserRole::Rider, UserRole::Admin])->orderBy('name')->get(['id', 'slug', 'name', 'is_active', 'email_verified_at', 'role'])->keyBy('id');
         foreach ($orders as $order) {
             if ($order->rider && ! $riders->has($order->rider_id)) {
                 $riders->put($order->rider_id, $order->rider);
@@ -76,7 +76,7 @@ class RiderOperations
                 $deliveries->push(['rider_id' => (int) $order->rider_id, 'zone' => $this->zone($order), 'event' => null, 'order' => $order]);
             }
         }
-        $snapshotsByOrder = $today && $selectedRiderId === null ? $this->tracking->snapshots($orders)->keyBy('order_id') : collect();
+        $snapshotsByOrder = $today && $selectedRiderId === null ? $this->tracking->snapshots($orders)->keyBy('order_slug') : collect();
         $zones = collect();
         $locations = [];
         if ($today && $selectedRiderId === null) {
@@ -85,7 +85,7 @@ class RiderOperations
                 $rows = [];
                 foreach ($zoneOrders->groupBy('rider_id') as $riderId => $riderOrders) {
                     $snapshots = $riderOrders->map(function ($order) use ($snapshotsByOrder): array {
-                        $snapshot = $snapshotsByOrder->get($order->id);
+                        $snapshot = $snapshotsByOrder->get($order->slug);
                         if ($snapshot['state'] === 'live' && Carbon::parse($snapshot['location']['recorded_at'])->lt(now()->subSeconds(90))) {
                             $snapshot['state'] = 'stale';
                         }
@@ -95,7 +95,7 @@ class RiderOperations
                     $snapshot = $snapshots->firstWhere('state', 'live') ?? $snapshots->firstWhere('state', 'stale') ?? $snapshots->first();
                     $rows[] = $this->row($riders->get($riderId), (string) $zone, $date, $riderOrders->count(), $deliveries, $snapshot);
                     foreach ($snapshots->where('state', 'live') as $position) {
-                        $locations[] = ['rider_id' => (int) $riderId, 'rider_name' => $riders->get($riderId)?->name ?? 'Rider', 'zone' => $zone, 'reference' => $position['reference'], 'order_url' => route('orders.show', $position['order_id']), 'location' => $position['location']];
+                        $locations[] = ['rider_slug' => $riders->get($riderId)?->slug, 'rider_name' => $riders->get($riderId)?->name ?? 'Rider', 'zone' => $zone, 'reference' => $position['reference'], 'order_url' => route('orders.show', $position['order_slug']), 'location' => $position['location']];
                     }
                 }
                 $zones->put($zone, $rows);
@@ -121,7 +121,7 @@ class RiderOperations
             $completed = $deliveries->where('rider_id', $riderId);
             $assigned = $today ? $activeOrders->where('rider_id', $riderId) : $historicalActive->where('rider_id', $riderId)->pluck('order')->unique('id');
             $dailyOrders = $assigned->merge($completed->pluck('order'))->unique('id');
-            $snapshot = $assigned->map(fn ($order) => $snapshotsByOrder->get($order->id))->filter()->sortByDesc(fn ($position) => $position['location']['received_at'] ?? '')->first();
+            $snapshot = $assigned->map(fn ($order) => $snapshotsByOrder->get($order->slug))->filter()->sortByDesc(fn ($position) => $position['location']['received_at'] ?? '')->first();
             $row = $this->row($riders->get($riderId), 'Nessuna consegna in corso', $date, $assigned->count(), $deliveries, $snapshot, ! $today);
             $assignedZones = $today ? $assigned->map(fn ($order) => ['id' => $order->id, 'zone' => $this->zone($order)]) : $historicalActive->where('rider_id', $riderId)->map(fn ($item) => ['id' => $item['order']->id, 'zone' => $item['zone']]);
             $zoneCounts = $assignedZones->merge($completed->map(fn ($item) => ['id' => $item['order']->id, 'zone' => $item['zone']]))->unique('id')->countBy('zone');
@@ -130,7 +130,7 @@ class RiderOperations
             $row['cash_cents'] = (int) $dailyOrders->sum('cash_cents');
             $row['expected_cents'] = (int) $dailyOrders->sum('price_cents');
             $row['missing_prices'] = $dailyOrders->whereNull('price_cents')->count();
-            $row['url'] = route('rider-operations.show', ['rider' => $riderId, 'date' => $date->toDateString()]);
+            $row['url'] = $riders->has($riderId) ? route('rider-operations.show', ['rider' => $riders->get($riderId), 'date' => $date->toDateString()]) : null;
             $dailyRiders->push($row);
         }
         if ($today) {
@@ -166,7 +166,7 @@ class RiderOperations
         $state = $historical ? 'completed' : ($rider && ! $rider->is_active ? 'offline' : ($snapshot['state'] ?? 'waiting'));
         $labels = ['live' => 'In consegna · GPS aggiornato', 'stale' => 'Offline · GPS non aggiornato', 'locating' => 'In attesa del GPS', 'ready' => 'Tracking non disponibile', 'waiting' => $activeCount ? 'In attesa · ordini assegnati' : 'Nessuna consegna in corso', 'offline' => 'Offline', 'completed' => 'Attività registrata', 'carrier' => 'Affidato al corriere'];
 
-        return ['id' => $rider?->id, 'name' => $rider?->name ?? 'Rider non disponibile', 'state' => $state, 'label' => $labels[$state] ?? 'In attesa', 'active_count' => $activeCount, 'delivered_count' => $deliveries->where('rider_id', $rider?->id)->when($zone !== 'Nessuna consegna in corso', fn ($items) => $items->where('zone', $zone))->count(), 'last_gps' => $snapshot['location']['received_at'] ?? null, 'last_recorded_gps' => $snapshot['location']['recorded_at'] ?? null, 'url' => $rider ? route('rider-operations.show', ['rider' => $rider->id, 'date' => $date->toDateString(), ...($zone !== 'Nessuna consegna in corso' ? ['zone' => $zone] : [])]) : null];
+        return ['slug' => $rider?->slug, 'name' => $rider?->name ?? 'Rider non disponibile', 'state' => $state, 'label' => $labels[$state] ?? 'In attesa', 'active_count' => $activeCount, 'delivered_count' => $deliveries->where('rider_id', $rider?->id)->when($zone !== 'Nessuna consegna in corso', fn ($items) => $items->where('zone', $zone))->count(), 'last_gps' => $snapshot['location']['received_at'] ?? null, 'last_recorded_gps' => $snapshot['location']['recorded_at'] ?? null, 'url' => $rider ? route('rider-operations.show', ['rider' => $rider->slug, 'date' => $date->toDateString(), ...($zone !== 'Nessuna consegna in corso' ? ['zone' => $zone] : [])]) : null];
     }
 
     public function zone(Order $order): string

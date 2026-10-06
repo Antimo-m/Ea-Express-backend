@@ -4,7 +4,7 @@
 @if($event === 'delivered')
 La consegna è stata completata il **{{ $snapshot['delivered_at'] }}**.
 @else
-Abbiamo ricevuto la richiesta. Il corriere confermerà la presa in carico e gli orari.
+Abbiamo ricevuto la richiesta. Il rider confermerà la presa in carico e gli orari.
 @endif
 
 **Ordine:** {{ $snapshot['reference'] }}

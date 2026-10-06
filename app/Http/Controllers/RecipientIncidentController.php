@@ -87,7 +87,7 @@ class RecipientIncidentController extends Controller
             app(RecordEconomicAudit::class)->handle($request->user(), $locked, 'recipient_incident.'.$data['action'], $before, $locked->toArray());
         }, 3);
 
-        return redirect()->route('recipient-incidents.show', $incident->refresh()->recipient_risk_profile_id)
+        return redirect()->route('recipient-incidents.show', $incident->refresh()->profile)
             ->with('status', 'Precedente aggiornato. I dati storici dell’ordine restano invariati.');
     }
 }

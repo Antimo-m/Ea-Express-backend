@@ -74,7 +74,7 @@ CODE;
                 $worker->setInput(json_encode([
                     'database' => $database, 'ready' => $database.'.ready'.$index, 'gate' => $gate,
                     'locked' => $database.'.locked'.$index, 'started' => $database.'.started'.$index, 'peer_started' => $database.'.started'.(1 - $index),
-                    'user' => $admin->id, 'order' => $order->id,
+                    'user' => $admin->id, 'order' => $order->slug,
                 ], JSON_THROW_ON_ERROR));
                 $worker->setTimeout(20);
                 $worker->start();
