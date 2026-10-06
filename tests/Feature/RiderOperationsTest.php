@@ -179,7 +179,7 @@ class RiderOperationsTest extends TestCase
     {
         $admin = $this->admin();
         $idle = User::factory()->create();
-        $this->actingAs($admin)->get('/rider-operations/'.$idle->slug.'?date=2026-10-01')->assertOk()->assertViewHas('cash', 0)->assertSee('Nessun evento operativo attribuibile');
+        $this->actingAs($admin)->get('/rider-operations/'.$idle->slug.'?date=2026-10-01')->assertOk()->assertViewHas('cash', 0)->assertSee('Nessuna spedizione per questa selezione.');
         $this->getJson('/rider-operations/feed?date=2026-09-30')->assertOk()->assertJsonCount(0, 'zones');
         for ($index = 0; $index < 24; $index++) {
             $this->delivery(User::factory()->create(['name' => 'Rider con nome molto lungo '.$index.' <script>alert(1)</script>']), 'Zona operativa '.$index);

@@ -451,11 +451,6 @@ body.ea-app .text-dark { color: var(--ea-ink) !important; }
 .filter-bar > .filter-field-small { flex: 0 1 230px; max-width: 260px; }
 .filter-field-small .field { margin: 0; }
 .filter-field-small .field input.form-control { width: 100%; min-height: 34px; height: 34px; padding: .35rem .65rem; font-size: .82rem; }
-.rider-activity-timeline { list-style: none; padding: 0; margin: 0; }
-.rider-activity-timeline li { display: flex; gap: 1rem; padding: .8rem 0; border-top: 1px solid var(--ea-line); align-items: start; }
-.rider-activity-timeline li > div { display: grid; gap: .2rem; flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.rider-activity-timeline time { font-size: .8rem; color: var(--ea-muted); flex-shrink: 0; }
-.rider-activity-timeline small { color: var(--ea-muted); }
 .rider-payment-ledger { border-top: 1px solid var(--ea-line); padding-top: .75rem; }
 .rider-payment-ledger p { display: flex; flex-wrap: wrap; gap: .4rem .8rem; font-size: .8rem; margin-bottom: .5rem; }
 .rider-payment-ledger p > span { flex: 1 1 180px; overflow-wrap: anywhere; }
@@ -470,7 +465,6 @@ body.ea-app .text-dark { color: var(--ea-ink) !important; }
 @media (max-width: 600px) {
   .filter-bar > .filter-field-small { flex-basis: 100%; max-width: none; }
   .tracking-map { height: 280px; }
-  .rider-activity-timeline li { gap: .5rem; }
 }
 
 .field-small input.form-control { min-height: 34px; height: 34px; padding: .35rem .65rem; font-size: .82rem; }
@@ -980,4 +974,23 @@ textarea.form-control { border-radius: 18px; }
   .operations-day-filter.filter-toolbar { grid-template-columns: minmax(0,1fr) auto; }
   .operations-day-filter.filter-toolbar .filter-primary { grid-column: 1; grid-row: 1; }
   .operations-day-filter.filter-toolbar .filter-actions { grid-column: 2; grid-row: 1; justify-self: end; }
+}
+
+.operations-period-filter .filter-primary { flex-wrap: wrap; gap: .5rem; }
+.operations-period-filter .period-options { flex-wrap: wrap; }
+.operations-period-filter .filter-period-caption { margin: 0; font-size: .8rem; }
+.operations-kpis:has([data-kpi="backlog"]) { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.rider-order-events { list-style: none; margin: .75rem 0; padding: 0 0 0 .8rem; border-left: 2px solid var(--bs-border-color); }
+.rider-order-events li { display: flex; flex-wrap: wrap; gap: .3rem .8rem; padding: .35rem 0; font-size: .82rem; }
+.rider-order-events time { color: var(--bs-secondary-color); }
+.rider-order-events span { flex-basis: 100%; }
+[data-live-region="rider-day"] .operations-order-list { overflow: visible; max-height: none; }
+@media(max-width: 1100px) { .operations-kpis:has([data-kpi="backlog"]) { grid-template-columns: repeat(4,minmax(0,1fr)); } }
+@media(max-width: 575px) { .operations-kpis:has([data-kpi="backlog"]) { grid-template-columns: repeat(2,minmax(0,1fr)); } .operations-period-filter .filter-primary { width:100%; } }
+.rider-operations .text-warning, [data-live-region="rider-day"] .text-warning { color: var(--ea-warning) !important; }
+.operations-period-filter.filter-toolbar[data-filter-enhanced] .filter-submit { display: inline-flex; }
+@media(max-width:575px) {
+  .operations-period-filter.filter-toolbar { grid-template-columns: minmax(0,1fr) auto; gap:.5rem; }
+  .operations-period-filter.filter-toolbar .filter-primary { grid-column:1; grid-row:1; }
+  .operations-period-filter.filter-toolbar .filter-actions { grid-column:2; grid-row:1; align-self:end; justify-self:end; }
 }

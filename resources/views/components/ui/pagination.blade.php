@@ -1,3 +1,4 @@
+@props(['paginator', 'descriptive' => false])
 @if($paginator->hasPages())
 <nav class="workspace-pagination rates-pagination" aria-label="Paginazione risultati">
     @if($paginator->onFirstPage())
@@ -5,7 +6,7 @@
     @else
         <a class="page-arrow" href="{{ $paginator->previousPageUrl() }}" rel="prev" aria-label="Pagina precedente" title="Pagina precedente" data-tooltip="Pagina precedente"><x-ui.icon name="arrow-left" /></a>
     @endif
-    <span aria-live="polite">{{ $paginator->currentPage() }}@if(method_exists($paginator, 'lastPage')) / {{ $paginator->lastPage() }}@endif</span>
+    <span aria-live="polite">{{ $descriptive ? 'Pagina ' : '' }}{{ $paginator->currentPage() }}@if(method_exists($paginator, 'lastPage')){{ $descriptive ? ' di ' : ' / ' }}{{ $paginator->lastPage() }}@endif</span>
     @if($paginator->hasMorePages())
         <a class="page-arrow" href="{{ $paginator->nextPageUrl() }}" rel="next" aria-label="Pagina successiva" title="Pagina successiva" data-tooltip="Pagina successiva"><x-ui.icon name="arrow-right" /></a>
     @else

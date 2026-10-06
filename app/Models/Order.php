@@ -138,6 +138,16 @@ class Order extends Model
         return $this->hasMany(OrderEvent::class);
     }
 
+    public function scheduleEvents(): HasMany
+    {
+        return $this->hasMany(OrderEvent::class)->where(fn ($query) => $query->whereNotNull('schedule_change')->orWhere('status', OrderStatus::Rescheduled))->orderBy('created_at')->orderBy('id');
+    }
+
+    public function deliveryEvent(): HasOne
+    {
+        return $this->hasOne(OrderEvent::class)->ofMany(['created_at' => 'max', 'id' => 'max'], fn ($query) => $query->where('status', OrderStatus::Delivered));
+    }
+
     #[Scope]
     protected function financialFor(Builder $query, User $user): void
     {

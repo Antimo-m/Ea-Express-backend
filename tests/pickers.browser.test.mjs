@@ -14,7 +14,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
     let zoneFeedRequests = 0, operationFeedFixture = 'rider-feed.json', operationDetailFixture;
     let actionRequests = 0, failNextAction = false, delayOrderRefresh = false;
     try {
-        execFileSync('php', ['artisan', 'test', '--compact', 'tests/Feature/WorkspacePresentationTest.php', 'tests/Feature/OperationalFlowTest.php', 'tests/Feature/OperationalSurfaceTest.php', 'tests/Feature/OperationalDayTest.php'], { env: { ...process.env, EA_UI_FIXTURE_DIR: temporary }, stdio: 'pipe' });
+        execFileSync('php', ['artisan', 'test', '--compact', 'tests/Feature/WorkspacePresentationTest.php', 'tests/Feature/OperationalFlowTest.php', 'tests/Feature/OperationalSurfaceTest.php', 'tests/Feature/OperationalDayTest.php', 'tests/Feature/OperationalRevisionTest.php'], { env: { ...process.env, EA_UI_FIXTURE_DIR: temporary }, stdio: 'pipe' });
         const manifest = JSON.parse(readFileSync('public/build/manifest.json'));
         const styles = ['resources/css/app.css', 'resources/css/experience.css'].map(key => `<link rel="stylesheet" href="/build/${manifest[key].file}">`).join('');
         const fixture = `<!doctype html><html lang="it"><head><meta name="viewport" content="width=device-width,initial-scale=1">${styles}</head><body><main style="padding:20px;max-width:800px;margin:auto">
@@ -256,8 +256,61 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 await navigate('rider-history.html');
                 assert.equal(await evaluate(`document.querySelector('[data-operational-map]')`),null);
                 await navigate('rider-detail.html');
-                assert.ok(await evaluate(`document.querySelector('.rider-activity-timeline time').textContent.includes('10:30')`));
+                assert.ok(await evaluate(`document.querySelector('.rider-order-events time').textContent.includes('10:30')`));
             }
+        });
+        await t.test('operational periods preserve Rider perspective, selection and navigation context without reloading', async () => {
+            operationFeedFixture='revision-feed.json'; operationDetailFixture='rider-orders.html';
+            try {
+                await navigate('revision-zone.html');
+                await evaluate(`window.__operationsPage='preserved';document.querySelector('[data-operations-view="rider"]').click()`);
+                for(const mode of ['week','month','today']) {
+                    await evaluate(`document.querySelector('.period-options a[href*="period=${mode}"]').click()`);
+                    for(let i=0;i<100;i++){if(await evaluate(`new URL(location.href).searchParams.get('period')==='${mode}' && document.querySelector('[data-zone-updated]').textContent`))break;await new Promise(resolve=>setTimeout(resolve,20));}
+                    assert.equal(await evaluate(`document.querySelector('[data-operations-view="rider"]').getAttribute('aria-pressed')`),'true');
+                    assert.equal(await evaluate(`window.__operationsPage`),'preserved');
+                }
+                await evaluate(`document.querySelector('[data-custom-period]').click();const date=document.querySelector('[name="date"]');date.value='2026-09-29';date.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('[data-operations-period]').requestSubmit()`);
+                for(let i=0;i<100;i++){if(await evaluate(`new URL(location.href).searchParams.get('date')==='2026-09-29'`))break;await new Promise(resolve=>setTimeout(resolve,20));}
+                assert.equal(await evaluate(`new URL(location.href).searchParams.get('view')`),'rider');
+                assert.equal(await evaluate(`window.__operationsPage`),'preserved');
+                await evaluate(`window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
+                await new Promise(resolve=>setTimeout(resolve,200));
+                assert.equal(await evaluate(`document.querySelector('[data-operations-view="rider"]').getAttribute('aria-pressed')`),'true');
+                for(let i=0;i<100;i++){if(await evaluate(`document.querySelector('[data-explorer-orders] a[href*="return_to="]')`))break;await new Promise(resolve=>setTimeout(resolve,20));}
+                assert.ok(await evaluate(`document.querySelector('[data-explorer-orders] a[href*="return_to="]').href.includes('view%3Drider')`));
+            } finally { operationFeedFixture='rider-feed.json';operationDetailFixture=undefined; }
+        });
+        await t.test('backlog from earlier days stays separate and updates after delivery at all responsive widths', async () => {
+            try {
+                for(const width of [1440,1280,1024,768,375]) {
+                    operationFeedFixture='backlog-before.json';operationDetailFixture='backlog-orders.html';
+                    await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
+                    await navigate('backlog-day.html?period=today&view=rider');
+                    assert.equal(await evaluate(`document.querySelector('[data-kpi="total"]').textContent`),'0');
+                    assert.equal(await evaluate(`document.querySelector('[data-kpi="backlog"]').textContent`),'1');
+                    await evaluate(`document.querySelector('[data-operations-scope="late"]').click()`);
+                    for(let i=0;i<100;i++){if(await evaluate(`document.querySelector('.delivery-late')`))break;await new Promise(resolve=>setTimeout(resolve,20));}
+                    assert.ok(await evaluate(`document.querySelector('[data-explorer-orders]').textContent.includes('Negozio Rossi')`));
+                    assert.equal(await evaluate(`document.querySelector('[data-rider-gps]')`),null);
+                    assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth`));
+                    if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`backlog-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+                    operationFeedFixture='backlog-after.json';
+                    await evaluate(`window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
+                    for(let i=0;i<100;i++){if(await evaluate(`document.querySelector('[data-kpi="overdue"]').textContent==='0'`))break;await new Promise(resolve=>setTimeout(resolve,20));}
+                    assert.equal(await evaluate(`document.querySelector('[data-kpi="backlog"]').textContent`),'0');
+                }
+                for(const width of [1440,1280,1024,768,375]) {
+                    await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
+                    await navigate('revision-rider.html');
+                    assert.equal(await evaluate(`document.querySelectorAll('[data-operation-order]').length`),10);
+                    assert.equal(await evaluate(`document.querySelectorAll('.workspace-pagination').length`),1);
+                    assert.ok(await evaluate(`document.querySelector('.workspace-pagination').textContent.includes('Pagina 1 di 3')`));
+                    assert.equal(await evaluate(`document.querySelector('[data-rider-gps]')`),null);
+                    assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth`));
+                    if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`revision-rider-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+                }
+            } finally { operationFeedFixture='rider-feed.json';operationDetailFixture=undefined; }
         });
         await t.test('GPS badge is compact at top left and dark feedback is green or red', async () => {
             await navigate('orders_1.html');
@@ -329,7 +382,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                     await evaluate(`window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
                     for(let i=0;i<100;i++){if(await evaluate(`document.querySelector('[data-kpi="delivered"]').textContent==='17'`))break;await new Promise(resolve=>setTimeout(resolve,20));}
                     assert.equal(await evaluate(`document.querySelector('[data-kpi="undelivered"]').textContent`),'3');
-                    assert.equal(await evaluate(`document.querySelector('[data-kpi="overdue"]').textContent`),'3');
+                    assert.equal(await evaluate(`document.querySelector('[data-kpi="overdue"]').textContent`),'0');
                     assert.equal(await evaluate(`window.__dailyPage`),'same');
                     assert.equal(await evaluate(`document.querySelector('[data-operational-map]')`),null);
                     if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`late-day-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));

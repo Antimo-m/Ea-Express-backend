@@ -13,7 +13,7 @@ for (const form of document.querySelectorAll('[data-filter-toolbar]')) {
     let ranges = [];
     const controls = () => [...form.querySelectorAll('input[name],select[name]')];
     const defaultValue = control => control.dataset.filterDefault ?? '';
-    const isActive = control => control.value !== defaultValue(control) && Boolean(control.value) && !control.disabled && !control.closest('[data-custom-dates]')?.hidden;
+    const isActive = control => !control.hasAttribute('data-filter-context') && control.value !== defaultValue(control) && Boolean(control.value) && !control.disabled && !control.closest('[data-custom-dates]')?.hidden;
     const applied = new URLSearchParams(location.search);
     const update = () => {
         const sources = mobile.matches ? [primary,secondaryFields] : [secondaryFields];
@@ -83,7 +83,7 @@ for (const form of document.querySelectorAll('[data-filter-toolbar]')) {
             button.classList.toggle('active',active); button.setAttribute('aria-expanded',String(active));
             // Presets submit their current range, while keeping the custom editors out of view.
             for (const context of range.querySelectorAll('[data-period-year]')) context.disabled = active;
-            const mode = range.querySelector('[data-period-mode]'); if (mode) mode.value = active ? 'custom' : initialMode;
+            const mode = range.querySelector('[data-period-mode]'); if (mode) mode.value = active ? 'custom' : (range.dataset.periodPreset || initialMode);
         };
         button.addEventListener('click', () => { dates.hidden = !dates.hidden; sync(); }); sync();
     }

@@ -117,6 +117,8 @@ Thumbs.db
 !/tests/Feature/OperationalDayTest.php
 !/tests/Feature/OrderProgressTest.php
 
+!tests/Feature/OperationalRevisionTest.php
+
 # Report e revisioni interne rimangono esclusivamente locali.
 /[Rr][Ee][Pp][Oo][Rr][Tt]*
 /[Aa][Ii][Kk][Ii][Dd][Oo]*

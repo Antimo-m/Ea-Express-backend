@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\OrderStatus;
 use App\Support\BookingRules;
+use App\Support\DeliveryDeadline;
 use App\Support\RiderOperations;
 use App\Support\ShippingQuote;
 use Illuminate\Support\Facades\DB;
@@ -24,16 +25,17 @@ class ReschedulePickup
             abort_unless($locked->version === (int) $data['version'] && Order::awaitingPickup()->whereKey($locked->id)->exists(), 409, 'Il ritiro è stato aggiornato, completato o chiuso. Ricarica la richiesta.');
             $this->booking->validate($data);
             abort_if($this->booking->unchanged($data, $locked), 422, 'La nuova data e fascia coincidono con quelle già registrate.');
-            $before = $locked->pickupSchedule();
+            $before = [...$locked->pickupSchedule(), 'deadline_at' => app(DeliveryDeadline::class)->forOrder($locked)['at']];
             $locked->fill(collect($data)->only(['pickup_date', 'pickup_from', 'pickup_to'])->all());
             $locked->pickup_reminded_on = null;
             if ($locked->status !== OrderStatus::Received) {
                 $locked->status = OrderStatus::PickupScheduled;
             }
             app(ShippingQuote::class)->estimate($locked);
+            $locked->estimated_at = null;
             $locked->version++;
             $locked->save();
-            $after = $locked->pickupSchedule();
+            $after = [...$locked->pickupSchedule(), 'deadline_at' => $locked->estimated_delivery_to?->copy()->timezone('Europe/Rome')->endOfDay()->toISOString()];
             $message = 'Ritiro ripianificato al '.$locked->pickup_date->format('d/m/Y').' · '.$after['pickup_from'].'–'.$after['pickup_to'].'.';
             $locked->events()->create(['rider_id' => $locked->rider_id, 'operational_zone' => app(RiderOperations::class)->zone($locked), 'user_id' => $actor->id, 'status' => $locked->status, 'note' => $data['reason'], 'public_note' => $message, 'schedule_change' => compact('before', 'after')]);
             $this->notify->handle($locked, $message, $actor->id);

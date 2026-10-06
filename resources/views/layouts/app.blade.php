@@ -7,7 +7,7 @@
 <x-navigation.sidebar />
 <div class="app-workspace">
     <x-navigation.header :title="$title" />
-    @if(auth()->user()->canOperateDeliveries())
+    @if(auth()->user()->canOperateDeliveries() && !request()->routeIs('rider-operations.*'))
     <div class="gps-bar" data-rider-gps="{{ auth()->user()->slug }}" data-gps-state="disabled">
         <span class="gps-badge" data-gps-badge role="status" aria-label="GPS disattivato" title="GPS disattivato · apri una consegna per condividere la posizione."><span class="gps-live-dot" aria-hidden="true"></span>GPS</span>
         <span class="visually-hidden" data-gps-feedback>GPS disattivato · apri una consegna per condividere la posizione.</span>

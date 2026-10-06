@@ -24,14 +24,14 @@ class OperationalDayTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $orders = Order::factory()->count(20)->create(['created_by' => $admin->id, 'rider_id' => $admin->id, 'pickup_date' => '2026-10-07', 'status' => OrderStatus::OutForDelivery, 'price_cents' => 500, 'estimated_delivery_to' => '2026-10-07']);
         foreach ($orders->take($completed) as $order) {
-            $order->forceFill(['status' => OrderStatus::Delivered, 'delivered_at' => now()->subDay()])->save();
+            $order->forceFill(['status' => OrderStatus::Delivered, 'delivered_at' => now()])->save();
         }
         Order::factory()->count(12)->create(['created_by' => $admin->id, 'pickup_date' => '2026-10-08']);
-        $this->actingAs($admin)->getJson('/rider-operations/feed?date=2026-10-07')->assertJsonPath('summary.total', 20)->assertJsonPath('summary.delivered', $completed)->assertJsonPath('summary.undelivered', $remaining)->assertJsonPath('summary.overdue', $remaining);
+        $this->actingAs($admin)->getJson('/rider-operations/feed?date=2026-10-07')->assertJsonPath('summary.total', 20)->assertJsonPath('summary.delivered', $completed)->assertJsonPath('summary.undelivered', $remaining)->assertJsonPath('summary.overdue', 0);
         $this->getJson('/rider-operations/feed?date=2026-10-08')->assertJsonPath('summary.total', 12);
         if ($remaining) {
             $order = $orders->last();
-            $this->get('/rider-operations/detail?date=2026-10-07')->assertSee('Consegna in ritardo')->assertSee('07/10/2026 23:59');
+            $this->get('/rider-operations/detail?date=2026-10-07')->assertSee('Consegnata oltre il termine previsto')->assertSee('07/10/2026 23:59');
             $directory = getenv('EA_UI_FIXTURE_DIR');
             if ($directory) {
                 file_put_contents($directory.'/late-day.html', $this->get('/rider-operations?date=2026-10-07')->getContent());
@@ -40,7 +40,7 @@ class OperationalDayTest extends TestCase
             }
             $this->travelTo(Carbon::parse('2026-10-09 14:00', 'Europe/Rome'));
             $this->patchJson('/orders/'.$order->slug, ['status' => 'delivered', 'version' => 1])->assertOk();
-            $this->getJson('/rider-operations/feed?date=2026-10-07')->assertJsonPath('summary.total', 20)->assertJsonPath('summary.delivered', 17)->assertJsonPath('summary.undelivered', 3)->assertJsonPath('summary.overdue', 3);
+            $this->getJson('/rider-operations/feed?date=2026-10-07')->assertJsonPath('summary.total', 20)->assertJsonPath('summary.delivered', 17)->assertJsonPath('summary.undelivered', 3)->assertJsonPath('summary.overdue', 0);
             $this->getJson('/rider-operations/feed?date=2026-10-09')->assertJsonPath('summary.total', 0);
             $this->get('/rider-operations/detail?date=2026-10-07')->assertSee('09/10/2026 14:00')->assertSee('Consegnata oltre il termine previsto');
             if ($directory) {
@@ -71,7 +71,8 @@ class OperationalDayTest extends TestCase
         $this->patchJson('/orders/'.$order->slug, ['status' => 'out_for_delivery', 'version' => 2])->assertOk();
         $this->getJson('/rider-operations/feed?date=2026-10-07')->assertJsonPath('summary.overdue', 0);
         $this->travelTo(Carbon::parse('2026-10-08 10:01', 'Europe/Rome'));
-        $this->getJson('/rider-operations/feed?date=2026-10-07')->assertJsonPath('summary.overdue', 1);
+        $this->getJson('/rider-operations/feed?date=2026-10-07')->assertJsonPath('summary.overdue', 0);
+        $this->getJson('/rider-operations/feed?date=2026-10-08')->assertJsonPath('summary.overdue', 1)->assertJsonPath('summary.backlog', 1);
         $this->getJson('/rider-operations/feed?date=2026-10-08')->assertJsonPath('summary.total', 0);
         $this->get('/rider-operations/detail?date=2026-10-07')->assertSee('08/10/2026 10:00');
     }
@@ -101,8 +102,8 @@ class OperationalDayTest extends TestCase
         Order::factory()->create(['created_by' => $admin->id, 'pickup_date' => '2026-10-25', 'status' => OrderStatus::OutForDelivery, 'estimated_delivery_to' => '2026-10-25']);
         $this->actingAs($admin)->getJson('/rider-operations/feed?date=2026-10-25')->assertJsonPath('summary.overdue', 0);
         $this->travelTo(Carbon::parse('2026-10-26 00:00:01', 'Europe/Rome'));
-        $this->getJson('/rider-operations/feed?date=2026-10-25')->assertJsonPath('summary.total', 1)->assertJsonPath('summary.overdue', 1);
-        $this->getJson('/rider-operations/feed?date=2026-10-26')->assertJsonPath('summary.total', 0);
+        $this->getJson('/rider-operations/feed?date=2026-10-25')->assertJsonPath('summary.total', 1)->assertJsonPath('summary.overdue', 0);
+        $this->getJson('/rider-operations/feed?date=2026-10-26')->assertJsonPath('summary.total', 0)->assertJsonPath('summary.overdue', 1)->assertJsonPath('summary.backlog', 1);
     }
 
     #[TestWith([5])]
@@ -133,7 +134,7 @@ class OperationalDayTest extends TestCase
             file_put_contents($directory.'/zone-detail-page-2.html', $this->get('/rider-operations/detail?date=2026-10-07&zone=Zona+00&page=2')->getContent());
         }
         Order::where('rider_id', $riders->first()->id)->update(['status' => OrderStatus::Delivered, 'delivered_at' => now()]);
-        $this->get('/rider-operations/'.$riders->first()->slug.'?date=2026-10-07')->assertViewHas('deliveredCount', 25)->assertViewHas('orders', fn ($orders) => $orders->count() === 20 && $orders->total() === 25)->assertViewHas('remaining', 0);
+        $this->get('/rider-operations/'.$riders->first()->slug.'?date=2026-10-07')->assertViewHas('deliveredCount', 25)->assertViewHas('orders', fn ($orders) => $orders->count() === 10 && $orders->total() === 25)->assertViewHas('remaining', 0);
 
     }
 }
