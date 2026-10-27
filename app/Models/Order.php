@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable(['shipping_type', 'delivery_province', 'delivery_region', 'weight_kg', 'max_dimension_cm', 'delivery_zone', 'pickup_street_number', 'pickup_postal_code', 'delivery_street_number', 'delivery_postal_code', 'package_type', 'package_description', 'packages', 'store_name', 'contact_email', 'recipient_name', 'recipient_phone', 'pickup_address', 'pickup_city', 'delivery_address', 'delivery_city', 'pickup_date', 'pickup_from', 'pickup_to', 'delivery_window', 'parcel_count', 'content_description', 'category', 'urgency', 'notes', 'customer_notes', 'sender_type', 'business_type', 'business_description'])]
-#[Hidden(['gps_session_id', 'tracking_token', 'conversation_token', 'carrier_cost_cents'])]
+#[Hidden(['delay_reported_by', 'gps_session_id', 'pickup_point', 'delivery_point', 'tracking_token', 'conversation_token', 'carrier_cost_cents'])]
 class Order extends Model
 {
     /** @use HasFactory<OrderFactory> */
@@ -29,7 +29,7 @@ class Order extends Model
 
     protected function casts(): array
     {
-        return ['pickup_point' => 'array', 'delivery_point' => 'array', 'assigned_at' => 'datetime', 'carrier_cost_cents' => 'integer', 'carrier_handed_at' => 'datetime', 'estimated_delivery_from' => 'date', 'estimated_delivery_to' => 'date', 'weight_kg' => 'decimal:2', 'max_dimension_cm' => 'decimal:2', 'pickup_reminded_on' => 'date', 'receipt_voided_at' => 'datetime', 'pricing_version' => 'integer', 'quoted_price_cents' => 'integer', 'rate_snapshot' => 'array', 'payment_proposed_at' => 'datetime', 'payment_confirmed_at' => 'datetime', 'packages' => 'array', 'conversation_expires_at' => 'datetime', 'status' => OrderStatus::class, 'pickup_date' => 'date', 'rejected_at' => 'datetime', 'tracking_started_at' => 'datetime', 'delivered_at' => 'datetime', 'paid_at' => 'datetime', 'estimated_at' => 'datetime', 'price_cents' => 'integer', 'parcel_value_cents' => 'integer', 'version' => 'integer'];
+        return ['delay_reported_at' => 'datetime', 'pickup_point' => 'array', 'delivery_point' => 'array', 'assigned_at' => 'datetime', 'carrier_cost_cents' => 'integer', 'carrier_handed_at' => 'datetime', 'estimated_delivery_from' => 'date', 'estimated_delivery_to' => 'date', 'weight_kg' => 'decimal:2', 'max_dimension_cm' => 'decimal:2', 'pickup_reminded_on' => 'date', 'receipt_voided_at' => 'datetime', 'pricing_version' => 'integer', 'quoted_price_cents' => 'integer', 'rate_snapshot' => 'array', 'payment_proposed_at' => 'datetime', 'payment_confirmed_at' => 'datetime', 'packages' => 'array', 'conversation_expires_at' => 'datetime', 'status' => OrderStatus::class, 'pickup_date' => 'date', 'rejected_at' => 'datetime', 'tracking_started_at' => 'datetime', 'delivered_at' => 'datetime', 'paid_at' => 'datetime', 'estimated_at' => 'datetime', 'price_cents' => 'integer', 'parcel_value_cents' => 'integer', 'version' => 'integer'];
     }
 
     /** @return array{state: string, label: string, paid_at: ?string} */
@@ -40,6 +40,22 @@ class Order extends Model
             'label' => $this->receipt_voided_at ? 'Incasso stornato' : ($this->paid_at ? 'Pagato' : 'Da registrare'),
             'paid_at' => $this->paid_at?->toIso8601String(),
         ];
+    }
+
+    /** @return array{reported: bool, active: bool, reported_at: ?string, label: ?string} */
+    public function delayData(): array
+    {
+        return ['reported' => $this->delay_reported_at !== null, 'active' => $this->delay_reported_at !== null && ! in_array($this->status->value, OrderStatus::closed(), true), 'reported_at' => $this->delay_reported_at?->toIso8601String(), 'label' => $this->delay_reported_at ? (in_array($this->status->value, OrderStatus::closed(), true) ? 'Ritardo segnalato' : 'In ritardo') : null];
+    }
+
+    public function delayEvents(): HasMany
+    {
+        return $this->hasMany(OrderEvent::class)->whereNotNull('delay_action')->orderBy('created_at')->orderBy('id');
+    }
+
+    public function delayReporter(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'delay_reported_by');
     }
 
     public function totalCents(): ?int
@@ -140,12 +156,12 @@ class Order extends Model
 
     public function scheduleEvents(): HasMany
     {
-        return $this->hasMany(OrderEvent::class)->where(fn ($query) => $query->whereNotNull('schedule_change')->orWhere('status', OrderStatus::Rescheduled))->orderBy('created_at')->orderBy('id');
+        return $this->hasMany(OrderEvent::class)->whereNull('delay_action')->where(fn ($query) => $query->whereNotNull('schedule_change')->orWhere('status', OrderStatus::Rescheduled))->orderBy('created_at')->orderBy('id');
     }
 
     public function deliveryEvent(): HasOne
     {
-        return $this->hasOne(OrderEvent::class)->ofMany(['created_at' => 'max', 'id' => 'max'], fn ($query) => $query->where('status', OrderStatus::Delivered));
+        return $this->hasOne(OrderEvent::class)->ofMany(['created_at' => 'max', 'id' => 'max'], fn ($query) => $query->where('status', OrderStatus::Delivered)->whereNull('delay_action'));
     }
 
     #[Scope]

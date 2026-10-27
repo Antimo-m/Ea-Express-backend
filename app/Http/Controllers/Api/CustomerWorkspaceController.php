@@ -11,6 +11,7 @@ use App\OrderStatus;
 use App\Rules\SafePasswordLength;
 use App\Support\CustomerIdentity;
 use App\Support\NotificationInbox;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -28,9 +29,11 @@ class CustomerWorkspaceController extends Controller
             'active' => (clone $active)->count(),
             'pickups' => (clone $active)->whereDoesntHave('events', fn ($q) => $q->where('status', OrderStatus::PickedUp))->count(),
             'delivered' => (clone $base)->where('status', OrderStatus::Delivered)->count(),
-            'attention' => (clone $base)->whereIn('status', ['delivery_issue', 'delivery_attempted', 'rejected'])->count(),
+            'attention' => (clone $base)->where(fn (Builder $orders): Builder => $orders
+                ->whereIn('status', ['delivery_issue', 'delivery_attempted', 'rejected'])
+                ->orWhere(fn (Builder $delayed): Builder => $delayed->whereNotNull('delay_reported_at')->whereNotIn('status', OrderStatus::closed())))->count(),
             'unread' => $request->user()->unreadNotifications()->count(),
-        ], 'live_order' => ($liveOrder = (clone $active)->withDisplayIdentity()->with('rider')->whereNotNull('rider_id')->orderByRaw('CASE WHEN gps_session_id IS NOT NULL THEN 0 ELSE 1 END')->latest('updated_at')->orderByDesc('id')->first()) ? new CustomerOrderResource($liveOrder) : null, 'recent' => CustomerOrderResource::collection((clone $base)->withDisplayIdentity()->with('rider')->latest()->orderByDesc('id')->limit(5)->get()), 'next_pickups' => CustomerOrderResource::collection((clone $active)->withDisplayIdentity()->with('rider')->whereDoesntHave('events', fn ($q) => $q->where('status', OrderStatus::PickedUp))->orderBy('pickup_date')->orderBy('pickup_from')->orderBy('id')->limit(3)->get())]);
+        ], 'live_order' => ($liveOrder = (clone $active)->withDisplayIdentity()->with('rider')->whereNotNull('rider_id')->latest('updated_at')->orderByDesc('id')->first()) ? new CustomerOrderResource($liveOrder) : null, 'recent' => CustomerOrderResource::collection((clone $base)->withDisplayIdentity()->with('rider')->latest()->orderByDesc('id')->limit(5)->get()), 'next_pickups' => CustomerOrderResource::collection((clone $active)->withDisplayIdentity()->with('rider')->whereDoesntHave('events', fn ($q) => $q->where('status', OrderStatus::PickedUp))->orderBy('pickup_date')->orderBy('pickup_from')->orderBy('id')->limit(3)->get())]);
     }
 
     public function notifications(Request $request): JsonResponse

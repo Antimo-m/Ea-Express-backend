@@ -17,9 +17,10 @@ for (const panel of document.querySelectorAll('[data-rider-operations]')) {
         }
         history.replaceState(null,'',url);
         for(const link of detail.querySelectorAll('a[href]')) { const target=new URL(link.href,location.origin); if(/^\/orders\/[0-9a-f-]{36}$/.test(target.pathname)) { target.searchParams.set('return_to',url.pathname+url.search); link.href=target; } }
+        const zoneLink = detail.querySelector('[data-zone-orders]');
+        if (zoneLink) { const target = new URL(zoneLink.href); for (const [name, value] of url.searchParams) target.searchParams.set(name, value); target.searchParams.set('scope', scope); zoneLink.href = target; }
         for (const button of panel.querySelectorAll('[data-operations-view]')) button.setAttribute('aria-pressed',String(button.dataset.operationsView === view));
     }
-    const money = cents => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(cents / 100);
     const node = (tag, value = '', className = '') => { const element = document.createElement(tag); element.textContent = value; element.className = className; return element; };
     const groups = () => (view === 'zone' ? latest.zones : latest.riders).filter(group => group.name.toLocaleLowerCase('it').includes(search.value.toLocaleLowerCase('it')) && (filter.value === 'all' || (filter.value === 'late' ? group.overdue > 0 : group.undelivered > 0))).sort((a, b) => sort.value === 'volume' ? b.total - a.total || a.name.localeCompare(b.name, 'it') : sort.value === 'late' ? b.overdue - a.overdue || a.name.localeCompare(b.name, 'it') : a.name.localeCompare(b.name, 'it'));
     function feedback(message = '') { const box = panel.querySelector('[data-zone-error]'); box.hidden = !message; box.textContent = message; }
@@ -40,6 +41,7 @@ for (const panel of document.querySelectorAll('[data-rider-operations]')) {
     }
     function detailUrl(group) {
         const url = new URL(panel.dataset.detailUrl, location.origin);
+        for (const [name, value] of new URL(location.href).searchParams) if (!['page', 'zone', 'rider', 'unassigned'].includes(name)) url.searchParams.set(name, value);
         url.searchParams.set('scope', scope);
         if (view === 'zone') url.searchParams.set('zone', group.key);
         else if (group.slug) url.searchParams.set('rider', group.slug);
@@ -67,8 +69,15 @@ for (const panel of document.querySelectorAll('[data-rider-operations]')) {
         assignments.append(node('span', view === 'zone' ? 'Rider assegnati' : 'Zone della giornata', 'data-label'));
         for (const item of view === 'zone' ? group.riders : group.zones) assignments.append(node('span', view === 'zone' ? item.name : `${item.name} · ${item.count}`, 'assignment-name'));
         if (view === 'zone' && !group.riders.length) assignments.append(node('span', 'Da assegnare'));
-        detail.append(assignments, node('p', `Tariffe ${money(group.expected_cents)} · Incassato netto ${money(group.cash_cents)} · Quota EA ${money(group.retained_cents)}`, 'explorer-economics'), node('p', 'Incassi, rettifiche e storni degli ordini programmati: movimenti registrati fino a oggi. Il valore merce è escluso.', 'data-caption'));
-        const body = node('div'); body.dataset.explorerOrders = ''; detail.append(body); loadOrders(detailUrl(group));
+        detail.append(assignments);
+        controller?.abort(); generation++;
+        if (view === 'zone') {
+            const link = node('a', 'Vai agli ordini', 'btn btn-primary');
+            const url = detailUrl(group); url.pathname = new URL(panel.dataset.zoneOrdersUrl, location.origin).pathname;
+            url.searchParams.delete('page'); link.href = url; link.dataset.zoneOrders = ''; detail.append(link);
+        } else {
+            const body = node('div'); body.dataset.explorerOrders = ''; detail.append(body); loadOrders(detailUrl(group));
+        }
         if (focusHref) [...detail.querySelectorAll('a')].find(link => link.href === focusHref)?.focus({ preventScroll: true });
     }
     function render({ refreshDetail = false } = {}) {
@@ -97,7 +106,7 @@ for (const panel of document.querySelectorAll('[data-rider-operations]')) {
             item.append(link, document.createTextNode(` · ${change.before.pickup_date} → ${change.after.pickup_date} · ${change.operator || 'Operatore'} · ${change.reason || ''} · ${new Date(change.at).toLocaleString('it-IT', { timeZone: 'Europe/Rome' })}`)); historyItems.append(item);
         }
         panel.querySelector('[data-zone-updated]').textContent = `Aggiornato ${new Date(latest.generated_at).toLocaleTimeString('it-IT')}`;
-        const signature = `${view}:${selected}:${page}:${scope}`;
+        const signature = `${view}:${selected}:${page}:${scope}:${filter.value}`;
         if (refreshDetail || signature !== detailSignature) { detailSignature = signature; renderDetail(visible.find(group => group.key === selected)); }
     }
     panel.addEventListener('click', event => {

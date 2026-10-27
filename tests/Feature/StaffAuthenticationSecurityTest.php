@@ -197,15 +197,15 @@ class StaffAuthenticationSecurityTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_password_reset_does_not_authenticate_or_satisfy_pending_verification(): void
+    public function test_disabled_password_reset_does_not_authenticate_or_satisfy_pending_verification(): void
     {
         Notification::fake();
         $user = User::factory()->unverified()->create();
         $token = Password::broker('users')->createToken($user);
-        $this->post('/reset-password', ['email' => $user->email, 'token' => $token, 'password' => 'new-password', 'password_confirmation' => 'new-password'])->assertRedirect(route('login'));
+        $this->post('/reset-password', ['email' => $user->email, 'token' => $token, 'password' => 'new-password', 'password_confirmation' => 'new-password'])->assertNotFound();
         $this->assertGuest();
         $this->assertNull($user->fresh()->email_verified_at);
-        $this->post('/login', ['email' => $user->email, 'password' => 'new-password'])->assertRedirect(route('email-otp.notice'));
+        $this->post('/login', ['email' => $user->email, 'password' => 'password'])->assertRedirect(route('email-otp.notice'));
         $this->getJson('/profile')->assertForbidden();
     }
 

@@ -1,9 +1,9 @@
 <x-app-layout title="Dettaglio ordine">
 <div class="order-page" data-live-order="{{ $order->slug }}" data-order-version="{{ $order->version }}">
-    @php($operationsReturn = preg_match('~^/rider-operations(?:/[0-9a-f-]{36})?(?:\?|$)~', (string)request('return_to')) ? request('return_to') : null)
+    @php($operationsReturn = preg_match('~^/rider-operations(?:/(?:[0-9a-f-]{36}|zone-orders))?(?:\?|$)~', (string)request('return_to')) ? request('return_to') : null)
     <nav class="page-back" aria-label="Navigazione pagina"><x-ui.icon-button action="back" :href="$operationsReturn ?: route(auth()->user()->role === \App\UserRole::Rider ? 'orders.in-progress' : 'orders.incoming')" label="Torna indietro" text /></nav><header class="page-heading"><div><span class="eyebrow text-break">Ordine: {{ $order->reference }}</span><span class="data-label">Cliente / negozio</span><h1>{{ $order->displayName() }}</h1><p class="text-secondary mb-0">{{ $order->sender_type === 'private' ? 'Privato' : ($order->sender_type === 'online_shop' ? 'Shop online' : ($order->business_type ?: 'Attività commerciale')) }} · {{ $order->pickup_city }} → {{ $order->delivery_city }}</p></div></header>
     <section class="surface order-operational-summary">
-        <header class="card-heading"><div><span class="data-label">Stato spedizione</span><h2 class="h5 mb-0">{{ $order->status->label() }}</h2></div><div class="card-actions"><x-ui.icon-button action="message" :href="route('messages.show', $order)" label="Apri messaggi del cliente" /></div></header>
+        <header class="card-heading"><div><span class="data-label">Stato spedizione</span><h2 class="h5 mb-0">{{ $order->status->label() }}</h2><x-orders.delay-badge :order="$order" /></div><div class="card-actions"><x-ui.icon-button action="message" :href="route('messages.show', $order)" label="Apri messaggi del cliente" /></div></header>
         <dl class="operation-facts">
             <div><dt>Nome destinatario / affidabilità</dt><dd><x-orders.recipient-name :name="$order->recipient_name" :risk="$recipientRisk" /></dd></div>
             <div><dt>Cliente / negozio</dt><dd>{{ $order->displayName() }}</dd></div>
@@ -27,6 +27,7 @@
 @if(auth()->user()->role === \App\UserRole::Admin)<div class="mt-3"><x-ui.action-dialog :id="'price-origin-'.$order->id" action="history" title="Origine del prezzo" text><p class="mt-2">Tariffa iniziale: {{ \App\Support\Money::format($order->quoted_price_cents) }} · Tariffa applicata: {{ \App\Support\Money::format($order->price_cents) }}</p><p>Versione listino #{{ $order->shipping_rate_id ?? 'storica' }} · {{ $order->rate_snapshot['city'] ?? $order->delivery_city }} · {{ $order->rate_snapshot['source_reference'] ?? 'Fonte non registrata nello storico' }}</p><a href="{{ route('audits.index',['type'=>'orders','slug'=>$order->slug]) }}">Storico economico dell’ordine</a></x-ui.action-dialog></div>@endif
         </section></div>
         <aside class="order-workflow">
+        <x-orders.delay-controls :order="$order" />
         @if(auth()->user()->role === \App\UserRole::Admin && !in_array($order->status->value, [...\App\OrderStatus::closed(), 'received'], true))
         <section class="surface rider-assignment-card">
             <header class="card-heading"><h2 class="h5 mb-0">Assegnazione Rider</h2></header>

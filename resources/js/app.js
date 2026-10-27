@@ -163,10 +163,8 @@ if (contentChoice) {
     contentChoice.addEventListener('change', updateContent); updateContent();
 }
 
-import './rider-gps';
 import './theme';
 
-import "./tracking-panel";
 
 for (const form of document.querySelectorAll('[data-auth-form]')) {
     form.addEventListener('submit', event => {
@@ -199,3 +197,6 @@ accountChoice?.addEventListener('change', () => {
         form.elements[name].dispatchEvent(new Event('change', { bubbles: true }));
     }
 });
+
+import './finance-workspace';
+import './directories';

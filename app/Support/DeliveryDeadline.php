@@ -8,12 +8,12 @@ use Illuminate\Support\Carbon;
 
 class DeliveryDeadline
 {
-    /** @return array{at: ?string, label: ?string, overdue: bool, delivered_late: bool, elapsed: ?string, history_complete: bool} */
+    /** @return array{at: ?string, label: ?string, overdue: bool, delivered_late: bool, elapsed: ?string, history_complete: bool, reported_at: ?string, reported_label: ?string} */
     public function forOrder(Order $order, ?Carbon $reference = null): array
     {
         $reference ??= now('Europe/Rome');
         $historical = $reference->lt(now('Europe/Rome')->startOfDay());
-        $changes = $order->relationLoaded('scheduleEvents') ? $order->scheduleEvents : $order->events->sortBy(fn ($event) => $event->created_at->format('Y-m-d H:i:s').sprintf('%012d', $event->id));
+        $changes = $order->relationLoaded('scheduleEvents') ? $order->scheduleEvents : $order->events->whereNull('delay_action')->sortBy(fn ($event) => $event->created_at->format('Y-m-d H:i:s').sprintf('%012d', $event->id));
         $rescheduling = $changes->last(fn ($event) => $event->created_at->lte($reference) && ($event->status === OrderStatus::Rescheduled || array_key_exists('deadline_at', $event->schedule_change['after'] ?? [])));
         $future = $historical ? $changes->first(fn ($event) => $event->created_at->gt($reference) && ($event->status === OrderStatus::Rescheduled || array_key_exists('deadline_at', $event->schedule_change['before'] ?? []))) : null;
         $deadline = null;
@@ -39,12 +39,15 @@ class DeliveryDeadline
             $complete = false;
         }
         $closed = ! $status || in_array($status->value, OrderStatus::closed(), true);
-        $overdue = $deadline && ! $closed && $order->created_at?->lte($reference) && $reference->greaterThan($deadline);
-        $deliveryChange = $order->delivered_at ? $changes->last(fn ($event) => $event->created_at->lte($order->delivered_at) && ($event->status === OrderStatus::Rescheduled || array_key_exists('deadline_at', $event->schedule_change['after'] ?? []))) : null;
-        $deliveryValue = $deliveryChange?->schedule_change['after']['deadline_at'] ?? $deliveryChange?->schedule_change['after']['estimated_at'] ?? null;
-        $deliveryDeadline = $deliveryChange ? ($deliveryValue ? Carbon::parse($deliveryValue) : null) : ($order->estimated_at?->copy() ?? $order->estimated_delivery_to?->copy()->timezone('Europe/Rome')->endOfDay());
-        $late = $deliveryDeadline && $order->status === OrderStatus::Delivered && $order->delivered_at?->greaterThan($deliveryDeadline);
+        $reportedAt = $order->delay_reported_at?->copy();
+        if ($historical) {
+            $reports = $order->relationLoaded('delayEvents') ? $order->delayEvents : $order->delayEvents()->get();
+            $report = $reports->last(fn ($event) => $event->created_at->lte($reference));
+            $reportedAt = $report?->delay_action === 'reported' ? $report->created_at->copy() : null;
+        }
+        $overdue = $reportedAt && ! $closed && $reportedAt->lte($reference);
+        $late = $reportedAt && $status === OrderStatus::Delivered && $reportedAt->lte($reference);
 
-        return ['at' => $deadline?->toISOString(), 'label' => $deadline?->copy()->timezone('Europe/Rome')->format('d/m/Y H:i'), 'overdue' => (bool) $overdue, 'delivered_late' => (bool) $late, 'elapsed' => $overdue ? $deadline->diffForHumans($reference, true) : null, 'history_complete' => $complete];
+        return ['at' => $deadline?->toISOString(), 'label' => $deadline?->copy()->timezone('Europe/Rome')->format('d/m/Y H:i'), 'overdue' => (bool) $overdue, 'delivered_late' => (bool) $late, 'elapsed' => $overdue ? $reportedAt->diffForHumans($reference, true) : null, 'history_complete' => $complete, 'reported_at' => $reportedAt?->toISOString(), 'reported_label' => $reportedAt?->copy()->timezone('Europe/Rome')->format('d/m/Y H:i')];
     }
 }

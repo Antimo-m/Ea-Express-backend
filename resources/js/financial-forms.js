@@ -41,7 +41,16 @@ export function bindFinancialForms(root = document) {
                 let redirect = new URL(location.href);
                 try {
                     const destination = new URL(result.redirect || location.href, location.href);
-                    if (destination.origin === redirect.origin && ['http:', 'https:'].includes(destination.protocol)) redirect = destination;
+                    if (destination.origin === redirect.origin && ['http:', 'https:'].includes(destination.protocol)) {
+                        if (destination.pathname === location.pathname) {
+                            destination.search = location.search;
+                            for (const key of [...destination.searchParams.keys()]) {
+                                if (key === 'page' || key.endsWith('_page')) destination.searchParams.delete(key);
+                            }
+                            destination.hash = location.hash;
+                        }
+                        redirect = destination;
+                    }
                 } catch {
                     // A malformed destination falls back to the current page after a successful save.
                 }

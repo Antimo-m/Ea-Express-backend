@@ -4,7 +4,8 @@ export function openDialog(dialog) {
     document.dispatchEvent(new Event('ea:controls-updated'));
     dialog.returnFocus = document.activeElement;
     dialog.showModal();
-    dialog.querySelector('input:not([type="hidden"]):not(.ea-picker-source):not([disabled]), .ea-picker-trigger:not([disabled]), select:not(.ea-picker-source):not([disabled]), textarea:not([disabled])')?.focus();
+    const field = [...dialog.querySelectorAll('input:not([type="hidden"]):not(.ea-picker-source):not([disabled]), .ea-picker-trigger:not([disabled]), select:not(.ea-picker-source):not([disabled]), textarea:not([disabled])')].find(control => control.getClientRects().length);
+    (field || [...dialog.querySelectorAll('button:not([disabled])')].find(control => control.getClientRects().length))?.focus();
 }
 export function closeDialog(dialog) {
     if (dialog.getAttribute('aria-busy') === 'true' || dialog.querySelector('form[aria-busy="true"]')) return;

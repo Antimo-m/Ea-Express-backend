@@ -89,8 +89,8 @@ if (editor) {
             save.querySelector('.bi').className = `bi bi-${selected ? 'pencil' : 'plus-lg'}`;
             save.setAttribute('aria-label', selected ? 'Salva tariffa' : 'Aggiungi tariffa'); save.title = save.getAttribute('aria-label'); save.dataset.tooltip = save.getAttribute('aria-label');
             const saveLabel = save.querySelector(':scope > span:not(.action-icon)');
-            if (saveLabel) { saveLabel.textContent = save.getAttribute('aria-label'); saveLabel.hidden = Boolean(selected); }
-            save.classList.toggle('action-with-text', !selected);
+            if (saveLabel) { saveLabel.hidden = true; }
+            save.classList.remove('action-with-text');
             updateRateFields();
             openDialog(editor);
         } else if (button.matches('[data-rate-archive]')) {

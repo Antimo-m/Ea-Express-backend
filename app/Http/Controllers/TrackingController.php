@@ -40,6 +40,6 @@ class TrackingController extends Controller
             $returnLabel = 'Torna alle spedizioni';
         }
 
-        return view('tracking.public', ['returnUrl' => $returnUrl, 'returnLabel' => $returnLabel, 'shippingType' => $order->shipping_type, 'carrierTracking' => $order->carrier_tracking, 'carrierStatus' => $order->carrier_status, 'deliveryFrom' => $order->estimated_delivery_from, 'deliveryTo' => $order->estimated_delivery_to, 'reference' => $order->reference, 'status' => $order->status, 'estimated' => $order->estimated_at, 'events' => $order->events()->select(['id', 'slug', 'status', 'public_note', 'created_at'])->latest()->orderByDesc('id')->paginate(30)]);
+        return view('tracking.public', ['returnUrl' => $returnUrl, 'returnLabel' => $returnLabel, 'shippingType' => $order->shipping_type, 'carrierTracking' => $order->carrier_tracking, 'carrierStatus' => $order->carrier_status, 'deliveryFrom' => $order->estimated_delivery_from, 'deliveryTo' => $order->estimated_delivery_to, 'reference' => $order->reference, 'status' => $order->status, 'estimated' => $order->estimated_at, 'delay' => $order->delayData(), 'events' => $order->events()->select(['id', 'slug', 'status', 'delay_action', 'schedule_change', 'public_note', 'created_at'])->latest()->orderByDesc('id')->paginate(30)]);
     }
 }

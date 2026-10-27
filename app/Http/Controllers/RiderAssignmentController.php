@@ -11,7 +11,6 @@ use App\Support\OperationalAssignees;
 use App\Support\OrderDetail;
 use App\Support\PublicReferences;
 use App\Support\RiderOperations;
-use App\Support\RiderTracking;
 use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -39,7 +38,6 @@ class RiderAssignmentController extends Controller
                 return;
             }
             $before = $locked->only(['rider_id', 'assigned_by', 'assigned_at']);
-            app(RiderTracking::class)->stop($locked);
             $locked->rider_id = $rider->id;
             $locked->assigned_by = $admin->id;
             $locked->assigned_at = now();

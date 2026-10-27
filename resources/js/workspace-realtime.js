@@ -22,8 +22,6 @@ export function connectWorkspace(request) {
       seen.add(event.event_id);
       if (seen.size > 1000) seen.delete(seen.values().next().value);
       window.dispatchEvent(new CustomEvent('ea:workspace-updated', { detail: event }));
-    }).listen('.rider.location-updated', event => {
-      window.dispatchEvent(new CustomEvent('ea:rider-location', { detail: event }));
     }).error(() => status('unavailable'));
   }).catch(() => status('unavailable'));
   return () => { stopped = true; echo?.disconnect(); };

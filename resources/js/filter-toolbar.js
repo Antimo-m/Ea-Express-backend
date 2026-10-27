@@ -13,7 +13,7 @@ for (const form of document.querySelectorAll('[data-filter-toolbar]')) {
     let ranges = [];
     const controls = () => [...form.querySelectorAll('input[name],select[name]')];
     const defaultValue = control => control.dataset.filterDefault ?? '';
-    const isActive = control => !control.hasAttribute('data-filter-context') && control.value !== defaultValue(control) && Boolean(control.value) && !control.disabled && !control.closest('[data-custom-dates]')?.hidden;
+    const isActive = control => !control.hasAttribute('data-filter-context') && (control.multiple ? control.selectedOptions.length > 0 : control.value !== defaultValue(control) && Boolean(control.value)) && !control.disabled && !control.closest('[data-custom-dates]')?.hidden;
     const applied = new URLSearchParams(location.search);
     const update = () => {
         const sources = mobile.matches ? [primary,secondaryFields] : [secondaryFields];
@@ -29,7 +29,11 @@ for (const form of document.querySelectorAll('[data-filter-toolbar]')) {
     };
     const close = (discard = true) => {
         if (!dialog.open) return;
-        if (discard) for (const [control, value] of snapshot) { control.value = value; control.dispatchEvent(new Event('change', {bubbles:true})); }
+        if (discard) for (const [control, value] of snapshot) {
+            if (control.multiple) [...control.options].forEach(option => { option.selected = value.includes(option.value); });
+            else control.value = value;
+            control.dispatchEvent(new Event('change', {bubbles:true}));
+        }
         if (discard) for (const [dates, hidden] of ranges) { dates.hidden = hidden; const button = dates.closest('[data-filter-range]').querySelector('[data-custom-period]'); button.setAttribute('aria-expanded',String(!hidden)); button.classList.toggle('active',!hidden); }
         dialog.close(); restoreNodes(); trigger.setAttribute('aria-expanded', 'false'); update(); trigger.focus();
     };
@@ -41,7 +45,7 @@ for (const form of document.querySelectorAll('[data-filter-toolbar]')) {
     };
     trigger.addEventListener('click', () => {
         if (dialog.open) { close(); return; }
-        snapshot = controls().map(control => [control,control.value]);
+        snapshot = controls().map(control => [control,control.multiple ? [...control.selectedOptions].map(option => option.value) : control.value]);
         ranges = [...form.querySelectorAll('[data-custom-dates]')].map(dates=>[dates,dates.hidden]);
         if (mobile.matches) move(primary);
         if (secondaryFields) move(secondaryFields);
@@ -53,7 +57,7 @@ for (const form of document.querySelectorAll('[data-filter-toolbar]')) {
             dialog.style.left = `${Math.max(12,Math.min(rect.left,innerWidth-380))}px`;
             dialog.style.top = `${Math.max(12,Math.min(rect.bottom+8,innerHeight-dialog.offsetHeight-12))}px`;
         }
-        fields.querySelector('.ea-picker-trigger,input:not(.ea-picker-source),select:not(.ea-picker-source)')?.focus();
+        fields.querySelector('.ea-picker-trigger,summary,input:not(.ea-picker-source):not([type="hidden"]),select:not(.ea-picker-source):not([hidden])')?.focus();
     });
     dialog.querySelector('[data-filter-close]').addEventListener('click', () => close());
     document.addEventListener('cancel', event => { if (event.target === dialog) { event.preventDefault(); event.stopImmediatePropagation(); close(); } }, true);
@@ -61,7 +65,7 @@ for (const form of document.querySelectorAll('[data-filter-toolbar]')) {
     dialog.addEventListener('keydown', event => {
         if (event.key === 'Escape') { event.preventDefault(); close(); }
         if (event.key === 'Tab') {
-            const items = [...dialog.querySelectorAll('button:not(:disabled),a[href],input:not(.ea-picker-source):not([type="hidden"])')].filter(node=>node.getClientRects().length);
+            const items = [...dialog.querySelectorAll('button:not(:disabled),summary,a[href],input:not(.ea-picker-source):not([type="hidden"])')].filter(node=>node.getClientRects().length);
             if (event.shiftKey && document.activeElement === items[0]) { event.preventDefault(); items.at(-1)?.focus(); }
             else if (!event.shiftKey && document.activeElement === items.at(-1)) { event.preventDefault(); items[0]?.focus(); }
         }
@@ -95,7 +99,7 @@ for (const form of document.querySelectorAll('[data-filter-toolbar]')) {
     const labels = {q:'Ricerca',zone:'Zona',from:'Dal',to:'Al',direction:'Direzione',id:'Sospeso'};
     let rangeChip = false;
     for (const control of controls()) {
-        if (!applied.has(control.name) || !isActive(control) || ['year','period','month','date','view'].includes(control.name)) continue;
+        if (control.multiple || !applied.has(control.name) || !isActive(control) || ['year','period','month','date','view'].includes(control.name)) continue;
         const interval = ['from','to'].includes(control.name);
         if (interval && rangeChip) continue;
         if (interval) rangeChip = true;
@@ -112,6 +116,7 @@ for (const form of document.querySelectorAll('[data-filter-toolbar]')) {
         link.href = url.href; link.textContent = `${label}: ${value} ×`; link.setAttribute('aria-label',`Rimuovi filtro ${label}: ${value}`); chips.append(link);
     }
     chips.hidden = !chips.children.length;
+    form.addEventListener('change', update);
     update();
     // Search and primary controls submit together through the visible Apply control or Enter.
 }

@@ -7,13 +7,6 @@
 <x-navigation.sidebar />
 <div class="app-workspace">
     <x-navigation.header :title="$title" />
-    @if(auth()->user()->canOperateDeliveries() && !request()->routeIs('rider-operations.*'))
-    <div class="gps-bar" data-rider-gps="{{ auth()->user()->slug }}" data-gps-state="disabled">
-        <span class="gps-badge" data-gps-badge role="status" aria-label="GPS disattivato" title="GPS disattivato · apri una consegna per condividere la posizione."><span class="gps-live-dot" aria-hidden="true"></span>GPS</span>
-        <span class="visually-hidden" data-gps-feedback>GPS disattivato · apri una consegna per condividere la posizione.</span>
-        <button type="button" class="btn btn-outline-secondary btn-sm" data-gps-stop hidden>Interrompi GPS</button>
-    </div>
-    @endif
     <main class="app-content" id="main-content" tabindex="-1">
         @isset($header)<header class="page-heading mb-4">{{ $header }}</header>@endisset
         <x-ui.flash />

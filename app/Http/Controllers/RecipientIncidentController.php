@@ -36,7 +36,7 @@ class RecipientIncidentController extends Controller
             }))
             ->withCount(['incidents as active_count' => fn ($query) => $query->whereNull('dismissed_at'), 'incidents'])
             ->withMax(['incidents as last_active_at' => fn ($query) => $query->whereNull('dismissed_at')], 'occurred_at')
-            ->with('latestIncident')
+            ->with(['latestIncident.order:id,slug,reference,status'])
             ->latest('updated_at')->orderByDesc('id')->paginate(20)->withQueryString();
 
         return view('recipient-incidents.index', compact('profiles', 'activeProfiles', 'totalProfiles', 'activeIncidents', 'state'));

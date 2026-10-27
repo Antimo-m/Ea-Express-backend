@@ -7,7 +7,6 @@ use App\Http\Requests\StoreRiderRequest;
 use App\Models\Order;
 use App\Models\User;
 use App\OrderStatus;
-use App\Support\RiderTracking;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,7 +23,16 @@ class AdminUserController extends Controller
     {
         Gate::authorize('viewAny', User::class);
 
-        return view('settings.users', ['users' => User::query()->where('role', UserRole::Rider)->orderBy('name')->orderBy('id')->paginate(20)]);
+        $users = User::query()->where('role', UserRole::Rider)
+            ->addSelect([
+                'assigned_count' => Order::selectRaw('count(*)')->whereColumn('rider_id', 'users.id'),
+                'active_orders_count' => Order::selectRaw('count(*)')->whereColumn('rider_id', 'users.id')->whereNotIn('status', OrderStatus::closed()),
+                'delivered_count' => Order::selectRaw('count(*)')->whereColumn('rider_id', 'users.id')->where('status', OrderStatus::Delivered),
+            ])->orderBy('name')->orderBy('id')->paginate(20);
+        $destinations = Order::query()->whereIn('rider_id', $users->modelKeys())->whereNotIn('status', OrderStatus::closed())
+            ->select(['rider_id', 'delivery_city'])->selectRaw('count(*) as total')->groupBy('rider_id', 'delivery_city')->orderByDesc('total')->orderBy('delivery_city')->get()->groupBy('rider_id');
+
+        return view('settings.users', compact('users', 'destinations'));
     }
 
     public function create(): View
@@ -64,7 +72,6 @@ class AdminUserController extends Controller
             } else {
                 $target->is_active = $data['action'] === 'activate';
             }
-            app(RiderTracking::class)->stopForRider($target);
             $target->remember_token = Str::random(60);
             $target->save();
             if (config('session.driver') === 'database') {

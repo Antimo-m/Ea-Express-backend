@@ -6,7 +6,6 @@ use App\Actions\SendEmailOtp;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Support\IntendedDestination;
-use App\Support\RiderTracking;
 use App\Support\SecurityEvent;
 use App\Support\StaffAuthentication;
 use App\UserRole;
@@ -63,9 +62,6 @@ class AuthenticatedSessionController extends Controller
     {
         SecurityEvent::record('logout', $request->user()?->id);
         app(StaffAuthentication::class)->invalidateChallenge($request);
-        if ($request->user()?->isStaff()) {
-            app(RiderTracking::class)->stopForRider($request->user());
-        }
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();

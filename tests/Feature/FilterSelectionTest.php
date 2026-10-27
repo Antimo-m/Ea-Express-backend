@@ -36,9 +36,9 @@ class FilterSelectionTest extends TestCase
     {
         $rider = User::factory()->create();
         $other = User::factory()->create();
-        $order = Order::factory()->create(['rider_id' => $rider->id, 'status' => OrderStatus::OutForDelivery, 'recipient_name' => 'Sara Verifica', 'delivery_city' => 'Napoli', 'delivery_zone' => 'Aversa Nord']);
-        Order::factory()->create(['rider_id' => $other->id, 'status' => OrderStatus::OutForDelivery, 'recipient_name' => 'Sara Verifica', 'delivery_city' => 'Napoli', 'delivery_zone' => 'Aversa Nord']);
-        $this->actingAs($rider)->get('/orders/in-progress?q=Sara&zone=Aversa')->assertOk()
+        $order = Order::factory()->create(['rider_id' => $rider->id, 'status' => OrderStatus::OutForDelivery, 'recipient_name' => 'Destinatario Test A Verifica', 'delivery_city' => 'Napoli', 'delivery_zone' => 'Aversa Nord']);
+        Order::factory()->create(['rider_id' => $other->id, 'status' => OrderStatus::OutForDelivery, 'recipient_name' => 'Destinatario Test A Verifica', 'delivery_city' => 'Napoli', 'delivery_zone' => 'Aversa Nord']);
+        $this->actingAs($rider)->get('/orders/in-progress?q=Destinatario%20Test%20A&zone=Aversa')->assertOk()
             ->assertViewHas('orders', fn ($orders) => $orders->total() === 1 && $orders->first()->id === $order->id);
         $this->get('/orders/in-progress?rider_id='.$other->slug)->assertOk()->assertViewHas('orders', fn ($orders) => $orders->total() === 0);
     }

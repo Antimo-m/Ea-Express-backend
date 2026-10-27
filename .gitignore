@@ -53,6 +53,12 @@ Thumbs.db
 *.tar
 *.tar.gz
 *.crt
+*.txt
+!/public/robots.txt
+!/public/ibmplexmono-OFL.txt
+!/public/ibmplexsans-OFL.txt
+!/public/source-sans-3-OFL.txt
+!/public/spacegrotesk-OFL.txt
 
 # Suite di sicurezza riproducibile; gli altri strumenti di test restano locali.
 /tests/*
@@ -118,6 +124,37 @@ Thumbs.db
 !/tests/Feature/OrderProgressTest.php
 
 !tests/Feature/OperationalRevisionTest.php
+
+!/tests/Feature/GpsRemovalAndZoneOrdersTest.php
+
+!/tests/Feature/PickupCalendarTest.php
+!/tests/Feature/OperationsRevisionTest.php
+!/tests/Feature/WorkspaceUiTest.php
+
+!/tests/Feature/BalanceExperienceTest.php
+!/tests/Feature/TerritorialRevisionTest.php
+
+!/tests/Feature/RoundedWorkspaceTest.php
+
+# Revisione funzionale, contabile e responsive delle due piattaforme.
+!/tests/Feature/BalanceAccountingTest.php
+!/tests/Feature/FinancialIntegrityTest.php
+!/tests/Feature/ManualOrderDelayTest.php
+!/tests/Feature/ManualOrderDelayConcurrencyTest.php
+!/tests/Feature/InterfaceTest.php
+!/tests/Feature/PublicRateLimitTest.php
+!/tests/Feature/RecoveryConcurrencyTest.php
+!/tests/Feature/RequestSecurityTest.php
+!/tests/Feature/SecurityReviewTest.php
+!/tests/Feature/Auth/
+/tests/Feature/Auth/*
+!/tests/Feature/Auth/AuthenticationTest.php
+!/tests/Feature/Auth/AuthenticationSecurityTest.php
+!/tests/Feature/Auth/PasswordResetTest.php
+!/tests/Feature/Auth/PasswordUpdateTest.php
+!/database/factories/ExpenseFactory.php
+!/database/factories/FinancialMovementFactory.php
+!/database/factories/PendingSettlementFactory.php
 
 # Report e revisioni interne rimangono esclusivamente locali.
 /[Rr][Ee][Pp][Oo][Rr][Tt]*

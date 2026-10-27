@@ -30,7 +30,9 @@
         </x-slot:secondary>
     </x-ui.filters>
     <div data-live-region="orders">@if($section==='orders.in-progress')<p class="data-caption">{{ $orders->total() }} risultati filtrati · La stampa nell’intestazione include tutte le pagine dei risultati, un’etichetta A6 per spedizione.</p>@endif
-<section class="{{ $section === 'orders.history' ? 'surface order-table-surface' : 'operational-order-list' }}" aria-label="Elenco spedizioni">@forelse($orders as $order)
+<section class="{{ $section === 'orders.history' ? 'surface order-table-surface' : 'operational-order-list' }}" aria-label="Elenco spedizioni">
+@if($section === 'orders.in-progress' && $orders->isNotEmpty())<div class="operational-register-heading" aria-hidden="true"><span>Ordine / destinatario</span><span>Zona di consegna</span><span>Rider / ritiro</span><span>Stato / segnalazioni</span><span>Tariffa</span><span>Azioni</span></div>@endif
+@forelse($orders as $order)
 @if($section === 'orders.history')<x-orders.row :order="$order" :recipient-risk="$recipientRisks[$order->id] ?? ['count' => 0, 'last_at' => null]" />
 @else
 <x-orders.operational-row :order="$order" :incoming="$section === 'orders.incoming'" :recipient-risk="$recipientRisks[$order->id] ?? ['count' => 0, 'last_at' => null]" />

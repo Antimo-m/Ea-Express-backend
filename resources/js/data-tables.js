@@ -1,6 +1,6 @@
 let detailId = 0;
 export function enhanceDataTables(root = document) {
-    for (const table of root.querySelectorAll('main table')) {
+    for (const table of root.querySelectorAll('main table:not([data-table-native])')) {
         table.classList.add(table.hasAttribute('data-table-static') ? 'workspace-table' : 'data-table-adaptive');
         const headings = [...table.querySelectorAll('thead th')].map(cell => cell.textContent.trim());
         for (const row of table.querySelectorAll('tbody tr')) {

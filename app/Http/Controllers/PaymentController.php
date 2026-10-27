@@ -12,6 +12,7 @@ use App\OrderStatus;
 use App\Support\AccountingPeriod;
 use App\Support\Money;
 use App\Support\OrderPrice;
+use App\Support\ShippingEconomics;
 use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -57,7 +58,7 @@ class PaymentController extends Controller
                 $entry->order_id = $locked->id;
                 $entry->user_id = $request->user()->id;
                 $entry->amount_cents = $receiving ? $receivedAmount : -$netReceived;
-                $entry->ea_amount_cents = $receiving ? $entry->amount_cents : -(int) PaymentEntry::where('order_id', $locked->id)->sum('ea_amount_cents');
+                $entry->ea_amount_cents = $receiving ? $entry->amount_cents : -app(ShippingEconomics::class)->receipts(PaymentEntry::where('order_id', $locked->id))['retained'];
                 $entry->method = $receiving ? 'cash' : PaymentEntry::where('order_id', $locked->id)->latest('id')->value('method');
                 $entry->note = $receiving ? '' : $data['note'];
                 $entry->save();

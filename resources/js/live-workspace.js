@@ -17,9 +17,22 @@ const regions = createRefreshQueue(async () => {
       const oldRows = new Map([...region.querySelectorAll('[data-operational-order]')].map(row => [row.dataset.operationalOrder, row.dataset.orderState]));
       const openSlugs = [...region.querySelectorAll('[data-order-preview-toggle][aria-expanded="true"]')].map(button => button.closest('[data-operational-order]').dataset.operationalOrder);
       const focused = document.activeElement;
+      const focusedConversation = focused?.closest('[data-conversation-link]')?.dataset.conversationLink;
+      const conversationScroll = region.querySelector('[data-scroll-key="conversations"]')?.scrollTop;
+      const currentConversation = region.querySelector('[data-conversation-link][aria-current]');
+      const currentCopy = currentConversation?.cloneNode(true);
       const focusSlug = focused?.closest('[data-operational-order]')?.dataset.operationalOrder;
+      const pickupDate = focused?.closest('[data-pickup-date]')?.dataset.pickupDate;
       const focusPreview = focused?.matches('[data-order-preview-toggle]');
       region.replaceChildren(...replacement.childNodes);
+      if (region.dataset.currentConversation) {
+        const selected = [...region.querySelectorAll('[data-conversation-link]')].find(link => link.dataset.conversationLink === region.dataset.currentConversation);
+        region.querySelectorAll('[data-conversation-link]').forEach(link => link.removeAttribute('aria-current'));
+        if (selected) selected.setAttribute('aria-current', 'true');
+        else if (currentCopy) region.querySelector('[data-inbox-list]')?.prepend(currentCopy);
+      }
+      if (conversationScroll !== undefined) region.querySelector('[data-scroll-key="conversations"]').scrollTop = conversationScroll;
+      if (focusedConversation) [...region.querySelectorAll('[data-conversation-link]')].find(link => link.dataset.conversationLink === focusedConversation)?.focus({ preventScroll: true });
       restoreOrderPreviews(region, openSlugs);
       for (const row of region.querySelectorAll('[data-operational-order]')) {
         const previous = oldRows.get(row.dataset.operationalOrder);
@@ -27,6 +40,7 @@ const regions = createRefreshQueue(async () => {
         if (previous === undefined) row.classList.add('is-new');
         if (row.dataset.operationalOrder === focusSlug) row.querySelector(focusPreview ? '[data-order-preview-toggle]' : '[data-order-link]')?.focus({ preventScroll: true });
       }
+      if (pickupDate) region.querySelector(`[data-pickup-date="${pickupDate}"]`)?.focus({ preventScroll: true });
       window.dispatchEvent(new CustomEvent('ea:order-list-rendered', { detail: { region: region.dataset.liveRegion } }));
     }
     bindFinancialForms(region);
@@ -48,6 +62,7 @@ if (document.body.dataset.notificationsUrl) {
 }
 const chat = document.querySelector('[data-live-chat]');
 if (chat) {
+  const messagesUrl = new URL(chat.dataset.messagesUrl || location.href, location.origin);
   const list = chat.querySelector('[data-conversation-list]');
   const form = chat.querySelector('.message-composer');
   const feedback = document.createElement('p'); feedback.className = 'small text-secondary'; feedback.setAttribute('role', 'status'); list.after(feedback);
@@ -55,8 +70,9 @@ if (chat) {
   async function refresh() {
     if (loading) { again = true; return; }
     loading = true;
+    list.setAttribute('aria-busy', 'true');
     try {
-      const result = await staffRequest(location.pathname + location.search);
+      const result = await staffRequest(messagesUrl.pathname + messagesUrl.search);
       const atEnd = list.scrollHeight - list.scrollTop - list.clientHeight < 60;
       const oldScroll = list.scrollTop;
       cleanup();
@@ -64,16 +80,23 @@ if (chat) {
       [...result.data].reverse().forEach(message => {
         const article = document.createElement('article'); article.dataset.messageId = message.slug;
         article.className = `message-bubble ${message.sender === 'team' ? 'message-team' : ''}`;
+        const header = document.createElement('header'); header.className = 'message-meta';
         const author = document.createElement('strong'); author.textContent = message.sender === 'team' ? 'EA-Express' : 'Cliente';
-        const body = document.createElement('p'); body.className = 'message-body mb-1 mt-2'; body.textContent = message.body;
-        const meta = document.createElement('small'); meta.textContent = new Date(message.created_at).toLocaleString('it-IT') + (message.sender === 'team' ? ` · ${message.read_at ? 'Letto' : message.delivered_at ? 'Consegnato' : 'Inviato'}` : '');
-        article.append(author, body, meta); list.append(article);
+        const time = document.createElement('time'); time.dateTime = message.created_at;
+        time.textContent = new Date(message.created_at).toLocaleString('it-IT', { timeZone: 'Europe/Rome', dateStyle: 'short', timeStyle: 'short' });
+        header.append(author, time);
+        const body = document.createElement('p'); body.className = 'message-body'; body.textContent = message.body;
+        const receipt = document.createElement('small'); receipt.className = 'message-receipt';
+        receipt.textContent = message.sender === 'team' ? (message.read_at ? 'Letto' : message.delivered_at ? 'Consegnato' : 'Inviato') : (message.read_at ? 'Letto dal team' : 'Da leggere');
+        article.append(header, body, receipt); list.append(article);
       });
       list.scrollTop = atEnd ? list.scrollHeight : oldScroll;
-      if (form) cleanup = observeMessageReceipts(list, result.data, (ids, state) => staffRequest(`${location.pathname}/read`, { method: 'PATCH', data: { ids, state } }), 'team', error => { feedback.textContent = error.message; });
-    } catch (error) { feedback.textContent = error.message; }
-    finally { loading = false; if (again) { again = false; refresh(); } }
+      if (form) cleanup = observeMessageReceipts(list, result.data, (ids, state) => staffRequest(`${messagesUrl.pathname}/read`, { method: 'PATCH', data: { ids, state } }), 'team', error => { feedback.textContent = error.message; });
+      if (feedback.getAttribute('role') === 'alert') { feedback.textContent = ''; feedback.setAttribute('role', 'status'); }
+    } catch (error) { feedback.textContent = error.message; feedback.setAttribute('role', 'alert'); }
+    finally { loading = false; list.removeAttribute('aria-busy'); if (again) { again = false; refresh(); } }
   }
+  chat.querySelector('[data-chat-refresh]')?.addEventListener('click', refresh);
   window.addEventListener('ea:workspace-updated', event => {
     if (!event.detail.order_slug || event.detail.order_slug === chat.dataset.liveChat) refresh();
   });
@@ -81,9 +104,9 @@ if (chat) {
   form?.addEventListener('submit', async event => {
     event.preventDefault(); const button = form.querySelector('button'); if (button.disabled) return;
     if (!submissionKey || submittedBody !== form.elements.body.value) { submissionKey = crypto.randomUUID(); submittedBody = form.elements.body.value; }
-    button.disabled = true; feedback.textContent = 'Invio in corso…';
-    try { await staffRequest(form.action, { method: 'POST', data: { body: form.elements.body.value, submission_key: submissionKey } }); form.elements.body.value = ''; submissionKey = undefined; feedback.textContent = 'Messaggio inviato'; list.scrollTop = list.scrollHeight; await refresh(); }
-    catch (error) { feedback.textContent = error.message; }
+    button.disabled = true; feedback.setAttribute('role', 'status'); feedback.textContent = 'Invio in corso…';
+    try { await staffRequest(form.action, { method: 'POST', data: { body: submittedBody, submission_key: submissionKey } }); if (form.elements.body.value === submittedBody) form.elements.body.value = ''; submissionKey = undefined; feedback.textContent = 'Messaggio inviato'; list.scrollTop = list.scrollHeight; await refresh(); }
+    catch (error) { feedback.textContent = error.message; feedback.setAttribute('role', 'alert'); }
     finally { button.disabled = false; }
   });
   refresh();

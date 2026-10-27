@@ -56,24 +56,24 @@ class WorkspaceRevisionTest extends TestCase
         $this->assertSame(0, $xpath->query('//*[contains(@class,"recipient-risk")]//summary')->length);
         $this->get(route('orders.history'))->assertSee('is-unreliable')->assertSee('NON AFFIDABILE');
         Order::factory()->create([...$order->only(RecipientIdentity::Fields), 'status' => OrderStatus::Accepted, 'rider_id' => $admin->id, 'pickup_date' => now('Europe/Rome')->toDateString()]);
-        $groups = $this->get(route('pickups.index'))->viewData('groups');
-        $this->get(route('pickups.index', ['group' => $groups->keys()->first()]))->assertSee('is-unreliable')->assertSee('NON AFFIDABILE');
+        $groups = $this->get(route('pickups.grouped'))->viewData('groups');
+        $this->get(route('pickups.grouped', ['group' => $groups->keys()->first()]))->assertSee('is-unreliable')->assertSee('NON AFFIDABILE');
     }
 
     public function test_recipient_register_search_filters_actual_incidents_and_preserves_removed_history(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $order = Order::factory()->create(['recipient_name' => 'Pierluigi Di Stefano', 'recipient_phone' => '+393331234567']);
+        $order = Order::factory()->create(['recipient_name' => 'Destinatario Test Registro', 'recipient_phone' => '+390000000000']);
         app(RecipientRisk::class)->record($order, $admin);
         $incident = RecipientIncident::sole();
 
-        $this->actingAs($admin)->get('/recipient-incidents?q=Pierluigi')
-            ->assertViewHas('activeProfiles', 1)->assertSee('Pierluigi Di Stefano');
+        $this->actingAs($admin)->get('/recipient-incidents?q=Test')
+            ->assertViewHas('activeProfiles', 1)->assertSee('Destinatario Test Registro');
         $this->get('/recipient-incidents?q=NonEsiste')->assertViewHas('profiles', fn ($profiles): bool => $profiles->total() === 0);
         $this->patch(route('recipient-incidents.update', $incident), ['action' => 'dismiss', 'version' => $incident->version, 'correction_reason' => 'Segnalazione non confermata'])
             ->assertSessionHasNoErrors()->assertRedirect();
         $this->get('/recipient-incidents')->assertViewHas('activeProfiles', 0)->assertViewHas('profiles', fn ($profiles): bool => $profiles->total() === 0);
-        $this->get('/recipient-incidents?state=restored&q=Pierluigi')->assertSee('Pierluigi Di Stefano')->assertSee('Segnalazione rimossa');
+        $this->get('/recipient-incidents?state=restored&q=Test')->assertSee('Destinatario Test Registro')->assertSee('Segnalazione rimossa');
         $this->actingAs(User::factory()->create())->get('/recipient-incidents')->assertForbidden();
     }
 

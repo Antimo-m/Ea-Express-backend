@@ -1,1 +1,1 @@
-<span {{ $attributes->class(['brand']) }}><img class="brand-logo" src="{{ asset('brand.svg') }}" alt="EA Express" width="155" height="83"></span>
+<span {{ $attributes->class(['brand-wordmark']) }} role="img" aria-label="EA-EXPRESS"><b>EA</b><span>-EXPRESS</span></span>

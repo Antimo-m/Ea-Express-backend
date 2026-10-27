@@ -14,12 +14,12 @@ class OrderActionLayoutTest extends TestCase
 
     public function test_pickup_confirmation_message_and_cancellation_are_grouped_with_working_forms(): void
     {
-        $rider = User::factory()->create(['name' => 'Giovanni Battista Esposito']);
+        $rider = User::factory()->create(['name' => 'Amministratore Test']);
         $order = Order::factory()->create(['rider_id' => $rider->id, 'status' => OrderStatus::RiderArriving]);
 
         $response = $this->actingAs($rider)->get(route('orders.show', $order));
 
-        $response->assertSee('Conferma pacco ritirato')->assertSee('Giovanni Battista Esposito')->assertDontSee('Contatta il cliente');
+        $response->assertSee('Conferma pacco ritirato')->assertSee('Amministratore Test')->assertDontSee('Contatta il cliente');
         $document = new \DOMDocument;
         @$document->loadHTML($response->getContent());
         $xpath = new \DOMXPath($document);

@@ -9,7 +9,6 @@ use App\Models\User;
 use App\OrderStatus;
 use App\Support\OrderPrice;
 use App\Support\RiderOperations;
-use App\Support\RiderTracking;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -49,7 +48,6 @@ class CarrierShipmentController extends Controller
             $locked->carrier_tracking = $data['carrier_tracking'];
             $locked->carrier_status = $data['carrier_status'];
             if (in_array($data['carrier_status'], ['handed_over', 'in_transit', 'delivery_issue'], true)) {
-                app(RiderTracking::class)->stop($locked);
                 $locked->carrier_handed_at ??= now();
                 $locked->tracking_started_at ??= now();
             }

@@ -8,16 +8,16 @@
         @foreach(['slug'] as $selection)@if(request($selection))<input type="hidden" name="{{ $selection }}" value="{{ request($selection) }}" data-filter-label="{{ $selection === 'direction' ? 'Direzione' : 'Sospeso' }}">@endif @endforeach
     </x-ui.filters>
     <section class="finance-kpis" aria-label="Residui dei sospesi filtrati">
-        <article class="surface finance-kpi"><span class="kpi-symbol cash-in"><x-ui.icon name="arrow-down-left" /></span><div><span>Da incassare</span><strong>{{ \App\Support\Money::format((int)($totals['incoming'] ?? 0)) }}</strong><small>Crediti aperti e parziali</small></div></article>
-        <article class="surface finance-kpi"><span class="kpi-symbol cash-out"><x-ui.icon name="arrow-up-right" /></span><div><span>Da pagare</span><strong>{{ \App\Support\Money::format((int)($totals['outgoing'] ?? 0)) }}</strong><small>Debiti aperti e parziali</small></div></article>
+        <x-ui.metric label="Da incassare" :value="\App\Support\Money::format((int)($totals['incoming'] ?? 0))" icon="arrow-down-left" tone="positive" note="Crediti aperti e parziali" />
+        <x-ui.metric label="Da pagare" :value="\App\Support\Money::format((int)($totals['outgoing'] ?? 0))" icon="arrow-up-right" tone="negative" note="Debiti aperti e parziali" />
     </section>
 
 
     <p class="data-caption">{{ $accounts->total() }} sospesi · I riepiloghi rispettano ricerca e stato e comprendono entrambe le direzioni.</p>
     @foreach(['incoming'=>'Sospesi in entrata','outgoing'=>'Sospesi in uscita'] as $direction=>$label)
         @if(!request('direction') || request('direction')===$direction)
-        <section class="surface workspace-section mb-4"><header class="section-heading"><div><span class="eyebrow">{{ $direction==='incoming' ? 'CREDITI' : 'DEBITI' }}</span><h2>{{ $label }}</h2></div><x-ui.icon :name="$direction==='incoming' ? 'arrow-down-left' : 'arrow-up-right'" :class="$direction==='incoming' ? 'cash-in' : 'cash-out'" /></header>
-            <div class="table-responsive"><table class="table workspace-table" data-table-static><thead><tr><th>Cliente / Account</th><th>Soggetto / riferimento</th><th>Scadenza / stato</th><th>Totale</th><th>Pagato</th><th>Residuo</th><th>Azioni</th></tr></thead><tbody>
+        <x-ui.data-panel :title="$label" :description="$direction === 'incoming' ? 'Crediti da riscuotere: registra un pagamento solo quando il denaro è stato ricevuto.' : 'Debiti da saldare: ogni pagamento conserva il proprio riferimento e la cronologia.'" class="mb-4 pending-register">
+            <div class="table-responsive"><table class="table workspace-table register-table" data-table-static><thead><tr><th scope="col">Cliente / Account</th><th scope="col">Soggetto / riferimento</th><th scope="col">Scadenza / stato</th><th scope="col">Totale</th><th scope="col">Pagato</th><th scope="col">Residuo</th><th scope="col">Azioni</th></tr></thead><tbody>
                 @forelse($accounts->where('direction',$direction) as $account)<tr>
                     <td data-label="Cliente / Account"><strong>{{ $account->customer?->name ?? 'Cliente non associato' }}</strong>@if($account->customer)<small class="d-block text-break">Email: {{ $account->customer->email }}</small>@if($account->customer->business_type)<small class="d-block">{{ $account->customer->business_type }}</small>@endif @if($account->customer->business_description)<small class="d-block text-secondary">{{ $account->customer->business_description }}</small>@endif @unless($account->customer->is_active)<small class="d-block">Account disattivato</small>@endunless @else<small class="d-block text-secondary">Visibile solo all’amministratore</small>@endif<small class="d-block">{{ $direction === 'incoming' ? 'Il cliente deve pagare EA Express' : 'EA Express deve pagare il cliente' }}</small></td>
                     <td data-label="Soggetto"><strong>{{ $account->subject }}</strong><small class="d-block text-secondary">Descrizione: {{ $account->description }}</small><small class="d-block">Sospeso: #{{ $account->id }} · Data: {{ $account->occurred_on->format('d/m/Y') }}</small>@if($account->order)<a class="small text-break" href="{{ route('orders.show',$account->order) }}">Ordine: {{ $account->order->reference }}</a>@endif @if($account->notes)<small class="d-block text-secondary">Note: {{ $account->notes }}</small>@endif</td>
@@ -29,7 +29,7 @@
                         @if(in_array($account->state,['open','partially_paid']))<x-ui.icon-button action="receive" label="Registra pagamento" :data-dialog-open="'pending-settle-'.$account->id" :aria-controls="'pending-settle-'.$account->id" aria-haspopup="dialog" /><x-ui.icon-button action="edit" label="Modifica sospeso" :data-dialog-open="'pending-edit-'.$account->id" :aria-controls="'pending-edit-'.$account->id" aria-haspopup="dialog" />@endif<x-ui.icon-button action="history" label="Storico pagamenti" :data-dialog-open="'pending-history-'.$account->id" :aria-controls="'pending-history-'.$account->id" aria-haspopup="dialog" /><a class="audit-link" href="{{ route('audits.index',['type'=>'pending_accounts','slug'=>$account->slug]) }}">Cronologia</a></div></td>
                 </tr>@empty<tr><td colspan="7"><div class="empty-state"><x-ui.icon name="check2-circle" /><p>Nessun sospeso in questa direzione nella pagina corrente.</p></div></td></tr>@endforelse
             </tbody></table></div>
-        </section>
+        </x-ui.data-panel>
         @endif
     @endforeach
     {{ $accounts->links('components.ui.pagination') }}

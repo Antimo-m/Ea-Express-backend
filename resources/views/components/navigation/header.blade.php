@@ -1,6 +1,6 @@
 @props(['title'])
 <header class="app-header">
-    <div class="d-flex align-items-center gap-3 min-width-0"><button type="button" class="icon-button d-lg-none" data-bs-toggle="offcanvas" data-bs-target="#app-navigation" aria-controls="app-navigation" aria-label="Apri menu"><x-ui.icon name="list" /></button><span class="header-title">{{ $title }}</span><span class="header-divider d-none d-md-block"></span><span class="small text-secondary d-none d-md-block">Il tuo spazio operativo</span></div>
+    <div class="d-flex align-items-center gap-3 min-width-0"><button type="button" class="icon-button d-lg-none" data-bs-toggle="offcanvas" data-bs-target="#app-navigation" aria-controls="app-navigation" aria-label="Apri menu"><x-ui.icon name="list" /></button><span class="header-title">{{ $title }}</span><span class="header-divider d-none d-md-block"></span><span class="small text-secondary d-none d-md-block">EA-Express / Operazioni</span></div>
     <div class="d-flex align-items-center gap-2 gap-md-3">
         <button type="button" class="icon-button theme-toggle" data-theme-toggle aria-label="Cambia tema chiaro o scuro"><x-ui.icon name="sun" /></button>
         <button type="button" class="sound-toggle" data-sound-toggle aria-pressed="false" aria-label="Attiva suoni notifiche"><x-ui.icon name="volume-mute" /><span>Attiva suoni</span></button>

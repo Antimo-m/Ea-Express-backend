@@ -19,12 +19,12 @@ class RecipientDetailTest extends TestCase
     public function test_register_links_to_person_without_exposing_phone_address_or_order_history(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $incident = RecipientIncident::factory()->create(['recipient' => ['recipient_name' => 'Pierluigi Francesco Di Stefano', 'recipient_phone' => '+393330012345', 'delivery_address' => 'Via Giovanni Battista Pergolesi 145', 'delivery_city' => 'Napoli']]);
+        $incident = RecipientIncident::factory()->create(['recipient' => ['recipient_name' => 'Destinatario Test Nominativo Esteso', 'recipient_phone' => '+390000000000', 'delivery_address' => 'Via Test Dimostrativa del Punto di Ritiro 145', 'delivery_city' => 'Napoli']]);
 
         $this->actingAs($admin)->get(route('recipient-incidents.index'))
-            ->assertSee('Pierluigi Francesco Di Stefano')->assertSee('Napoli')
+            ->assertSee('Destinatario Test Nominativo Esteso')->assertSee('Napoli')
             ->assertSee(route('recipient-incidents.show', $incident->profile), false)
-            ->assertDontSee('+393330012345')->assertDontSee('Via Giovanni Battista Pergolesi 145')
+            ->assertDontSee('+390000000000')->assertDontSee('Via Test Dimostrativa del Punto di Ritiro 145')
             ->assertDontSee('Apri ordine')->assertDontSee('Storico rettifiche');
     }
 
@@ -33,7 +33,7 @@ class RecipientDetailTest extends TestCase
         $this->freezeTime();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $profile = RecipientRiskProfile::factory()->create();
-        $order = Order::factory()->create(['store_name' => 'Centro Distribuzione Elettrodomestici Napoli Nord']);
+        $order = Order::factory()->create(['store_name' => 'Azienda Test Distribuzione Metropolitana']);
         $latest = RecipientIncident::factory()->create(['recipient_risk_profile_id' => $profile->id, 'order_id' => $order->id, 'correction_reason' => 'Telefono confermato dal negozio']);
         RecipientIncident::factory()->count(20)->create(['recipient_risk_profile_id' => $profile->id, 'occurred_at' => now()->subDay(), 'dismissed_at' => now(), 'correction_reason' => 'Segnalazione non confermata']);
         $other = RecipientIncident::factory()->create();
@@ -81,7 +81,7 @@ class RecipientDetailTest extends TestCase
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $payload = '<script>alert("recipient")</script>';
-        $incident = RecipientIncident::factory()->create(['recipient' => ['recipient_name' => $payload, 'recipient_phone' => '+393330012345', 'delivery_address' => $payload, 'delivery_city' => 'Napoli'], 'correction_reason' => $payload]);
+        $incident = RecipientIncident::factory()->create(['recipient' => ['recipient_name' => $payload, 'recipient_phone' => '+390000000000', 'delivery_address' => $payload, 'delivery_city' => 'Napoli'], 'correction_reason' => $payload]);
 
         $this->actingAs($admin)->get(route('recipient-incidents.show', $incident->profile))
             ->assertSee($payload)->assertDontSee($payload, false);
@@ -111,15 +111,15 @@ class RecipientDetailTest extends TestCase
         app(RecipientRisk::class)->record($order, $admin);
         $incident = RecipientIncident::sole();
         $before = $order->fresh()->toArray();
-        $data = [...$incident->recipient, 'recipient_name' => 'Pierluigi Francesco Di Stefano', 'recipient_phone' => '+393331234569', 'delivery_postal_code' => '80100', 'delivery_street_number' => '145', 'action' => 'correct', 'version' => $incident->version, 'correction_reason' => 'Dati verificati con il destinatario'];
+        $data = [...$incident->recipient, 'recipient_name' => 'Destinatario Test Nominativo Esteso', 'recipient_phone' => '+390000000000', 'delivery_postal_code' => '80100', 'delivery_street_number' => '145', 'action' => 'correct', 'version' => $incident->version, 'correction_reason' => 'Dati verificati con il destinatario'];
 
         $response = $this->actingAs($admin)->patch(route('recipient-incidents.update', $incident), $data);
 
         $incident->refresh();
         $response->assertSessionHasNoErrors()->assertRedirect(route('recipient-incidents.show', $incident->profile));
-        $this->assertSame('Pierluigi Francesco Di Stefano', $incident->recipient['recipient_name']);
+        $this->assertSame('Destinatario Test Nominativo Esteso', $incident->recipient['recipient_name']);
         $this->assertSame($before, $order->fresh()->toArray());
         $this->assertDatabaseHas('economic_audits', ['entity_type' => 'recipient_incidents', 'entity_id' => $incident->id, 'action' => 'recipient_incident.correct']);
-        $this->get(route('recipient-incidents.show', $incident->profile))->assertSee('Pierluigi Francesco Di Stefano');
+        $this->get(route('recipient-incidents.show', $incident->profile))->assertSee('Destinatario Test Nominativo Esteso');
     }
 }

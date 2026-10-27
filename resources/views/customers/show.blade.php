@@ -13,10 +13,10 @@
         @if(request()->filled('tariff'))<input type="hidden" name="tariff" value="{{ request('tariff') }}">@endif
     </x-ui.filters>
     <section class="report-kpis" aria-label="Attività nel periodo">
-        <article class="surface report-kpi"><span>Richieste nel periodo</span><strong>{{ $summary['total'] }}</strong><small>{{ $lifetime['total'] }} richieste complessive · {{ $comparison['total'] }} nel periodo precedente</small></article>
-        <article class="surface report-kpi"><span>Spedizioni completate</span><strong>{{ $summary['delivered'] }}</strong><small>{{ $summary['completion_percent'] }}% delle richieste</small></article>
-        <article class="surface report-kpi"><span>In corso</span><strong>{{ $summary['in_progress'] }}</strong><small>Richieste ancora aperte</small></article>
-        <article class="surface report-kpi"><span>Annullate / rifiutate</span><strong>{{ $summary['cancelled'] }}</strong><small>Escluse dal valore delle spedizioni</small></article>
+        <x-ui.metric label="Richieste nel periodo" :value="$summary['total']" :note="$lifetime['total'].' richieste complessive · '.$comparison['total'].' nel periodo precedente'" />
+        <x-ui.metric label="Spedizioni completate" :value="$summary['delivered']" tone="positive" :note="$summary['completion_percent'].'% delle richieste'" />
+        <x-ui.metric label="In corso" :value="$summary['in_progress']" tone="attention" note="Richieste ancora aperte" />
+        <x-ui.metric label="Annullate / rifiutate" :value="$summary['cancelled']" note="Escluse dal valore delle spedizioni" />
     </section>
     <section class="customer-value-grid" aria-label="Valore per EA-Express">
         <article class="surface customer-value"><span class="eyebrow">VALORE SPEDIZIONI</span><strong>{{ \App\Support\Money::format($summary['shipping_spend_cents']) }}</strong><p>Tariffe finali nel periodo · {{ $summary['unpriced'] }} da verificare</p></article>

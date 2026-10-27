@@ -6,7 +6,7 @@ function applyTheme(theme) {
   });
   try { localStorage.setItem('ea:theme', theme); } catch { /* Preferenza valida per questa pagina. */ }
 }
-try { applyTheme(localStorage.getItem('ea:theme') || 'dark'); } catch { applyTheme('dark'); }
+try { applyTheme(localStorage.getItem('ea:theme') === 'dark' ? 'dark' : 'light'); } catch { applyTheme('light'); }
 document.addEventListener('click', event => {
   if (event.target.closest('[data-theme-toggle]')) applyTheme(document.documentElement.dataset.eaTheme === 'light' ? 'dark' : 'light');
 });

@@ -6,7 +6,6 @@ use App\Actions\TransitionOrder;
 use App\Models\Order;
 use App\Models\User;
 use App\OrderStatus;
-use App\Support\RiderTracking;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -33,10 +32,8 @@ class AdminOperationalAssignmentTest extends TestCase
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'rider_id' => $admin->id, 'assigned_by' => $admin->id, 'status' => 'accepted']);
         $this->assertDatabaseHas('economic_audits', ['entity_type' => 'orders', 'entity_id' => $order->id, 'action' => 'rider.assigned']);
         $this->patchJson('/orders/'.$order->slug, ['status' => 'rider_arriving', 'version' => 2])->assertOk();
-        $this->get('/orders/'.$order->slug)->assertDontSee('data-gps-start', false)->assertSee('Il percorso dell’ordine')->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
-        $session = $this->postJson('/orders/'.$order->slug.'/location/session')->assertOk()->json('session');
-        $this->putJson('/orders/'.$order->slug.'/location', ['session' => $session, 'latitude' => 40.85, 'longitude' => 14.26, 'accuracy' => 12, 'recorded_at' => now()->toIso8601String()])->assertOk();
-        $this->getJson('/orders/'.$order->slug.'/location')->assertJsonPath('state', 'live');
+        $this->get('/orders/'.$order->slug)->assertDontSee('data-gps-start', false)->assertSee('Il percorso dell’ordine')->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+        $this->postJson('/orders/'.$order->slug.'/location/session')->assertNotFound();
         foreach (['picked_up' => 3, 'in_transit' => 4, 'out_for_delivery' => 5, 'delivered' => 6] as $status => $version) {
             $this->patchJson('/orders/'.$order->slug, ['status' => $status, 'version' => $version])->assertOk();
         }
@@ -44,21 +41,20 @@ class AdminOperationalAssignmentTest extends TestCase
         $this->assertSame(OrderStatus::Delivered, $order->fresh()->status);
         $this->assertSame(UserRole::Admin, $admin->fresh()->role);
         $this->assertNull($order->fresh()->gps_session_id);
-        $this->assertNull(app(RiderTracking::class)->cache()->get('gps:'.$session));
         $this->assertDatabaseHas('order_events', ['order_id' => $order->id, 'user_id' => $admin->id, 'status' => 'delivered']);
     }
 
-    public function test_reassignment_to_self_stops_old_gps_and_admin_logout_stops_new_session(): void
+    public function test_reassignment_to_self_and_logout_work_without_geolocation(): void
     {
         $rider = User::factory()->create();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $order = Order::factory()->create(['status' => OrderStatus::OutForDelivery, 'rider_id' => $rider->id]);
-        $this->actingAs($rider)->postJson('/orders/'.$order->slug.'/location/session')->assertOk();
+        $this->actingAs($rider)->postJson('/orders/'.$order->slug.'/location/session')->assertNotFound();
 
         $this->actingAs($admin)->patchJson('/orders/'.$order->slug.'/rider', ['rider_id' => $admin->slug, 'version' => 1])->assertOk();
         $this->assertNull($order->fresh()->gps_session_id);
         $this->assertSame($admin->id, $order->fresh()->rider_id);
-        $this->postJson('/orders/'.$order->slug.'/location/session')->assertOk();
+        $this->postJson('/orders/'.$order->slug.'/location/session')->assertNotFound();
         $this->post('/logout')->assertRedirect();
         $this->assertNull($order->fresh()->gps_session_id);
     }

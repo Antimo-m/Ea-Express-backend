@@ -40,6 +40,13 @@ class RiderOperationsController extends Controller
         return response()->json($day)->header('Cache-Control', 'private, no-store');
     }
 
+    public function zoneOrders(Request $request, RiderOperations $operations): View
+    {
+        $request->validate(['zone' => ['required', 'string', 'max:255']]);
+
+        return $this->detail($request, $operations);
+    }
+
     public function detail(Request $request, RiderOperations $operations): View
     {
         $period = $this->period($request);
@@ -58,10 +65,17 @@ class RiderOperationsController extends Controller
         if ($request->boolean('unassigned')) {
             $query->whereNull('rider_id');
         }
-        $orders = $query->withDisplayIdentity()->with(['rider', 'scheduleEvents', 'events' => fn ($events) => $events->orderBy('id'), 'payments.user'])->orderBy('pickup_from')->orderBy('id')->paginate(20)->withQueryString();
+        if ($request->input('filter') === 'open') {
+            $query->where('status', '!=', OrderStatus::Delivered);
+        }
+        $orders = $query->withDisplayIdentity()->with(['rider', 'delayEvents', 'scheduleEvents', 'deliveryEvent', 'events' => fn ($events) => $events->orderBy('id')])->orderBy('pickup_from')->orderBy('id')->paginate(20)->withQueryString();
         $deadlines = $orders->getCollection()->mapWithKeys(fn ($order) => [$order->slug => app(DeliveryDeadline::class)->forOrder($order, $period->reference())]);
 
-        return view('rider-operations.orders', compact('orders', 'deadlines', 'period'));
+        $compact = $request->filled('rider') || $request->boolean('unassigned');
+        $backParameters = $request->only(['date', 'period', 'view', 'q', 'filter', 'sort', 'selected', 'scope', 'detail_page']);
+        $returnUrl = route('rider-operations.index', $backParameters);
+
+        return view($request->routeIs('rider-operations.zone-orders') ? 'rider-operations.zone-orders' : 'rider-operations.orders', compact('orders', 'deadlines', 'period', 'compact', 'returnUrl'));
     }
 
     public function show(Request $request, User $rider, RiderOperations $operations): View
@@ -74,9 +88,9 @@ class RiderOperationsController extends Controller
         $query = $operations->query($date, $rider->id, $zone, $period->end);
         $programmedCount = (clone $query)->count();
         $listQuery = $request->input('scope') === 'late' ? Order::whereIn('id', $operations->lateIds($period, $rider->id, $zone)) : clone $query;
-        $orders = $listQuery->withDisplayIdentity()->with(['rider', 'scheduleEvents', 'events' => fn ($events) => $events->with('user')->orderBy('id'), 'payments.user'])->orderBy('pickup_from')->orderBy('id')->paginate(10)->withQueryString();
+        $orders = $listQuery->withDisplayIdentity()->with(['rider', 'delayEvents', 'scheduleEvents', 'events' => fn ($events) => $events->with('user')->orderBy('id'), 'payments.user'])->orderBy('pickup_from')->orderBy('id')->paginate(10)->withQueryString();
         $activity = $operations->activity($orders->getCollection(), $rider->id);
-        $deliveries = $activity->filter(fn ($item) => $item['event']->status === OrderStatus::Delivered)->values();
+        $deliveries = $activity->filter(fn ($item) => $item['event']->status === OrderStatus::Delivered && $item['event']->delay_action === null)->values();
         $deliveredQuery = (clone $query)->where('status', OrderStatus::Delivered)->where('rider_id', $rider->id);
         $deliveredCount = (clone $deliveredQuery)->count();
         $payments = PaymentEntry::whereIn('order_id', (clone $deliveredQuery)->select('id'));

@@ -5,8 +5,6 @@ namespace Tests\Feature;
 use App\Models\Order;
 use App\Models\RiderGpsSample;
 use App\Models\User;
-use App\OrderStatus;
-use App\Support\RiderTracking;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -16,38 +14,21 @@ class RiderGpsHistoryTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_shared_gps_samples_remain_encrypted_and_throttled_without_daily_visualization(): void
+    public function test_removal_preserves_encrypted_historical_samples(): void
     {
-        $this->travelTo(now('Europe/Rome')->setDate(2026, 10, 2)->setTime(10, 0));
-        $rider = User::factory()->create();
+        $this->withoutVite();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $order = Order::factory()->create(['rider_id' => $rider->id, 'status' => OrderStatus::OutForDelivery]);
-        $tracking = app(RiderTracking::class);
-        $session = $tracking->start($order, $rider);
-        $send = function (float $latitude = 40.85) use ($tracking, $order, $rider, $session): void {
-            $tracking->update($order, $rider, ['session' => $session, 'latitude' => $latitude, 'longitude' => 14.26, 'accuracy' => 12, 'recorded_at' => now()->toIso8601String()]);
-        };
-        $send();
-        $this->travel(10)->seconds();
-        $send(40.86);
-        $this->assertDatabaseCount('rider_gps_samples', 1);
-        $this->travel(50)->seconds();
-        $send();
-        $this->assertDatabaseCount('rider_gps_samples', 1);
-        $this->travel(60)->seconds();
-        $send();
-        $this->assertDatabaseCount('rider_gps_samples', 2);
-        $this->travel(60)->seconds();
-        $send(40.86);
-        $this->assertDatabaseCount('rider_gps_samples', 3);
-        $this->assertSame(40.85, RiderGpsSample::first()->position['latitude']);
+        $order = Order::factory()->create(['rider_id' => $admin->id]);
+        $sample = RiderGpsSample::create(['rider_id' => $admin->id, 'order_id' => $order->id, 'position' => ['latitude' => 40.85, 'longitude' => 14.26], 'recorded_at' => now()->subDays(40), 'captured_at' => now()->subDays(40)]);
+
+        $this->actingAs($admin)->get('/dashboard')->assertDontSee('GPS');
+        $this->postJson('/orders/'.$order->slug.'/location/session')->assertNotFound();
+
+        $order->forceFill(['pickup_point' => ['latitude' => 40.85, 'longitude' => 14.26], 'delivery_point' => ['latitude' => 40.86, 'longitude' => 14.27]])->save();
+        $this->assertArrayNotHasKey('pickup_point', $order->fresh()->toArray());
+        $this->assertArrayNotHasKey('delivery_point', $order->fresh()->toArray());
+        $this->assertModelExists($sample);
+        $this->assertSame(40.85, $sample->fresh()->position['latitude']);
         $this->assertStringNotContainsString('latitude', DB::table('rider_gps_samples')->value('position'));
-        $this->actingAs($admin)->get('/rider-operations/'.$rider->slug.'?date=2026-10-02')->assertOk()->assertDontSee('data-rider-history-map', false)->assertDontSee('campioni GPS');
-        $this->get('/rider-operations/'.$rider->slug.'?date=2026-10-01')->assertOk()->assertDontSee('data-rider-history-map', false);
-        $this->actingAs($rider)->getJson('/rider-operations/'.$rider->slug)->assertForbidden();
-        $this->actingAs(User::factory()->create(['role' => UserRole::Customer]))->getJson('/rider-operations/'.$rider->slug)->assertForbidden();
-        RiderGpsSample::first()->update(['captured_at' => now()->subDays(31)]);
-        $this->artisan('tracking:prune-history')->assertSuccessful();
-        $this->assertDatabaseCount('rider_gps_samples', 2);
     }
 }

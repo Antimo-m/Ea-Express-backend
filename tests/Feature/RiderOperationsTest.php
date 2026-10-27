@@ -7,7 +7,6 @@ use App\Models\Order;
 use App\Models\PaymentEntry;
 use App\Models\User;
 use App\OrderStatus;
-use App\Support\RiderTracking;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -67,7 +66,7 @@ class RiderOperationsTest extends TestCase
     public function test_operational_zones_and_assignments_do_not_depend_on_gps_freshness(): void
     {
         $admin = $this->admin();
-        $sara = User::factory()->create(['name' => 'Sara']);
+        $sara = User::factory()->create(['name' => 'Destinatario Test A']);
         $marco = User::factory()->create(['name' => 'Marco']);
         $offline = User::factory()->create(['name' => 'Rider offline', 'is_active' => false]);
         $orders = collect();
@@ -75,8 +74,7 @@ class RiderOperationsTest extends TestCase
             $orders->push(Order::factory()->create(['pickup_date' => '2026-10-02', 'rider_id' => $rider->id, 'status' => OrderStatus::OutForDelivery, 'delivery_zone' => $index < 2 ? 'Zona nuova Pozzuoli' : 'Area Salerno']));
         }
         $order = $orders->first();
-        $session = $this->actingAs($sara)->postJson('/orders/'.$order->slug.'/location/session')->assertOk()->json('session');
-        $this->putJson('/orders/'.$order->slug.'/location', ['session' => $session, 'latitude' => 40.8518, 'longitude' => 14.2681, 'accuracy' => 12, 'recorded_at' => now()->toIso8601String()])->assertOk();
+        $this->actingAs($sara)->postJson('/orders/'.$order->slug.'/location/session')->assertNotFound();
         $feed = $this->actingAs($admin)->getJson('/rider-operations/feed')->assertOk()->assertJsonPath('today', true)->assertJsonMissingPath('locations');
         $zones = collect($feed->json('zones'))->keyBy('name');
         $this->assertSame(2, $zones['Zona nuova Pozzuoli']['active']);
@@ -87,7 +85,7 @@ class RiderOperationsTest extends TestCase
 
     public function test_history_places_rider_in_every_delivered_zone_and_ignores_current_zone_changes(): void
     {
-        $rider = User::factory()->create(['name' => 'Sara']);
+        $rider = User::factory()->create(['name' => 'Destinatario Test A']);
         $other = User::factory()->create();
         $first = $this->delivery($rider, 'Aversa');
         $this->delivery($rider, 'Aversa', '2026-10-01 11:30:00');
@@ -156,14 +154,11 @@ class RiderOperationsTest extends TestCase
 
     public function test_daily_operations_do_not_read_the_shared_gps_cache(): void
     {
-        config(['tracking.cache_store' => 'database']);
+        config(['cache.default' => 'database']);
         $admin = $this->admin();
-        $tracking = app(RiderTracking::class);
         for ($index = 0; $index < 12; $index++) {
             $rider = User::factory()->create();
             $order = Order::factory()->create(['pickup_date' => '2026-10-02', 'rider_id' => $rider->id, 'status' => OrderStatus::OutForDelivery, 'delivery_zone' => 'Zona '.$index]);
-            $session = $tracking->start($order, $rider);
-            $tracking->update($order, $rider, ['session' => $session, 'latitude' => 40.85, 'longitude' => 14.26, 'accuracy' => 12, 'recorded_at' => now()->toIso8601String()]);
         }
         $this->actingAs($admin);
         DB::enableQueryLog();

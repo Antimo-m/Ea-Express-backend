@@ -74,7 +74,7 @@ class ExpenseController extends Controller
         return $request->expectsJson() ? response()->json(['message' => 'Spesa aggiornata.', 'redirect' => route('balance.index')]) : redirect()->route('balance.index')->with('status', 'Spesa aggiornata.');
     }
 
-    public function destroy(Request $request, Expense $expense): RedirectResponse
+    public function destroy(Request $request, Expense $expense): RedirectResponse|JsonResponse
     {
         $expense = Expense::visibleTo($request->user())->findOrFail($expense->id);
         abort_if($expense->pending_settlement_id !== null, 409, 'Questa spesa è un saldo tracciato nei Sospesi e non può essere annullata separatamente.');
@@ -91,6 +91,8 @@ class ExpenseController extends Controller
             app(RecordEconomicAudit::class)->handle($request->user(), $locked, 'expense.voided', $before, $locked->toArray());
         }, 3);
 
-        return redirect()->route('balance.index')->with('status', 'Spesa annullata. La registrazione rimane nello storico.');
+        return $request->expectsJson()
+            ? response()->json(['message' => 'Spesa annullata. La registrazione rimane nello storico.', 'redirect' => route('balance.index')])
+            : redirect()->route('balance.index')->with('status', 'Spesa annullata. La registrazione rimane nello storico.');
     }
 }

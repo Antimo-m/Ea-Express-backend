@@ -11,6 +11,6 @@
                 @endif
             @endforeach
         </nav>
-        <div class="sidebar-foot"><span class="area-dot"></span> Al fianco della Campania<span class="d-block mt-1">EA-Express · Il tuo spazio operativo</span></div>
+        <div class="sidebar-foot">EA-EXPRESS / CAMPANIA<span class="d-block mt-1">{{ auth()->user()->role->label() }} · Spazio operativo</span></div>
     </div>
 </aside>

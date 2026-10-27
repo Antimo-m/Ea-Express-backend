@@ -22,10 +22,10 @@ class OperationalSurfaceTest extends TestCase
         $order = Order::factory()->create(['rider_id' => $admin->id, 'status' => OrderStatus::OutForDelivery]);
         $this->actingAs($admin)->get('/tracking')->assertNotFound();
         $this->get('/stores')->assertNotFound();
-        $this->get('/dashboard')->assertOk()->assertSee('data-tracking-panel', false)->assertDontSee('Mappa live')->assertDontSee('Statistiche clienti');
+        $this->get('/dashboard')->assertOk()->assertDontSee('data-tracking-panel', false)->assertDontSee('Mappa live')->assertDontSee('Statistiche clienti');
         $this->get('/rider-operations')->assertOk()->assertDontSee('data-operational-map', false);
-        $this->getJson('/tracking/positions')->assertOk()->assertJsonStructure(['data']);
-        $this->getJson('/orders/'.$order->slug.'/location')->assertOk()->assertJsonPath('order_slug', $order->slug);
+        $this->getJson('/tracking/positions')->assertNotFound();
+        $this->getJson('/orders/'.$order->slug.'/location')->assertNotFound();
     }
 
     public function test_customer_profile_combines_scoped_statistics_receipts_tariffs_and_all_order_states(): void
@@ -57,7 +57,7 @@ class OperationalSurfaceTest extends TestCase
     public function test_customer_directory_includes_accounts_without_orders_and_is_paginated(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $customer = User::factory()->create(['role' => UserRole::Customer, 'name' => 'Centro Distribuzione Elettrodomestici Napoli Nord']);
+        $customer = User::factory()->create(['role' => UserRole::Customer, 'name' => 'Azienda Test Distribuzione Metropolitana']);
         $this->actingAs($admin)->get('/customers?q=Distribuzione')->assertOk()->assertViewHas('customers', fn ($customers) => $customers->total() === 1 && $customers->first()->orders_count === 0)->assertSee('/customers/'.$customer->slug, false);
         User::factory()->count(21)->create(['role' => UserRole::Customer]);
         $this->get('/customers')->assertOk()->assertViewHas('customers', fn ($customers) => $customers->count() === 20 && $customers->total() === 22);
@@ -69,7 +69,7 @@ class OperationalSurfaceTest extends TestCase
         $this->actingAs($admin);
         foreach ([0, 1, 5, 20, 100] as $volume) {
             $existing = Order::where('status', OrderStatus::Received)->count();
-            Order::factory()->count($volume - $existing)->create(['created_by' => $admin->id, 'status' => OrderStatus::Received, 'store_name' => 'Centro Distribuzione Elettrodomestici Napoli Nord', 'recipient_name' => 'Pierluigi Francesco Di Stefano', 'delivery_city' => 'Giugliano in Campania']);
+            Order::factory()->count($volume - $existing)->create(['created_by' => $admin->id, 'status' => OrderStatus::Received, 'store_name' => 'Azienda Test Distribuzione Metropolitana', 'recipient_name' => 'Destinatario Test Nominativo Esteso', 'delivery_city' => 'Giugliano in Campania']);
             DB::flushQueryLog();
             DB::enableQueryLog();
             $response = $this->get('/orders/incoming')->assertOk()->assertViewHas('orders', fn ($orders) => $orders->total() === $volume && $orders->count() === min(20, $volume));

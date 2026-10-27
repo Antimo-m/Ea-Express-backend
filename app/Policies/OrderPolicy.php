@@ -19,4 +19,16 @@ class OrderPolicy
     {
         return $user->is_active && ($user->role === UserRole::Admin || ($user->role === UserRole::Rider && $user->email_verified_at && $order->rider_id === $user->id && ! in_array($order->status, [OrderStatus::Received, OrderStatus::Rejected], true)));
     }
+
+    public function reportDelay(User $user, Order $order): bool
+    {
+        return $user->is_active && $user->isStaff() && $user->email_verified_at !== null
+            && $order->rider_id === $user->id
+            && ! in_array($order->status->value, [...OrderStatus::closed(), OrderStatus::Received->value], true);
+    }
+
+    public function correctDelay(User $user, Order $order): bool
+    {
+        return $user->is_active && $user->role === UserRole::Admin;
+    }
 }

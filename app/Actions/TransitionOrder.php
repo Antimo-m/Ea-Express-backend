@@ -11,7 +11,6 @@ use App\Support\OperationalAssignees;
 use App\Support\OrderPrice;
 use App\Support\RecipientRisk;
 use App\Support\RiderOperations;
-use App\Support\RiderTracking;
 use App\UserRole;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -104,9 +103,6 @@ class TransitionOrder
                 app(RecipientRisk::class)->record($locked, $user);
             }
             $locked->status = $next;
-            if (! app(RiderTracking::class)->eligible($locked)) {
-                app(RiderTracking::class)->stop($locked);
-            }
             $locked->version++;
             $locked->save();
             $locked->events()->create(['rider_id' => $locked->rider_id, 'operational_zone' => app(RiderOperations::class)->zone($locked), 'user_id' => $user->id, 'status' => $next, 'note' => $data['note'] ?? null, 'public_note' => $data['public_note'] ?? null, 'schedule_change' => $next === OrderStatus::Rescheduled ? ['before' => ['estimated_at' => $previousEstimate, 'deadline_at' => $previousDeadline], 'after' => ['estimated_at' => $locked->estimated_at->toIso8601String()]] : null]);

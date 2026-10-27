@@ -69,6 +69,32 @@ class PaymentIntegrityTest extends TestCase
         $this->assertSame(400, $order->fresh()->carrier_cost_cents);
     }
 
+    public function test_reversing_historical_external_receipts_preserves_mixed_and_null_allocations(): void
+    {
+        $this->freezeTime();
+        $order = $this->order(['paid_at' => now()]);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        foreach ([[400, null], [600, 200]] as [$amount, $retained]) {
+            $entry = new PaymentEntry;
+            $entry->order_id = $order->id;
+            $entry->user_id = $admin->id;
+            $entry->amount_cents = $amount;
+            $entry->ea_amount_cents = $retained;
+            $entry->method = 'cash';
+            $entry->note = 'Incasso storico';
+            $entry->save();
+        }
+        $this->actingAs($admin)->get('/balance')->assertViewHas('cash', 1000)
+            ->assertViewHas('receiptEconomics', ['gross' => 1000, 'retained' => 600, 'carrier' => 400, 'unallocated' => 1]);
+
+        $this->postJson(route('payments.store', $order), ['action' => 'reverse', 'version' => 1, 'note' => 'Rimborso degli incassi storici'])->assertOk();
+
+        $this->get('/balance')->assertViewHas('cash', 0)->assertViewHas('reversalTotal', 1000)
+            ->assertViewHas('receiptEconomics', ['gross' => 0, 'retained' => 0, 'carrier' => 0, 'unallocated' => 1]);
+        $this->assertSame(-600, PaymentEntry::latest('id')->first()->ea_amount_cents);
+        $this->assertDatabaseCount('payment_entries', 3);
+    }
+
     public function test_partial_payments_remain_supported_in_pending_accounts_and_only_the_full_total_marks_paid(): void
     {
         $order = $this->order();

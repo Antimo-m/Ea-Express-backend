@@ -1,30 +1,112 @@
+@font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url('../../public/ibm-plex-mono-400.woff2') format('woff2'); }
+@font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 500; font-display: swap; src: url('../../public/ibm-plex-mono-500.woff2') format('woff2'); }
+@font-face { font-family: 'Source Sans 3'; font-style: normal; font-weight: 200 900; font-display: swap; src: url('../../public/source-sans-3-variable.woff2') format('woff2'); }
+@font-face { font-family: 'Space Grotesk'; font-style: normal; font-weight: 400 700; font-display: swap; src: url('../../public/space-grotesk-400-500-600-700.woff2') format('woff2'); }
+
+/* EA-EXPRESS — shared semantic contract for Blade and React. */
 :root {
-  --ea-font: 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
-  --ea-brand: #b64012;
-  --ea-brand-hover: #92320d;
-  --ea-orange: #f2a560;
-  --ea-orange-soft: #fff1e8;
-  --ea-ink: #203f54;
-  --ea-muted: #526273;
-  --ea-line: #dfe5eb;
-  --ea-bg: #f3f5f7;
+  --ea-graphite: #141a20;
+  --ea-steel: #354653;
+  --ea-canvas: #f6f8f7;
+  --ea-signal: #e6a23d;
+  --ea-operational: #25856b;
+  --ea-critical: #c4514c;
+  --ea-font: 'Source Sans 3', 'Segoe UI', sans-serif;
+  --ea-font-display: 'Space Grotesk', 'Segoe UI', sans-serif;
+  --ea-font-mono: 'IBM Plex Mono', Consolas, monospace;
+  --ea-brand: #80500b;
+  --ea-brand-hover: #623c07;
+  --ea-orange: var(--ea-signal);
+  --ea-orange-soft: #f8e9ce;
+  --ea-ink: var(--ea-graphite);
+  --ea-muted: #4b5a62;
+  --ea-line: #d9e2df;
+  --ea-control-border: #7d918a;
+  --ea-bg: var(--ea-canvas);
   --ea-surface: #ffffff;
-  --ea-surface-muted: #f8fafb;
-  --ea-success: #147451;
-  --ea-warning: #8c560c;
-  --ea-danger: #b42318;
-  --ea-info: #225ea8;
+  --ea-surface-muted: #f1f6f3;
+  --ea-popup: #ffffff;
+  --ea-success: #19664f;
+  --ea-warning: #80500b;
+  --ea-danger: #a03532;
+  --ea-info: #255774;
+  --ea-focus: #255ca0;
+  --ea-on-color: #fff;
+  --ea-shell-bg: var(--ea-graphite);
+  --ea-shell-ink: var(--ea-canvas);
+  --ea-shell-muted: #b9c5cc;
+  --ea-shell-line: #52616b;
+  --ea-shell-active: var(--ea-steel);
+  --ea-text-xs: .8125rem;
+  --ea-text-sm: .875rem;
+  --ea-text-base: 1rem;
+  --ea-text-lg: 1.125rem;
+  --ea-text-heading: clamp(1.75rem, 2.8vw, 2.4rem);
+  --ea-leading-body: 1.55;
+  --ea-leading-label: 1.35;
+  --ea-leading-heading: 1.2;
+  --ea-weight-body: 400;
+  --ea-weight-label: 600;
+  --ea-weight-heading: 600;
+  --ea-tracking-body: .005em;
+  --ea-tracking-heading: -.025em;
   --ea-space-1: 4px;
   --ea-space-2: 8px;
   --ea-space-3: 12px;
   --ea-space-4: 16px;
   --ea-space-5: 24px;
   --ea-space-6: 32px;
-  --ea-radius-control: 12px;
-  --ea-radius-card: 20px;
-  --ea-radius-modal: 24px;
-  --ea-shadow: 0 2px 6px #182b3a05;
-  --ea-shadow-dialog: 0 24px 80px #13263833;
-  --ea-transition: 140ms ease;
-  --ea-focus: #225ea8;
+  --ea-radius-control: 16px;
+  --ea-radius-field: 18px;
+  --ea-radius-button: 9999px;
+  --ea-radius-circle: 50%;
+  --ea-radius-card: 26px;
+  --ea-radius-panel: 32px;
+  --ea-radius-menu: 22px;
+  --ea-radius-modal: 30px;
+  --ea-shadow: 0 3px 16px #153b2c04;
+  --ea-hover: #f1f7f4;
+  --ea-selected: #e8f3ec;
+  --ea-shadow-dialog: 0 16px 48px #141a2033;
+  --ea-transition: 120ms ease;
+  --ea-layer-menu: 1040;
+  --ea-layer-popup: 1200;
+  --ea-layer-tooltip: 1300;
+  color-scheme: light;
+}
+:root[data-ea-theme=dark] {
+  --ea-brand: #efbb6c;
+  --ea-brand-hover: #f8ce8f;
+  --ea-orange-soft: #3b3020;
+  --ea-ink: #f1f2ee;
+  --ea-muted: #b7c3c9;
+  --ea-line: #425563;
+  --ea-control-border: #84949e;
+  --ea-bg: #111b24;
+  --ea-surface: #1b2834;
+  --ea-surface-muted: #233542;
+  --ea-popup: #1b2834;
+  --ea-success: #79cbb1;
+  --ea-warning: #efbb6c;
+  --ea-danger: #f18e86;
+  --ea-info: #9ac9e2;
+  --ea-focus: #efbb6c;
+  --ea-on-color: #141a20;
+  --ea-shadow-dialog: 0 16px 48px #0008;
+  --ea-hover: #233542;
+  --ea-selected: #293e3b;
+  color-scheme: dark;
+}
+@media print {
+  :root, :root[data-ea-theme] {
+    --ea-ink: #111;
+    --ea-muted: #444;
+    --ea-bg: #fff;
+    --ea-surface: #fff;
+    --ea-surface-muted: #fff;
+    --ea-line: #bbb;
+    --ea-info: #222;
+    --ea-on-color: #fff;
+    color-scheme: light;
+  }
 }

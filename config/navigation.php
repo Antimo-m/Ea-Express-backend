@@ -3,7 +3,7 @@
 return [
     'Operatività' => [
         ['label' => 'Dashboard', 'route' => 'dashboard', 'icon' => 'grid-1x2'],
-        ['label' => 'Ritiri raggruppati', 'route' => 'pickups.index', 'icon' => 'calendar2-week'],
+        ['label' => 'Agenda ritiri', 'route' => 'pickups.index', 'active' => 'pickups.*', 'icon' => 'calendar2-week'],
         ['label' => 'Ordini in entrata', 'route' => 'orders.incoming', 'icon' => 'inbox', 'admin' => true],
         ['label' => 'Spedizioni in corso', 'route' => 'orders.in-progress', 'icon' => 'truck'],
         ['label' => 'Storico ordini', 'route' => 'orders.history', 'icon' => 'clock-history'],

@@ -1,6 +1,5 @@
 <?php
 
-use App\Support\RiderTracking;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -21,7 +20,3 @@ if (config('backup.enabled')) {
     Schedule::command($local ? 'database:backup-verify --local' : 'database:backup-verify')->weeklyOn(0, '04:00')->timezone('Europe/Rome')->withoutOverlapping(120);
     Schedule::command($local ? 'database:backup --check --local-only' : 'database:backup --check')->dailyAt('06:00')->timezone('Europe/Rome')->withoutOverlapping();
 }
-
-Schedule::call(fn () => app(RiderTracking::class)->expireInactive())->name('tracking-expire')->everyFiveMinutes()->withoutOverlapping();
-
-Schedule::command('tracking:prune-history')->dailyAt('03:30')->timezone('Europe/Rome')->withoutOverlapping();

@@ -24,13 +24,13 @@ class CustomerOrderResource extends JsonResource
             'price_proposals' => $this->whenLoaded('priceProposals', fn () => $this->priceProposals->map(fn ($p) => ['slug' => $p->slug, 'price_cents' => $p->price_cents, 'previous_price_cents' => $p->previous_price_cents, 'reason' => $p->reason, 'state' => $p->state, 'created_at' => $p->created_at->toIso8601String(), 'responded_at' => $p->responded_at?->toIso8601String()])),
             'delivery_window' => $this->delivery_window, 'parcel_count' => $this->parcel_count, 'packages' => $this->packages, 'category' => $this->category, 'content_description' => $this->content_description, 'category_label' => OrderContent::label($this->category, $this->content_description), 'urgency' => $this->urgency, 'customer_notes' => $this->customer_notes,
             'delivery_zone' => $this->delivery_zone, 'total_cents' => $this->resource->totalCents(),
-            'receipt' => $this->resource->receiptData(),
+            'receipt' => $this->resource->receiptData(), 'delay' => $this->resource->delayData(),
             'price_cents' => $this->price_cents, 'tracking_active' => $this->tracking_started_at !== null, 'estimated_at' => $this->estimated_at?->toIso8601String(),
             'delivered_at' => $this->delivered_at?->toIso8601String(), 'created_at' => $this->created_at->toIso8601String(),
             'messages_count' => $this->whenCounted('messages'), 'unread_messages_count' => $this->whenCounted('unread_messages'),
             'can_edit' => $this->resource->customerEditable(), 'can_cancel' => $this->resource->customerEditable(),
             'rider' => $this->whenLoaded('rider', fn () => $this->rider ? ['slug' => $this->rider->slug, 'name' => $this->rider->name] : null),
-            'events' => $this->whenLoaded('events', fn () => $this->events->map(fn ($event) => ['slug' => $event->slug, 'status' => $event->status->value, 'label' => isset($event->schedule_change['after']['pickup_date']) ? ($event->schedule_change['before'] ? 'Ritiro ripianificato' : 'Ritiro pianificato') : $event->status->label(), 'schedule_change' => $event->schedule_change, 'message' => $event->public_note, 'created_at' => $event->created_at->toIso8601String()])),
+            'events' => $this->whenLoaded('events', fn () => $this->events->map(fn ($event) => ['slug' => $event->slug, 'status' => $event->status->value, 'label' => $event->label(), 'delay_action' => $event->delay_action, 'schedule_change' => $event->schedule_change, 'message' => $event->public_note, 'created_at' => $event->created_at->toIso8601String()])),
         ];
     }
 }

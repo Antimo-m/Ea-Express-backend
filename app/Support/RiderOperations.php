@@ -22,7 +22,7 @@ class RiderOperations
     {
         return Order::query()
             ->when($riderId, fn ($query) => $query->where(fn ($assignment) => $assignment->where('rider_id', $riderId)->orWhereHas('events', fn ($events) => $events->where('rider_id', $riderId))->orWhereIn('id', EconomicAudit::where('entity_type', 'orders')->where('action', 'rider.assigned')->where(fn ($audit) => $audit->where('before->rider_id', $riderId)->orWhere('after->rider_id', $riderId))->select('entity_id'))))
-            ->when($zone, fn ($query) => $query->where(fn ($zones) => $zones->whereHas('events', fn ($events) => $events->where('status', OrderStatus::Delivered)->where('operational_zone', $zone))->orWhere(fn ($current) => $current->whereDoesntHave('events', fn ($events) => $events->where('status', OrderStatus::Delivered)->whereNotNull('operational_zone'))->whereRaw("COALESCE(NULLIF(TRIM(delivery_zone), ''), NULLIF(TRIM(delivery_city), ''), 'Zona non specificata') = ?", [$zone]))));
+            ->when($zone, fn ($query) => $query->where(fn ($zones) => $zones->whereHas('events', fn ($events) => $events->whereNull('delay_action')->where('status', OrderStatus::Delivered)->where('operational_zone', $zone))->orWhere(fn ($current) => $current->whereDoesntHave('events', fn ($events) => $events->whereNull('delay_action')->where('status', OrderStatus::Delivered)->whereNotNull('operational_zone'))->whereRaw("COALESCE(NULLIF(TRIM(delivery_zone), ''), NULLIF(TRIM(delivery_city), ''), 'Zona non specificata') = ?", [$zone]))));
     }
 
     /** @return array<string, mixed> */
@@ -43,7 +43,7 @@ class RiderOperations
         $summary['riders'] = $all->pluck('rider_id')->filter()->unique()->count();
         $summary['zones'] = $zones->count();
         $summary['unassigned'] = $orders->whereNull('rider_id')->whereNotIn('status', [OrderStatus::Delivered, OrderStatus::Rejected, OrderStatus::Cancelled])->count();
-        $summary['missing_deadlines'] = $this->assignedQuery($selectedRiderId, $zone)->whereNotIn('status', OrderStatus::closed())->where('created_at', '<=', $reference->copy()->utc())->whereNull('estimated_at')->whereNull('estimated_delivery_to')->whereDoesntHave('scheduleEvents')->count() + count($missingIds);
+        $summary['missing_deadlines'] = $this->assignedQuery($selectedRiderId, $zone)->whereNotIn('status', OrderStatus::closed())->where('created_at', '<=', $reference->copy()->utc())->whereNull('estimated_at')->whereNull('estimated_delivery_to')->whereDoesntHave('scheduleEvents', fn ($events) => $events->where(fn ($schedule) => $schedule->whereNotNull('schedule_change->after->deadline_at')->orWhereNotNull('schedule_change->after->estimated_at')))->count();
         $summary['history_unknown'] = $all->filter(fn ($order) => ! app(DeliveryDeadline::class)->forOrder($order, $reference)['history_complete'])->count();
         $moved = OrderEvent::query()->where('schedule_change->before->pickup_date', '>=', $date->toDateString())->where('schedule_change->before->pickup_date', '<=', $period->end->toDateString())->with(['user:id,slug,name', 'order:id,slug,reference'])->orderByDesc('id')->limit(20)->get();
         $scheduleHistory = $moved->map(fn ($event) => ['reference' => $event->order?->reference, 'url' => $event->order ? route('orders.show', $event->order) : null, 'before' => $event->schedule_change['before'], 'after' => $event->schedule_change['after'], 'at' => $event->created_at->toIso8601String(), 'operator' => $event->user?->name, 'reason' => $event->note])->all();
@@ -57,7 +57,7 @@ class RiderOperations
         $reference = $period->reference();
         $query = $this->assignedQuery($riderId, $zone)
             ->where('created_at', '<=', $reference->copy()->utc())
-            ->where(fn ($query) => $query->where('estimated_at', '<', $reference->copy()->utc())->orWhere('estimated_delivery_to', '<', $reference->copy()->timezone('Europe/Rome')->toDateString())->orWhereHas('scheduleEvents'));
+            ->where(fn ($query) => $query->where('delay_reported_at', '<=', $reference->copy()->utc())->orWhereHas('delayEvents', fn ($events) => $events->where('delay_action', 'reported')->where('created_at', '<=', $reference->copy()->utc())));
         if ($reference->isSameDay(now('Europe/Rome'))) {
             $query->whereNotIn('status', OrderStatus::closed());
         }
@@ -80,9 +80,9 @@ class RiderOperations
 
     private function metadata(Builder $query, Carbon $reference): Builder
     {
-        return $query->select(['id', 'slug', 'reference', 'rider_id', 'status', 'delivery_zone', 'delivery_city', 'pickup_date', 'delivered_at', 'estimated_at', 'estimated_delivery_to', 'price_cents', 'shipping_type', 'assigned_at', 'created_at', 'updated_at'])
+        return $query->select(['id', 'slug', 'reference', 'rider_id', 'status', 'delivery_zone', 'delivery_city', 'pickup_date', 'delivered_at', 'estimated_at', 'estimated_delivery_to', 'delay_reported_at', 'price_cents', 'shipping_type', 'assigned_at', 'created_at', 'updated_at'])
             ->withSum('payments as cash_cents', 'amount_cents')->withSum('payments as retained_cents', DB::raw('COALESCE(ea_amount_cents, amount_cents)'))
-            ->with(['rider:id,slug,name', 'scheduleEvents', 'deliveryEvent', 'events' => fn ($events) => $events->where('created_at', '<=', $reference->copy()->utc())->latest('created_at')->orderByDesc('id')->limit(1)]);
+            ->with(['rider:id,slug,name', 'delayEvents', 'scheduleEvents', 'deliveryEvent', 'events' => fn ($events) => $events->where('created_at', '<=', $reference->copy()->utc())->latest('created_at')->orderByDesc('id')->limit(1)]);
     }
 
     /** @return array<string, int> */

@@ -6,9 +6,19 @@ use App\Models\User;
 use App\Support\StaffAuthentication;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Foundation\Vite;
 
 abstract class TestCase extends BaseTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        if ($directory = getenv('EA_UI_FIXTURE_DIR')) {
+            $this->app->make(Vite::class)->useHotFile($directory.'/vite.hot');
+        }
+    }
+
     public function actingAs(Authenticatable $user, $guard = null): static
     {
         parent::actingAs($user, $guard);

@@ -18,7 +18,7 @@ class ShippingQuoteSecurityTest extends TestCase
     {
         return [
             'sender_type' => 'private', 'shipping_type' => 'external', 'delivery_province' => 'TO', 'delivery_region' => 'Piemonte',
-            'weight_kg' => '1', 'max_dimension_cm' => '10', 'parcel_value' => '0', 'recipient_name' => 'Destinatario', 'recipient_phone' => '+390811234567',
+            'weight_kg' => '1', 'max_dimension_cm' => '10', 'parcel_value' => '0', 'recipient_name' => 'Destinatario', 'recipient_phone' => '+390000000000',
             'pickup_address' => 'Via Roma', 'pickup_city' => 'Aversa', 'pickup_street_number' => '1', 'pickup_postal_code' => '81031',
             'delivery_address' => 'Via Roma', 'delivery_city' => 'Torino', 'delivery_street_number' => '2', 'delivery_postal_code' => '10121',
             'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1,

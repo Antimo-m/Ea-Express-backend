@@ -8,6 +8,7 @@ use App\Models\Order;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -17,7 +18,11 @@ class MessageController extends Controller
 {
     public function index(Request $request): View
     {
-        return view('messages.index', ['orders' => Order::visibleTo($request->user())->whereHas('messages')->withDisplayIdentity()->with('latestMessage')->withMax('messages', 'created_at')->withCount(['messages as unread_count' => fn ($q) => $q->whereNull('user_id')->whereNull('read_at')])->orderByDesc('messages_max_created_at')->orderByDesc('id')->paginate(15)]);
+        $orders = $this->conversations($request);
+        $order = $orders->first();
+        $messages = $order?->messages()->with('user')->latest()->orderByDesc('id')->paginate(30);
+
+        return view('messages.index', compact('orders', 'order', 'messages'));
     }
 
     public function show(Request $request, Order $order): View|JsonResponse
@@ -29,7 +34,15 @@ class MessageController extends Controller
             return response()->json(['data' => $messages->getCollection()->map(fn ($message) => $message->conversationData()), 'meta' => ['current_page' => $messages->currentPage(), 'last_page' => $messages->lastPage()]]);
         }
 
-        return view('messages.show', ['order' => $order, 'messages' => $messages]);
+        return view('messages.show', ['order' => $order, 'messages' => $messages, 'orders' => $this->conversations($request)]);
+    }
+
+    /** @return LengthAwarePaginator<int, Order> */
+    private function conversations(Request $request): LengthAwarePaginator
+    {
+        return Order::visibleTo($request->user())->whereHas('messages')->withDisplayIdentity()->with('latestMessage')
+            ->withMax('messages', 'created_at')->withCount(['messages as unread_count' => fn ($query) => $query->whereNull('user_id')->whereNull('read_at')])
+            ->orderByDesc('messages_max_created_at')->orderByDesc('id')->paginate(15, ['*'], 'conversations_page')->withQueryString();
     }
 
     public function store(Request $request, Order $order, NotifyOrderParticipants $notify): RedirectResponse|JsonResponse

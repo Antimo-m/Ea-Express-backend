@@ -63,7 +63,7 @@ class OperationalFlowTest extends TestCase
 
     private function bookingData(): array
     {
-        return ['store_name' => 'Mittente prova', 'recipient_name' => 'Destinatario prova', 'recipient_phone' => '+393331234567', 'pickup_address' => 'Via Roma', 'pickup_street_number' => '10', 'pickup_postal_code' => '80121', 'pickup_city' => 'Napoli', 'delivery_address' => 'Via Roma', 'delivery_street_number' => '20', 'delivery_postal_code' => '81100', 'delivery_city' => 'Caserta', 'pickup_date' => now('Europe/Rome')->addDays(2)->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'parcel_value' => '25.00', 'package_type' => 'standard', 'category' => 'clothing', 'urgency' => 'standard'];
+        return ['store_name' => 'Mittente prova', 'recipient_name' => 'Destinatario prova', 'recipient_phone' => '+390000000000', 'pickup_address' => 'Via Roma', 'pickup_street_number' => '10', 'pickup_postal_code' => '80121', 'pickup_city' => 'Napoli', 'delivery_address' => 'Via Roma', 'delivery_street_number' => '20', 'delivery_postal_code' => '81100', 'delivery_city' => 'Caserta', 'pickup_date' => now('Europe/Rome')->addDays(2)->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'parcel_value' => '25.00', 'package_type' => 'standard', 'category' => 'clothing', 'urgency' => 'standard'];
     }
 
     #[DataProvider('senderTypes')]

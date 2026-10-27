@@ -2,10 +2,10 @@
     <header class="page-heading"><div><span class="eyebrow">LA TUA ATTIVITÀ, IN NUMERI</span><h1>Resoconti</h1><p>{{ $period->start->locale('it')->translatedFormat('F Y') }} · {{ auth()->user()->role === \App\UserRole::Admin ? 'Tutta l’attività' : 'Le richieste create, rifiutate o assegnate a te' }}</p></div><x-ui.status-badge class="status-pill tone-blue"><x-ui.icon name="calendar3" /> Vista mensile</x-ui.status-badge></header>
     <x-ui.filters layout="date" compact accent="orange" :reset="route('reports.index')"><x-ui.field name="month" label="Mese" type="month" size="small" :value="$period->start->format('Y-m')" required /></x-ui.filters>
     <section class="report-kpis" aria-label="Indicatori mensili">
-        <article class="surface report-kpi"><span>Richieste ricevute <x-ui.icon name="inbox" /></span><strong>{{ $received }}</strong><small>{{ $growth === null ? 'Nessuna base di confronto' : ($growth > 0 ? '+' : '').number_format($growth, 1, ',', '.').'%' }} · mese precedente intero: {{ $previous }}</small></article>
-        <article class="surface report-kpi"><span>Consegne completate <x-ui.icon name="truck" /></span><strong>{{ $delivered }}</strong><small>In base alla data effettiva di consegna</small></article>
-        <article class="surface report-kpi"><span>Incassi clienti <x-ui.icon name="cash-coin" /></span><strong>{{ \App\Support\Money::format($cash) }}</strong><small>Inclusi sospesi, al netto degli storni</small></article>
-        <article class="surface report-kpi"><span>Saldo di cassa operativo <x-ui.icon name="wallet2" /></span><strong>{{ \App\Support\Money::format($operatingNet) }}</strong><small>Incassi − quote vettori − spese + saldo movimenti amministrativi</small></article>
+        <x-ui.metric label="Richieste ricevute" :value="$received" icon="inbox" :note="($growth === null ? 'Nessuna base di confronto' : ($growth > 0 ? '+' : '').number_format($growth, 1, ',', '.').'%').' · mese precedente intero: '.$previous" />
+        <x-ui.metric label="Consegne completate" :value="$delivered" icon="truck" note="In base alla data effettiva di consegna" />
+        <x-ui.metric label="Incassi clienti" :value="\App\Support\Money::format($cash)" icon="cash-coin" tone="positive" note="Inclusi i pagamenti dei sospesi, al netto degli storni" />
+        <x-ui.metric label="Saldo di cassa operativo" :value="\App\Support\Money::format($operatingNet)" icon="wallet2" :tone="$operatingNet < 0 ? 'negative' : 'attention'" note="Incassi − quote vettori − spese + saldo movimenti amministrativi" />
     </section>
     <p class="small text-secondary">Richieste regionali: {{ $shippingCounts['regional'] ?? 0 }} · Fuori regione: {{ $shippingCounts['external'] ?? 0 }}</p><div class="report-chart-grid">
         <x-reports.trend id="orders-trend" title="Andamento delle richieste" description="Richieste create ogni giorno del mese, in ora italiana." :points="$trend" />
@@ -22,7 +22,7 @@
         <section class="surface workspace-section"><header class="section-heading"><div><span class="eyebrow">RETE DI CONSEGNA</span><h2>Zone più richieste</h2></div><x-ui.icon name="geo-alt" /></header>
             @forelse($zones as $zone)<div class="distribution-row"><div><span>{{ $zone->delivery_city }}</span><strong>{{ $zone->total }}</strong></div><meter min="0" max="{{ max($received,1) }}" value="{{ $zone->total }}" aria-label="{{ $zone->delivery_city }}: {{ $zone->total }} richieste"></meter></div>@empty<p class="empty-note">Nessuna destinazione nel mese.</p>@endforelse
         </section>
-        <section class="surface workspace-section"><header class="section-heading"><div><span class="eyebrow">ACCOUNT CLIENTI</span><h2>Clienti più attivi</h2></div><x-ui.icon name="people" /></header><p class="small text-secondary">Richieste create nel mese, raggruppate per ID account.</p>
+        <section class="surface workspace-section"><header class="section-heading"><div><span class="eyebrow">ACCOUNT CLIENTI</span><h2>Clienti più attivi</h2></div><x-ui.icon name="people" /></header><p class="small text-secondary">Richieste create nel mese, raggruppate per account cliente.</p>
             @forelse($topCustomers as $customer)<a class="rank-row" href="{{ route('customers.show',['customer'=>$customer->customer?->slug,'period'=>'custom','from'=>$period->start->toDateString(),'to'=>$period->end->toDateString()]) }}"><span class="rank-number">{{ $loop->iteration }}</span><span>{{ $customer->customer?->name ?? 'Account non disponibile' }}</span><strong>{{ $customer->shipments }}</strong><x-ui.icon name="arrow-up-right" /></a>@empty<p class="empty-note">Nessun account cliente con richieste nel mese.</p>@endforelse
         </section>
     </div>
