@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Support\CustomerIdentity;
 use App\UserRole;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -15,8 +14,7 @@ class SenderAddressRequest extends FormRequest
 
     public function rules(): array
     {
-        return [...CustomerIdentity::rules(required: true),
-            'store_name' => ['required', 'string', 'max:150'],
+        return [
             'pickup_address' => ['required', 'string', 'max:255'],
             'pickup_street_number' => ['required', 'string', 'max:20'],
             'pickup_postal_code' => ['required', 'regex:/^[0-9]{5}$/D'],

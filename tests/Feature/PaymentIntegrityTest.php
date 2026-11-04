@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Events\WorkspaceUpdated;
 use App\Models\EconomicAudit;
 use App\Models\Order;
 use App\Models\PaymentEntry;
@@ -10,6 +11,8 @@ use App\Models\User;
 use App\OrderStatus;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -48,7 +51,7 @@ class PaymentIntegrityTest extends TestCase
         $this->assertDatabaseCount('economic_audits', 0);
     }
 
-    public function test_full_receipt_reverse_restore_and_new_receipt_preserve_the_net_balance(): void
+    public function test_full_receipt_reverse_and_compensating_restore_preserve_the_original_receipt(): void
     {
         $order = $this->order();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
@@ -62,6 +65,14 @@ class PaymentIntegrityTest extends TestCase
         $this->postJson($path, ['action' => 'restore', 'version' => 3, 'note' => 'Nuova registrazione'])->assertOk();
         $this->assertNull($order->fresh()->paid_at);
         $this->postJson($path, ['action' => 'receive', 'version' => 4, 'received_amount' => '10'])->assertOk();
+        $this->assertDatabaseCount('payment_entries', 5);
+        $original = PaymentEntry::oldest('id')->first();
+        $negative = PaymentEntry::where('kind', 'reversal')->sole();
+        $restored = PaymentEntry::where('kind', 'restoration')->sole();
+        $this->assertSame($original->id, $negative->original_entry_id);
+        $this->assertSame($negative->id, $restored->original_entry_id);
+        $this->assertSame(0, $restored->cash_amount_cents);
+        $this->assertSame(1000, (int) PaymentEntry::sum('cash_amount_cents'));
         $this->assertSame(1000, (int) PaymentEntry::sum('amount_cents'));
         $this->assertSame(1000, (int) PaymentEntry::sum('ea_amount_cents'));
         $this->assertNotNull($order->fresh()->paid_at);
@@ -91,8 +102,9 @@ class PaymentIntegrityTest extends TestCase
 
         $this->get('/balance')->assertViewHas('cash', 0)->assertViewHas('reversalTotal', 1000)
             ->assertViewHas('receiptEconomics', ['gross' => 0, 'retained' => 0, 'carrier' => 0, 'unallocated' => 1]);
-        $this->assertSame(-600, PaymentEntry::latest('id')->first()->ea_amount_cents);
-        $this->assertDatabaseCount('payment_entries', 3);
+        $this->assertSame(-600, (int) PaymentEntry::where('kind', 'reversal')->sum('ea_amount_cents'));
+        $this->assertSame(2, PaymentEntry::where('kind', 'reversal')->whereNotNull('original_entry_id')->count());
+        $this->assertDatabaseCount('payment_entries', 5);
     }
 
     public function test_partial_payments_remain_supported_in_pending_accounts_and_only_the_full_total_marks_paid(): void
@@ -124,6 +136,27 @@ class PaymentIntegrityTest extends TestCase
         $this->assertSame(1000, (int) PaymentEntry::sum('amount_cents'));
         $this->assertNotNull($order->fresh()->paid_at);
         $this->assertSame('paid', $account->fresh()->state);
+    }
+
+    public function test_all_accounting_events_including_paid_refunds_stay_internal_and_never_send_mail(): void
+    {
+        Mail::fake();
+        Event::fake([WorkspaceUpdated::class]);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $colleague = User::factory()->create(['role' => UserRole::Admin]);
+        $customer = User::factory()->create(['role' => UserRole::Customer]);
+        $rider = User::factory()->create(['role' => UserRole::Rider]);
+        $order = $this->order(['customer_id' => $customer->id, 'rider_id' => $rider->id]);
+        $this->actingAs($admin);
+        foreach (['receive', 'reverse', 'restore'] as $index => $action) {
+            $this->postJson(route('payments.store', $order), ['action' => $action, 'version' => $index + 1, ...($action === 'receive' ? ['received_amount' => '10'] : ['note' => 'Variazione verificata'])])->assertOk();
+        }
+        Mail::assertNothingOutgoing();
+        $this->assertSame(0, $customer->notifications()->count());
+        $this->assertSame(0, $rider->notifications()->count());
+        $this->assertSame(3, $colleague->notifications()->count());
+        $this->assertDatabaseCount('order_mail_deliveries', 0);
+        Event::assertDispatchedTimes(WorkspaceUpdated::class, 3);
     }
 
     public function test_a_zero_price_cannot_create_a_zero_value_regional_receipt(): void

@@ -2,11 +2,23 @@
 
 namespace App\Support;
 
+use App\Models\User;
 use App\SenderType;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class CustomerIdentity
 {
+    /** @return array{sender_type: string, business_type: ?string, business_description: ?string} */
+    public static function profile(User $customer): array
+    {
+        if (! is_string($customer->sender_type) || ! SenderType::tryFrom($customer->sender_type)) {
+            throw ValidationException::withMessages(['sender_type' => 'Completa la tipologia del tuo profilo prima di prenotare un ritiro.']);
+        }
+
+        return self::normalize($customer->only(['sender_type', 'business_type', 'business_description']));
+    }
+
     /** @return array<string, array<int, mixed>> */
     public static function rules(bool $required = false): array
     {

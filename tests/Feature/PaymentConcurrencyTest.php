@@ -2,18 +2,27 @@
 
 namespace Tests\Feature;
 
+use App\Actions\ManageReceipt;
+use App\Models\EconomicAudit;
 use App\Models\Order;
 use App\Models\PaymentEntry;
 use App\Models\User;
 use App\OrderStatus;
 use App\UserRole;
 use Illuminate\Support\Facades\DB;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 class PaymentConcurrencyTest extends TestCase
 {
-    public function test_simultaneous_receipts_from_two_admins_cannot_exceed_the_order_price(): void
+    public static function concurrentActions(): array
+    {
+        return ['receive' => ['receive', 1, 1000, 1000, 2], 'reverse' => ['reverse', 3, 0, 0, 4], 'restore' => ['restore', 4, 1000, 0, 3], 'refund' => ['refund', 3, 0, 0, 0]];
+    }
+
+    #[DataProvider('concurrentActions')]
+    public function test_simultaneous_accounting_actions_from_two_admins_are_applied_once(string $action, int $entryCount, int $net, int $cash, int $auditCount): void
     {
         $database = tempnam(sys_get_temp_dir(), 'ea-payment-race-');
         $gate = $database.'.start';
@@ -29,6 +38,14 @@ class PaymentConcurrencyTest extends TestCase
                 'price_cents' => 1000, 'quoted_price_cents' => 1000, 'carrier_cost_cents' => 400,
                 'pricing_version' => 1, 'price_state' => 'agreed',
             ]);
+            if ($action !== 'receive') {
+                app(ManageReceipt::class)->handle($admins->first(), $order, ['action' => 'receive', 'version' => 1, 'received_amount' => '10']);
+            }
+            if (in_array($action, ['restore', 'refund'])) {
+                app(ManageReceipt::class)->handle($admins->first(), $order, ['action' => 'reverse', 'version' => 2, 'note' => 'Storno verificato']);
+            }
+            $version = $order->fresh()->version;
+            $auditsBefore = EconomicAudit::count();
             $script = <<<'CODE'
 require 'vendor/autoload.php';
 $app = require 'bootstrap/app.php';
@@ -62,7 +79,7 @@ while (! file_exists($input['gate']) && microtime(true) < $deadline) {
     usleep(1000);
 }
 touch($input['started']);
-$request = Illuminate\Http\Request::create('/balance/'.$input['order'].'/payment', 'POST', ['action' => 'receive', 'version' => 1, 'received_amount' => '10'], $cookies, [], ['HTTP_ACCEPT' => 'application/json']);
+$request = Illuminate\Http\Request::create('/balance/'.$input['order'].'/payment', 'POST', $input['payload'], $cookies, [], ['HTTP_ACCEPT' => 'application/json']);
 $response = $app->make(Illuminate\Contracts\Http\Kernel::class)->handle($request);
 echo json_encode(['status' => $response->getStatusCode(), 'body' => $response->getContent()], JSON_THROW_ON_ERROR);
 CODE;
@@ -74,7 +91,7 @@ CODE;
                 $worker->setInput(json_encode([
                     'database' => $database, 'ready' => $database.'.ready'.$index, 'gate' => $gate,
                     'locked' => $database.'.locked'.$index, 'started' => $database.'.started'.$index, 'peer_started' => $database.'.started'.(1 - $index),
-                    'user' => $admin->id, 'order' => $order->slug,
+                    'user' => $admin->id, 'order' => $order->slug, 'payload' => ['action' => $action, 'version' => $version, ...($action === 'receive' ? ['received_amount' => '10'] : ['note' => 'Operazione verificata'])],
                 ], JSON_THROW_ON_ERROR));
                 $worker->setTimeout(20);
                 $worker->start();
@@ -95,15 +112,16 @@ CODE;
             }
             $statuses = array_column($results, 'status');
             sort($statuses);
-            $this->assertSame([200, 422], $statuses, json_encode($results));
+            $this->assertSame($action === 'refund' ? [409, 409] : [200, 422], $statuses, json_encode($results));
             $this->assertFileExists($database.'.locked0');
             $this->assertFileExists($database.'.locked1');
-            $this->assertDatabaseCount('payment_entries', 1);
-            $this->assertSame(1000, (int) PaymentEntry::sum('amount_cents'));
-            $this->assertSame(1000, (int) PaymentEntry::sum('ea_amount_cents'));
-            $this->assertNotNull($order->fresh()->paid_at);
-            $this->assertSame(2, $order->fresh()->version);
-            $this->assertDatabaseCount('economic_audits', 2);
+            $this->assertDatabaseCount('payment_entries', $entryCount);
+            $this->assertSame($net, (int) PaymentEntry::sum('amount_cents'));
+            $this->assertSame($net, (int) PaymentEntry::sum('ea_amount_cents'));
+            $this->assertSame($cash, (int) PaymentEntry::sum('cash_amount_cents'));
+            $this->assertSame($action === 'receive', $order->fresh()->paid_at !== null);
+            $this->assertSame($version + ($action === 'refund' ? 0 : 1), $order->fresh()->version);
+            $this->assertDatabaseCount('economic_audits', $auditsBefore + $auditCount);
         } finally {
             foreach ($workers as $worker) {
                 if ($worker->isRunning()) {

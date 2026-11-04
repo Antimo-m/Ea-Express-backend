@@ -34,19 +34,27 @@ class RecipientDetailTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $profile = RecipientRiskProfile::factory()->create();
         $order = Order::factory()->create(['store_name' => 'Azienda Test Distribuzione Metropolitana']);
-        $latest = RecipientIncident::factory()->create(['recipient_risk_profile_id' => $profile->id, 'order_id' => $order->id, 'correction_reason' => 'Telefono confermato dal negozio']);
+        $latest = RecipientIncident::factory()->create([
+            'recipient_risk_profile_id' => $profile->id, 'order_id' => $order->id, 'correction_reason' => 'Telefono confermato dal negozio',
+            'recipient' => ['recipient_name' => 'Destinatario Test '.str_repeat('Nominativo ', 10), 'recipient_phone' => '+393331234567', 'delivery_address' => str_repeat('IndirizzoMoltoLungo', 9), 'delivery_street_number' => '145', 'delivery_postal_code' => '80100', 'delivery_city' => 'Napoli', 'delivery_province' => 'Napoli'],
+        ]);
         RecipientIncident::factory()->count(20)->create(['recipient_risk_profile_id' => $profile->id, 'occurred_at' => now()->subDay(), 'dismissed_at' => now(), 'correction_reason' => 'Segnalazione non confermata']);
         $other = RecipientIncident::factory()->create();
 
         $response = $this->actingAs($admin)->get(route('recipient-incidents.show', $profile));
 
         $response->assertSee($latest->recipient['recipient_phone'])->assertSee($order->store_name)
+            ->assertSee('class="recipient-detail-page"', false)
             ->assertSee('Cronologia ordini non ritirati')->assertSee('Telefono confermato dal negozio')
             ->assertSee('Segnalazione rimossa')->assertSee('Destinatario assente / mancata consegna')
             ->assertDontSee($other->order->reference)
             ->assertViewHas('incidents', fn ($incidents): bool => $incidents->total() === 21 && $incidents->count() === 20);
         $this->get(route('recipient-incidents.show', ['profile' => $profile, 'page' => 2]))
             ->assertViewHas('incidents', fn ($incidents): bool => $incidents->count() === 1);
+
+        if ($directory = getenv('EA_UI_FIXTURE_DIR')) {
+            file_put_contents($directory.'/recipient-detail-typography.html', $response->getContent());
+        }
     }
 
     public function test_unauthenticated_detail_redirects_to_login(): void
@@ -54,6 +62,28 @@ class RecipientDetailTest extends TestCase
         $incident = RecipientIncident::factory()->create();
 
         $this->get(route('recipient-incidents.show', $incident->profile))->assertRedirect(route('login'));
+    }
+
+    public function test_correction_dialog_keeps_only_save_and_explicitly_confirmed_removal_actions(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $incident = RecipientIncident::factory()->create();
+
+        $response = $this->actingAs($admin)->get(route('recipient-incidents.show', $incident->profile));
+
+        $response->assertOk();
+        $document = new \DOMDocument;
+        $document->loadHTML($response->getContent(), LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new \DOMXPath($document);
+        $dialogs = $xpath->query('//dialog[contains(@id, "correction-")]');
+        $this->assertSame(2, $dialogs->length);
+        foreach ($dialogs as $dialog) {
+            $this->assertSame(2, $xpath->query('.//footer/button', $dialog)->length);
+            $this->assertSame(0, $xpath->query('.//footer/button[@data-dialog-close]', $dialog)->length);
+            $this->assertSame(1, $xpath->query('.//footer/button[@type="submit"][@name="action"][@value="correct"][contains(@class, "action-confirm")]', $dialog)->length);
+            $this->assertSame(1, $xpath->query('.//footer/button[@type="submit"][@name="action"][@value="dismiss"][@data-confirm="Rimuovi segnalazione"][contains(@class, "action-delete")]', $dialog)->length);
+            $this->assertSame(1, $xpath->query('.//header/button[@data-dialog-close]', $dialog)->length);
+        }
     }
 
     #[TestWith([UserRole::Rider])]

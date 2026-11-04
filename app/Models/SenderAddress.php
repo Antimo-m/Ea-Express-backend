@@ -7,12 +7,26 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['store_name', 'sender_type', 'business_type', 'business_description', 'pickup_address', 'pickup_street_number', 'pickup_postal_code', 'pickup_city'])]
+#[Fillable(['pickup_address', 'pickup_street_number', 'pickup_postal_code', 'pickup_city'])]
 class SenderAddress extends Model
 {
     use HasFactory;
 
-    public const Fields = ['store_name', 'sender_type', 'business_type', 'business_description', 'pickup_address', 'pickup_street_number', 'pickup_postal_code', 'pickup_city'];
+    public const Fields = ['pickup_address', 'pickup_street_number', 'pickup_postal_code', 'pickup_city'];
+
+    /** @param array<string, mixed> $data */
+    public function matchesPickup(array $data): bool
+    {
+        foreach (self::Fields as $field) {
+            $pattern = $field === 'pickup_street_number' ? '/[^\p{L}\p{N}\/-]+/u' : '/[^\p{L}\p{N}]+/u';
+            $normalize = static fn (mixed $value): string => mb_strtolower(preg_replace($pattern, '', trim((string) $value)));
+            if ($normalize($this->{$field}) !== $normalize($data[$field] ?? '')) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     protected function casts(): array
     {

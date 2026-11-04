@@ -1,5 +1,6 @@
 <x-app-layout :title="$title">
-    <header class="dashboard-heading mb-4"><div><span class="eyebrow">CENTRO OPERATIVO</span><h1>{{ $title }} @if($section==='orders.in-progress')<span data-live-region="current-count"><span class="shipment-count" aria-label="Spedizioni in corso">{{ $currentCount }}</span></span>@endif</h1><p class="text-secondary mb-0">{{ $section === 'orders.history' ? 'Consulta gli ordini chiusi degli ultimi 12 mesi.' : ($section === 'orders.incoming' ? 'Valuta le richieste, verifica la tariffa e assegna il prossimo ritiro.' : 'Segui il percorso delle spedizioni e intervieni dove serve.') }}</p></div><div class="row-actions">@if($section === 'orders.in-progress')<x-ui.icon-button action="print-multiple" target="_blank" rel="noopener" href="{{ route('labels.index',[...request()->only(['q','zone','status','customer_id','rider_id','shipping_type','urgency','sender_type','from','to']),'scope'=>'filtered']) }}" label="Stampa etichette dei risultati filtrati" />@endif @if(auth()->user()->role === \App\UserRole::Admin)<x-ui.icon-button action="add" href="{{ route('orders.create') }}" label="Nuova richiesta" />@endif</div></header>
+<div @class(['order-archive' => $section === 'orders.history'])>
+    <header class="dashboard-heading mb-4"><div><span class="eyebrow">{{ $section === 'orders.history' ? 'ARCHIVIO SPEDIZIONI' : 'CENTRO OPERATIVO' }}</span><h1>{{ $title }} @if($section==='orders.in-progress')<span data-live-region="current-count"><span class="shipment-count" aria-label="Spedizioni in corso">{{ $currentCount }}</span></span>@endif</h1><p class="text-secondary mb-0">{{ $section === 'orders.history' ? 'Ritrova una spedizione conclusa, consulta il suo percorso e apri lo storico delle operazioni.' : ($section === 'orders.incoming' ? 'Valuta le richieste, verifica la tariffa e assegna il prossimo ritiro.' : 'Segui il percorso delle spedizioni e intervieni dove serve.') }}</p></div><div class="row-actions">@if($section === 'orders.in-progress')<x-ui.icon-button action="print-multiple" target="_blank" rel="noopener" href="{{ route('labels.index',[...request()->only(['q','zone','status','customer_id','rider_id','shipping_type','urgency','sender_type','from','to']),'scope'=>'filtered']) }}" label="Stampa etichette dei risultati filtrati" />@endif @if(auth()->user()->role === \App\UserRole::Admin)<x-ui.icon-button action="add" href="{{ route('orders.create') }}" label="Nuova richiesta" />@endif</div></header>
     <x-ui.filters :reset="route($section)">
         <x-slot:search><x-ui.field name="q" label="Cerca ordine" :value="request('q')" placeholder="Cerca ordine, cliente, destinatario…" /></x-slot:search>
         @if($section === 'orders.history')
@@ -29,14 +30,26 @@
             <x-ui.filter-select name="sender_type" label="Tipo mittente" :options="[''=>'Tutti','business'=>'Attività commerciale','private'=>'Privato','online_shop'=>'Shop online']" size="md" />
         </x-slot:secondary>
     </x-ui.filters>
-    <div data-live-region="orders">@if($section==='orders.in-progress')<p class="data-caption">{{ $orders->total() }} risultati filtrati · La stampa nell’intestazione include tutte le pagine dei risultati, un’etichetta A6 per spedizione.</p>@endif
-<section class="{{ $section === 'orders.history' ? 'surface order-table-surface' : 'operational-order-list' }}" aria-label="Elenco spedizioni">
+    <div data-live-region="orders">
+    @if($section === 'orders.history')
+        <section class="order-archive-results" aria-label="Archivio spedizioni">
+            <header class="archive-results-heading"><div><h2>{{ $orders->total() }} {{ $orders->total() === 1 ? 'spedizione trovata' : 'spedizioni trovate' }}</h2><p>Richieste degli ultimi 12 mesi · Pagina {{ $orders->currentPage() }} di {{ $orders->lastPage() }} · Raggruppate per data della richiesta</p></div>@if($orders->isNotEmpty())<x-ui.icon-button action="print-multiple" :href="route('labels.index', ['ids' => $orders->pluck('slug')->all()])" label="Stampa etichette della pagina" target="_blank" rel="noopener" />@endif</header>
+            @forelse($orders->groupBy(fn ($order) => $order->created_at->timezone('Europe/Rome')->toDateString()) as $date => $dayOrders)
+                <section class="archive-day" aria-labelledby="archive-day-{{ $date }}"><header class="archive-day-heading"><time id="archive-day-{{ $date }}" datetime="{{ $date }}">{{ \Illuminate\Support\Carbon::parse($date, 'Europe/Rome')->translatedFormat('l j F Y') }}</time><span>{{ $dayOrders->count() }} in questa pagina</span></header>
+                    <div class="history-register-heading" aria-hidden="true"><span>Ordine / cliente</span><span>Percorso</span><span>Date</span><span>Esito / tariffa</span><span>Azioni</span></div>
+                    @foreach($dayOrders as $order)<x-orders.row :order="$order" :recipient-risk="$recipientRisks[$order->id] ?? ['count' => 0, 'last_at' => null]" archive />@endforeach
+                </section>
+            @empty
+                <div class="surface empty-state"><x-ui.icon name="archive" /><h2>Nessuna spedizione nello storico</h2><p>Modifica i filtri per cercare altre richieste concluse negli ultimi 12 mesi.</p></div>
+            @endforelse
+        </section>
+    @else
+@if($section==='orders.in-progress')<p class="data-caption">{{ $orders->total() }} risultati filtrati · La stampa nell’intestazione include tutte le pagine dei risultati, un’etichetta A6 per spedizione.</p>@endif
+<section class="operational-order-list" aria-label="Elenco spedizioni">
 @if($section === 'orders.in-progress' && $orders->isNotEmpty())<div class="operational-register-heading" aria-hidden="true"><span>Ordine / destinatario</span><span>Zona di consegna</span><span>Rider / ritiro</span><span>Stato / segnalazioni</span><span>Tariffa</span><span>Azioni</span></div>@endif
 @forelse($orders as $order)
-@if($section === 'orders.history')<x-orders.row :order="$order" :recipient-risk="$recipientRisks[$order->id] ?? ['count' => 0, 'last_at' => null]" />
-@else
 <x-orders.operational-row :order="$order" :incoming="$section === 'orders.incoming'" :recipient-risk="$recipientRisks[$order->id] ?? ['count' => 0, 'last_at' => null]" />
-@endif
 @empty<div class="surface p-5 text-center"><x-ui.icon name="inbox" class="display-6 text-secondary" /><h2 class="h5 mt-3">Nessun ordine trovato</h2><p class="text-secondary mb-0">{{ auth()->user()->role === \App\UserRole::Rider ? 'Qui trovi le spedizioni assegnate al tuo account. Prova a modificare i filtri.' : 'Le richieste compariranno qui. Puoi crearne una o modificare i filtri.' }}</p></div>@endforelse</section>
+    @endif
     <div class="mt-4">{{ $orders->links('components.ui.pagination') }}</div>
-</div></x-app-layout>
+</div></div></x-app-layout>

@@ -23,7 +23,7 @@
                     @foreach($value as $index => $item)@foreach($item as $field => $number)<input type="hidden" name="{{ $name }}[{{ $index }}][{{ $field }}]" value="{{ $number }}">@endforeach @endforeach
                 @endif
             @endforeach
-            <button class="btn btn-outline-secondary" type="submit">Torna indietro</button>
+            <button class="btn button-back" type="submit">Torna indietro</button>
         </form>
         @if($review['checkout_token'])
         <form method="post" action="{{ route('orders.store') }}">@csrf

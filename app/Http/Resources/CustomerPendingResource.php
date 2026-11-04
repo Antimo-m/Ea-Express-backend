@@ -13,7 +13,7 @@ class CustomerPendingResource extends JsonResource
         return [
             'slug' => $this->slug,
             'direction' => $this->direction,
-            'direction_label' => $this->direction === 'incoming' ? 'Devi pagare EA Express' : 'EA Express deve pagarti',
+            'direction_label' => $this->direction === 'incoming' ? 'Devi pagare EA-Express' : 'EA-Express deve pagarti',
             'subject' => $this->subject,
             'description' => $this->description,
             'amount_cents' => $this->amount_cents,

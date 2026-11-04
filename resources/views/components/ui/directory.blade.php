@@ -1,5 +1,5 @@
 @props(['label', 'searchLabel' => 'Cerca in questa pagina'])
-<section {{ $attributes->class(['directory-workspace']) }} data-directory aria-label="{{ $label }}">
+<section {{ $attributes->class(['directory-workspace']) }} data-directory data-workspace-region="directory" aria-label="{{ $label }}">
     <aside class="directory-rail" aria-label="{{ $label }} · elenco">
         <header class="directory-rail-heading"><div><span class="eyebrow">{{ $label }}</span>{{ $summary ?? '' }}</div></header>
         <label class="directory-search"><x-ui.icon name="search" /><input type="search" data-directory-search placeholder="Cerca in questa pagina" aria-label="{{ $searchLabel }}"></label>

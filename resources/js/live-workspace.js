@@ -49,7 +49,7 @@ const regions = createRefreshQueue(async () => {
 let realtimeConnected = false;
 window.addEventListener('ea:realtime-status', event => { realtimeConnected = event.detail === 'connected'; });
 window.addEventListener('ea:workspace-polled', () => { if (!realtimeConnected) regions.refresh(); });
-window.addEventListener('ea:workspace-updated', () => regions.refresh());
+window.addEventListener('ea:workspace-updated', event => { if (event.detail?.kind !== 'workspace-mutation') regions.refresh(); });
 export async function staffRequest(path, { method = 'GET', data } = {}) {
   const response = await fetch(path, { method, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }, ...(data ? { body: JSON.stringify(data) } : {}) });
   if (!response.ok) { const error = new Error(response.status === 401 || response.status === 419 ? 'Sessione scaduta. Accedi nuovamente.' : 'Aggiornamento non disponibile. Riprova.'); error.status = response.status; throw error; }
@@ -122,7 +122,7 @@ const orderRefresh = createRefreshQueue(async () => {
 });
 const refreshOrder = ({ detail = {} } = {}) => {
   const section = document.querySelector('[data-live-order]');
-  if (!section || ['order-action', 'receipts', 'messages'].includes(detail.kind) || (detail.order_slug && section.dataset.liveOrder !== detail.order_slug)) return;
+  if (!section || ['order-action', 'receipts', 'messages', 'workspace-mutation'].includes(detail.kind) || (detail.order_slug && section.dataset.liveOrder !== detail.order_slug)) return;
   return orderRefresh.refresh();
 };
 window.addEventListener('ea:workspace-updated', refreshOrder);
@@ -146,7 +146,7 @@ if (tracking) {
 let notificationsRefreshing = false;
 window.addEventListener('ea:workspace-updated', async event => {
   const container = document.querySelector('[data-live-notifications]');
-  if (!container || notificationsRefreshing || event.detail.kind === 'receipts') return;
+  if (!container || notificationsRefreshing || ['receipts', 'workspace-mutation'].includes(event.detail?.kind)) return;
   notificationsRefreshing = true;
   try {
     const response = await fetch(location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' } }); if (!response.ok || response.redirected) return;

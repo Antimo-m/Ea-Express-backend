@@ -1,11 +1,11 @@
 <x-app-layout title="Clienti">
-    <header class="page-heading"><div><span class="eyebrow">RELAZIONI CHE GENERANO VALORE</span><h1>Clienti</h1><p>Ogni account, il suo lavoro e il valore per EA-Express.</p></div><span class="count-badge">{{ $customers->total() }} clienti</span></header>
+    <header class="page-heading"><div><span class="eyebrow">RELAZIONI CHE GENERANO VALORE</span><h1>Clienti</h1><p>Ogni account, il suo lavoro e il valore per EA-Express.</p></div><span class="count-badge" data-workspace-region="customers-count">{{ $customers->total() }} clienti</span></header>
     <x-ui.filters :reset="route('customers.index')">
         <x-slot:search><x-ui.field name="q" label="Cerca cliente" :value="request('q')" placeholder="Cerca cliente, negozio o email…" /></x-slot:search>
         <x-ui.filter-select name="sender_type" label="Tipo account" :options="[''=>'Tutti','business'=>'Attività commerciale','private'=>'Privato','online_shop'=>'Shop online']" size="md" />
         <x-slot:secondary><x-ui.filter-select name="sort" label="Ordina per" default="name" :options="['name'=>'Nome','volume'=>'Spedizioni','value'=>'Valore spedizioni']" size="md" /></x-slot:secondary>
     </x-ui.filters>
-    <div class="customer-directory">
+    <div data-workspace-region="customers"><div class="customer-directory">
         @forelse($customers as $customer)
         <a class="surface customer-entry" href="{{ route('customers.show', $customer) }}">
             <span class="customer-avatar"><x-ui.icon name="shop" /></span>
@@ -16,5 +16,6 @@
         </a>
         @empty<div class="surface empty-state"><x-ui.icon name="people" /><h2>Nessun cliente trovato</h2><p>Gli account compariranno anche prima della prima spedizione.</p></div>@endforelse
     </div>
-    {{ $customers->links('components.ui.pagination') }}
+    {{ $customers->onEachSide(1)->links('components.ui.pagination', ['descriptive' => true, 'numbered' => true]) }}
+    </div>
 </x-app-layout>

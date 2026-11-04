@@ -1,6 +1,6 @@
 <x-app-layout title="Centro operativo">
     <header class="dashboard-heading">
-        <div><span class="eyebrow">EA-EXPRESS · OPERATIVITÀ</span><h1>Centro operativo<span class="brand-accent"> /</span></h1><p>{{ $greeting }}, {{ auth()->user()->name }}. Richieste, ritiri e consegne della tua attività.</p></div>
+        <div><span class="eyebrow">EA-Express · OPERATIVITÀ</span><h1>Centro operativo<span class="brand-accent"> /</span></h1><p>{{ $greeting }}, {{ auth()->user()->name }}. Richieste, ritiri e consegne della tua attività.</p></div>
         <div class="row-actions"><div class="date-chip"><x-ui.icon name="calendar3" />{{ $today }}</div><x-ui.icon-button action="add" href="{{ route('orders.create') }}" label="Nuova richiesta" text /></div>
     </header>
     <section class="metrics-grid" data-live-region="metrics" aria-label="Riepilogo della giornata">@foreach($metrics as $metric)<x-dashboard.metric :metric="$metric" />@endforeach</section>

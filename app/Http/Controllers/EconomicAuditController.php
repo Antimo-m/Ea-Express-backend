@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\PaymentEntry;
 use App\Models\PendingAccount;
 use App\Models\PendingSettlement;
+use App\Models\ReceiptReversal;
 use App\Models\RecipientIncident;
 use App\Models\ShippingPriceProposal;
 use App\Models\ShippingRate;
@@ -30,6 +31,7 @@ class EconomicAuditController extends Controller
         $entries = EconomicAudit::where(function ($query) use ($data): void {
             $query->where(fn ($entity) => $entity->where('entity_type', $data['type'])->where('entity_id', $data['id']));
             if ($data['type'] === 'orders') {
+                $query->orWhere(fn ($reversals) => $reversals->where('entity_type', 'receipt_reversals')->whereIn('entity_id', ReceiptReversal::where('order_id', $data['id'])->select('id')));
                 $query->orWhere(fn ($payments) => $payments->where('entity_type', 'payment_entries')->whereIn('entity_id', PaymentEntry::where('order_id', $data['id'])->select('id')));
             }
         })->with('user:id,slug,name')->latest()->orderByDesc('id')->paginate(25)->withQueryString();

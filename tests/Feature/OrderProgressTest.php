@@ -27,7 +27,7 @@ class OrderProgressTest extends TestCase
             }
             $response = $this->patchJson('/orders/'.$order->slug, $data)->assertOk()->assertJsonPath('status', $status);
             $this->assertStringContainsString('data-progress-status="'.$status.'" data-progress-state="'.($status === 'delivered' ? 'complete' : 'current').'"', $response->json('html'));
-            $this->assertStringContainsString('data-progress-status="pickup_scheduled" data-progress-state="future"', $response->json('html'));
+            $this->assertStringNotContainsString('data-progress-status="pickup_scheduled"', $response->json('html'));
             $this->assertStringContainsString('data-progress-status="in_transit" data-progress-state="future"', $response->json('html'));
         }
         $this->get('/orders/'.$order->slug)->assertSee('data-progress-status="delivered" data-progress-state="complete"', false);

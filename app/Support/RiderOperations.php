@@ -3,8 +3,11 @@
 namespace App\Support;
 
 use App\Models\EconomicAudit;
+use App\Models\Expense;
 use App\Models\Order;
 use App\Models\OrderEvent;
+use App\Models\PaymentEntry;
+use App\Models\PendingAccount;
 use App\OrderStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -13,6 +16,74 @@ use Illuminate\Support\Facades\DB;
 
 class RiderOperations
 {
+    public const array DailyStates = [
+        'todo' => [OrderStatus::Received, OrderStatus::Accepted, OrderStatus::PickupScheduled, OrderStatus::Rescheduled],
+        'active' => [OrderStatus::RiderArriving, OrderStatus::PickedUp, OrderStatus::InTransit, OrderStatus::OutForDelivery],
+        'completed' => [OrderStatus::Delivered],
+        'closed' => [OrderStatus::Cancelled, OrderStatus::Rejected],
+    ];
+
+    public function dailyWorkload(Carbon $date, int $riderId, ?string $zone = null): Builder
+    {
+        return $this->assignedQuery(null, $zone)->where('pickup_date', '>=', $date->toDateString())->where('pickup_date', '<', $date->copy()->addDay()->toDateString())
+            ->where(fn ($orders) => $orders->where(fn ($current) => $current->where('rider_id', $riderId)->where('status', '!=', OrderStatus::Delivered))
+                ->orWhere(fn ($delivered) => $this->attributedToRider($delivered->where('status', OrderStatus::Delivered), $riderId)));
+    }
+
+    private function attributedToRider(Builder $query, int $riderId): Builder
+    {
+        return $query->where(fn ($orders) => $orders
+            ->whereHas('deliveryEvent', fn ($delivery) => $delivery->where('rider_id', $riderId))
+            ->orWhere(fn ($legacy) => $legacy->where('rider_id', $riderId)->whereDoesntHave('deliveryEvent', fn ($delivery) => $delivery->whereNotNull('rider_id'))));
+    }
+
+    public function filterDailyState(Builder $query, string $state): Builder
+    {
+        if ($state === 'issues') {
+            return $query->where(fn ($issues) => $issues->whereIn('status', [OrderStatus::DeliveryIssue, OrderStatus::DeliveryAttempted])->orWhere(fn ($delayed) => $delayed->whereNotIn('status', OrderStatus::closed())->whereNotNull('delay_reported_at')));
+        }
+
+        return isset(self::DailyStates[$state]) ? $query->whereIn('status', self::DailyStates[$state]) : $query;
+    }
+
+    /** @return array<string, int> */
+    public function dailyCounts(Builder $query): array
+    {
+        $statuses = (clone $query)->selectRaw('status, COUNT(*) AS total')->groupBy('status')->pluck('total', 'status');
+        $counts = ['total' => (int) $statuses->sum()];
+        foreach (self::DailyStates as $state => $values) {
+            $counts[$state] = array_sum(array_map(fn (OrderStatus $status): int => (int) ($statuses[$status->value] ?? 0), $values));
+        }
+        $counts['issues'] = $this->filterDailyState(clone $query, 'issues')->count();
+        $counts['missing_deadlines'] = (clone $query)->whereNotIn('status', OrderStatus::closed())->whereNull('estimated_at')->whereNull('estimated_delivery_to')->whereDoesntHave('scheduleEvents', fn ($events) => $events->where(fn ($schedule) => $schedule->whereNotNull('schedule_change->after->deadline_at')->orWhereNotNull('schedule_change->after->estimated_at')))->count();
+        $counts['progress'] = $counts['total'] ? (int) round($counts['completed'] / $counts['total'] * 100) : 0;
+
+        return $counts;
+    }
+
+    /** @return array<string, int> */
+    public function dailyAccounting(ReportingPeriod $period, int $riderId, Builder $workload, ?string $zone = null): array
+    {
+        $attributedOrders = $this->attributedToRider($this->assignedQuery(null, $zone), $riderId);
+        $payments = PaymentEntry::whereIn('order_id', (clone $attributedOrders)->select('id'))->whereBetween('created_at', $period->utcRange());
+        $totals = app(ReceiptLedger::class)->totals($payments);
+        $expenses = Expense::whereNull('voided_at')->where('spent_on', '>=', $period->start->toDateString())->where('spent_on', '<', $period->start->copy()->addDay()->toDateString())->where(fn ($expense) => $expense->where('user_id', $riderId)->orWhereHas('pendingSettlement.account', fn ($account) => $account->whereIn('order_id', (clone $attributedOrders)->select('id'))));
+        $spent = (int) $expenses->sum('amount_cents');
+        $pending = PendingAccount::whereIn('order_id', (clone $attributedOrders)->select('id'))->where('occurred_on', '>=', $period->start->toDateString())->where('occurred_on', '<', $period->start->copy()->addDay()->toDateString())->whereIn('state', ['open', 'partially_paid']);
+        $incoming = (int) (clone $pending)->where('direction', 'incoming')->selectRaw('COALESCE(SUM(amount_cents - settled_cents), 0) AS cents')->value('cents');
+        $outgoing = (int) (clone $pending)->where('direction', 'outgoing')->selectRaw('COALESCE(SUM(amount_cents - settled_cents), 0) AS cents')->value('cents');
+        $unrecorded = (clone $workload)->where('status', OrderStatus::Delivered)->whereNull('paid_at')->whereNull('receipt_voided_at');
+        $expected = (int) (clone $unrecorded)->sum('price_cents');
+        $alreadyRecorded = (int) PaymentEntry::whereIn('order_id', (clone $unrecorded)->select('id'))->sum('amount_cents');
+
+        return [
+            ...$totals, 'expenses' => $spent, 'balance' => $totals['net'] - $spent,
+            'cash_change' => $totals['cash'] - $spent, 'unrecorded' => max(0, $expected - $alreadyRecorded),
+            'pending_incoming' => $incoming, 'pending_outgoing' => $outgoing,
+            'retained' => (int) (clone $payments)->selectRaw('COALESCE(SUM(COALESCE(ea_amount_cents, amount_cents)), 0) AS cents')->value('cents'),
+        ];
+    }
+
     public function query(Carbon $date, ?int $riderId = null, ?string $zone = null, ?Carbon $end = null): Builder
     {
         return $this->assignedQuery($riderId, $zone)->where('pickup_date', '>=', $date->toDateString())->where('pickup_date', '<', ($end ?? $date)->copy()->addDay()->toDateString());
@@ -81,7 +152,7 @@ class RiderOperations
     private function metadata(Builder $query, Carbon $reference): Builder
     {
         return $query->select(['id', 'slug', 'reference', 'rider_id', 'status', 'delivery_zone', 'delivery_city', 'pickup_date', 'delivered_at', 'estimated_at', 'estimated_delivery_to', 'delay_reported_at', 'price_cents', 'shipping_type', 'assigned_at', 'created_at', 'updated_at'])
-            ->withSum('payments as cash_cents', 'amount_cents')->withSum('payments as retained_cents', DB::raw('COALESCE(ea_amount_cents, amount_cents)'))
+            ->withSum('payments as cash_cents', DB::raw(ReceiptLedger::CashExpression))->withSum('payments as retained_cents', DB::raw('COALESCE(ea_amount_cents, amount_cents)'))
             ->with(['rider:id,slug,name', 'delayEvents', 'scheduleEvents', 'deliveryEvent', 'events' => fn ($events) => $events->where('created_at', '<=', $reference->copy()->utc())->latest('created_at')->orderByDesc('id')->limit(1)]);
     }
 

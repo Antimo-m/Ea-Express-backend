@@ -60,7 +60,7 @@ class OperationalSurfaceTest extends TestCase
         $customer = User::factory()->create(['role' => UserRole::Customer, 'name' => 'Azienda Test Distribuzione Metropolitana']);
         $this->actingAs($admin)->get('/customers?q=Distribuzione')->assertOk()->assertViewHas('customers', fn ($customers) => $customers->total() === 1 && $customers->first()->orders_count === 0)->assertSee('/customers/'.$customer->slug, false);
         User::factory()->count(21)->create(['role' => UserRole::Customer]);
-        $this->get('/customers')->assertOk()->assertViewHas('customers', fn ($customers) => $customers->count() === 20 && $customers->total() === 22);
+        $this->get('/customers')->assertOk()->assertViewHas('customers', fn ($customers) => $customers->count() === 22 && $customers->total() === 22 && $customers->perPage() === 25);
     }
 
     public function test_operational_lists_keep_twenty_rows_and_bounded_preview_queries(): void

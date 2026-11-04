@@ -22,7 +22,7 @@ class BalanceExperienceTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $order = Order::factory()->create(['created_by' => $admin->id, 'status' => OrderStatus::Delivered, 'delivered_at' => now(), 'price_cents' => 1000, 'store_name' => 'Incasso prioritario']);
         $page = $this->actingAs($admin)->get('/balance')->assertOk();
-        $page->assertSeeInOrder(['Riepilogo economico del periodo', 'Prospetto contabile', 'Storni', 'id="delivery-details"', 'Incasso prioritario', 'Movimenti e storico'], false)
+        $page->assertSeeInOrder(['Riepilogo economico del periodo', 'Prospetto contabile', 'Storni', 'id="delivery-details"', 'Incasso prioritario', 'Movimenti di cassa'], false)
             ->assertSee('data-finance-go="expense"', false)->assertSee('data-finance-go="cash"', false)
             ->assertSee('data-dialog-open="receipt-'.$order->slug.'"', false)->assertSee(route('payments.store', $order), false)
             ->assertDontSee('Saldo di cassa operativo')->assertDontSee('Disponibilità contanti');
@@ -67,7 +67,7 @@ class BalanceExperienceTest extends TestCase
         $this->assertSame(1, Expense::where('description', 'Carburante turno serale')->count());
         $this->assertSame(1250, Expense::sole()->amount_cents);
         $this->postJson(route('movements.store'), ['kind' => 'cash', 'amount' => '20', 'submission_key' => (string) Str::uuid()])->assertCreated();
-        $this->get('/balance')->assertOk()->assertViewHas('spent', 1250)->assertViewHas('cashAdditions', 2000)->assertViewHas('operatingNet', -1250)->assertViewHas('finalNet', 750);
+        $this->get('/balance')->assertOk()->assertViewHas('spent', 1250)->assertViewHas('cashAdditions', 2000)->assertViewHas('operatingNet', -1250)->assertViewHas('cashBalance', 750);
         $this->postJson(route('expenses.store'), [...$expense, 'amount' => '-1'])->assertUnprocessable();
         $entry = Expense::sole();
         $this->deleteJson(route('expenses.destroy', $entry))->assertOk()->assertJsonPath('redirect', route('balance.index'));
@@ -94,6 +94,20 @@ class BalanceExperienceTest extends TestCase
             if ($directory = getenv('EA_UI_FIXTURE_DIR')) {
                 file_put_contents($directory.'/finance-'.$view.'.html', $response->getContent());
             }
+        }
+        $orders = Order::orderBy('id')->limit(3)->get();
+        foreach ($orders as $index => $order) {
+            if ($index !== 1) {
+                $this->postJson(route('payments.store', $order), ['action' => 'receive', 'version' => 1])->assertOk();
+            }
+            $this->postJson(route('payments.store', $order), ['action' => 'reverse', 'version' => $order->fresh()->version, 'note' => 'Rettifica dimostrativa verificata'])->assertOk();
+            if ($index === 2) {
+                $this->postJson(route('payments.store', $order), ['action' => 'restore', 'version' => $order->fresh()->version, 'note' => 'Ripristino dimostrativo'])->assertOk();
+            }
+        }
+        $response = $this->get('/balance?ledger=reversed')->assertOk()->assertSee('Con rettifica contabile')->assertSee('Senza effetto sul netto')->assertSee('Ripristinato il');
+        if ($directory = getenv('EA_UI_FIXTURE_DIR')) {
+            file_put_contents($directory.'/finance-reversals-flow.html', $response->getContent());
         }
     }
 }

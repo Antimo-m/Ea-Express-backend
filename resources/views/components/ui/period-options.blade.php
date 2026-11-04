@@ -12,7 +12,7 @@
             $end = $operational ? match($value) { 'week' => $start->copy()->addDays(6)->endOfDay(), 'month' => $start->copy()->endOfMonth(), default => $end } : $end;
             $annual = $period->start->month === 1 && $period->start->day === 1 && $period->end->month === 12 && $period->end->day === 31 && $period->start->year === $period->end->year;
             $active = ($value === 'year' && $annual) || ($period->start->equalTo($start) && $period->end->equalTo($end));
-            $selection = $balance ? ($value === 'year' ? ['year'=>$today->year] : ['from'=>$start->toDateString(),'to'=>$end->toDateString()]) : ['period'=>$value, ...($value === 'year' ? ['year'=>$today->year] : [])];
+            $selection = $balance ? ['period'=>$value, ...($value === 'year' ? ['year'=>$today->year] : ['from'=>$start->toDateString(),'to'=>$end->toDateString()])] : ['period'=>$value, ...($value === 'year' ? ['year'=>$today->year] : [])];
         @endphp
         <a @class(['btn','btn-outline-secondary','btn-sm','active'=>$active]) href="{{ route($route,[...$preserved,...$selection]) }}" @if($active) aria-current="page" @endif>{{ $label }}</a>
     @endforeach

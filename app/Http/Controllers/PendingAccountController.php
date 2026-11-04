@@ -57,14 +57,16 @@ class PendingAccountController extends Controller
         abort_unless($cents > 0, 422, 'Importo maggiore di zero richiesto.');
         unset($data['amount']);
         DB::transaction(function () use ($data, $cents, $request): void {
+            $period = AccountingPeriod::lock();
             $actor = User::lockForUpdate()->findOrFail($request->user()->id);
             abort_unless($actor->is_active && $actor->role === UserRole::Admin, 403);
-            $period = AccountingPeriod::lock();
             $period->assertOpen($data['occurred_on']);
             if (! empty($data['order_id'])) {
                 $order = Order::query()->lockForUpdate()->findOrFail($data['order_id']);
                 app(OrderPrice::class)->assertApproved($order);
+                abort_if($order->payments()->where('amount_cents', '<', 0)->whereNull('original_entry_id')->exists(), 409, 'Storni storici senza collegamento: riconcilia i movimenti prima di registrare altri incassi.');
                 $remaining = $order->price_cents - (int) PaymentEntry::where('order_id', $order->id)->sum('amount_cents');
+                abort_if($order->receiptReversals()->whereNotNull('restored_at')->whereHas('payments', fn ($q) => $q->where('kind', 'refund'))->exists(), 409, 'Registra il nuovo incasso dopo rimborso dal Bilancio.');
                 abort_unless($data['direction'] === 'incoming' && $order->status === OrderStatus::Delivered && $order->price_cents !== null && ! $order->paid_at && ! $order->receipt_voided_at && $remaining === $cents, 422, 'Per una spedizione usa il residuo esatto di una consegna non saldata, in entrata.');
                 abort_if(PendingAccount::where('order_id', $order->id)->exists(), 409, 'Esiste già un sospeso per questa spedizione.');
                 abort_if((int) $data['customer_id'] !== $order->customer_id, 422, 'Il cliente non corrisponde alla spedizione.');
@@ -83,9 +85,9 @@ class PendingAccountController extends Controller
         abort_unless($request->user()->role === UserRole::Admin, 403);
         $data = PublicReferences::ids($request->validated());
         DB::transaction(function () use ($request, $account, $data): void {
+            $period = AccountingPeriod::lock();
             $actor = User::lockForUpdate()->findOrFail($request->user()->id);
             abort_unless($actor->is_active && $actor->role === UserRole::Admin, 403);
-            $period = AccountingPeriod::lock();
             $locked = PendingAccount::query()->when($request->filled('id'), fn ($q) => $q->whereKey($request->integer('id')))->lockForUpdate()->findOrFail($account->id);
             abort_unless($locked->version === (int) $data['version'], 409, 'Sospeso aggiornato.');
             if ($data['action'] === 'assign') {
@@ -130,9 +132,9 @@ class PendingAccountController extends Controller
         $data['method'] = 'cash';
         $cents = Money::cents($data['amount']);
         DB::transaction(function () use ($request, $account, $data, $cents): void {
+            $period = AccountingPeriod::lock();
             $actor = User::lockForUpdate()->findOrFail($request->user()->id);
             abort_unless($actor->is_active && $actor->role === UserRole::Admin, 403);
-            $period = AccountingPeriod::lock();
             $period->assertOpen(now());
             // Use the same lock order as direct receipts: order, then pending account.
             $order = $account->order_id ? Order::query()->lockForUpdate()->findOrFail($account->order_id) : null;
@@ -149,11 +151,14 @@ class PendingAccountController extends Controller
             $settlement = $locked->settlements()->create(['user_id' => $request->user()->id, 'amount_cents' => $cents, 'method' => $data['method'], 'note' => $data['note'], 'submission_key' => $data['submission_key']]);
             if ($order) {
                 app(OrderPrice::class)->assertApproved($order);
+                abort_if($order->payments()->where('amount_cents', '<', 0)->whereNull('original_entry_id')->exists(), 409, 'Storni storici senza collegamento: riconcilia i movimenti prima di registrare altri incassi.');
                 abort_unless($order->status === OrderStatus::Delivered && ! $order->paid_at && ! $order->receipt_voided_at, 409, 'La spedizione non è saldabile.');
                 $entry = new PaymentEntry;
                 $entry->order_id = $order->id;
                 $entry->user_id = $request->user()->id;
                 $entry->amount_cents = $cents;
+                $entry->kind = 'receipt';
+                $entry->cash_amount_cents = $cents;
                 $entry->ea_amount_cents = app(ShippingEconomics::class)->retainedAmount($order, $cents, $data['ea_amount'] ?? null);
                 $entry->method = $data['method'];
                 $entry->note = $data['note'];

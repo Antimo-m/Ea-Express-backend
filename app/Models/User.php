@@ -83,6 +83,7 @@ class User extends Authenticatable
             'role' => UserRole::class,
             'notify_orders' => 'boolean',
             'notify_messages' => 'boolean',
+            'portal_preferences' => 'array',
         ];
     }
 }

@@ -13,8 +13,8 @@
     </div>
     <div class="active-filter-chips" data-filter-chips aria-label="Filtri applicati" hidden></div>
     <dialog id="filter-panel" class="filter-dialog" data-filter-dialog aria-label="Filtri">
-        <header><strong data-filter-dialog-title>Filtri</strong><x-ui.icon-button icon="x-lg" label="Chiudi filtri" data-filter-close /></header>
+        <header><strong data-filter-dialog-title>Filtri</strong><x-ui.icon-button icon="x-lg" label="Chiudi filtri" data-tooltip-placement="below-end" data-filter-close /></header>
         <div class="filter-dialog-fields" data-filter-dialog-fields></div>
-        <footer><a class="btn btn-outline-secondary" href="{{ $reset }}">Azzera</a><button type="submit" class="btn btn-primary">Applica</button></footer>
+        <footer><x-ui.icon-button action="reset" :href="$reset" label="Ripristina filtri" /><x-ui.icon-button action="search" type="submit" label="Applica filtri" /></footer>
     </dialog>
 </form>

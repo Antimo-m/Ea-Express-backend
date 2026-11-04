@@ -32,7 +32,7 @@ class FinancialIntegrityTest extends TestCase
 
         $this->assertNotNull($order->fresh()->receipt_voided_at);
         $this->assertDatabaseCount('payment_entries', 0);
-        $this->get('/balance')->assertViewHas('outstanding', 0)->assertViewHas('orders', fn ($rows) => $rows->isEmpty())->assertViewHas('reversedOrders', fn ($rows) => $rows->total() === 1);
+        $this->get('/balance')->assertViewHas('outstanding', 0)->assertViewHas('orders', fn ($rows) => $rows->isEmpty())->assertViewHas('reversalEntries', fn ($rows) => $rows->whereNull('restored_at')->count() === 1);
         $change('receive')->assertUnprocessable();
         $change('reverse')->assertUnprocessable();
         $change('restore')->assertOk();
@@ -40,13 +40,14 @@ class FinancialIntegrityTest extends TestCase
         $change('receive')->assertOk();
         $this->get('/balance')->assertViewHas('cash', 20000)->assertViewHas('recordedOrders', fn ($rows) => $rows->total() === 1);
         $change('reverse')->assertOk();
-        $this->get('/balance')->assertViewHas('cash', 0)->assertViewHas('outstanding', 0)->assertViewHas('reversedOrders', fn ($rows) => $rows->total() === 1);
-        $this->assertSame(-20000, PaymentEntry::latest('id')->first()->amount_cents);
+        $this->get('/balance')->assertViewHas('cash', 0)->assertViewHas('operatingNet', 0)->assertViewHas('outstanding', 0)->assertViewHas('reversalEntries', fn ($rows) => $rows->whereNull('restored_at')->count() === 1);
+        $this->assertSame(-20000, PaymentEntry::where('kind', 'reversal')->latest('id')->first()->amount_cents);
         $change('reverse')->assertUnprocessable();
-        $this->assertDatabaseCount('payment_entries', 2);
+        $this->assertDatabaseCount('payment_entries', 3);
         $change('restore')->assertOk();
-        $this->assertDatabaseCount('payment_entries', 2);
+        $this->assertDatabaseCount('payment_entries', 4);
         $change('receive')->assertOk();
+        $this->assertDatabaseCount('payment_entries', 5);
         $this->assertSame(20000, (int) PaymentEntry::sum('amount_cents'));
         $this->assertDatabaseHas('economic_audits', ['entity_type' => 'orders', 'entity_id' => $order->id, 'action' => 'receipt.restore', 'user_id' => $admin->id]);
     }
@@ -138,7 +139,7 @@ class FinancialIntegrityTest extends TestCase
         $this->assertSame(0, EconomicAudit::where('action', 'settlement.corrected')->count());
     }
 
-    public function test_historical_reversals_are_backfilled_without_changing_the_cash_ledger(): void
+    public function test_traced_refunds_are_not_reclassified_as_unlinked_historical_reversals(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $order = Order::factory()->create(['rider_id' => $admin->id, 'status' => OrderStatus::Delivered, 'delivered_at' => now(), 'price_cents' => 1000]);
@@ -150,11 +151,11 @@ class FinancialIntegrityTest extends TestCase
         $migration->up();
         $migration->up();
 
-        $this->assertNotNull($order->fresh()->receipt_voided_at);
-        $this->assertSame('Storno storico', $order->fresh()->receipt_void_reason);
-        $this->assertDatabaseCount('payment_entries', 2);
+        $this->assertNull($order->fresh()->receipt_voided_at);
+        $this->assertNull($order->fresh()->receipt_void_reason);
+        $this->assertDatabaseCount('payment_entries', 3);
         $this->assertSame(0, (int) PaymentEntry::sum('amount_cents'));
-        $this->assertSame(1, EconomicAudit::where('action', 'receipt.backfilled')->count());
+        $this->assertSame(0, EconomicAudit::where('action', 'receipt.backfilled')->count());
     }
 
     public function test_corrections_include_other_payments_and_rollback_if_the_linked_ledger_is_inconsistent(): void
@@ -203,7 +204,7 @@ class FinancialIntegrityTest extends TestCase
             Order::factory()->create(['customer_id' => $customer->id, 'store_name' => 'Nome ritiro condiviso', 'price_cents' => $index * 100]);
         }
 
-        $this->actingAs($admin)->get('/customers?sort=name&order=asc&page=2')->assertOk()->assertViewHas('customers', fn ($rows) => $rows->total() === 31 && $rows->first()->name === 'Cliente 21');
+        $this->actingAs($admin)->get('/customers?sort=name&order=asc&page=2')->assertOk()->assertViewHas('customers', fn ($rows) => $rows->total() === 31 && $rows->first()->name === 'Cliente 26');
         $this->get('/customers?sort=value&order=desc')->assertOk()->assertViewHas('customers', fn ($rows) => $rows->first()->id === $customer->id);
         $this->get('/customers?q=Nome%20ritiro')->assertViewHas('customers', fn ($rows) => $rows->isEmpty());
     }

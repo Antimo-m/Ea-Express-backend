@@ -1,16 +1,19 @@
 import { openDialog, closeDialog } from './dialogs';
+import { handlesWorkspaceForm } from './workspace-forms';
 const dialog = document.querySelector('#action-confirmation');
 let operation;
 let busy = false;
 const approved = new WeakSet();
 const submitted = new WeakSet();
 
-export function confirmAction({ name, action = 'Elimina', description = '', onConfirm }) {
+export function confirmAction({ name, action = 'Elimina', description = '', closeOnly = false, onConfirm }) {
     if (!dialog || busy) return;
     operation = onConfirm;
     dialog.querySelector('[data-confirm-summary]').textContent = action === 'Elimina' ? `Sei sicuro di voler eliminare «${name}»?` : `Confermi l’operazione «${action}» su «${name}»?`;
     dialog.querySelector('[data-confirm-description]').textContent = description;
     dialog.querySelector('[data-modal-error]').textContent = '';
+    const back = dialog.querySelector('.modal-back');
+    if (back) back.hidden = closeOnly;
     const confirm = dialog.querySelector('[data-confirm-action]');
     const label = `Conferma: ${action}`;
     confirm.setAttribute('aria-label', label); confirm.title = label; confirm.dataset.tooltip = label;
@@ -27,7 +30,7 @@ if (dialog) {
         if (submitted.has(form)) { event.preventDefault(); event.stopImmediatePropagation(); return; }
         if (approved.has(form)) {
             approved.delete(form);
-            if (!form.hasAttribute('data-financial-form') && !form.hasAttribute('data-order-action')) {
+            if (!form.hasAttribute('data-financial-form') && !form.hasAttribute('data-order-action') && !handlesWorkspaceForm(form)) {
                 submitted.add(form);
                 form.setAttribute('aria-busy', 'true');
                 queueMicrotask(() => form.querySelectorAll('button').forEach(button => { button.disabled = true; }));
@@ -37,6 +40,7 @@ if (dialog) {
         event.preventDefault(); event.stopImmediatePropagation();
         confirmAction({
             action: action || 'Elimina',
+            closeOnly: form.hasAttribute('data-confirm-close-only'),
             name: trigger?.dataset.confirmName || form.dataset.confirmName || form.closest('article, section')?.querySelector('h2, h3, strong')?.textContent.trim() || 'elemento selezionato',
             description: form.dataset.confirmDescription || 'Controlla i dati prima di confermare. Le registrazioni economiche conservano il proprio storico.',
             onConfirm: () => { approved.add(form); form.requestSubmit(trigger); approved.delete(form); },

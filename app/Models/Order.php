@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\OrderStatus;
 use App\Support\HasPublicSlug;
+use App\Support\ReceiptLedger;
 use App\UserRole;
 use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\DB;
 
 #[Fillable(['shipping_type', 'delivery_province', 'delivery_region', 'weight_kg', 'max_dimension_cm', 'delivery_zone', 'pickup_street_number', 'pickup_postal_code', 'delivery_street_number', 'delivery_postal_code', 'package_type', 'package_description', 'packages', 'store_name', 'contact_email', 'recipient_name', 'recipient_phone', 'pickup_address', 'pickup_city', 'delivery_address', 'delivery_city', 'pickup_date', 'pickup_from', 'pickup_to', 'delivery_window', 'parcel_count', 'content_description', 'category', 'urgency', 'notes', 'customer_notes', 'sender_type', 'business_type', 'business_description'])]
 #[Hidden(['delay_reported_by', 'gps_session_id', 'pickup_point', 'delivery_point', 'tracking_token', 'conversation_token', 'carrier_cost_cents'])]
@@ -98,6 +100,11 @@ class Order extends Model
         };
     }
 
+    public function receiptReversals(): HasMany
+    {
+        return $this->hasMany(ReceiptReversal::class);
+    }
+
     public function payments(): HasMany
     {
         return $this->hasMany(PaymentEntry::class);
@@ -162,6 +169,15 @@ class Order extends Model
     public function deliveryEvent(): HasOne
     {
         return $this->hasOne(OrderEvent::class)->ofMany(['created_at' => 'max', 'id' => 'max'], fn ($query) => $query->where('status', OrderStatus::Delivered)->whereNull('delay_action'));
+    }
+
+    #[Scope]
+    protected function withReceiptLedger(Builder $query): void
+    {
+        $query->with(['pendingAccount', 'receiptReversals.payments'])
+            ->withExists(['payments as receipt_review_required' => fn ($payments) => $payments->where('amount_cents', '<', 0)->whereNull('original_entry_id')])
+            ->withSum('payments', 'amount_cents')
+            ->withSum('payments as payments_sum_cash_cents', DB::raw(ReceiptLedger::CashExpression));
     }
 
     #[Scope]

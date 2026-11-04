@@ -126,24 +126,37 @@ for (const panel of document.querySelectorAll('[data-rider-operations]')) {
     });
     search.addEventListener('input', () => render()); filter.addEventListener('change', () => { if(filter.value==='late')scope='late'; render(); }); sort.addEventListener('change', () => render());
     const queue = createRefreshQueue(async () => { try { const feed = panel.dataset.feed; const result = await staffRequest(feed); if (feed !== panel.dataset.feed) return; latest = result; render({ refreshDetail: true }); feedback(); } catch { feedback('Aggiornamento non disponibile. Sono mostrati gli ultimi dati ricevuti.'); } });
-    async function changePeriod(url) {
-        for (const name of ['view','q','filter','sort','selected','scope']) { const value=new URL(location.href).searchParams.get(name); if(value) url.searchParams.set(name,value); }
-        url.searchParams.delete('page'); url.searchParams.delete('detail_page');
-        history.replaceState(null,'',url); page=1; controller?.abort(); generation++;
-        for (const key of ['feed','detailUrl']) { const target=new URL(panel.dataset[key],location.origin); target.search=''; for(const name of ['date','period']) if(url.searchParams.has(name)) target.searchParams.set(name,url.searchParams.get(name)); panel.dataset[key]=target.href; }
-        const mode=url.searchParams.get('period') || (url.searchParams.has('date')?'custom':'today');
+    const rangeStart = periodForm?.elements.namedItem('from'), rangeEnd = periodForm?.elements.namedItem('to');
+    const updateDateBounds = () => { if (rangeEnd) rangeEnd.min = rangeStart?.value || ''; };
+    rangeStart?.addEventListener('input', updateDateBounds); rangeStart?.addEventListener('change', updateDateBounds); updateDateBounds();
+    async function changePeriod(url, { preserveContext = true, resetPage = true } = {}) {
+        if (preserveContext) for (const name of ['view','q','filter','sort','selected','scope']) { const value=new URL(location.href).searchParams.get(name); if(value) url.searchParams.set(name,value); }
+        if (resetPage) { url.searchParams.delete('page'); url.searchParams.delete('detail_page'); page=1; }
+        history.replaceState(null,'',url); controller?.abort(); generation++;
+        for (const key of ['feed','detailUrl']) { const target=new URL(panel.dataset[key],location.origin); target.search=''; for(const name of ['date','from','to','period']) if(url.searchParams.has(name)) target.searchParams.set(name,url.searchParams.get(name)); panel.dataset[key]=target.href; }
+        const mode=url.searchParams.get('period') || (url.searchParams.has('date') || url.searchParams.has('from')?'custom':'today');
         const input=periodForm?.querySelector('[data-period-mode]'); if(input) input.value=mode; const range=periodForm?.querySelector('[data-filter-range]'); if(range && mode!=='custom')range.dataset.periodPreset=mode;
         for(const link of periodForm?.querySelectorAll('.period-options a') || []) { const active=new URL(link.href).searchParams.get('period')===mode; link.classList.toggle('active',active); if(active)link.setAttribute('aria-current','page'); else link.removeAttribute('aria-current'); }
         const custom=periodForm?.querySelector('[data-custom-period]'); if(custom) { custom.classList.toggle('active',mode==='custom'); custom.setAttribute('aria-expanded',String(mode==='custom')); }
         const dates=periodForm?.querySelector('[data-custom-dates]'); if(dates) dates.hidden=mode!=='custom';
         const date=periodForm?.elements.namedItem('date'); if(date && url.searchParams.has('date')) date.value=url.searchParams.get('date');
+        if (rangeStart && url.searchParams.has('from')) rangeStart.value=url.searchParams.get('from');
+        if (rangeEnd && url.searchParams.has('to')) rangeEnd.value=url.searchParams.get('to');
         await queue.refresh();
         if(date && mode!=='custom')date.value=latest.date;
+        if(rangeStart)rangeStart.value=latest.date;
+        if(rangeEnd)rangeEnd.value=latest.to || latest.date;
+        updateDateBounds();
         const caption=periodForm?.querySelector('.filter-period-caption'); if(caption) caption.textContent=`${latest.date} – ${latest.to || latest.date}`;
     }
-    periodForm?.addEventListener('click',event=> { const link=event.target.closest('.period-options a,.filter-reset'); if(!link) return; event.preventDefault(); changePeriod(new URL(link.href)); });
-    periodForm?.addEventListener('submit',event=> { event.preventDefault(); const url=new URL(location.href); url.search=''; for(const [name,value] of new FormData(periodForm)) if(value)url.searchParams.set(name,value); if(url.searchParams.get('period')!=='custom')url.searchParams.delete('date'); changePeriod(url); });
-    window.addEventListener('popstate',()=>location.reload());
+    periodForm?.addEventListener('click',event=> { const link=event.target.closest('.period-options a,.filter-reset,[data-filter-dialog] a.action-reset'); if(!link) return; event.preventDefault(); if(periodForm.querySelector('[data-filter-dialog][open]'))periodForm.querySelector('[data-filter-close]').click(); changePeriod(new URL(link.href)); });
+    periodForm?.addEventListener('submit',event=> { event.preventDefault(); const url=new URL(location.href); url.search=''; for(const [name,value] of new FormData(periodForm)) if(value)url.searchParams.set(name,value); if(url.searchParams.get('period')!=='custom')for(const name of ['date','from','to'])url.searchParams.delete(name); changePeriod(url); });
+    window.addEventListener('popstate',()=> {
+        const url = new URL(location.href), parameters = url.searchParams;
+        view=parameters.get('view') || 'zone'; selected=parameters.get('selected') || undefined; scope=parameters.get('scope') || 'programmed'; page=Number(parameters.get('detail_page') || 1);
+        search.value=parameters.get('q') || ''; filter.value=parameters.get('filter') || 'all'; sort.value=parameters.get('sort') || 'name';
+        changePeriod(url, { preserveContext: false, resetPage: false });
+    });
     const refresh = () => { if (!document.hidden) queue.refresh(); };
     window.addEventListener('ea:workspace-updated', refresh); window.addEventListener('ea:workspace-polled', refresh); window.addEventListener('pageshow', refresh);
     document.addEventListener('visibilitychange', refresh);

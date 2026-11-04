@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\CustomerOrderRequest;
 use App\Http\Resources\CustomerOrderResource;
 use App\Models\Order;
+use App\Models\User;
 use App\OrderStatus;
 use App\SenderType;
 use App\Support\CheckoutReview;
@@ -16,6 +17,7 @@ use App\Support\CustomerIdentity;
 use App\Support\Money;
 use App\Support\RiderOperations;
 use App\Support\ShippingQuote;
+use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -83,11 +85,14 @@ class CustomerOrderController extends Controller
     {
         $this->authorizeOwner($request, $order);
         $updated = DB::transaction(function () use ($request, $order, $notify): Order {
+            $customer = User::lockForUpdate()->findOrFail($request->user('customer')->id);
+            abort_unless($customer->is_active && $customer->role === UserRole::Customer, 403);
+            $validated = [...$request->validated(), ...CustomerIdentity::profile($customer)];
             $locked = Order::where('customer_id', $request->user()->id)->lockForUpdate()->findOrFail($order->id);
             abort_unless($locked->customerEditable() && $locked->version === $request->integer('version'), 409, 'La richiesta è stata aggiornata o già accettata. Ricarica i dettagli.');
-            $review = app(CheckoutReview::class)->confirm($request->user(), $request->validated(), $locked);
+            $review = app(CheckoutReview::class)->confirm($customer, $validated, $locked);
             $economicBefore = $locked->only(['price_cents', 'parcel_value_cents', 'shipping_rate_id', 'rate_snapshot']);
-            $data = CustomerIdentity::normalize(Arr::except($request->validated(), ['version', 'parcel_value', 'checkout_token', 'payment_method']), $locked->sender_type);
+            $data = CustomerIdentity::normalize(Arr::except($validated, ['version', 'parcel_value', 'checkout_token', 'payment_method']), $locked->sender_type);
             $scheduleBefore = $locked->pickupSchedule();
             $locked->fill($data);
             foreach (['pickup', 'delivery'] as $kind) {

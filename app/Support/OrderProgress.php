@@ -12,6 +12,9 @@ class OrderProgress
     public function forOrder(Order $order, Collection $events): array
     {
         $workflow = OrderStatus::deliveryStages();
+        if ($order->status === OrderStatus::PickupScheduled || $events->contains(fn ($event) => $event->status === OrderStatus::PickupScheduled)) {
+            array_splice($workflow, 2, 0, [OrderStatus::PickupScheduled]);
+        }
         $current = array_search($order->status, $workflow, true);
         $last = $events->last(fn ($event) => in_array($event->status, $workflow, true));
         $steps = [];

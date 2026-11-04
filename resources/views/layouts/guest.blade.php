@@ -2,12 +2,12 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head><x-ui.head :title="$title" /></head>
-<body>
+<body class="staff-auth">
 <a class="skip-link" href="#main-content">Vai al contenuto</a>
 <div class="auth-shell">
     <aside class="auth-story" aria-label="EA-Express, consegne in Campania">
         <a href="{{ url('/') }}" class="brand-link"><x-application-logo /></a>
-        <div class="auth-story-content"><span class="eyebrow">EA-EXPRESS / SPAZIO OPERATIVO</span><p class="story-heading">Il lavoro si muove.<br><span>Il controllo resta.</span></p><p>Il tuo lavoro si muove.<br>EA-Express lo tiene in ordine.</p>
+        <div class="auth-story-content"><span class="eyebrow">EA-Express / SPAZIO OPERATIVO</span><p class="story-heading">Il lavoro si muove.<br><span>Il controllo resta.</span></p><p>Ritiri, consegne e contabilità.<br>Una giornata organizzata, dall'inizio alla fine.</p>
             <div class="route-illustration" aria-hidden="true"><span class="route-point"><x-ui.icon name="shop" /></span><span class="route-line"></span><span class="route-point route-point-brand"><x-ui.icon name="box-seam" /></span><span class="route-line"></span><span class="route-point"><x-ui.icon name="geo-alt" /></span></div>
         </div>
         <p class="small mb-0">Consegne locali. Persone, prima dei pacchi.</p>

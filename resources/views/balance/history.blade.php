@@ -1,4 +1,19 @@
-@if(in_array($ledger, ['recorded', 'reversed']))
+@if($ledger === 'reversed')
+    @include('balance.reversals')
+    @if($legacyReversals->total())
+        <x-ui.data-panel title="Rettifiche storiche da riconciliare" :count="$legacyReversals->total()" description="Questi movimenti precedono i collegamenti verificati. Non è possibile stabilire dal solo importo se il denaro sia stato rimborsato. Date, importi e storico restano conservati.">
+            <div class="register-table-wrap"><table class="table register-table accounting-table" data-table-static><thead><tr><th scope="col">Ordine e cliente</th><th scope="col">Data e operatore</th><th scope="col" class="text-end">Rettifica storica</th><th scope="col">Verifica</th></tr></thead><tbody>
+            @foreach($legacyReversals as $entry)<tr><td><a class="register-primary" href="{{ route('orders.show', $entry->order) }}">{{ $entry->order->displayName() }}</a><span class="register-reference">{{ $entry->order->reference }}</span><span class="register-note">{{ $entry->note }}</span></td><td>{{ $entry->created_at->timezone('Europe/Rome')->format('d/m/Y H:i') }}<small class="register-note">{{ $entry->user->name }}</small></td><td class="register-amount text-end">{{ \App\Support\Money::format($entry->amount_cents) }}</td><td><span class="status-pill tone-orange">Storico da riconciliare</span><a class="register-note" href="{{ route('audits.index', ['type' => 'orders', 'slug' => $entry->order->slug]) }}">Verifica incasso, storno e ripristino</a></td></tr>@endforeach
+            </tbody></table></div>
+            {{ $legacyReversals->links('components.ui.pagination', ['descriptive' => true, 'numbered' => true]) }}
+        </x-ui.data-panel>
+    @endif
+    @if($reversedOrders->total())
+        <x-ui.data-panel title="Storni storici da riconciliare" description="Movimenti precedenti senza collegamenti verificati. Verifica incasso originale e rimborso effettivo prima di ripristinare.">
+            @include('balance.receipts', ['receipts' => $reversedOrders, 'mode' => 'reversed', 'caption' => 'Storni storici', 'empty' => 'Nessuno storno storico.'])
+        </x-ui.data-panel>
+    @endif
+@elseif($ledger === 'recorded')
     <x-ui.data-panel :title="$ledger === 'recorded' ? 'Incassi già registrati' : 'Ordini stornati'" :description="$ledger === 'recorded' ? 'Pagamenti acquisiti. Le rettifiche restano tracciate nello storico.' : 'Ordini con incasso annullato nel periodo, esclusi dalle consegne valide. Lo stato della consegna e la cronologia sono conservati.'">
         @include('balance.receipts', ['receipts' => $ledger === 'recorded' ? $recordedOrders : $reversedOrders, 'mode' => $ledger, 'caption' => $ledger === 'recorded' ? 'Incassi già registrati' : 'Ordini stornati', 'empty' => $ledger === 'recorded' ? 'Nessun incasso già registrato nel periodo.' : 'Nessuno storno nel periodo.'])
     </x-ui.data-panel>
@@ -15,23 +30,37 @@
         {{ $expenses->links('components.ui.pagination', ['descriptive' => true, 'numbered' => true]) }}
     </x-ui.data-panel>
 @elseif($ledger === 'cash' && auth()->user()->role === \App\UserRole::Admin)
-    <x-ui.data-panel id="cash-register" title="Contanti e altre voci" :count="$manualEntries->total()" description="Registrazioni manuali e rettifiche. I contanti aggiuntivi non sono incassi delle spedizioni.">
-        <div class="register-table-wrap"><table class="table register-table accounting-table" data-table-static><thead><tr><th scope="col">Voce</th><th scope="col">Data e operatore</th><th scope="col" class="text-end">Importo</th><th scope="col">Stato</th><th scope="col">Operazioni</th></tr></thead><tbody>@forelse($manualEntries as $entry)<tr><td><strong class="register-primary">{{ \App\Models\FinancialMovement::Kinds[$entry->kind] }}</strong><span class="register-note">{{ $entry->description }}</span>@if($entry->customer)<small class="register-note">{{ $entry->customer->name }}</small>@endif @if($entry->order)<a class="register-reference" href="{{ route('orders.show', $entry->order) }}">{{ $entry->order->reference }}</a>@endif @if($entry->notes)<small class="register-note">{{ $entry->notes }}</small>@endif</td><td>{{ $entry->occurred_on->format('d/m/Y') }}<small class="register-note">{{ $entry->user->name }}</small></td><td class="text-end"><x-ui.signed-money :amount="$entry->amount_cents" /></td><td><span class="status-pill {{ $entry->voided_at ? 'tone-neutral' : 'tone-green' }}">{{ $entry->voided_at ? 'Annullata' : 'Registrata' }}</span></td><td><div class="register-actions">@unless($entry->voided_at)
-            <x-ui.action-dialog :id="'cash-edit-'.$entry->slug" title="Modifica movimento" :description="\App\Models\FinancialMovement::Kinds[$entry->kind]">
-            @if($entry->kind === 'cash')<form method="post" action="{{ route('movements.update', $entry) }}" data-financial-form class="form-stack">@csrf @method('patch')<input type="hidden" name="kind" value="cash"><input type="hidden" name="version" value="{{ $entry->version }}"><x-ui.field name="amount" :id="'cash-amount-'.$entry->slug" label="Importo contanti (€)" :value="number_format($entry->amount_cents / 100, 2, '.', '')" inputmode="decimal" required /><button class="btn btn-success" type="submit">Salva modifica</button></form>
-            @else @include('balance.movement-form', ['movement' => $entry]) @endif
-            </x-ui.action-dialog>
-            <form method="post" action="{{ route('movements.destroy', $entry) }}" data-financial-form data-confirm="Annulla movimento" data-confirm-name="{{ $entry->description }}">@csrf @method('delete')<input type="hidden" name="version" value="{{ $entry->version }}"><x-ui.icon-button action="delete" label="Annulla movimento" type="submit" /></form>
-            @endunless <x-ui.icon-button action="history" label="Storico del movimento" :href="route('audits.index', ['type' => 'financial_movements', 'slug' => $entry->slug])" /></div></td></tr>@empty<tr><td colspan="5" class="register-empty">Nessuna registrazione nel periodo.</td></tr>@endforelse</tbody></table></div>
-        {{ $manualEntries->links('components.ui.pagination', ['descriptive' => true, 'numbered' => true]) }}
+    <x-ui.data-panel id="cash-register" title="Contanti e altre categorie" :count="$manualEntries->total()" description="Categorie separate per origine del movimento. Gli incassi delle spedizioni, le spese e gli storni hanno registri dedicati.">
+        @forelse(collect($manualSections)->filter(fn ($section) => $section['entries']->total()) as $kind => $category)
+            <section class="movement-category" data-movement-category="{{ $kind }}" aria-label="{{ $category['label'] }}">
+                <header class="register-subheading"><h3>{{ $category['label'] }}</h3><span class="count-pill">{{ $category['entries']->total() }}</span></header>
+                @include('balance.manual-entries', ['entries' => $category['entries']])
+            </section>
+        @empty<p class="register-empty">Nessun movimento manuale nel periodo.</p>@endforelse
     </x-ui.data-panel>
 @elseif($ledger === 'pending')
-    <x-ui.data-panel title="Gestione sospesi" description="La gestione amministrativa dei crediti e dei debiti è disponibile nel registro Sospesi. Qui compaiono soltanto i pagamenti effettivi.">
-        <a class="btn btn-outline-primary" href="{{ route('pending.index', count($selectedCustomerSlugs) === 1 ? ['customer_id' => $selectedCustomerSlugs[0]] : []) }}">Apri Sospesi</a>
+    <x-ui.data-panel title="Sospesi" :count="$pendingEntries->total()" description="Posizioni sorte nel periodo, con stato e residuo aggiornati a oggi. Sono impegni aperti, non movimenti di denaro. I pagamenti effettivi compaiono negli Incassi o nelle Spese.">
+        <div class="register-table-wrap"><table class="table register-table accounting-table" data-table-static>
+            <caption class="visually-hidden">Sospesi nel periodo e per i clienti selezionati</caption>
+            <thead><tr><th scope="col">Posizione e cliente</th><th scope="col">Data e scadenza</th><th scope="col">Direzione e stato</th><th scope="col" class="text-end">Residuo aperto</th><th scope="col">Operazioni</th></tr></thead>
+            <tbody>@forelse($pendingEntries as $account)<tr>
+                <td><strong class="register-primary">{{ $account->subject }}</strong><span class="register-note">{{ $account->description }}</span>@if($account->customer)<small class="register-note">{{ $account->customer->name }}</small>@endif @if($account->order)<a class="register-reference" href="{{ route('orders.show', $account->order) }}">{{ $account->order->reference }}</a>@endif</td>
+                <td>{{ $account->occurred_on->format('d/m/Y') }}@if($account->due_on)<small class="register-note">Scadenza {{ $account->due_on->format('d/m/Y') }}</small>@endif</td>
+                <td><span class="status-pill {{ $account->direction === 'incoming' ? 'tone-green' : 'tone-orange' }}">{{ $account->direction === 'incoming' ? 'In entrata' : 'In uscita' }}</span><small class="register-note">{{ $account->statusLabel() }} · nessun effetto automatico sulla cassa</small></td>
+                <td class="text-end register-amount">{{ \App\Support\Money::format(in_array($account->state, ['open', 'partially_paid']) ? ($account->amount_cents - $account->settled_cents) * ($account->direction === 'incoming' ? 1 : -1) : 0) }}<small>Totale {{ \App\Support\Money::format($account->amount_cents) }} · saldato {{ \App\Support\Money::format($account->settled_cents) }}</small></td>
+                <td><x-ui.icon-button action="open" label="Gestisci sospeso" :href="route('pending.index', ['slug' => $account->slug, 'direction' => $account->direction])" /></td>
+            </tr>@empty<tr><td colspan="5" class="register-empty">Nessuna posizione sospesa corrisponde ai filtri.</td></tr>@endforelse</tbody>
+        </table></div>
+        {{ $pendingEntries->links('components.ui.pagination', ['descriptive' => true, 'numbered' => true]) }}
     </x-ui.data-panel>
 @else
-    <x-ui.data-panel title="Movimenti di cassa" :count="$payments->total()" description="Registrazioni e storni per data di inserimento. Un importo negativo compensa un incasso precedente.">
-        <div class="register-table-wrap"><table class="table register-table accounting-table" data-table-static><thead><tr><th scope="col">Ordine e causale</th><th scope="col">Data e operatore</th><th scope="col" class="text-end">Incasso effettivo</th><th scope="col">Tipo</th></tr></thead><tbody>@forelse($payments as $payment)<tr><td><a class="register-primary" href="{{ route('orders.show', $payment->order) }}">{{ $payment->order->reference }}</a>@if($payment->note)<span class="register-note">{{ $payment->note }}</span>@endif</td><td>{{ $payment->created_at->timezone('Europe/Rome')->format('d/m/Y H:i') }}<small class="register-note">{{ $payment->user->name }}</small></td><td class="text-end"><x-ui.signed-money :amount="$payment->amount_cents" /></td><td><span class="status-pill {{ $payment->amount_cents < 0 ? 'tone-danger' : 'tone-green' }}">{{ $payment->amount_cents < 0 ? 'Storno' : 'Incasso' }}</span></td></tr>@empty<tr><td colspan="4" class="register-empty">Nessun movimento registrato.</td></tr>@endforelse</tbody></table></div>{{ $payments->links('components.ui.pagination', ['descriptive' => true, 'numbered' => true]) }}
+    <x-ui.data-panel title="Incassi e rettifiche" :count="$payments->total()" description="Ogni movimento appartiene alla propria data di registrazione. Storni e ripristini contabili non muovono denaro; i rimborsi pagati sono separati.">
+        @forelse(collect($paymentSections)->filter(fn ($section) => $section['entries']->total()) as $kind => $category)
+            <section class="movement-category" data-payment-category="{{ $kind }}" aria-label="{{ $category['label'] }}">
+                <header class="register-subheading"><h3>{{ $category['label'] }}</h3><span class="count-pill">{{ $category['entries']->total() }}</span></header>
+                @include('balance.payment-entries', ['entries' => $category['entries']])
+            </section>
+        @empty<p class="register-empty">Nessun movimento delle spedizioni nel periodo.</p>@endforelse
         @if($generalEntries->total())<div class="register-subheading"><h3>Pagamenti ricevuti senza ordine</h3><p>Già inclusi nelle entrate registrate: {{ \App\Support\Money::format($generalReceipts) }}.</p></div><div class="register-table-wrap"><table class="table register-table" data-table-static><thead><tr><th scope="col">Origine del pagamento</th><th scope="col">Data e operatore</th><th scope="col" class="text-end">Importo</th></tr></thead><tbody>@foreach($generalEntries as $entry)<tr><td><strong class="register-primary">{{ $entry->account->subject }}</strong><span class="register-note">{{ $entry->account->description }}</span>@if(auth()->user()->role === \App\UserRole::Admin)<a class="register-note" href="{{ route('pending.index', ['slug' => $entry->account->slug]) }}">Apri sospeso</a>@endif</td><td>{{ $entry->created_at->timezone('Europe/Rome')->format('d/m/Y H:i') }}<small class="register-note">{{ $entry->user?->name }}</small></td><td class="text-end"><x-ui.signed-money :amount="$entry->amount_cents" /></td></tr>@endforeach</tbody></table></div>{{ $generalEntries->links('components.ui.pagination', ['descriptive' => true, 'numbered' => true]) }}@endif
     </x-ui.data-panel>
 @endif

@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\Order;
 use App\Models\ShippingRate;
 use App\Models\User;
+use App\UserRole;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
@@ -17,6 +18,9 @@ class CheckoutReview
     /** @param array<string,mixed> $data @return array<string,mixed> */
     public function preview(User $user, array $data, ?Order $order = null): array
     {
+        if ($user->role === UserRole::Customer) {
+            $data = [...$data, ...CustomerIdentity::profile($user)];
+        }
         $data = $this->normalized($data);
         $quote = $this->quote($data, $order);
         $value = Money::cents((string) ($data['parcel_value'] ?? '0'));
@@ -28,6 +32,9 @@ class CheckoutReview
     /** Must run within the order transaction. @param array<string,mixed> $data @return array<string,mixed> */
     public function confirm(User $user, array $data, ?Order $order = null): array
     {
+        if ($user->role === UserRole::Customer) {
+            $data = [...$data, ...CustomerIdentity::profile($user)];
+        }
         try {
             $payload = json_decode(Crypt::decryptString($data['checkout_token'] ?? ''), true, 512, JSON_THROW_ON_ERROR);
         } catch (DecryptException|\JsonException $exception) {

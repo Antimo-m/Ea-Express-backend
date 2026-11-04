@@ -64,7 +64,8 @@ class OperationalInterfaceTest extends TestCase
         $order = Order::factory()->create(['created_by' => $admin->id, 'rider_id' => $replacement->id, 'pickup_date' => '2026-10-01', 'status' => OrderStatus::Delivered, 'delivered_at' => now(), 'delivery_zone' => 'Nola']);
         $order->events()->make(['rider_id' => $original->id, 'operational_zone' => 'Aversa', 'user_id' => $original->id, 'pickup_date' => now('Europe/Rome')->toDateString(), 'status' => OrderStatus::OutForDelivery])->forceFill(['created_at' => now()->subDay()])->save();
         $response = $this->actingAs($admin)->getJson('/rider-operations/feed?date=2026-10-01')->assertOk()->assertJsonPath('summary.active', 0)->assertJsonPath('summary.delivered', 1)->assertJsonPath('summary.total', 1)->assertJsonPath('riders.0.slug', $replacement->slug)->assertJsonPath('riders.0.zones.0.name', 'Nola')->assertJsonPath('zones.0.name', 'Nola');
-        $this->get('/rider-operations/'.$original->slug.'?date=2026-10-01')->assertOk()->assertViewHas('remaining', 0)->assertSee('Consegnato');
+        $this->get('/rider-operations/'.$original->slug.'?date=2026-10-01')->assertOk()->assertViewHas('counts', fn ($counts) => $counts['total'] === 0)->assertDontSee('data-rider-delivery=', false);
+        $this->get('/rider-operations/'.$replacement->slug.'?date=2026-10-01')->assertViewHas('counts', fn ($counts) => $counts['completed'] === 1)->assertSee('Consegnato');
     }
 
     public function test_period_presets_keep_customer_filter_and_reset_all_independent_pages(): void

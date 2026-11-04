@@ -2,7 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Actions\NotifyAccountingParticipants;
+use App\Actions\ManageReceipt;
+use App\Actions\ReconcileReceipt;
 use App\Actions\TransitionOrder;
 use App\Http\Controllers\PaymentController;
 use App\Models\Order;
@@ -186,7 +187,7 @@ class WorkflowSecurityTest extends TestCase
         $request = Request::create('/balance/'.$order->slug.'/payment', 'POST', ['action' => 'receive', 'version' => 1, 'received_amount' => '6']);
         $request->setUserResolver(fn () => $order->rider);
         try {
-            app(PaymentController::class)->store($request, $order, app(NotifyAccountingParticipants::class));
+            app(PaymentController::class)->store($request, $order, app(ManageReceipt::class), app(ReconcileReceipt::class));
             $this->fail('A rider recorded a receipt without route middleware.');
         } catch (HttpException $exception) {
             $this->assertSame(403, $exception->getStatusCode());
@@ -254,6 +255,6 @@ class WorkflowSecurityTest extends TestCase
             'reason' => 'Cambio appuntamento', 'estimated_at' => now('Europe/Rome')->addDays(3)->format('Y-m-d\TH:i'),
         ])->assertOk();
         $this->assertNull($order->fresh()->estimated_at);
-        $this->assertSame(OrderStatus::PickupScheduled, $order->fresh()->status);
+        $this->assertSame(OrderStatus::Accepted, $order->fresh()->status);
     }
 }

@@ -11,10 +11,11 @@ class EconomicAuditPresenter
 {
     private const Fields = [
         'rider_id' => 'Rider', 'assigned_by' => 'Assegnato da', 'assigned_at' => 'Assegnato il', 'email_verified_at' => 'Email verificata il', 'name' => 'Nome', 'email' => 'Email', 'role' => 'Ruolo',
+        'cash_amount_cents' => 'Movimento effettivo di denaro', 'original_amount_cents' => 'Importo originale', 'collected_cents' => 'Incassato', 'corrected_cents' => 'Rettificato', 'restore_reason' => 'Motivo del ripristino', 'restored_at' => 'Ripristinato il',
         'carrier_cost_cents' => 'Costo vettore', 'ea_amount_cents' => 'Quota EA-Express', 'amount_cents' => 'Importo', 'settled_cents' => 'Totale saldato', 'price_cents' => 'Tariffa',
         'previous_price_cents' => 'Tariffa precedente', 'quoted_price_cents' => 'Tariffa iniziale', 'parcel_value_cents' => 'Valore merce',
         'description' => 'Causale', 'subject' => 'Soggetto', 'notes' => 'Note', 'note' => 'Nota',
-        'reason' => 'Motivazione', 'receipt_void_reason' => 'Motivo dello storno', 'state' => 'Stato', 'price_state' => 'Stato tariffa',
+        'reason' => 'Motivazione', 'receipt_void_reason' => 'Motivo dello storno', 'state' => 'Stato', 'price_state' => 'Stato tariffa', 'resolution' => 'Verifica del denaro',
         'status' => 'Stato spedizione', 'kind' => 'Tipo di movimento', 'direction' => 'Direzione',
         'occurred_on' => 'Data contabile', 'spent_on' => 'Data della spesa', 'due_on' => 'Scadenza',
         'paid_at' => 'Incasso registrato il', 'settled_at' => 'Saldato il', 'voided_at' => 'Annullato il', 'receipt_voided_at' => 'Stornato il',
@@ -49,7 +50,8 @@ class EconomicAuditPresenter
             'recipient_incident.created' => 'Precedente destinatario registrato', 'recipient_incident.correct' => 'Dati del precedente corretti', 'recipient_incident.dismiss' => 'Segnalazione destinatario rimossa',
             'rider.created' => 'Account Rider creato', 'rider.email_verified' => 'Email Rider verificata', 'rider.assigned' => 'Rider assegnato',
             'expense.created' => 'Spesa registrata', 'expense.updated', 'expense.corrected' => 'Spesa corretta', 'expense.voided' => 'Spesa annullata',
-            'payment.received' => 'Incasso registrato', 'payment.reversed' => 'Movimento di storno registrato', 'payment.corrected' => 'Importo dell’incasso corretto',
+            'payment.restored' => 'Storno compensato senza nuovo incasso', 'payment.refunded', 'receipt.refund' => 'Rimborso pagato', 'receipt.reversal_created' => 'Storno tracciato', 'receipt.reversal_restored' => 'Storno compensato',
+            'payment.received' => 'Incasso registrato', 'payment.reversed' => 'Movimento di storno registrato', 'payment.corrected' => 'Importo dell’incasso corretto', 'payment.reconciled' => 'Movimento storico riconciliato', 'receipt.reconciled' => 'Incasso riconciliato senza duplicazioni',
             'receipt.receive' => 'Incasso confermato', 'receipt.reverse' => 'Incasso spostato negli storni', 'receipt.restore' => 'Incasso ripristinato', 'receipt.corrected' => 'Saldo della spedizione aggiornato', 'receipt.backfilled' => 'Storno storico riconosciuto',
             'settlement.created' => 'Pagamento del sospeso registrato', 'settlement.corrected' => 'Pagamento del sospeso corretto',
             'pending.assigned' => 'Cliente associato al sospeso storico', 'pending.created' => 'Sospeso creato', 'pending.settled' => 'Pagamento applicato al sospeso', 'pending.corrected', 'pending.update' => 'Sospeso aggiornato', 'pending.cancel' => 'Sospeso annullato',
@@ -91,7 +93,10 @@ class EconomicAuditPresenter
             return PaymentMethod::Labels[$value] ?? (string) $value;
         }
         if ($field === 'kind') {
-            return FinancialMovement::Kinds[$value] ?? (string) $value;
+            return FinancialMovement::Kinds[$value] ?? ['restoration' => 'Ripristino contabile', 'reversal' => 'Storno contabile', 'cash_reconciliation' => 'Riconciliazione della cassa storica'][$value] ?? (string) $value;
+        }
+        if ($field === 'resolution') {
+            return ['retained' => 'Denaro originale ancora trattenuto', 'refunded' => 'Denaro originale già restituito', 'links' => 'Collegamenti storici verificati', 'partial' => 'Incasso parziale verificato'][$value] ?? (string) $value;
         }
         if ($field === 'direction') {
             return $value === 'incoming' ? 'Entrata' : 'Uscita';

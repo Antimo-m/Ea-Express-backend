@@ -230,6 +230,6 @@ class ManualOrderDelayTest extends TestCase
         $this->getJson('/rider-operations/feed?date=2026-10-20')->assertJsonPath('summary.overdue', 1);
         $this->getJson('/rider-operations/feed')->assertJsonPath('summary.overdue', 0);
         $this->assertSame($deliveryEvent->id, $order->fresh()->deliveryEvent->id);
-        $this->get('/rider-operations/'.$admin->slug.'?date=2026-10-20')->assertViewHas('deliveries', fn ($items) => $items->count() === 1);
+        $this->get('/rider-operations/'.$admin->slug.'?date=2026-10-20')->assertViewHas('counts', fn ($counts) => $counts['completed'] === 1);
     }
 }

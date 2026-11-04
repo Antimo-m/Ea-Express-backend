@@ -6,6 +6,7 @@ enum OrderStatus: string
 {
     case Received = 'received';
     case Accepted = 'accepted';
+    /** Retained for persisted orders and their historical events. */
     case PickupScheduled = 'pickup_scheduled';
     case RiderArriving = 'rider_arriving';
     case PickedUp = 'picked_up';
@@ -43,7 +44,7 @@ enum OrderStatus: string
     {
         return match ($this) {
             self::Received => [self::Accepted, self::Rejected],
-            self::Accepted => [self::PickupScheduled, self::RiderArriving, self::Cancelled],
+            self::Accepted => [self::RiderArriving, self::Cancelled],
             self::PickupScheduled => [self::RiderArriving, self::Cancelled],
             self::RiderArriving => [self::PickedUp, self::DeliveryIssue, self::Cancelled],
             self::PickedUp => [self::InTransit, self::OutForDelivery, self::DeliveryIssue],
@@ -59,7 +60,7 @@ enum OrderStatus: string
     /** @return list<self> */
     public static function deliveryStages(): array
     {
-        return [self::Received, self::Accepted, self::PickupScheduled, self::RiderArriving, self::PickedUp, self::InTransit, self::OutForDelivery, self::Delivered];
+        return [self::Received, self::Accepted, self::RiderArriving, self::PickedUp, self::InTransit, self::OutForDelivery, self::Delivered];
     }
 
     /** @return list<string> */

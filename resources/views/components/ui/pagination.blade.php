@@ -1,6 +1,6 @@
 @props(['paginator', 'descriptive' => false, 'numbered' => false])
 @if($paginator->hasPages())
-<nav class="workspace-pagination rates-pagination" aria-label="Paginazione risultati">
+<nav class="workspace-pagination rates-pagination" aria-label="Paginazione risultati" data-pagination-page="{{ $paginator->currentPage() }}" data-pagination-last="{{ method_exists($paginator, 'lastPage') ? $paginator->lastPage() : $paginator->currentPage() }}" data-pagination-name="{{ $paginator->getPageName() }}">
     @if($paginator->onFirstPage())
         <button type="button" class="page-arrow" disabled aria-label="Pagina precedente" title="Pagina precedente" data-tooltip="Pagina precedente"><x-ui.icon name="arrow-left" /></button>
     @else

@@ -62,7 +62,7 @@ class CustomerExperienceTest extends TestCase
         $customer = User::factory()->create(['role' => UserRole::Customer, 'business_type' => 'Fiorista']);
         ShippingRate::factory()->create(['city' => 'Caserta', 'city_key' => 'caserta']);
         $this->actingAs($customer, 'customer')->postJson('/api/v1/customer/orders', $this->checkoutData([...$this->payload(), 'store_name' => 'Rita Rossi', 'sender_type' => 'private', 'business_type' => 'Non pertinente', 'parcel_value' => '123,45', 'price_cents' => 1, 'parcel_value_cents' => 99]))
-            ->assertCreated()->assertJsonPath('data.parcel_value_cents', 12345)->assertJsonPath('data.price_cents', 500)->assertJsonPath('data.business_type', null)->assertJsonPath('data.store_name', 'Rita Rossi');
+            ->assertCreated()->assertJsonPath('data.parcel_value_cents', 12345)->assertJsonPath('data.price_cents', 500)->assertJsonPath('data.sender_type', 'business')->assertJsonPath('data.business_type', 'Fiorista')->assertJsonPath('data.store_name', 'Rita Rossi');
         $order = Order::sole();
         $this->assertSame(12345, $order->parcel_value_cents);
         $this->assertSame(500, $order->price_cents);
@@ -103,7 +103,7 @@ class CustomerExperienceTest extends TestCase
         $this->actingAs($rider)->get('/notifications')->assertOk()->assertSee('data-notification-group', false)->assertSee($order->reference);
         $this->getJson('/notifications/feed')->assertOk()->assertJsonPath('unread', 1);
         $this->getJson('/notifications/orders/'.$order->slug)->assertJsonCount(1, 'data');
-        $this->get('/orders/'.$order->slug)->assertOk()->assertSee('Parti per il ritiro')->assertSee('Altre azioni e imprevisti');
+        $this->get('/orders/'.$order->slug)->assertOk()->assertSee('Parti per il ritiro')->assertDontSee('Programma il ritiro');
         $this->patch('/orders/'.$order->slug, ['version' => 1, 'status' => 'rider_arriving', 'price' => '8.50'])->assertSessionHasNoErrors();
         $this->get('/orders/'.$order->slug)->assertOk()->assertSee('Ritiro');
         $this->assertSame(850, $order->fresh()->price_cents);

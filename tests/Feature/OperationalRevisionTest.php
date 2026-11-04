@@ -151,9 +151,9 @@ class OperationalRevisionTest extends TestCase
     #[TestWith([0, 0])]
     #[TestWith([1, 1])]
     #[TestWith([10, 1])]
-    #[TestWith([11, 2])]
-    #[TestWith([21, 3])]
-    public function test_rider_chronology_paginates_distinct_orders_and_keeps_full_kpis(int $count, int $pages): void
+    #[TestWith([11, 1])]
+    #[TestWith([21, 2])]
+    public function test_rider_day_paginates_delivery_cards_and_keeps_full_kpis(int $count, int $pages): void
     {
         $this->travelTo(Carbon::parse('2026-10-06 12:00', 'Europe/Rome'));
         $admin = $this->admin();
@@ -163,10 +163,10 @@ class OperationalRevisionTest extends TestCase
                 $order->events()->create(['user_id' => $admin->id, 'rider_id' => $admin->id, 'status' => $status]);
             }
         }
-        $response = $this->actingAs($admin)->get('/rider-operations/'.$admin->slug.'?period=today&view=rider&zone=Caserta')->assertViewHas('deliveredCount', $count)->assertViewHas('orders', fn ($orders) => $orders->count() === min(10, $count) && $orders->total() === $count && $orders->lastPage() === max(1, $pages))->assertDontSee('data-rider-gps', false)->assertDontSee('gps-bar', false);
-        $this->assertSame(min(10, $count), substr_count($response->getContent(), 'data-operation-order='));
+        $response = $this->actingAs($admin)->get('/rider-operations/'.$admin->slug.'?period=today&view=rider&zone=Caserta')->assertViewHas('counts', fn ($counts) => $counts['completed'] === $count)->assertViewHas('orders', fn ($orders) => $orders->count() === min(20, $count) && $orders->total() === $count && $orders->lastPage() === max(1, $pages))->assertDontSee('data-rider-gps', false)->assertDontSee('gps-bar', false);
+        $this->assertSame(min(20, $count), substr_count($response->getContent(), 'data-rider-delivery='));
         if ($count) {
-            $response->assertSee('Negozio Rossi')->assertSee('Apri ordine')->assertSee('Pacco ritirato');
+            $response->assertSee('Negozio Rossi')->assertSee('Apri ordine')->assertDontSee('Pacco ritirato');
         }
         if ($pages > 1) {
             $response->assertSee('Pagina 1 di '.$pages)->assertSee('view=rider', false);

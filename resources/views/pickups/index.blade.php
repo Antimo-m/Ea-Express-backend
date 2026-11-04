@@ -1,6 +1,6 @@
 <x-app-layout title="Agenda ritiri">
     <header class="page-heading">
-        <div><span class="eyebrow">EA-EXPRESS · AGENDA OPERATIVA</span><h1>Agenda ritiri</h1><p>Consulta i ritiri ancora da effettuare e apri il resoconto di una giornata.</p></div>
+        <div><span class="eyebrow">EA-Express · AGENDA OPERATIVA</span><h1>Agenda ritiri</h1><p>Consulta i ritiri ancora da effettuare e apri il resoconto di una giornata.</p></div>
         <div class="row-actions"><a class="btn btn-outline-secondary" href="{{ route('pickups.grouped') }}">Vista raggruppata</a>@if(auth()->user()->role === \App\UserRole::Admin)<x-ui.icon-button action="add" href="{{ route('orders.create') }}" label="Prenota un ritiro" text />@endif</div>
     </header>
     <section class="pickup-calendar surface" data-live-region="pickup-calendar" data-pickup-calendar aria-labelledby="calendar-month">

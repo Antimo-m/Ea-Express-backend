@@ -9,6 +9,7 @@ use App\Models\PaymentEntry;
 use App\Models\PendingSettlement;
 use App\OrderStatus;
 use App\Support\OrderStatistics;
+use App\Support\ReceiptLedger;
 use App\Support\ReportingPeriod;
 use App\Support\ShippingEconomics;
 use App\UserRole;
@@ -31,16 +32,18 @@ class ReportController extends Controller
         $before = (clone $base)->whereBetween('created_at', $previous->utcRange())->count();
         $states = (clone $cohort)->select('status')->selectRaw('COUNT(*) as total')->groupBy('status')->pluck('total', 'status');
         $accepted = (clone $cohort)->whereHas('events', fn ($q) => $q->where('status', OrderStatus::Accepted))->count();
-        $delivered = Order::financialFor($request->user())->where('status', OrderStatus::Delivered)->whereBetween('delivered_at', $period->utcRange());
+        $delivered = Order::financialFor($request->user())->where('status', OrderStatus::Delivered)->whereNull('receipt_voided_at')->whereBetween('delivered_at', $period->utcRange());
         $payments = PaymentEntry::whereHas('order', fn ($q) => $q->financialFor($request->user()))->whereBetween('created_at', $period->utcRange());
         $general = PendingSettlement::whereHas('account', fn ($q) => $q->where('direction', 'incoming')->whereNull('order_id'))->when($request->user()->role !== UserRole::Admin, fn ($q) => $q->where('user_id', $request->user()->id))->whereBetween('created_at', $period->utcRange());
-        $cash = (int) (clone $payments)->sum('amount_cents') + (int) (clone $general)->sum('amount_cents');
+        $ledgerTotals = app(ReceiptLedger::class)->totals($payments);
+        $generalTotal = (int) (clone $general)->sum('amount_cents');
+        $cash = $ledgerTotals['cash'] + $generalTotal;
         $expenses = Expense::visibleTo($request->user())->whereNull('voided_at')->whereDate('spent_on', '>=', $period->start->toDateString())->whereDate('spent_on', '<=', $period->end->toDateString());
         $spent = (int) (clone $expenses)->sum('amount_cents');
         $manual = FinancialMovement::whereNull('voided_at')->when($request->user()->role !== UserRole::Admin, fn ($q) => $q->whereRaw('1=0'))->whereDate('occurred_on', '>=', $period->start->toDateString())->whereDate('occurred_on', '<=', $period->end->toDateString());
-        $manualNet = (int) (clone $manual)->sum('amount_cents');
+        $manualNet = (int) (clone $manual)->where('kind', '!=', 'cash')->sum('amount_cents');
         $receiptEconomics = app(ShippingEconomics::class)->receipts($payments);
-        $operatingNet = $cash - $spent + $manualNet;
+        $operatingNet = $ledgerTotals['net'] + $generalTotal - $spent + $manualNet;
         $cashDays = [];
         $addCash = function (string $day, int $amount) use (&$cashDays): void {
             $cashDays[$day] ??= ['incoming' => 0, 'outgoing' => 0];
@@ -55,7 +58,7 @@ class ReportController extends Controller
         foreach ((clone $expenses)->select(['id', 'slug', 'spent_on', 'amount_cents'])->lazyById(500) as $expense) {
             $addCash($expense->spent_on->format('d/m'), -$expense->amount_cents);
         }
-        foreach ((clone $manual)->select(['id', 'slug', 'occurred_on', 'amount_cents'])->lazyById(500) as $movement) {
+        foreach ((clone $manual)->where('kind', '!=', 'cash')->select(['id', 'slug', 'occurred_on', 'amount_cents'])->lazyById(500) as $movement) {
             $addCash($movement->occurred_on->format('d/m'), $movement->amount_cents);
         }
         $topCustomers = (clone $cohort)->whereNotNull('customer_id')->select('customer_id')->selectRaw('COUNT(*) AS shipments')->groupBy('customer_id')->with('customer:id,slug,name')->orderByDesc('shipments')->orderBy('customer_id')->limit(5)->get();
@@ -78,6 +81,6 @@ class ReportController extends Controller
 
         $shippingEconomics = app(ShippingEconomics::class)->summarize($delivered);
 
-        return view('reports.index', ['receiptEconomics' => $receiptEconomics, 'shippingEconomics' => $shippingEconomics, 'shippingCounts' => (clone $cohort)->select('shipping_type')->selectRaw('COUNT(*) AS total')->groupBy('shipping_type')->pluck('total', 'shipping_type'), 'period' => $period, 'received' => $received, 'previous' => $before, 'growth' => $before ? round(($received - $before) / $before * 100, 1) : null, 'states' => $states, 'accepted' => $accepted, 'delivered' => $delivered->count(), 'earned' => (int) (clone $delivered)->sum('price_cents'), 'cash' => (int) $cash, 'zones' => $zones, 'days' => $days, 'trend' => $trend, 'spent' => $spent, 'manualNet' => $manualNet, 'operatingNet' => $operatingNet, 'topCustomers' => $topCustomers, 'incomingTotal' => $incomingTotal, 'outgoingTotal' => $outgoingTotal]);
+        return view('reports.index', ['receiptEconomics' => $receiptEconomics, 'shippingEconomics' => $shippingEconomics, 'shippingCounts' => (clone $cohort)->select('shipping_type')->selectRaw('COUNT(*) AS total')->groupBy('shipping_type')->pluck('total', 'shipping_type'), 'period' => $period, 'received' => $received, 'previous' => $before, 'growth' => $before ? round(($received - $before) / $before * 100, 1) : null, 'states' => $states, 'accepted' => $accepted, 'delivered' => $delivered->count(), 'earned' => (int) (clone $delivered)->sum('price_cents'), 'ledgerTotals' => $ledgerTotals, 'cash' => (int) $cash, 'zones' => $zones, 'days' => $days, 'trend' => $trend, 'spent' => $spent, 'manualNet' => $manualNet, 'operatingNet' => $operatingNet, 'topCustomers' => $topCustomers, 'incomingTotal' => $incomingTotal, 'outgoingTotal' => $outgoingTotal]);
     }
 }

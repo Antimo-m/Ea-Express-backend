@@ -39,7 +39,7 @@
             <div class="field field-service booking-service">
                 <label class="form-label" for="shipping_type">Tipo di spedizione</label>
                 <select class="form-select" id="shipping_type" name="shipping_type">
-                    <option value="regional" @selected(old('shipping_type', 'regional') === 'regional')>Regionale · rete EA Express</option>
+                    <option value="regional" @selected(old('shipping_type', 'regional') === 'regional')>Regionale · rete EA-Express</option>
                     <option value="external" @selected(old('shipping_type') === 'external')>Fuori regione · vettore esterno</option>
                 </select>
             </div>

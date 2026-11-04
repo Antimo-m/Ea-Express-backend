@@ -29,13 +29,14 @@ class NotificationInbox
         $groups = $this->visibleNotifications($user)->reorder()->select('data->order_id as order_id', 'data->reference as reference')
             ->selectRaw('COUNT(*) as total, SUM(CASE WHEN read_at IS NULL THEN 1 ELSE 0 END) as unread, MAX(created_at) as latest_at')
             ->groupBy('data->order_id', 'data->reference')->orderByDesc('latest_at')->orderByDesc('order_id')->paginate(12)->withQueryString()->through(fn ($group) => (object) ['order_id' => (int) $group->order_id, 'reference' => $group->reference, 'total' => (int) $group->total, 'unread' => (int) $group->unread, 'latest_at' => Carbon::parse($group->latest_at)->toIso8601String()]);
-        $names = Order::whereIn('id', $groups->getCollection()->pluck('order_id'))->withDisplayIdentity()->get(['id', 'slug', 'customer_id', 'created_by', 'reference', 'store_name'])->keyBy('id');
+        $names = Order::whereIn('id', $groups->getCollection()->pluck('order_id'))->withDisplayIdentity()->get(['id', 'slug', 'customer_id', 'created_by', 'reference', 'store_name', 'urgency'])->keyBy('id');
 
         return $groups->through(function ($group) use ($names) {
             $order = $names->get($group->order_id);
             $group->order_slug = $order?->slug;
             unset($group->order_id);
             $group->customer_name = $order?->displayName() ?? 'Cliente';
+            $group->urgency = $order?->urgency ?? 'standard';
 
             return $group;
         });

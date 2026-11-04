@@ -20,7 +20,7 @@
     </section>
     <section class="customer-value-grid" aria-label="Valore per EA-Express">
         <article class="surface customer-value"><span class="eyebrow">VALORE SPEDIZIONI</span><strong>{{ \App\Support\Money::format($summary['shipping_spend_cents']) }}</strong><p>Tariffe finali nel periodo · {{ $summary['unpriced'] }} da verificare</p></article>
-        <article class="surface customer-value"><span class="eyebrow">INCASSATO EA-EXPRESS</span><strong>{{ \App\Support\Money::format($receivedCents) }}</strong><p>Quota EA registrata nel periodo per il cliente, al netto delle rettifiche.</p>@if($receipts['unallocated'])<small>{{ $receipts['unallocated'] }} incassi fuori regione con quota EA non ripartita.</small>@endif</article>
+        <article class="surface customer-value"><span class="eyebrow">INCASSATO EA-Express</span><strong>{{ \App\Support\Money::format($receivedCents) }}</strong><p>Quota EA registrata nel periodo per il cliente, al netto delle rettifiche.</p>@if($receipts['unallocated'])<small>{{ $receipts['unallocated'] }} incassi fuori regione con quota EA non ripartita.</small>@endif</article>
         <article class="surface customer-value"><span class="eyebrow">TARIFFA MEDIA</span><strong>{{ \App\Support\Money::format($averageCents) }}</strong><p>Calcolata sulle tariffe finali disponibili</p></article>
         <article class="surface customer-value"><span class="eyebrow">SOSPESI ATTUALI</span><strong>{{ \App\Support\Money::format($pendingCents) }}</strong><p>Residuo da incassare · tutti i periodi</p><a href="{{ route('pending.index', ['customer_id'=>$customer->slug]) }}">Apri sospesi →</a></article>
     </section>

@@ -1,4 +1,6 @@
 import { attachShippingQuote } from './shipping-quote';
+import '../css/rider-day.css';
+import '../css/staff-auth-revision.css';
 import './order-actions';
 import './operational-orders';
 import './filter-toolbar';
@@ -11,11 +13,16 @@ import { attachFormPopovers } from './form-popovers';
 attachFormPopovers();
 import './package-fields';
 import './financial-forms';
+import './workspace-forms';
 import './live-workspace';
 import Offcanvas from 'bootstrap/js/dist/offcanvas';
 import 'bootstrap/js/dist/dropdown';
 
+const passwordToggles = new WeakSet();
+function bindPasswordToggles() {
 for (const button of document.querySelectorAll('[data-password-toggle]')) {
+    if (passwordToggles.has(button)) continue;
+    passwordToggles.add(button);
     button.hidden = false;
     button.addEventListener('click', () => {
         const input = document.getElementById(button.dataset.passwordToggle);
@@ -26,6 +33,9 @@ for (const button of document.querySelectorAll('[data-password-toggle]')) {
         button.querySelector('i').className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
     });
 }
+}
+bindPasswordToggles();
+document.addEventListener('ea:workspace-rendered', bindPasswordToggles);
 
 const desktopViewport = window.matchMedia('(min-width: 992px)');
 desktopViewport.addEventListener('change', ({ matches }) => {
@@ -83,6 +93,7 @@ for (const group of document.querySelectorAll('[data-notification-group]')) {
 }
 bindNotificationGroups();
 window.addEventListener('ea:notification-groups-rendered', bindNotificationGroups);
+document.addEventListener('ea:workspace-rendered', bindNotificationGroups);
 
 import { createNotificationMonitor } from './notification-monitor';
 if (document.body.dataset.notificationsUrl) {
@@ -175,7 +186,12 @@ for (const form of document.querySelectorAll('[data-auth-form]')) {
     });
 }
 window.addEventListener('pageshow', event => {
-    if (event.persisted && document.querySelector('[data-auth-form][aria-busy="true"]')) location.reload();
+    if (!event.persisted) return;
+    for (const form of document.querySelectorAll('[data-auth-form][aria-busy="true"]')) {
+        form.removeAttribute('aria-busy');
+        const button = form.querySelector('button[type="submit"]');
+        button.disabled = false; button.removeAttribute('aria-busy'); button.textContent = 'Accedi';
+    }
 });
 
 import './rider-operations';

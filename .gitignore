@@ -86,6 +86,7 @@ Thumbs.db
 
 !/tests/Feature/AdminOperationalAssignmentTest.php
 !/tests/Feature/WorkspacePresentationTest.php
+!/tests/Feature/NotificationPresentationTest.php
 !/tests/pickers.browser.test.mjs
 !/tests/Feature/RiderAssignmentTest.php
 
@@ -97,6 +98,13 @@ Thumbs.db
 !/tests/Feature/AnnualReportingTest.php
 
 !/tests/Feature/CustomerStatisticsDatesTest.php
+!/tests/Feature/CustomerDirectoryTest.php
+!/tests/Feature/WorkspaceMutationTest.php
+!/tests/Feature/FinancialStatementTest.php
+!/tests/Feature/ReceiptReconciliationTest.php
+!/tests/Feature/FinancialReportingTest.php
+!/tests/Feature/ShippingPhaseTest.php
+!/tests/Feature/StatisticsScalabilityTest.php
 
 !/tests/Feature/OperationalInterfaceTest.php
 !/tests/Feature/RiderGpsHistoryTest.php
@@ -155,6 +163,16 @@ Thumbs.db
 !/database/factories/ExpenseFactory.php
 !/database/factories/FinancialMovementFactory.php
 !/database/factories/PendingSettlementFactory.php
+
+# Regole contabili e persistenza del portale verificabili anche in un clone.
+!/tests/Feature/CashMovementsTest.php
+!/tests/Feature/RiderDailyDashboardTest.php
+!/tests/Feature/PortalPersistenceTest.php
+!/tests/Feature/EconomicRevisionTest.php
+!/tests/Feature/StaffCheckoutAndReceiptsTest.php
+!/tests/Feature/SenderAddressTest.php
+!/tests/Feature/ShippingPricingTest.php
+!/database/factories/SenderAddressFactory.php
 
 # Report e revisioni interne rimangono esclusivamente locali.
 /[Rr][Ee][Pp][Oo][Rr][Tt]*

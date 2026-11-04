@@ -32,7 +32,7 @@ class CustomerController extends Controller
             default => $customers->orderBy('name'),
         };
 
-        return view('customers.index', ['customers' => $customers->orderBy('users.id')->paginate(20)->withQueryString()]);
+        return view('customers.index', ['customers' => $customers->orderBy('users.id')->paginate(25)->withQueryString()]);
     }
 
     public function show(Request $request, User $customer, OrderStatistics $statistics): View

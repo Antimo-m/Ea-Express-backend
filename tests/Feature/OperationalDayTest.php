@@ -137,7 +137,7 @@ class OperationalDayTest extends TestCase
             file_put_contents($directory.'/zone-detail-page-2.html', $this->get('/rider-operations/detail?date=2026-10-07&zone=Zona+00&page=2')->getContent());
         }
         Order::where('rider_id', $riders->first()->id)->update(['status' => OrderStatus::Delivered, 'delivered_at' => now()]);
-        $this->get('/rider-operations/'.$riders->first()->slug.'?date=2026-10-07')->assertViewHas('deliveredCount', 25)->assertViewHas('orders', fn ($orders) => $orders->count() === 10 && $orders->total() === 25)->assertViewHas('remaining', 0);
+        $this->get('/rider-operations/'.$riders->first()->slug.'?date=2026-10-07')->assertViewHas('counts', fn ($counts) => $counts['completed'] === 25 && $counts['todo'] === 0 && $counts['active'] === 0)->assertViewHas('orders', fn ($orders) => $orders->count() === 20 && $orders->total() === 25);
 
     }
 }

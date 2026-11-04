@@ -2,7 +2,7 @@
     <div class="sidebar-brand"><a class="brand-link" href="{{ route('dashboard') }}"><x-application-logo /></a><button class="btn-close d-lg-none" type="button" data-bs-dismiss="offcanvas" data-bs-target="#app-navigation" aria-label="Chiudi menu"></button></div>
     <h2 id="navigation-title" class="visually-hidden">Menu principale</h2>
     <div class="offcanvas-body sidebar-content">
-        @if(auth()->user()->role === \App\UserRole::Admin)<x-ui.icon-button action="add" href="{{ route('orders.create') }}" label="Nuova richiesta" class="sidebar-create" text />@endif
+        @if(auth()->user()->role === \App\UserRole::Admin)<x-ui.icon-button action="add" href="{{ route('orders.create') }}" label="Nuova richiesta" class="sidebar-create " text />@endif
         <nav aria-label="Navigazione principale">
             @foreach (config('navigation') as $group => $items)
                 @php($items = collect($items)->filter(fn ($item) => !($item['admin'] ?? false) || auth()->user()->role === \App\UserRole::Admin))
@@ -11,6 +11,6 @@
                 @endif
             @endforeach
         </nav>
-        <div class="sidebar-foot">EA-EXPRESS / CAMPANIA<span class="d-block mt-1">{{ auth()->user()->role->label() }} · Spazio operativo</span></div>
+        <div class="sidebar-foot">EA-Express / CAMPANIA<span class="d-block mt-1">{{ auth()->user()->role->label() }} · Spazio operativo</span></div>
     </div>
 </aside>

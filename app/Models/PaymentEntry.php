@@ -12,7 +12,29 @@ class PaymentEntry extends Model
 
     protected function casts(): array
     {
-        return ['ea_amount_cents' => 'integer', 'amount_cents' => 'integer'];
+        return ['ea_amount_cents' => 'integer', 'amount_cents' => 'integer', 'cash_amount_cents' => 'integer'];
+    }
+
+    public function originalEntry(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'original_entry_id');
+    }
+
+    public function reversal(): BelongsTo
+    {
+        return $this->belongsTo(ReceiptReversal::class, 'receipt_reversal_id');
+    }
+
+    public function label(): string
+    {
+        return match ($this->kind) {
+            'reversal' => 'Storno contabile',
+            'restoration' => 'Ripristino contabile',
+            'refund' => 'Rimborso pagato',
+            'recollection' => 'Nuovo incasso dopo rimborso',
+            'cash_reconciliation' => 'Riconciliazione della cassa storica',
+            default => $this->amount_cents < 0 ? 'Storno storico · da verificare' : 'Incasso',
+        };
     }
 
     public function order(): BelongsTo

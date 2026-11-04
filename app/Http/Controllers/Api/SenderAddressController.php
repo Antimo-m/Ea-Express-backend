@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\SenderAddressRequest;
 use App\Models\SenderAddress;
 use App\Models\User;
-use App\Support\CustomerIdentity;
 use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,9 +24,12 @@ class SenderAddressController extends Controller
             $customer = User::lockForUpdate()->findOrFail($request->user('customer')->id);
             abort_unless($customer->is_active && $customer->role === UserRole::Customer, 403);
             $address = $customer->senderAddresses()->first();
+            if ($address?->matchesPickup($request->safe()->only(SenderAddress::Fields))) {
+                return $address;
+            }
             abort_unless(($address?->version ?? 0) === $request->integer('version'), 409, 'Indirizzo aggiornato: ricarica prima di salvare.');
             $address ??= $customer->senderAddresses()->make();
-            $address->fill(CustomerIdentity::normalize($request->safe()->except('version')));
+            $address->fill(array_map(static fn (string $value): string => preg_replace('/\s+/u', ' ', trim($value)), $request->safe()->only(SenderAddress::Fields)));
             $address->version = ($address->version ?? 0) + 1;
             $address->save();
 

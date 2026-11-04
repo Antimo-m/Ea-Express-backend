@@ -15,12 +15,20 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
     let browser, server, socket, phpServer;
     let zoneFeedRequests = 0, operationFeedFixture = 'rider-feed.json', operationDetailFixture;
     let financeWrites = 0, financeRejectNext = false;
+    let batchMode = false, batchStep = 0, batchWrites = 0, failBatchRefresh = false, settingsSaved = false, settingsWrites = 0;
     let chatData, chatWrites = 0, chatRejectNext = false;
     const chatReceipts = [];
     let actionRequests = 0, failNextAction = false, delayOrderRefresh = false;
     try {
-        execFileSync('php', ['artisan', 'test', '--compact', 'tests/Feature/WorkspacePresentationTest.php', 'tests/Feature/OperationalFlowTest.php', 'tests/Feature/OperationalSurfaceTest.php', 'tests/Feature/OperationalDayTest.php', 'tests/Feature/OperationalRevisionTest.php', 'tests/Feature/GpsRemovalAndZoneOrdersTest.php', 'tests/Feature/PickupCalendarTest.php', 'tests/Feature/BalanceExperienceTest.php', 'tests/Feature/RoundedWorkspaceTest.php', 'tests/Feature/WorkspaceUiTest.php', 'tests/Feature/ManualOrderDelayTest.php'], { env: { ...process.env, XDEBUG_MODE: 'off', EA_UI_FIXTURE_DIR: temporary }, stdio: 'pipe' });
+        try {
+            execFileSync('php', ['artisan', 'test', '--compact', 'tests/Feature/WorkspacePresentationTest.php', 'tests/Feature/OperationalFlowTest.php', 'tests/Feature/OperationalSurfaceTest.php', 'tests/Feature/OperationalDayTest.php', 'tests/Feature/OperationalRevisionTest.php', 'tests/Feature/GpsRemovalAndZoneOrdersTest.php', 'tests/Feature/PickupCalendarTest.php', 'tests/Feature/BalanceExperienceTest.php', 'tests/Feature/RoundedWorkspaceTest.php', 'tests/Feature/WorkspaceUiTest.php', 'tests/Feature/ManualOrderDelayTest.php', 'tests/Feature/NotificationPresentationTest.php', 'tests/Feature/CustomerDirectoryTest.php', 'tests/Feature/RecipientDetailTest.php', 'tests/Feature/WorkspaceMutationTest.php', 'tests/Feature/ReceiptReconciliationTest.php', 'tests/Feature/FinancialStatementTest.php'], { env: { ...process.env, XDEBUG_MODE: 'off', EA_UI_FIXTURE_DIR: temporary }, stdio: 'pipe' });
+        } catch (error) {
+            throw new Error(`Browser fixture generation failed:\n${error.stdout?.toString() || error.message}`, { cause: error });
+        }
         chatData = JSON.parse(readFileSync(join(temporary, 'rounded-chat.json')));
+        const batch = JSON.parse(readFileSync(join(temporary, 'batch.json')));
+        const markup = file => readFileSync(join(temporary, file)).toString().replace(/https?:\/\/localhost(?::\d+)?/g, '').replace(/https?:\/\/[^/"\s]+\/build\//g, '/build/');
+        const notificationHistory = JSON.parse(readFileSync(join(temporary, 'notifications-history.json')));
         const manifest = JSON.parse(readFileSync('public/build/manifest.json'));
         const styles = ['resources/css/app.css', 'resources/css/experience.css'].map(key => `<link rel="stylesheet" href="/build/${manifest[key].file}">`).join('');
         const fixture = `<!doctype html><html lang="it"><head><meta name="viewport" content="width=device-width,initial-scale=1">${styles}</head><body><main style="padding:20px;max-width:800px;margin:auto">
@@ -35,6 +43,33 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
         const portal = resolve('../Ea-express');
         server = createServer((request, response) => {
             const url = new URL(request.url, 'http://localhost');
+            if (batchMode && request.method === 'POST' && /^\/balance\/[0-9a-f-]{36}\/payment$/.test(url.pathname)) {
+                let body = ''; request.on('data', chunk => body += chunk); request.on('end', () => {
+                    response.setHeader('Content-Type', 'application/json');
+                    const expected = batch.steps[batchStep];
+                    if (url.pathname !== expected.payment_path || !body.includes(`name="version"\r\n\r\n${expected.order_version}`)) { response.statusCode = 409; response.end(JSON.stringify({message:'Stato cambiato.'})); return; }
+                    batchStep++; batchWrites++;
+                    setTimeout(() => response.end(JSON.stringify({message:'Incasso registrato.',redirect:'/balance'})), 40);
+                }); return;
+            }
+            if (batchMode && request.method === 'GET' && url.pathname === '/balance') {
+                if (failBatchRefresh) { failBatchRefresh=false; response.statusCode=503; response.end('Aggiornamento temporaneamente non disponibile.'); return; }
+                const page = url.searchParams.get('orders_page') === '2' ? '2' : '1';
+                response.setHeader('Content-Type','text/html'); response.end(markup(`batch-${batchStep}-page${page}.html`)); return;
+            }
+            if (url.pathname === '/settings') {
+                if (request.method === 'POST') { settingsSaved=true;settingsWrites++;request.resume(); }
+                response.setHeader('Content-Type','text/html');response.end(markup(settingsSaved?'settings-after.html':'settings-before.html'));return;
+            }
+            if (notificationHistory[url.pathname]) {
+                response.setHeader('Content-Type', 'application/json');
+                response.end(JSON.stringify(notificationHistory[url.pathname])); return;
+            }
+            if (request.method === 'GET' && url.pathname === '/customers') {
+                const page = ['1','2','3'].includes(url.searchParams.get('page')) ? url.searchParams.get('page') : '1';
+                response.setHeader('Content-Type','text/html');
+                response.end(readFileSync(join(temporary,`customers-page-${page}.html`)).toString().replace(/https?:\/\/localhost(?::\d+)?/g,'').replace(/https?:\/\/[^/"\s]+\/build\//g,'/build/')); return;
+            }
             if (request.method === 'POST' && (['/expenses','/movements'].includes(url.pathname) || /^\/balance\/[0-9a-f-]{36}\/payment$/.test(url.pathname))) {
                 financeWrites++;
                 request.resume();
@@ -278,7 +313,8 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 assert.ok(await evaluate(`Array.from(document.querySelectorAll('.filter-field-small input')).every(input=>input.getBoundingClientRect().height<=36)`));
                 await navigate('rider-operations.html');
                 assert.ok(await evaluate(`document.querySelectorAll('.explorer-item').length>=9`));
-                assert.equal(await evaluate(`document.querySelector('[name="date"]').nextElementSibling.tagName`), 'BUTTON');
+                assert.equal(await evaluate(`document.querySelector('[name="from"]').nextElementSibling.tagName`), 'BUTTON');
+                assert.equal(await evaluate(`document.querySelector('[name="to"]').nextElementSibling.tagName`), 'BUTTON');
                 assert.equal(await evaluate(`document.querySelector('[data-operational-map]')`), null);
                 await evaluate(`document.querySelector('[data-operations-view="rider"]').click()`);
                 assert.equal(await evaluate(`document.querySelector('[data-operations-view="rider"]').getAttribute('aria-pressed')`),'true');
@@ -297,29 +333,76 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 await navigate('rider-history.html');
                 assert.equal(await evaluate(`document.querySelector('[data-operational-map]')`),null);
                 await navigate('rider-detail.html');
-                assert.ok(await evaluate(`document.querySelector('.rider-order-events time').textContent.includes('10:30')`));
+                assert.equal(await evaluate(`document.querySelector('.rider-order-events')`),null);
+                assert.equal(await evaluate(`document.querySelectorAll('[data-rider-delivery]').length`),1);
+                assert.ok(await evaluate(`document.querySelector('.rider-day-accounting').textContent.includes('Contabilità del giorno')`));
             }
         });
         await scenario('operational periods preserve Rider perspective, selection and navigation context without reloading', async () => {
             operationFeedFixture='revision-feed.json'; operationDetailFixture='rider-orders.html';
-            try {
-                await navigate('revision-zone.html');
-                await evaluate(`window.__operationsPage='preserved';document.querySelector('[data-operations-view="rider"]').click()`);
-                for(const mode of ['week','month','today']) {
-                    await evaluate(`document.querySelector('.period-options a[href*="period=${mode}"]').click()`);
-                    for(let i=0;i<100;i++){if(await evaluate(`new URL(location.href).searchParams.get('period')==='${mode}' && document.querySelector('[data-zone-updated]').textContent`))break;await new Promise(resolve=>setTimeout(resolve,20));}
-                    assert.equal(await evaluate(`document.querySelector('[data-operations-view="rider"]').getAttribute('aria-pressed')`),'true');
-                    assert.equal(await evaluate(`window.__operationsPage`),'preserved');
+            const waitFor = async expression => {
+                for(let index=0;index<100;index++) {
+                    if(await evaluate(expression)) return;
+                    await new Promise(resolve=>setTimeout(resolve,20));
                 }
-                await evaluate(`document.querySelector('[data-custom-period]').click();const date=document.querySelector('[name="date"]');date.value='2026-09-29';date.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('[data-operations-period]').requestSubmit()`);
-                for(let i=0;i<100;i++){if(await evaluate(`new URL(location.href).searchParams.get('date')==='2026-09-29'`))break;await new Promise(resolve=>setTimeout(resolve,20));}
-                assert.equal(await evaluate(`new URL(location.href).searchParams.get('view')`),'rider');
-                assert.equal(await evaluate(`window.__operationsPage`),'preserved');
-                await evaluate(`window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
-                await new Promise(resolve=>setTimeout(resolve,200));
-                assert.equal(await evaluate(`document.querySelector('[data-operations-view="rider"]').getAttribute('aria-pressed')`),'true');
-                for(let i=0;i<100;i++){if(await evaluate(`document.querySelector('[data-explorer-orders] a[href*="return_to="]')`))break;await new Promise(resolve=>setTimeout(resolve,20));}
-                assert.ok(await evaluate(`document.querySelector('[data-explorer-orders] a[href*="return_to="]').href.includes('view%3Drider')`));
+                assert.fail(`Operational state did not settle: ${expression}`);
+            };
+            const rangeFeed = JSON.parse(readFileSync(join(temporary,'revision-feed.json')));
+            writeFileSync(join(temporary,'operations-range.json'),JSON.stringify({...rangeFeed,date:'2026-09-29',to:'2026-10-03'}));
+            writeFileSync(join(temporary,'operations-single-day.json'),JSON.stringify({...rangeFeed,date:'2026-09-29',to:'2026-09-29'}));
+            try {
+                for(const width of [375,1440]) {
+                    operationFeedFixture='revision-feed.json';
+                    await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
+                    await navigate('revision-zone.html');
+                    await evaluate(`window.__operationsPage='preserved';document.querySelector('[data-operations-view="rider"]').click()`);
+                    for(const mode of ['week','month','today']) {
+                        const before=zoneFeedRequests;
+                        await evaluate(`document.querySelector('.period-options a[href*="period=${mode}"]').click()`);
+                        await waitFor(`new URL(location.href).searchParams.get('period')==='${mode}' && document.querySelector('[data-zone-updated]').textContent`);
+                        for(let index=0;index<100 && zoneFeedRequests<=before;index++)await new Promise(resolve=>setTimeout(resolve,20));
+                        assert.ok(zoneFeedRequests>before,`period ${mode} fetch @${width}`);
+                        assert.equal(await evaluate(`document.querySelector('[data-operations-view="rider"]').getAttribute('aria-pressed')`),'true');
+                        assert.equal(await evaluate(`window.__operationsPage`),'preserved');
+                    }
+                    const context = await evaluate(`(()=>{const seed=JSON.parse(document.querySelector('[data-zone-initial]').textContent),search=document.querySelector('[data-operations-search]'),sort=document.querySelector('[data-operations-sort]');search.value=seed.riders.find(rider=>rider.slug).name;search.dispatchEvent(new Event('input',{bubbles:true}));sort.value='volume';sort.dispatchEvent(new Event('change',{bubbles:true}));return {q:search.value,selected:new URL(location.href).searchParams.get('selected')};})()`);
+                    operationFeedFixture='operations-range.json';
+                    await evaluate(`document.querySelector('[data-custom-period]').click();const from=document.querySelector('[name="from"]'),to=document.querySelector('[name="to"]');from.value='2026-09-29';from.dispatchEvent(new Event('change',{bubbles:true}));to.value='2026-10-03';to.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('[data-operations-period]').requestSubmit()`);
+                    await waitFor(`document.querySelector('.filter-period-caption').textContent==='2026-09-29 – 2026-10-03'`);
+                    const interval = await evaluate(`(()=>{const url=new URL(location.href),feed=new URL(document.querySelector('[data-rider-operations]').dataset.feed);return {from:url.searchParams.get('from'),to:url.searchParams.get('to'),feedFrom:feed.searchParams.get('from'),feedTo:feed.searchParams.get('to'),q:url.searchParams.get('q'),selected:url.searchParams.get('selected'),sort:url.searchParams.get('sort'),view:url.searchParams.get('view')};})()`);
+                    assert.deepEqual(interval,{from:'2026-09-29',to:'2026-10-03',feedFrom:'2026-09-29',feedTo:'2026-10-03',q:context.q,selected:context.selected,sort:'volume',view:'rider'});
+                    assert.equal(await evaluate(`window.__operationsPage`),'preserved');
+                    assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`),`range overflow @${width}`);
+                    if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`operations-range-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+                    await waitFor(`Boolean(document.querySelector('[data-explorer-orders] a[href*="return_to="]'))`);
+                    assert.ok(await evaluate(`document.querySelector('[data-explorer-orders] a[href*="return_to="]').href.includes('from%3D2026-09-29') && document.querySelector('[data-explorer-orders] a[href*="return_to="]').href.includes('to%3D2026-10-03')`));
+                    const customUrl = await evaluate(`location.href`);
+                    const beforeInvalid=zoneFeedRequests;
+                    await evaluate(`const from=document.querySelector('[name="from"]');from.value='2026-10-04';from.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('[data-operations-period]').requestSubmit()`);
+                    assert.equal(await evaluate(`document.querySelector('[name="to"]').validity.rangeUnderflow`),true);
+                    await new Promise(resolve=>setTimeout(resolve,80));
+                    assert.equal(zoneFeedRequests,beforeInvalid,'inverted range is rejected before loading');
+                    operationFeedFixture='operations-single-day.json';
+                    await evaluate(`const from=document.querySelector('[name="from"]'),to=document.querySelector('[name="to"]');from.value='2026-09-29';from.dispatchEvent(new Event('change',{bubbles:true}));to.value='2026-09-29';to.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('[data-operations-period]').requestSubmit()`);
+                    await waitFor(`document.querySelector('.filter-period-caption').textContent==='2026-09-29 – 2026-09-29'`);
+                    assert.equal(await evaluate(`new URL(location.href).searchParams.get('from')===new URL(location.href).searchParams.get('to')`),true);
+                    operationFeedFixture='revision-feed.json';
+                    await evaluate(`document.querySelector('.filter-reset').click()`);
+                    await waitFor(`!new URL(location.href).searchParams.has('from') && document.querySelector('[data-custom-dates]').hidden`);
+                    assert.equal(await evaluate(`new URL(location.href).searchParams.get('q')`),context.q);
+                    assert.equal(await evaluate(`new URL(location.href).searchParams.get('sort')`),'volume');
+                    operationFeedFixture='operations-range.json';
+                    await evaluate(`history.pushState(null,'',${JSON.stringify(customUrl)});window.dispatchEvent(new PopStateEvent('popstate'))`);
+                    await waitFor(`document.querySelector('.filter-period-caption').textContent==='2026-09-29 – 2026-10-03'`);
+                    assert.equal(await evaluate(`window.__operationsPage`),'preserved');
+                    operationFeedFixture='revision-feed.json';
+                    await evaluate(`history.back()`);
+                    await waitFor(`!new URL(location.href).searchParams.has('from') && document.querySelector('[data-custom-dates]').hidden`);
+                    assert.equal(await evaluate(`window.__operationsPage`),'preserved');
+                    assert.equal(await evaluate(`new URL(location.href).searchParams.get('selected')`),context.selected);
+                    await evaluate(`window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
+                    await waitFor(`document.querySelector('[data-operations-view="rider"]').getAttribute('aria-pressed')==='true'`);
+                }
             } finally { operationFeedFixture='rider-feed.json';operationDetailFixture=undefined; }
         });
         await scenario('backlog from earlier days stays separate and updates after delivery at all responsive widths', async () => {
@@ -344,9 +427,9 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 for(const width of [1440,1280,1024,768,375]) {
                     await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
                     await navigate('revision-rider.html');
-                    assert.equal(await evaluate(`document.querySelectorAll('[data-operation-order]').length`),10);
+                    assert.equal(await evaluate(`document.querySelectorAll('[data-rider-delivery]').length`),20);
                     assert.equal(await evaluate(`document.querySelectorAll('.workspace-pagination').length`),1);
-                    assert.ok(await evaluate(`document.querySelector('.workspace-pagination').textContent.includes('Pagina 1 di 3')`));
+                    assert.ok(await evaluate(`document.querySelector('.workspace-pagination').textContent.includes('Pagina 1 di 2')`));
                     assert.equal(await evaluate(`document.querySelector('[data-rider-gps]')`),null);
                     assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth`));
                     if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`revision-rider-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
@@ -533,13 +616,13 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             await navigate(orderFile);
             assert.equal(await evaluate(`document.querySelector('.workflow-primary-actions [type="submit"]').form.querySelector('[name="status"]').value`), 'picked_up');
             assert.equal(await evaluate(`document.querySelector('[data-dialog-open^="transition-note-"]')`), null);
-            await evaluate(`document.querySelector('.workflow-primary-actions [aria-label="Annulla spedizione"]').click()`);
+            await evaluate(`document.querySelector('.workflow-secondary-actions [aria-label="Annulla spedizione"]').click()`);
             assert.equal(await evaluate(`document.querySelector('dialog[id$="-cancelled"]').open`), true);
             assert.equal(await evaluate(`document.querySelector('dialog[id$="-cancelled"] [name="cancellation_reason"]').value`), 'other');
             await key('Escape');
         });
         await scenario('filters keep their intended hierarchy, identical heights and mobile apply/cancel behavior', async () => {
-            const pages = ['orders_incoming.html','orders_in-progress.html','orders_history.html','balance.html','customers.html','customer-detail.html','reports.html','rates.html','pending.html','recipient-incidents.html','rider-operations.html','rider-detail.html'];
+            const pages = ['orders_incoming.html','orders_in-progress.html','orders_history.html','balance.html','customers.html','customer-detail.html','reports.html','rates.html','pending.html','recipient-incidents.html','rider-operations.html'];
             for (const width of [1440,1280,1024,768,375]) {
                 await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
                 for (const page of pages) {
@@ -622,7 +705,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             const invalid = await evaluate(`(() => {
                 let icons='.icon-button:not(.action-with-text),.page-arrow,.password-toggle,.btn-close,.calendar-heading > button,.portal-mobile-nav .mobile-create';
                 if(innerWidth<768)icons+=',.sound-toggle,.account-button';
-                if(innerWidth<=760)icons+=',.topbar .account';
+                if(innerWidth<=991)icons+=',.topbar .account';
                 const result=[];
                 for(const node of document.querySelectorAll('button,.btn,.button,.icon-button,.page-arrow,.page-number,.back-link,.password-toggle,.portal-mobile-nav .mobile-create,.topbar .account,.period-options a,.workspace-tabs a,.section-jump a')) {
                     const rect=node.getBoundingClientRect(),style=getComputedStyle(node);
@@ -635,6 +718,27 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             })()`);
             assert.deepEqual(invalid,[],context);
         };
+        await scenario('archive and order detail preserve hierarchy, spacing, slug links and readable secondary information', async () => {
+            const detail = readdirSync(temporary).filter(file=>/^orders_\d+\.html$/.test(file)).find(file=>readFileSync(join(temporary,file),'utf8').includes('id="next-action"'));
+            assert.ok(detail);
+            for (const width of [375,768,1024,1440]) {
+                await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
+                await navigate('orders_history.html');
+                assert.ok(await evaluate(`document.querySelector('.archive-day .history-order') !== null`));
+                assert.ok(await evaluate(`document.documentElement.scrollWidth <= innerWidth + 1`));
+                assert.ok(await evaluate(`[...document.querySelectorAll('.history-order [href*="/orders/"]')].every(link=>/^[0-9a-f-]{36}$/.test(link.pathname.split('/').at(-1)))`));
+                if(process.env.EA_ORDER_SCREENSHOTS)writeFileSync(join(process.env.EA_ORDER_SCREENSHOTS,`archive-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+                await navigate(detail);
+                const geometry = await evaluate(`(()=>{const workflow=document.querySelector('.order-workflow').getBoundingClientRect(),layout=document.querySelector('.order-detail-layout').getBoundingClientRect();const sections=[...document.querySelectorAll('.order-data-stack > section,.order-support > section,.order-support > div')].filter(node=>node.getClientRects().length).map(node=>({name:node.className,...node.getBoundingClientRect().toJSON()}));const overlaps=[];for(let i=0;i<sections.length;i++)for(let j=i+1;j<sections.length;j++){const a=sections[i],b=sections[j];if(a.left<b.right-1&&a.right>b.left+1&&a.top<b.bottom-1&&a.bottom>b.top+1)overlaps.push([a.name,b.name]);}return {workflow:workflow.bottom,layout:layout.top,overlaps,overflow:document.documentElement.scrollWidth>innerWidth+1};})()`);
+                assert.ok(geometry.layout >= geometry.workflow + 12,JSON.stringify({width,geometry}));
+                assert.deepEqual(geometry.overlaps,[],JSON.stringify({width,geometry})); assert.equal(geometry.overflow,false);
+                assert.equal(await evaluate(`document.querySelector('#next-action a[href*="/messages/"]')`),null);
+                assert.ok(await evaluate(`document.querySelector('.order-detail-heading a[href*="/messages/"]') !== null`));
+                assert.equal(await evaluate(`document.querySelector('[data-dialog-open^="pickup-schedule-"]')`),null);
+                await assertButtonShapes(`order detail ${width}`);
+                if(process.env.EA_ORDER_SCREENSHOTS)writeFileSync(join(process.env.EA_ORDER_SCREENSHOTS,`order-detail-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+            }
+        });
         await scenario('rounded directories select real Rider and recipient details with keyboard, search and responsive geometry', async () => {
             for(const width of [320,375,768,1024,1440]) {
                 await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
@@ -703,12 +807,244 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             assert.equal(await evaluate(`document.querySelector('#body').value`),'Bozza successiva');
             assert.ok(chatReceipts.some(receipt=>receipt.state==='delivered'&&receipt.ids.every(id=>/^[0-9a-f-]{36}$/.test(id))));
         });
+        await scenario('customers pagination and recipient typography preserve compact navigation and contextual confirmations', async () => {
+            const waitFor = async expression => {
+                for(let attempt=0;attempt<100;attempt++) {
+                    if(await evaluate(expression)) return;
+                    await new Promise(resolve=>setTimeout(resolve,30));
+                }
+                assert.fail(`Page state did not settle: ${expression}`);
+            };
+            for(const width of [320,390,1440]) {
+                await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
+                await navigate('customers');
+                assert.equal(await evaluate(`document.querySelectorAll('.customer-directory .customer-entry').length`),25);
+                assert.ok(await evaluate(`document.querySelector('.workspace-pagination').textContent.includes('Pagina 1 di 3')`));
+                assert.equal(await evaluate(`new URL(document.querySelector('.workspace-pagination [rel="next"]').href).searchParams.get('page')`),'2');
+                await evaluate(`document.querySelector('.workspace-pagination [rel="next"]').click()`);
+                await waitFor(`new URLSearchParams(location.search).get('page')==='2'&&document.querySelector('.workspace-pagination')?.textContent.includes('Pagina 2 di 3')`);
+                assert.equal(await evaluate(`document.querySelectorAll('.customer-directory .customer-entry').length`),25);
+                assert.equal(await evaluate(`document.querySelector('.customer-entry h2').textContent.trim()`),'Cliente 026');
+                await evaluate(`document.querySelector('.workspace-pagination [rel="next"]').click()`);
+                await waitFor(`new URLSearchParams(location.search).get('page')==='3'&&document.querySelector('.workspace-pagination')?.textContent.includes('Pagina 3 di 3')`);
+                assert.equal(await evaluate(`document.querySelectorAll('.customer-directory .customer-entry').length`),1);
+                assert.equal(await evaluate(`document.querySelector('.customer-entry h2').textContent.trim()`),'Cliente 051');
+                assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`),`customer pagination overflow @${width}`);
+
+                await navigate('recipient-detail-typography.html');
+                await evaluate(`document.fonts.ready.then(()=>true)`);
+                for(const theme of ['light','dark']) {
+                    await evaluate(`document.documentElement.dataset.eaTheme='${theme}'`);
+                    await new Promise(resolve=>setTimeout(resolve,200));
+                    const typography = await evaluate(`(()=>{
+                        const families=new Set(),walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let node;
+                        while(node=walker.nextNode()) {const parent=node.parentElement;if(!node.textContent.trim()||!parent.getClientRects().length||parent.closest('script,style,.bi'))continue;families.add(getComputedStyle(parent).fontFamily.split(',')[0].replaceAll('"','').replaceAll("'",'').trim());}
+                        const fields=[...document.querySelectorAll('.recipient-detail-page .operation-facts>div')].map(field=>{const label=field.querySelector('dt'),value=field.querySelector('dd'),labelStyle=getComputedStyle(label),valueStyle=getComputedStyle(value),bounds=value.getBoundingClientRect(),card=value.closest('.recipient-detail-card').getBoundingClientRect();return {label:labelStyle.fontFamily,value:valueStyle.fontFamily,labelSize:parseFloat(labelStyle.fontSize),valueSize:parseFloat(valueStyle.fontSize),labelWeight:Number(labelStyle.fontWeight),valueWeight:Number(valueStyle.fontWeight),contained:bounds.left>=card.left+8&&bounds.right<=card.right-8&&value.scrollWidth<=value.clientWidth+1};});
+                        return {families:[...families],fields,overflow:document.documentElement.scrollWidth-innerWidth};
+                    })()`);
+                    assert.ok(typography.families.length<=2,`recipient text font limit ${theme} @${width}: ${JSON.stringify(typography.families)}`);
+                    assert.ok(typography.fields.every(field=>field.label!==field.value&&field.valueWeight>field.labelWeight&&field.valueSize-field.labelSize<=4&&field.contained),`recipient field hierarchy ${theme} @${width}: ${JSON.stringify(typography.fields)}`);
+                    assert.ok(typography.overflow<=1,`recipient long values overflow ${theme} @${width}`);
+                    assert.deepEqual((await contrast()).failed,[],`recipient typography contrast ${theme} @${width}`);
+                    if(process.env.EA_UI_SCREENSHOTS && [320,1440].includes(width))writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`recipient-typography-${theme}-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+                }
+                await evaluate(`document.querySelector('[data-dialog-open^="person-correction-"]').click()`);
+                await evaluate(`Promise.all(document.querySelector('dialog[id^="person-correction-"]').getAnimations().map(animation=>animation.finished))`);
+                const actions = await evaluate(`(()=>{const dialog=document.querySelector('dialog[id^="person-correction-"]'),footer=dialog.querySelector('.modal-actions'),save=footer.querySelector('[value="correct"]'),remove=footer.querySelector('[value="dismiss"]'),probe=document.createElement('span');document.body.append(probe);probe.style.color='var(--ea-success)';const green=getComputedStyle(probe).color;probe.style.color='var(--ea-danger)';const red=getComputedStyle(probe).color;probe.remove();return {buttons:footer.querySelectorAll('button').length,back:footer.querySelectorAll('[data-dialog-close]').length,save:getComputedStyle(save).backgroundColor,remove:getComputedStyle(remove).backgroundColor,green,red,confirmation:remove.dataset.confirm};})()`);
+                assert.equal(actions.buttons,2);assert.equal(actions.back,0);assert.equal(actions.save,actions.green);assert.equal(actions.remove,actions.red);assert.equal(actions.confirmation,'Rimuovi segnalazione');
+                await evaluate(`window.__recipientSubmissions=0;const dialog=document.querySelector('dialog[id^="person-correction-"]'),form=dialog.querySelector('form');form.querySelector('[name="correction_reason"]').value='Verifica esplicita di rimozione';form.addEventListener('submit',event=>{event.preventDefault();event.stopImmediatePropagation();window.__recipientSubmissions++;});form.querySelector('[value="dismiss"]').click()`);
+                await waitFor(`document.querySelector('#action-confirmation').open`);
+                assert.equal(await evaluate(`window.__recipientSubmissions`),0);
+                assert.ok(await evaluate(`!document.querySelector('#action-confirmation .modal-back').getClientRects().length`));
+                assert.ok(await evaluate(`document.querySelector('#action-confirmation .modal-heading [data-dialog-close]').getClientRects().length>0`));
+                await evaluate(`document.querySelector('#action-confirmation [data-confirm-action]').click()`);
+                await waitFor(`window.__recipientSubmissions===1&&!document.querySelector('#action-confirmation').open`);
+                await evaluate(`document.querySelector('dialog[id^="person-correction-"] .modal-heading [data-dialog-close]').click()`);
+            }
+        });
+        await scenario('forty consecutive receipts update only their regions and preserve filters page scroll and duplicate protection', async () => {
+            const metric = label => evaluate(`(()=>{const metric=${JSON.stringify(label)}==='Contanti'?document.querySelector('[aria-labelledby="cash-heading"] dd'):[...document.querySelectorAll('.finance-statement .metric-tile')].find(node=>node.querySelector('header span')?.textContent===${JSON.stringify(label)})?.querySelector('.metric-tile-value');return Math.round(Number(metric.textContent.replace(/[^0-9,-]/g,'').replace(',','.'))*100);})()`);
+            try {
+            for (const width of [375,1440]) {
+                batchMode=true;batchStep=0;batchWrites=0;
+                await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});
+                await navigate(batch.initial_url.slice(1));
+                await evaluate(`window.__batchDocument='unchanged';window.__batchFilter=document.querySelector('[data-filter-toolbar]');`);
+                for (let step=0;step<40;step++) {
+                    const expected=batch.steps[step];
+                    const anchor = await evaluate(`(()=>{const rows=[...document.querySelectorAll('#delivery-details [data-receipt]')];rows[0]?.scrollIntoView({block:'start',behavior:'instant'});const row=rows[1];return row?{slug:row.dataset.receipt,top:row.getBoundingClientRect().top}:null;})()`);
+                    await evaluate(`document.querySelector('[data-dialog-open="receipt-${expected.order_slug}"]').click()`);
+                    await evaluate(`const form=document.getElementById('receipt-${expected.order_slug}').querySelector('form');form.requestSubmit();form.requestSubmit();`);
+                    for(let attempt=0;attempt<200;attempt++) {
+                        if(batchStep===step+1 && await evaluate(`!document.querySelector('#delivery-details [data-receipt="${expected.order_slug}"]')`)) break;
+                        await new Promise(resolve=>setTimeout(resolve,20));
+                    }
+                    assert.equal(batchWrites,step+1,`one write per receipt ${step} @${width}`);
+                    assert.equal(await evaluate(`window.__batchDocument`),'unchanged');
+                    assert.ok(await evaluate(`window.__batchFilter===document.querySelector('[data-filter-toolbar]')`),'filter controls retained');
+                    assert.equal(await metric('Totale lordo'),(step+1)*100);
+                    assert.equal(await metric('Contanti'),3000);
+                    assert.equal(await evaluate(`Number(document.querySelector('#delivery-details .count-badge').textContent)`),42-step);
+                    assert.equal(await evaluate(`new URLSearchParams(location.search).get('orders_page')`),String(batch.steps[step+1].page));
+                    assert.equal(await evaluate(`new URLSearchParams(location.search).get('q')`),'Batch test');
+                    assert.equal(await evaluate(`new URLSearchParams(location.search).get('from')`),'2026-11-01');
+                    assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`));
+                    if(anchor && await evaluate(`!!document.querySelector('#delivery-details [data-receipt="${anchor.slug}"]')`)) {
+                        const top=await evaluate(`document.querySelector('#delivery-details [data-receipt="${anchor.slug}"]').getBoundingClientRect().top`);
+                        assert.ok(Math.abs(top-anchor.top)<3,`visible receipt anchor retained @${width} step${step}: ${anchor.top} -> ${top}`);
+                    }
+                }
+                if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`batch-receipts-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+            }
+            batchStep=0;batchWrites=0;
+            await navigate(batch.initial_url.slice(1));
+            const order=batch.steps[0];failBatchRefresh=true;
+            await evaluate(`document.querySelector('[data-dialog-open="receipt-${order.order_slug}"]').click();document.getElementById('receipt-${order.order_slug}').querySelector('form').requestSubmit()`);
+            for(let attempt=0;attempt<100;attempt++){if(await evaluate(`!!document.querySelector('[data-workspace-feedback] button')`))break;await new Promise(resolve=>setTimeout(resolve,20));}
+            assert.equal(batchWrites,1);
+            await evaluate(`document.querySelector('[data-workspace-feedback] button').click()`);
+            for(let attempt=0;attempt<100;attempt++){if(await metric('Totale lordo')===100)break;await new Promise(resolve=>setTimeout(resolve,20));}
+            assert.equal(await metric('Totale lordo'),100);
+            assert.equal(batchWrites,1,'refresh retry never repeats a receipt');
+            batchMode=false;
+            await navigate('settings');
+            await evaluate(`window.__settingsDocument=true;const form=document.querySelector('form[action$="/settings"]');form.querySelector('input[name="notify_orders"][type="checkbox"]').checked=false;form.requestSubmit();form.requestSubmit()`);
+            for(let attempt=0;attempt<100;attempt++){if(settingsSaved&&await evaluate(`document.querySelector('[data-workspace-feedback]')?.textContent.includes('Preferenze salvate')`))break;await new Promise(resolve=>setTimeout(resolve,20));}
+            assert.equal(settingsWrites,1);
+            assert.equal(await evaluate(`window.__settingsDocument`),true);
+            assert.equal(await evaluate(`document.querySelector('input[name="notify_orders"][type="checkbox"]').checked`),false);
+            } finally { batchMode=false; }
+        });
+        await scenario('staff modal spacing keeps reversal fields and every shared dialog comfortably inside its borders', async () => {
+            const pages = ['finance-payments.html', 'finance-reversals-flow.html', 'finance-expenses.html', 'workspace-pending.html', 'workspace-rates.html', 'rounded-riders.html', 'rounded-recipients.html', 'rounded-thread.html', 'customer-detail.html', 'ajax-order.html'];
+            const settleDialog = () => evaluate(`Promise.all(document.querySelector('dialog[open]').getAnimations().map(animation=>animation.finished))`);
+            const inspectDialog = async context => {
+                const layout = await evaluate(`(()=>{
+                    const dialog=document.querySelector('dialog[open]'),rect=dialog.getBoundingClientRect(),style=getComputedStyle(dialog),heading=dialog.querySelector('.modal-heading');
+                    const elements=[...dialog.querySelectorAll('.form-label,input:not([type="hidden"]),textarea,.ea-picker-trigger,p,.modal-actions>button,button[type="submit"]')].filter(node=>node.getClientRects().length&&!node.closest('.modal-heading'));
+                    return {width:rect.width,left:rect.left,right:rect.right,viewport:innerWidth,overflow:dialog.scrollWidth-dialog.clientWidth,border:parseFloat(style.borderLeftWidth),headingBorder:parseFloat(getComputedStyle(heading).borderBottomWidth),topGap:elements.length?Math.min(...elements.map(node=>node.getBoundingClientRect().top))-heading.getBoundingClientRect().bottom:null,elements:elements.map(node=>{const bounds=node.getBoundingClientRect();return {tag:node.tagName,name:node.name||node.textContent.trim().slice(0,35),left:bounds.left-rect.left,right:rect.right-bounds.right};})};
+                })()`);
+                assert.ok(layout.left>=7 && layout.right<=layout.viewport-7 && layout.overflow<=1, `${context}: dialog bounds ${JSON.stringify(layout)}`);
+                assert.ok(layout.border>=1 && layout.headingBorder>=1, `${context}: dialog and heading borders`);
+                if(layout.topGap!==null) assert.ok(layout.topGap>=16,`${context}: content below heading ${layout.topGap}`);
+                assert.ok(layout.elements.every(node=>node.left>=16 && node.right>=16), `${context}: content inset ${JSON.stringify(layout.elements)}`);
+            };
+            for (const width of [320,390,768,1440]) {
+                await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});
+                await navigate('finance-payments.html');
+                const reversal = await evaluate(`(()=>{document.querySelector('.row-actions-menu summary').click();const trigger=document.querySelector('[data-dialog-open^="receipt-state-"]');trigger.click();return trigger.dataset.dialogOpen;})()`);
+                assert.equal(await evaluate(`document.getElementById(${JSON.stringify(reversal)}).open`),true);
+                await settleDialog();
+                const alignment = await evaluate(`(()=>{const dialog=document.querySelector('dialog[open]'),input=dialog.querySelector('[name="note"]').getBoundingClientRect(),label=dialog.querySelector('label').getBoundingClientRect();return {input:input.left,label:label.left,gap:input.top-label.bottom};})()`);
+                assert.ok(Math.abs(alignment.input-alignment.label)<=2 && alignment.gap>=4, `reversal alignment @${width}: ${JSON.stringify(alignment)}`);
+                for (const theme of ['light','dark']) {
+                    await evaluate(`document.documentElement.dataset.eaTheme='${theme}'`);
+                    await new Promise(resolve=>setTimeout(resolve,200));
+                    await inspectDialog(`reversal ${theme} @${width}`);
+                    assert.deepEqual((await contrast()).failed,[],`reversal modal contrast ${theme} @${width}`);
+                    if(process.env.EA_UI_SCREENSHOTS && [320,1440].includes(width))writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`modal-reversal-${theme}-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+                }
+                await key('Escape');
+                for (const page of pages) {
+                    await navigate(page);
+                    const ids = await evaluate(`(()=>{const seen=new Set();return [...document.querySelectorAll('dialog.ea-modal')].filter(node=>{const kind=node.id.replace(/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}/g,'slug');if(seen.has(kind))return false;seen.add(kind);return true;}).map(node=>node.id);})()`);
+                    assert.ok(ids.length>0,`${page}: shared dialogs available`);
+                    for (const id of ids) {
+                        if (id === 'action-confirmation' && page === 'finance-expenses.html') {
+                            await evaluate(`document.querySelector('form[data-confirm="Annulla spesa"] button[type="submit"]').click()`);
+                        } else {
+                            await evaluate(`document.getElementById(${JSON.stringify(id)}).showModal()`);
+                        }
+                        await settleDialog();
+                        for (const theme of ['light','dark']) {
+                            await evaluate(`document.documentElement.dataset.eaTheme='${theme}'`);
+                            await inspectDialog(`${page} ${id} ${theme} @${width}`);
+                            if(process.env.EA_UI_SCREENSHOTS && id==='action-confirmation' && page==='finance-expenses.html' && [320,1440].includes(width))writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`modal-confirmation-${theme}-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+                        }
+                        if (id === 'balance-add') {
+                            for (const step of ['expense','cash']) {
+                                await evaluate(`document.querySelector('[data-finance-go="${step}"]').click()`);
+                                await inspectDialog(`${page} operation ${step} @${width}`);
+                                if(process.env.EA_UI_SCREENSHOTS && step==='expense' && page==='finance-payments.html' && [320,1440].includes(width))writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`modal-expense-dark-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+                                await evaluate(`document.querySelector('[data-finance-step="${step}"] [data-finance-go="choose"]').click()`);
+                            }
+                        }
+                        await key('Escape');
+                    }
+                }
+            }
+            await send('Emulation.setDeviceMetricsOverride',{width:390,height:480,deviceScaleFactor:1,mobile:true});
+            await navigate('workspace-pending.html');
+            await evaluate(`document.getElementById('pending-create').showModal()`);
+            await settleDialog();
+            await inspectDialog('long pending form in short viewport');
+            const scrolling = await evaluate(`(()=>{const dialog=document.querySelector('dialog[open]');dialog.scrollTop=dialog.scrollHeight;const rect=dialog.getBoundingClientRect(),button=dialog.querySelector('button[type="submit"]').getBoundingClientRect();return {scroll:dialog.scrollTop,top:rect.top,bottom:rect.bottom,height:innerHeight,buttonBottom:button.bottom};})()`);
+            assert.ok(scrolling.scroll>0 && scrolling.top>=7 && scrolling.bottom<=scrolling.height-7 && scrolling.buttonBottom<=scrolling.bottom-12,`short viewport scrolling: ${JSON.stringify(scrolling)}`);
+            await key('Escape');
+        });
+        await scenario('reversal accounting history distinguishes unpaid corrections refunds and compensating restores responsively', async () => {
+            for (const width of [320,375,768,1024,1440]) {
+                await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
+                await navigate('finance-reversals-flow.html');
+                assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`),`reversal page overflow ${width}`);
+                assert.equal(await evaluate(`document.querySelectorAll('[data-reversal]').length`),3);
+                assert.ok(await evaluate(`document.body.textContent.includes('Senza effetto sul netto')&&document.body.textContent.includes('Con rettifica contabile')&&document.body.textContent.includes('Ripristinato il')`));
+                assert.ok(await evaluate(`(()=>{const tile=document.querySelector('.statement-net').getBoundingClientRect(),grid=document.querySelector('.finance-metrics').getBoundingClientRect();return Math.abs(tile.width-grid.width)<2})()`));
+                await assertButtonShapes(`reversal controls ${width}`);
+                assert.equal(await evaluate(`document.querySelector('[data-dialog-open^="receipt-refund-"]')`),null,'the reversal already records the refund');
+                await evaluate(`const row=[...document.querySelectorAll('[data-reversal]')].find(node=>node.textContent.includes('Con rettifica contabile')&&node.querySelector('[data-dialog-open^="receipt-state-"]'));row.querySelector('.row-actions-menu summary').click();row.querySelector('[data-dialog-open^="receipt-state-"]').click()`);
+                assert.ok(await evaluate(`document.querySelector('dialog[open]').textContent.includes('nuovo incasso effettivo')`));
+                assert.equal(await evaluate(`document.querySelector('dialog[open] [name="action"]').value`),'restore');
+                assert.ok(await evaluate(`document.querySelector('dialog[open] [name="note"]').required`));
+                await key('Escape');
+                for(const theme of ['light','dark']) {
+                    await evaluate(`document.documentElement.dataset.eaTheme='${theme}'`);await new Promise(resolve=>setTimeout(resolve,200));
+                    assert.deepEqual((await contrast()).failed,[],`reversal contrast ${theme} ${width}`);
+                }
+                if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`reversals-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+            }
+        });
+        await scenario('financial statement categories and verified reconciliation keep money and deliveries distinct on mobile and desktop', async () => {
+            for(const width of [320,390,768,1440]) {
+                await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
+                for(const page of ['finance-statement-customers.html','finance-manual-categories.html','finance-payment-categories.html','finance-reconciliation.html']) {
+                    await navigate(page);
+                    assert.deepEqual(await evaluate(`[...document.querySelectorAll('.finance-statement-section > h3')].map(node=>node.textContent)`),['Risultato operativo','Sospesi','Contanti','Risultato finale']);
+                    assert.ok(await evaluate(`!!document.querySelector('.delivery-count-badge')`));
+                    if(page==='finance-statement-customers.html') {
+                        assert.equal(await evaluate(`document.querySelector('.delivery-count-badge').textContent`),'2');
+                        assert.ok(await evaluate(`document.querySelector('[aria-labelledby="cash-heading"] dd').textContent.includes('0,00')`));
+                    }
+                    if(page==='finance-manual-categories.html') {
+                        const sections=await evaluate(`[...document.querySelectorAll('[data-movement-category]')].map(node=>node.dataset.movementCategory)`);
+                        assert.ok(sections.includes('cash')&&sections.includes('income'));
+                        assert.equal(new Set(sections).size,sections.length);
+                    }
+                    if(page==='finance-payment-categories.html') {
+                        assert.ok(await evaluate(`['receipts','corrections','refunds'].every(key=>document.querySelector('[data-payment-category="'+key+'"]'))`));
+                    }
+                    if(page==='finance-reconciliation.html') {
+                        await evaluate(`document.querySelector('[data-dialog-open^="receipt-reconcile-"]').click()`);
+                        await evaluate(`Promise.all(document.querySelector('dialog[open]').getAnimations().map(animation=>animation.finished))`);
+                        assert.equal(await evaluate(`document.querySelector('dialog[open] [name="resolution"]').value`),'refunded');
+                        assert.ok(await evaluate(`document.querySelector('dialog[open] [name="confirmed"]').required`));
+                        assert.equal(await evaluate(`document.querySelector('dialog[open] form').checkValidity()`),false);
+                        await key('Escape');
+                    }
+                    for(const theme of ['light','dark']) {
+                        await evaluate(`document.documentElement.dataset.eaTheme='${theme}'`);
+                        assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`),`${page} ${theme} @${width}`);
+                    }
+                    if(process.env.EA_UI_SCREENSHOTS && [390,1440].includes(width))writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`${page}-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+                }
+            }
+        });
         await scenario('balance operation chooser keeps one modal, preserves failed values and filters, prevents double submission and exposes contextual receipts', async () => {
             for(const width of [320,375,768,1024,1440]) {
                 await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
                 await navigate('balance?ledger=payments&from=2026-10-01&to=2026-10-18');
                 assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`),`balance overflow ${width}`);
-                assert.equal(await evaluate(`document.querySelectorAll('.finance-metrics .metric-tile').length`),4);
+                assert.equal(await evaluate(`document.querySelectorAll('.finance-statement .metric-tile').length`),4);
                 assert.ok(await evaluate(`getComputedStyle(document.body).fontFamily.includes('Source Sans 3')`));
                 await assertButtonShapes(`balance controls ${width}`);
                 await evaluate(`document.querySelector('.row-actions-menu summary').click()`);
@@ -746,9 +1082,10 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             assert.equal(await evaluate(`document.querySelector('#expense-create-description').value`),'Carburante turno serale');
             assert.equal(await evaluate(`document.querySelector('#balance-add').open`),true);
             await evaluate(`document.querySelector('[data-finance-step="expense"] [data-finance-go="choose"]').click();document.querySelector('[data-finance-go="cash"]').click();document.querySelector('#cash-create-amount').value='20'`);
-            await evaluate(`window.__eaPreviousDocument=true;const form=document.querySelector('[data-finance-step="cash"] form');form.requestSubmit();form.requestSubmit()`);
-            for(let attempt=0;attempt<150;attempt++){if(await evaluate(`!window.__eaPreviousDocument&&document.readyState==='complete'`))break;await new Promise(resolve=>setTimeout(resolve,20));}
+            await evaluate(`window.__financeDocument=true;const form=document.querySelector('[data-finance-step="cash"] form');window.__oldFinanceForm=form;form.requestSubmit();form.requestSubmit()`);
+            for(let attempt=0;attempt<150;attempt++){if(await evaluate(`window.__oldFinanceForm&&!window.__oldFinanceForm.isConnected`))break;await new Promise(resolve=>setTimeout(resolve,20));}
             assert.equal(financeWrites,before+2);
+            assert.equal(await evaluate(`window.__financeDocument`),true);
             assert.equal(await evaluate(`new URLSearchParams(location.search).get('from')`),'2026-10-01');
             assert.equal(await evaluate(`new URLSearchParams(location.search).get('ledger')`),'payments');
             assert.ok(await evaluate(`document.body.textContent.includes('Operazione registrata.')`));
@@ -761,14 +1098,12 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             assert.ok(await evaluate(`document.querySelector('dialog[open] [name="note"]').getClientRects().length>0`));
             await key('Escape');
             assert.ok(await evaluate(`document.activeElement.matches('.row-actions-menu summary')`));
-            for(const view of ['expenses','cash','recorded','reversed']) {
+            for(const view of ['expenses','cash','recorded','reversed','pending']) {
                 await navigate('balance?ledger='+view);
                 assert.equal(await evaluate(`document.querySelector('.ledger-navigation [aria-current="page"]').href.includes('ledger=${view}')`),true);
                 assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`));
             }
-            await navigate('balance?ledger=pending');
-            assert.ok(await evaluate(`!document.querySelector('.ledger-navigation a[href*="ledger=pending"]')`));
-            assert.ok(await evaluate(`document.querySelector('#cash-details a[href^="/pending"]').textContent.includes('Apri Sospesi')`));
+            assert.ok(await evaluate(`document.querySelector('#cash-details table caption').textContent.includes('Sospesi nel periodo')`));
         });
         await scenario('pickup calendar keeps seven columns, true counts, keyboard navigation and server page links at all sizes', async () => {
             for(const width of [320,375,768,1024,1440]) {
@@ -832,18 +1167,18 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             assert.equal(await evaluate(`document.activeElement.dataset.pickupDate`),'2026-10-17');
         });
         await scenario('customer dashboard preserves booking and slug links, readable themes and accessible responsive navigation', async () => {
-            for (const width of [320,360,375,390,430,768,1440]) {
+            for (const width of [320,360,375,390,430,768,1024,1440]) {
                 await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
                 await navigate('dashboard');
                 for(let attempt=0;attempt<100;attempt++){if(await evaluate(`!!document.querySelector('.order-row')`))break;await new Promise(resolve=>setTimeout(resolve,20));}
                 if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`portal-dashboard-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true})).data,'base64'));
                 await assertButtonShapes(`portal buttons ${width}`);
-                assert.equal(await evaluate(`document.querySelector('.brand-wordmark').getAttribute('aria-label')`),'EA-EXPRESS');
+                assert.equal(await evaluate(`document.querySelector('.brand-wordmark').getAttribute('aria-label')`),'EA-Express');
                 assert.ok(await evaluate(`!!document.querySelector('.dashboard-actions [href="/pickups/new"]')`));
                 assert.equal(await evaluate(`document.querySelector('.order-row').getAttribute('href')`),'/shipments/24369069-5868-49fd-b04c-3709fa3b5a81');
                 assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`), `portal overflow at ${width}`);
                 assert.ok(await evaluate(`document.querySelector('.sidebar').getBoundingClientRect().width>0 || document.querySelector('.menu-toggle').getBoundingClientRect().width>0`));
-                if(width<761){
+                if(width<992){
                     await evaluate(`document.querySelector('.menu-toggle').click()`);
                     assert.equal(await evaluate(`document.querySelector('.sidebar').getAttribute('aria-modal')`),'true');
                     await key('Escape');
@@ -861,7 +1196,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             }
         });
         await scenario('manual delay controls keep role permissions, persistent history and correction forms readable at every requested width', async () => {
-            for (const width of [320,360,375,390,430,768,1440]) {
+            for (const width of [320,360,375,390,430,768,1024,1440]) {
                 await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});
                 await navigate('delay-rider-unreported.html');
                 assert.equal(await evaluate(`document.querySelector('.order-delay-panel button[type="submit"]').textContent.trim()`),'Segnala ritardo');
@@ -879,9 +1214,92 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 assert.ok(await evaluate(`![...document.querySelectorAll('button')].some(node=>node.textContent.includes('Segnala ritardo'))`));
             }
         });
+        await scenario('shared navigation and pending workspace preserve centered creation, payment actions and bounded close tooltips', async () => {
+            for (const width of [375,768,1024,1440]) {
+                await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});
+                await navigate('workspace-pending.html');
+                await evaluate('document.fonts.ready');
+                assert.ok(await evaluate(`document.querySelectorAll('.pending-account-panel').length >= 3`));
+                assert.ok(await evaluate(`![...document.querySelectorAll('.pending-account-panel [data-dialog-open]')].some(node=>!/^pending-(assign|settle|edit|history)-[0-9a-f-]{36}$/.test(node.dataset.dialogOpen))`));
+                const colors = await evaluate(`(()=>{const style=node=>getComputedStyle(document.querySelector(node));const token=name=>getComputedStyle(document.documentElement).getPropertyValue(name).trim();return {search:style('.filter-submit').getPropertyValue('--action-color').trim(),reset:style('.filter-reset').getPropertyValue('--action-color').trim(),filter:style('.filter-more').backgroundColor,searchBackground:style('.filter-submit').backgroundColor,edit:style('.pending-account-panel .action-edit').getPropertyValue('--action-color').trim(),brand:token('--ea-brand'),info:token('--ea-info'),success:token('--ea-success')};})()`);
+                assert.equal(colors.search,colors.brand); assert.equal(colors.reset,colors.info); assert.equal(colors.edit,colors.success); assert.equal(colors.filter,colors.searchBackground);
+                if(width<992){await evaluate(`document.querySelector('.app-header [data-bs-toggle="offcanvas"]').click()`);await evaluate(`Promise.all(document.querySelector('.app-sidebar').getAnimations().map(animation=>animation.finished))`);}
+                const center = await evaluate(`(()=>{const container=document.querySelector('.sidebar-content'),r=container.getBoundingClientRect(),b=document.querySelector('.sidebar-create').getBoundingClientRect();return Math.abs((b.left+b.right-2*r.left-container.clientWidth)/2);})()`);
+                assert.ok(center<=1,`Sidebar creation center @${width}: ${center}`);
+                if(width<992){await key('Escape');await evaluate(`Promise.all(document.querySelector('.app-sidebar').getAnimations().map(animation=>animation.finished))`);}
+                const edit = await evaluate(`(()=>{const trigger=document.querySelector('.pending-account-panel .action-edit');trigger.click();return trigger.dataset.dialogOpen;})()`);
+                assert.ok(await evaluate(`document.getElementById(${JSON.stringify(edit)}).open`));
+                assert.ok(await evaluate(`document.querySelector('dialog[open] form[action*="/pending/"] [name="version"]') !== null`));
+                const close = await evaluate(`(()=>{const b=document.querySelector('dialog[open] .modal-heading [data-dialog-close]'),r=b.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};})()`);
+                for(const mode of ['hover','focus']){
+                    if(mode==='hover')await send('Input.dispatchMouseEvent',{type:'mouseMoved',...close});
+                    else{await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:0,y:0});await key('Tab');await evaluate(`document.querySelector('dialog[open] .modal-heading [data-dialog-close]').focus()`);}
+                    const bounds = await evaluate(`(()=>{const b=document.querySelector('dialog[open] .modal-heading [data-dialog-close]'),s=getComputedStyle(b,'::after'),r=b.getBoundingClientRect(),d=b.closest('dialog').getBoundingClientRect();return {content:s.content,left:r.right-parseFloat(s.width),right:r.right,top:r.top+parseFloat(s.top),bottom:r.top+parseFloat(s.top)+parseFloat(s.height),dialog:{left:d.left,right:d.right,top:d.top,bottom:d.bottom}};})()`);
+                    assert.equal(bounds.content,'"Chiudi finestra"');
+                    assert.ok(bounds.left>=bounds.dialog.left && bounds.right<=bounds.dialog.right && bounds.top>=bounds.dialog.top && bounds.bottom<=bounds.dialog.bottom,JSON.stringify({width,mode,bounds}));
+                }
+                await key('Escape');
+                await evaluate(`document.querySelector('.pending-account-panel .action-history').click()`);
+                assert.ok(await evaluate(`document.querySelector('dialog[open]').textContent.includes('Storico pagamenti')`));
+                await key('Escape');
+                if(process.env.EA_UI_SCREENSHOTS){await evaluate(`document.activeElement?.blur();window.scrollTo(0,0)`);writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`pending-workspace-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));}
+            }
+        });
+        await scenario('notification cards distinguish urgency and keep expanded updates separated in both themes and responsive widths', async () => {
+            for (const width of [320,375,768,1440]) {
+                await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
+                await navigate('notifications-presentation.html');
+                await evaluate(`document.querySelectorAll('[data-notification-group] > summary').forEach(summary=>summary.click())`);
+                for(let index=0;index<100;index++) {
+                    if(await evaluate(`document.querySelectorAll('.notification-event').length===6`)) break;
+                    await new Promise(resolve=>setTimeout(resolve,20));
+                }
+                assert.equal(await evaluate(`document.querySelectorAll('.notification-event').length`),6);
+                assert.ok(await evaluate(`document.querySelectorAll('.notification-event.unread').length>0 && document.querySelectorAll('.notification-event:not(.unread)').length>0`));
+                for(const theme of ['light','dark']) {
+                    await evaluate(`document.documentElement.dataset.eaTheme='${theme}'`);
+                    const cards = await evaluate(`(()=>{
+                        const probe=document.createElement('span');document.body.append(probe);
+                        const tokenColor=name=>{probe.style.color='var('+name+')';return getComputedStyle(probe).color;};
+                        const result=[...document.querySelectorAll('[data-notification-group]')].map(group=>{
+                            const style=getComputedStyle(group),summary=group.querySelector('summary');
+                            const urgent=summary.textContent.includes('EA-URGENTE');
+                            return {urgent,label:group.querySelector('.notification-priority').textContent.trim(),border:style.borderInlineStartColor,expected:tokenColor(urgent?'--ea-danger':'--ea-success'),background:getComputedStyle(summary).backgroundColor,events:[...group.querySelectorAll('.notification-event')].map((event,index,events)=>{const rect=event.getBoundingClientRect(),style=getComputedStyle(event),button=event.querySelector('button').getBoundingClientRect();return {border:style.borderInlineStartColor,bottomBorder:parseFloat(style.borderBottomWidth),padding:parseFloat(style.paddingTop),gap:index?rect.top-events[index-1].getBoundingClientRect().bottom:null,buttonInside:button.left>=rect.left&&button.right<=rect.right+1&&button.bottom<=rect.bottom+1};})};
+                        });probe.remove();return result;
+                    })()`);
+                    assert.equal(cards.length,2);
+                    assert.notEqual(cards[0].background,cards[1].background,`priority backgrounds ${theme} @${width}`);
+                    for(const card of cards) {
+                        assert.equal(card.label,card.urgent?'Urgente':'Standard');
+                        assert.equal(card.border,card.expected,`priority color ${theme} @${width}`);
+                        for(const event of card.events) {
+                            assert.equal(event.border,card.expected,`event color ${theme} @${width}`);
+                            assert.ok(event.bottomBorder>=1&&event.padding>=12&&event.buttonInside,`event separation ${theme} @${width}: ${JSON.stringify(event)}`);
+                            if(event.gap!==null) assert.ok(event.gap>=12,`event gap ${theme} @${width}: ${event.gap}`);
+                        }
+                    }
+                    assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`),`notifications overflow ${theme} @${width}`);
+                    if(process.env.EA_UI_SCREENSHOTS && [375,1440].includes(width)) {
+                        await evaluate(`document.activeElement?.blur();window.scrollTo(0,0)`);
+                        writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`notifications-${theme}-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+                    }
+                }
+            }
+        });
+        await scenario('marking notifications read preserves the expanded shipment and binds its refreshed history without navigation', async () => {
+            await navigate('notifications-presentation.html');
+            await evaluate(`window.__notificationsDocument=true;document.querySelector('[data-notification-group] > summary').click();window.__notificationGroup=document.querySelector('[data-notification-group]');`);
+            for(let attempt=0;attempt<100;attempt++){if(await evaluate(`document.querySelectorAll('.notification-event').length===3`))break;await new Promise(resolve=>setTimeout(resolve,20));}
+            await evaluate(`document.querySelector('form[action$="/notifications/read-all"]').requestSubmit()`);
+            for(let attempt=0;attempt<100;attempt++){if(await evaluate(`!window.__notificationGroup.isConnected&&document.querySelectorAll('.notification-event').length===3`))break;await new Promise(resolve=>setTimeout(resolve,20));}
+            assert.equal(await evaluate(`window.__notificationsDocument`),true);
+            assert.equal(await evaluate(`window.__notificationGroup.isConnected`),false);
+            assert.equal(await evaluate(`document.querySelector('[data-notification-group]').open`),true);
+            assert.equal(await evaluate(`document.querySelectorAll('.notification-event').length`),3);
+        });
         await scenario('workspace registers keep scrolling headings, icon-only creation and touch controls at every requested width', async () => {
             const pages = ['workspace-pending.html','workspace-customers.html','workspace-rates.html','workspace-reports.html','workspace-orders-in-progress.html','workspace-orders-history.html','workspace-orders-incoming.html','workspace-pickups-grouped.html','workspace-settings-index.html','workspace-profile-edit.html','workspace-users-index.html','workspace-notifications-index.html','finance-payments.html'];
-            for (const width of [320,360,375,390,430,768,1440]) {
+            for (const width of [320,360,375,390,430,768,1024,1440]) {
                 await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});
                 for (const page of pages) {
                     await navigate(page);
@@ -891,7 +1309,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                     assert.deepEqual(invalid,[],`${page} creation action at ${width}`);
                     await evaluate(`window.scrollTo(0,450)`);
                     assert.ok(await evaluate(`document.querySelector('.app-header').getBoundingClientRect().top<0 || document.documentElement.scrollHeight<=innerHeight`),`${page} title scrolls at ${width}`);
-                    if(process.env.EA_UI_SCREENSHOTS && [320,390,768,1440].includes(width)) writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`revision-${page.replace('.html','')}-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+                    if(process.env.EA_UI_SCREENSHOTS && [375,768,1024,1440].includes(width)) writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`revision-${page.replace('.html','')}-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
                 }
             }
         });
@@ -922,7 +1340,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
         });
         const files = scenarioPattern ? [] : readdirSync(temporary).filter(file => file.endsWith('.html') && /<!doctype html>/i.test(readFileSync(join(temporary, file), 'utf8')));
         const failures = [];
-        for (const width of [320, 360, 375, 390, 430, 768, 1440]) {
+        for (const width of [320, 360, 375, 390, 430, 768, 1024, 1440]) {
             await send('Emulation.setDeviceMetricsOverride', { width, height: 1000, deviceScaleFactor: 1, mobile: width < 600 });
             for (const file of files) {
                 await navigate(file);
@@ -1088,7 +1506,8 @@ $app->handleRequest(Illuminate\\Http\\Request::capture());
                 await fill({name:'Shop verifica browser',email:'browser@example.test',password:'PasswordSicura123',password_confirmation:'PasswordSicura123'});
                 await evaluate(`document.querySelector('form').requestSubmit()`);await waitFor(`location.pathname==='/dashboard'`);
                 await send('Page.navigate',{url:origin+'/pickups/new'});await waitFor(`document.querySelector('[name="store_name"]')`);
-                assert.equal(await evaluate(`document.querySelector('[name="sender_type"]:checked').value`),'online_shop');
+                assert.equal(await evaluate(`document.querySelector('[name="sender_type"]')`),null);
+                assert.match(await evaluate(`document.querySelector('.sender-profile-type').textContent`),/Shop online.*Dal tuo profilo/);
                 assert.equal(await evaluate(`document.querySelector('[name="store_name"]').value`),'Shop verifica browser');
                 const tomorrow=new Date(Date.now()+2*86400000).toISOString().slice(0,10);
                 await fill({pickup_address:'Via Roma',pickup_street_number:'10',pickup_postal_code:'80121',pickup_city:'Napoli',delivery_address:'Via Roma',delivery_city:'Caserta',delivery_street_number:'20',delivery_postal_code:'81100',recipient_name:'Destinatario browser',recipient_phone:'+390000000000',pickup_date:tomorrow,parcel_value:'25.00',content_description:'Ricambi automobile'});
@@ -1098,12 +1517,24 @@ $app->handleRequest(Illuminate\\Http\\Request::capture());
                 await waitFor(`document.querySelector('.shipping-quote-summary[data-state="ready"]')`);
                 assert.match(await evaluate(`document.querySelector('.shipping-quote-summary').textContent`),/8,50/);
                 await evaluate(`document.querySelector('.order-form').requestSubmit()`);await waitFor(`document.querySelector('.checkout-review')`);
-                await evaluate(`document.querySelector('.checkout-actions .secondary').click()`);
+                await evaluate(`document.querySelector('.checkout-actions .button-back').click()`);
                 assert.equal(await evaluate(`document.querySelector('[name="content_description"]').value`),'Ricambi automobile');
                 await evaluate(`document.querySelector('.order-form').requestSubmit()`);await waitFor(`document.querySelector('.checkout-review')`);
-                await evaluate(`document.querySelector('.checkout-continue').click()`);await waitFor(`/^\\/pickups\\/[0-9a-f-]{36}$/.test(location.pathname)`);
+                await evaluate(`document.querySelector('.checkout-continue').click()`);
+                await waitFor(`document.querySelector('dialog[open] .save-pickup-prompt')`);
+                await evaluate(`[...document.querySelectorAll('dialog[open] .modal-actions button')].find(button=>button.textContent.includes('Continua senza salvare')).click()`);
+                await waitFor(`/^\\/pickups\\/[0-9a-f-]{36}$/.test(location.pathname)`);
                 const orderId=await evaluate(`location.pathname.split('/').at(-1)`);
-                async function staff(role){await send('Network.clearBrowserCookies');await send('Page.navigate',{url:origin+'/login'});await waitFor(`document.querySelector('[data-auth-form]')`);await fill({email:role+'@example.test',password:'password'});await evaluate(`fetch(document.querySelector('[data-auth-form]').action,{method:'POST',body:new FormData(document.querySelector('[data-auth-form]')),credentials:'same-origin',redirect:'manual'}).then(()=>true)`);}
+                async function staff(role) {
+                    // Stop portal polling before resetting the cookies for the next account.
+                    await send('Page.navigate', {url:'about:blank'});
+                    await waitFor(`location.href === 'about:blank'`);
+                    await send('Network.clearBrowserCookies');
+                    await send('Page.navigate', {url:origin+'/login'});
+                    await waitFor(`document.querySelector('[data-auth-form]')`);
+                    await fill({email:role+'@example.test',password:'password'});
+                    await evaluate(`fetch(document.querySelector('[data-auth-form]').action,{method:'POST',body:new FormData(document.querySelector('[data-auth-form]')),credentials:'same-origin',redirect:'manual'}).then(()=>true)`);
+                }
                 await staff('admin');
                 await send('Page.navigate',{url:origin+'/orders/create'});await waitFor(`document.querySelector('[data-shipping-quote]')`);
                 assert.equal(await evaluate(`document.querySelector('[data-shipping-quote]').dataset.state`),'empty');

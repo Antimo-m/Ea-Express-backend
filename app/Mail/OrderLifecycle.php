@@ -13,7 +13,7 @@ class OrderLifecycle extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'EA Express · '.($this->event === 'delivered' ? 'Ordine consegnato' : 'Ordine programmato').' · '.$this->snapshot['reference']);
+        return new Envelope(subject: 'EA-Express · '.($this->event === 'delivered' ? 'Ordine consegnato' : 'Ordine programmato').' · '.$this->snapshot['reference']);
     }
 
     public function content(): Content

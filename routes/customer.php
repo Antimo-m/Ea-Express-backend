@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\CustomerAuthController as Auth;
 use App\Http\Controllers\Api\CustomerMessageController as Messages;
 use App\Http\Controllers\Api\CustomerOrderController as Orders;
 use App\Http\Controllers\Api\CustomerPendingController;
+use App\Http\Controllers\Api\CustomerPreferenceController;
+use App\Http\Controllers\Api\CustomerPrivacyController;
 use App\Http\Controllers\Api\CustomerStatisticsController;
 use App\Http\Controllers\Api\CustomerWorkspaceController as Workspace;
 use App\Http\Controllers\Api\SenderAddressController;
@@ -16,12 +18,14 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('api/v1/customer')->name('customer.')->middleware('throttle:customer-api')->group(function (): void {
     Route::get('csrf', [Auth::class, 'csrf']);
+    Route::get('privacy', CustomerPrivacyController::class);
     Route::post('auth/login', [Auth::class, 'login'])->middleware(['throttle:customer-login', 'throttle:login-account']);
     Route::post('auth/register', [Auth::class, 'register'])->middleware('throttle:registration');
     Route::middleware(['auth:customer', 'auth.session', EnsureCustomer::class])->group(function (): void {
         Route::get('realtime/configuration', [RealtimeController::class, 'configuration'])->middleware('throttle:60,1');
         Route::post('realtime/auth', [RealtimeController::class, 'authenticate'])->middleware('throttle:realtime-writes');
         Route::get('auth/me', [Auth::class, 'me']);
+        Route::patch('display-preferences', [CustomerPreferenceController::class, 'update'])->middleware('throttle:writes');
         Route::post('auth/logout', [Auth::class, 'logout']);
         Route::get('sender-address', [SenderAddressController::class, 'show']);
         Route::put('sender-address', [SenderAddressController::class, 'update'])->middleware('throttle:writes');

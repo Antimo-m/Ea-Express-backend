@@ -1,3 +1,5 @@
+import { refreshWorkspace, workspaceFeedback } from './workspace-updates';
+
 export function bindFinancialForms(root = document) {
     for (const form of root.querySelectorAll('[data-financial-form]')) {
         if (form.dataset.financialBound) continue;
@@ -23,6 +25,7 @@ export function bindFinancialForms(root = document) {
             form.setAttribute('aria-busy', 'true');
             feedback.textContent = '';
             feedback.setAttribute('role', 'status');
+            let saved = false;
             try {
                 const response = await fetch(form.getAttribute('action'), { method: 'POST', credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' }, body: data });
                 const result = response.headers.get('content-type')?.includes('application/json') ? await response.json() : {};
@@ -35,27 +38,17 @@ export function bindFinancialForms(root = document) {
                         : 'Salvataggio non confermato. Controlla il bilancio prima di riprovare.';
                     throw new Error(message);
                 }
-                feedback.textContent = result.message || 'Operazione registrata.';
-                sessionStorage.setItem('ea:financial-feedback', feedback.textContent);
+                saved = true;
+                form.removeAttribute('aria-busy');
                 form.closest('dialog')?.close();
-                let redirect = new URL(location.href);
-                try {
-                    const destination = new URL(result.redirect || location.href, location.href);
-                    if (destination.origin === redirect.origin && ['http:', 'https:'].includes(destination.protocol)) {
-                        if (destination.pathname === location.pathname) {
-                            destination.search = location.search;
-                            for (const key of [...destination.searchParams.keys()]) {
-                                if (key === 'page' || key.endsWith('_page')) destination.searchParams.delete(key);
-                            }
-                            destination.hash = location.hash;
-                        }
-                        redirect = destination;
-                    }
-                } catch {
-                    // A malformed destination falls back to the current page after a successful save.
-                }
-                location.assign(redirect.href);
+                await refreshWorkspace({ form });
+                workspaceFeedback(result.message || 'Operazione registrata.');
+                window.dispatchEvent(new CustomEvent('ea:workspace-updated', { detail: { kind: 'workspace-mutation' } }));
             } catch (error) {
+                if (saved) {
+                    workspaceFeedback('Operazione registrata. Non è stato possibile aggiornare i dati visualizzati.', { error: true, retry: () => refreshWorkspace({ form }) });
+                    return;
+                }
                 feedback.textContent = error instanceof TypeError ? 'Connessione interrotta. Controlla il bilancio: il salvataggio potrebbe essere già riuscito.' : error.message;
                 feedback.setAttribute('role', 'alert');
                 busy = false;
@@ -76,3 +69,4 @@ export function bindFinancialForms(root = document) {
     }
 }
 bindFinancialForms();
+document.addEventListener('ea:workspace-rendered', () => bindFinancialForms());

@@ -1650,23 +1650,17 @@ h1,h2,h3 {
 .order-detail-layout {
   display: grid;
   grid-template-columns: minmax(0,1.35fr) minmax(290px,1fr);
-  grid-template-areas: "overview workflow" "information workflow" "history history";
+
   gap: 20px;
   align-items: start
-}
-.order-overview {
-  grid-area: overview
 }
 .order-overview .order-card {
   margin-bottom: 0!important
 }
 .order-workflow {
-  grid-area: workflow;
-  position: sticky;
+
+  position: static;
   top: 24px
-}
-.order-information {
-  grid-area: information
 }
 .order-history {
   grid-area: history
@@ -1720,14 +1714,11 @@ h1,h2,h3 {
 }@media(max-width:991px){
 .order-detail-layout {
   grid-template-columns: 1fr;
-  grid-template-areas: "overview" "workflow" "information" "history";
+
   gap: 16px
 }
 .order-workflow {
   position: static
-}
-.order-workflow>.workflow-panel {
-  margin-bottom: 14px!important
 }
 .order-history,.order-information {
   padding: 18px!important
@@ -2148,6 +2139,7 @@ h2 {
   color: var(--ea-muted);
 }
 .ea-modal {
+  --ea-modal-padding: 24px;
   border: 1px solid var(--ea-line);
   border-radius: var(--ea-radius-modal);
   padding: 0;
@@ -2184,6 +2176,40 @@ h2 {
 }
 .modal-content-area {
   padding: 24px;
+}
+.ea-modal > .modal-content-area,
+.ea-modal .modal-content-area .modal-content-area {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.ea-modal > .modal-content-area {
+  padding: var(--ea-modal-padding);
+}
+.ea-modal .modal-content-area .modal-content-area {
+  padding: 0;
+}
+.ea-modal .modal-content-area p {
+  margin: 0;
+}
+.ea-modal .modal-content-area .confirmation-summary {
+  padding: 0;
+}
+.ea-modal .confirmation-summary:empty {
+  display: none;
+}
+.ea-modal .form-stack {
+  gap: 16px;
+}
+.ea-modal .form-stack > .row-actions:not(:has(*)) {
+  display: none;
+}
+.ea-modal [data-finance-step]:not([hidden]) {
+  display: grid;
+  gap: 16px;
+}
+.ea-modal .operation-form-title {
+  margin: 0;
 }
 .modal-actions {
   display: flex;
@@ -2963,22 +2989,20 @@ html:has(dialog[open]) { overflow: hidden; }
 .ea-modal .modal-heading { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: start; gap: 8px; }
 .ea-modal .modal-heading > div { grid-column: 2; text-align: center; min-width: 0; }
 .ea-modal .modal-heading > .icon-button { grid-column: 3; }
-.ea-modal > p, .ea-modal > [role="alert"] { margin: 20px 24px; text-align: center; }
-.ea-modal .modal-content-area { padding: 24px; }
-.ea-modal .modal-actions { justify-content: center; align-items: center; }
+.ea-modal .modal-actions { justify-content: center; align-items: center; width: 100%; margin: 0; padding: 16px 0 0; }
+.ea-modal form.row-actions > .modal-actions { flex-basis: 100%; }
 .ea-modal .modal-actions > button, .ea-modal .modal-actions > a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; max-width: 100%; white-space: normal; text-align: center; }
 .modal-back, .back-link, .icon-button.action-back { background: #ff8500; border: 1px solid #ff8500; color: #431b08; border-radius: var(--ea-radius-control); text-decoration: none; }
 .modal-back:hover, .back-link:hover, .icon-button.action-back:hover { background: #ed7600; border-color: #ed7600; color: #431b08; }
 .page-back { display: flex; margin: 0 0 20px; }
 .back-link { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 18px; min-height: 44px; }
-@media (max-width: 575px) { .ea-modal .modal-actions > button, .ea-modal .modal-actions > a { flex: 1 1 140px; } .ea-modal .modal-heading { grid-template-columns: 32px minmax(0, 1fr) 32px; } .ea-modal .modal-heading > .icon-button { min-width: 32px; width: 32px; } }
+@media (max-width: 575px) { .ea-modal { --ea-modal-padding: 20px; } .ea-modal .modal-actions > button, .ea-modal .modal-actions > a { flex: 1 1 140px; } }
 
 .staff-booking-form { gap: 20px; }
 .staff-booking-form .booking-step { padding: 24px; border-top: 1px solid var(--ea-line); margin: 0; min-width: 0; }
 .booking-step h2 { display: flex; align-items: center; gap: 10px; font-size: 1.1rem; }
 .booking-step-number { display: inline-flex; align-items: center; justify-content: center; padding: 6px 8px; border-radius: var(--ea-radius-control); font-size: .75rem; letter-spacing: 0; color: var(--ea-brand); background: var(--ea-orange-soft); }
 .icon-button.action-send { --action-color: var(--ea-brand); --action-soft: var(--ea-orange-soft); }
-.ea-modal .modal-content-area > .form-stack > .modal-actions { margin: 12px -24px -24px; }
 .order-reference { display: block; margin: 4px 0; font-size: .75rem; color: var(--ea-muted); overflow-wrap: anywhere; }
 .dashboard-heading, .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .dashboard-heading > div, .page-heading > div { min-width: 0; }

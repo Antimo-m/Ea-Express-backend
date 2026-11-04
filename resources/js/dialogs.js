@@ -61,3 +61,4 @@ for (const form of root.querySelectorAll('.ea-modal form')) {
 
 }
 normalizeDialogActions();
+document.addEventListener('ea:workspace-rendered', () => normalizeDialogActions());

@@ -1,4 +1,4 @@
-@props(['route', 'period', 'balance' => false, 'operational' => false])
+@props(['route', 'period', 'balance' => false, 'operational' => false, 'operationalRange' => false])
 @php
     $today = now('Europe/Rome');
     $preset = null;
@@ -11,14 +11,14 @@
 @endphp
 <x-ui.period-options :route="$route" :period="$period" :balance="$balance" :operational="$operational" />
 <div class="filter-range" data-filter-range>
-    @unless($balance)<input type="hidden" name="period" value="{{ $custom ? 'custom' : request('period', $preset ?? 'month') }}" data-period-mode>@endunless
+    <input type="hidden" name="period" value="{{ $custom ? 'custom' : request('period', $preset ?? ($balance && request('year') ? 'year' : 'month')) }}" data-period-mode>
     @if(request('year'))<input type="hidden" name="year" value="{{ request('year') }}" data-period-year>@endif
     @if(!$balance && request('month'))<input type="hidden" name="month" value="{{ request('month') }}" data-period-year>@endif
     <button type="button" class="btn btn-outline-secondary {{ $custom ? 'active' : '' }}" data-custom-period aria-controls="filter-custom-dates" aria-expanded="{{ $custom ? 'true' : 'false' }}">Personalizzato <x-ui.icon name="calendar3" /></button>
     <div class="filter-range-dates" id="filter-custom-dates" data-custom-dates @if(!$custom) hidden @endif>
-        @if($operational)<x-ui.field name="date" label="Data" type="date" :value="$period->start->toDateString()" required />@else
-        <x-ui.field name="from" label="Dal" type="date" :value="$period->start->toDateString()" data-filter-label="Dal" />
-        <x-ui.field name="to" label="Al" type="date" :value="$period->end->toDateString()" data-filter-label="Al" />
+        @if($operational && !$operationalRange)<x-ui.field name="date" label="Data" type="date" :value="$period->start->toDateString()" required />@else
+        <x-ui.field name="from" label="Dal" type="date" :value="$period->start->toDateString()" data-filter-label="Dal" :required="$operationalRange" />
+        <x-ui.field name="to" label="Al" type="date" :value="$period->end->toDateString()" data-filter-label="Al" :min="$operationalRange ? $period->start->toDateString() : null" :required="$operationalRange" />
         @endif
     </div>
 </div>

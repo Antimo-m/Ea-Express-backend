@@ -1,4 +1,4 @@
-<x-ui.modal id="balance-add" title="Nuova operazione" description="Seleziona l’operazione che desideri effettuare." data-finance-wizard>
+<x-ui.modal id="balance-add" title="Nuova operazione" description="Seleziona l’operazione che desideri effettuare." data-finance-wizard data-workspace-region="finance-operation">
     <div class="modal-content-area">
         <div data-finance-step="choose" class="operation-choices">
             <button type="button" class="operation-choice" data-finance-go="expense"><x-ui.icon name="receipt" /><span><strong>Registra una spesa</strong><small>Descrizione, importo e data della spesa.</small></span><x-ui.icon name="arrow-right" /></button>

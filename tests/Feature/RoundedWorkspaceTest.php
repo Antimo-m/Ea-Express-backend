@@ -93,7 +93,7 @@ class RoundedWorkspaceTest extends TestCase
             $first ??= $rider;
         }
         foreach (range(1, 16) as $index) {
-            $order = Order::factory()->create(['rider_id' => $first->id, 'created_by' => $admin->id, 'store_name' => $index === 16 ? 'Azienda Test Officina Dimostrativa' : 'Cliente distribuzione '.$index, 'recipient_name' => 'Destinatario '.$index, 'recipient_phone' => '+390000000'.str_pad((string) $index, 3, '0', STR_PAD_LEFT), 'status' => OrderStatus::OutForDelivery]);
+            $order = Order::factory()->create(['rider_id' => $first->id, 'created_by' => $admin->id, 'store_name' => $index === 16 ? 'Azienda Test Officina Dimostrativa' : 'Cliente distribuzione '.$index, 'recipient_name' => 'Destinatario '.$index, 'recipient_phone' => '+390000000'.str_pad((string) $index, 3, '0', STR_PAD_LEFT), 'status' => OrderStatus::OutForDelivery, 'conversation_token' => $index === 16 ? str_repeat('a', 64) : null, 'conversation_expires_at' => $index === 16 ? now()->addDays(30) : null]);
             $order->messages()->create(['body' => $index === 16 ? 'Buongiorno, la consegna è confermata per questo pomeriggio?' : 'Potete confermare la fascia di consegna?']);
             if ($index === 16) {
                 $reply = $order->messages()->make(['body' => 'Buongiorno! La spedizione è in consegna. Ti aggiorniamo qui.']);
@@ -110,7 +110,10 @@ class RoundedWorkspaceTest extends TestCase
         $riders = $this->get(route('users.index'))->assertSee('Rider Test 1')->assertSee('Rider Test 7');
         $people = $this->get(route('recipient-incidents.index'))->assertSee('Destinatario 1')->assertSee('Destinatario 2');
         $inbox = $this->get(route('messages.index'))->assertSee('Azienda Test Officina Dimostrativa');
-        $thread = $this->get(route('messages.show', $selected))->assertSee('Il citofono è Azienda Test.');
+        $thread = $this->get(route('messages.show', $selected))->assertSee('Il citofono è Azienda Test.')
+            ->assertDontSee('Accesso tramite link')
+            ->assertDontSee(route('conversation.show', $selected->conversation_token), false)
+            ->assertSee(route('messages.store', $selected), false);
         $profile = RecipientIncident::first()->profile;
         $this->get(route('recipient-incidents.show', $profile))->assertSee('Storico rettifiche');
         if ($directory = getenv('EA_UI_FIXTURE_DIR')) {

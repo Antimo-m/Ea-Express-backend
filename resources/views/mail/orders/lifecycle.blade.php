@@ -35,5 +35,5 @@ Il collegamento è riservato a questa spedizione. Il tracking si attiva quando i
 
 Grazie,
 
-**EA Express**
+**EA-Express**
 </x-mail::message>

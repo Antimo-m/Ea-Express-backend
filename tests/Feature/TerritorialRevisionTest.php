@@ -151,7 +151,7 @@ class TerritorialRevisionTest extends TestCase
         $this->actingAs($admin);
         $this->postJson('/movements', ['kind' => 'cash', 'amount' => '15', 'submission_key' => (string) Str::uuid()])->assertCreated();
         $pages = [
-            'balance' => $this->get('/balance')->assertOk()->assertSeeInOrder(['Prospetto contabile', 'id="delivery-details"', 'Movimenti e storico'], false)->assertSee('ledger=cash', false),
+            'balance' => $this->get('/balance')->assertOk()->assertSeeInOrder(['Prospetto contabile', 'id="delivery-details"', 'Movimenti di cassa'], false)->assertSee('ledger=cash', false),
             'rates' => $this->get('/rates')->assertOk()->assertSee('1 / 2'),
             'rates-next' => $this->get('/rates?page=2')->assertOk()->assertSee('2 / 2'),
             'customers' => $this->get('/customers')->assertOk()->assertSee('<h1>Clienti</h1>', false),

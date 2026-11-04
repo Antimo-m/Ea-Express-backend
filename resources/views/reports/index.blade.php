@@ -4,14 +4,14 @@
     <section class="report-kpis" aria-label="Indicatori mensili">
         <x-ui.metric label="Richieste ricevute" :value="$received" icon="inbox" :note="($growth === null ? 'Nessuna base di confronto' : ($growth > 0 ? '+' : '').number_format($growth, 1, ',', '.').'%').' · mese precedente intero: '.$previous" />
         <x-ui.metric label="Consegne completate" :value="$delivered" icon="truck" note="In base alla data effettiva di consegna" />
-        <x-ui.metric label="Incassi clienti" :value="\App\Support\Money::format($cash)" icon="cash-coin" tone="positive" note="Inclusi i pagamenti dei sospesi, al netto degli storni" />
-        <x-ui.metric label="Saldo di cassa operativo" :value="\App\Support\Money::format($operatingNet)" icon="wallet2" :tone="$operatingNet < 0 ? 'negative' : 'attention'" note="Incassi − quote vettori − spese + saldo movimenti amministrativi" />
+        <x-ui.metric label="Incassi clienti" :value="\App\Support\Money::format($cash)" icon="cash-coin" tone="positive" note="Inclusi i pagamenti dei sospesi, denaro effettivamente ricevuto, al netto dei soli rimborsi pagati" />
+        <x-ui.metric label="Netto contabile operativo" :value="\App\Support\Money::format($operatingNet)" icon="wallet2" :tone="$operatingNet < 0 ? 'negative' : 'attention'" note="Incassi lordi − storni + ripristini − spese + saldo amministrativo, esclusi i contanti aggiuntivi" />
     </section>
     <p class="small text-secondary">Richieste regionali: {{ $shippingCounts['regional'] ?? 0 }} · Fuori regione: {{ $shippingCounts['external'] ?? 0 }}</p><div class="report-chart-grid">
         <x-reports.trend id="orders-trend" title="Andamento delle richieste" description="Richieste create ogni giorno del mese, in ora italiana." :points="$trend" />
-        <x-reports.trend id="cash-trend" kind="cash" title="Entrate e uscite" description="Quote EA-Express dei pagamenti e storni alla data di registrazione; spese e movimenti amministrativi alla data contabile." :points="$trend" />
+        <x-reports.trend id="cash-trend" kind="cash" title="Movimenti contabili" description="Incassi e rettifiche alla data di registrazione; spese e movimenti amministrativi alla data contabile. Rimborsi di cassa e ripristini non duplicano entrate o spese." :points="$trend" />
     </div>
-    <section class="surface report-totals"><div><span>Entrate del mese</span><x-ui.signed-money :amount="$incomingTotal" /></div><div><span>Uscite e storni</span><x-ui.signed-money :amount="-$outgoingTotal" /></div><div><span>Spese valide</span><strong>{{ \App\Support\Money::format($spent) }}</strong></div><div><span>Tariffe maturate</span><strong>{{ \App\Support\Money::format($earned) }}</strong><small>Non si sommano agli incassi</small></div></section>
+    <section class="surface report-totals"><div><span>Entrate e compensazioni del mese</span><x-ui.signed-money :amount="$incomingTotal" /></div><div><span>Uscite e storni</span><x-ui.signed-money :amount="-$outgoingTotal" /></div><div><span>Spese valide</span><strong>{{ \App\Support\Money::format($spent) }}</strong></div><div><span>Tariffe maturate</span><strong>{{ \App\Support\Money::format($earned) }}</strong><small>Non si sommano agli incassi</small></div></section>
     <div class="report-detail-grid">
         <section class="surface workspace-section"><header class="section-heading"><div><span class="eyebrow">DISTRIBUZIONE</span><h2>Stato delle richieste</h2></div><span class="count-badge">{{ $accepted }} accettate</span></header><p class="small text-secondary">Stato attuale delle richieste create nel mese; gli esiti possono ancora cambiare.</p>
             @foreach(\App\OrderStatus::cases() as $state)

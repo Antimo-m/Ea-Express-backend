@@ -67,7 +67,7 @@ class OperationalFlowTest extends TestCase
     }
 
     #[DataProvider('senderTypes')]
-    public function test_registered_account_type_prefills_customer_and_staff_booking_without_forbidding_override(string $type): void
+    public function test_registered_account_type_controls_customer_booking_and_prefills_staff_booking(string $type): void
     {
         ShippingRate::factory()->create(['city' => 'Caserta', 'city_key' => 'caserta', 'postal_code' => '81100', 'postal_codes' => ['81100'], 'price_cents' => 850]);
         $this->postJson('/api/v1/customer/auth/register', ['name' => 'Cliente prova', 'email' => 'cliente@example.test', 'password' => 'PasswordSicura123', 'password_confirmation' => 'PasswordSicura123', 'sender_type' => $type])->assertCreated()->assertJsonPath('user.sender_type', $type);
@@ -79,7 +79,7 @@ class OperationalFlowTest extends TestCase
         $this->postJson('/api/v1/customer/orders', [...$review['data'], 'checkout_token' => $review['checkout_token']])->assertCreated();
         $this->assertSame($type, Order::sole()->sender_type);
         $override = $type === 'private' ? 'business' : 'private';
-        $this->postJson('/api/v1/customer/orders/checkout', [...$this->bookingData(), 'sender_type' => $override])->assertOk()->assertJsonPath('data.sender_type', $override);
+        $this->postJson('/api/v1/customer/orders/checkout', [...$this->bookingData(), 'sender_type' => $override])->assertOk()->assertJsonPath('data.sender_type', $type);
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $this->actingAs($admin, 'web');
         $staffReview = $this->post('/orders', [...$this->bookingData(), 'customer_id' => $customer->slug])->assertOk()->viewData('review');
@@ -95,7 +95,7 @@ class OperationalFlowTest extends TestCase
         $this->assertDatabaseCount('users', 0);
         $legacy = User::factory()->create(['role' => UserRole::Customer]);
         $this->actingAs($legacy, 'customer')->getJson('/api/v1/customer/auth/me')->assertOk()->assertJsonPath('user.sender_type', 'business');
-        $this->postJson('/api/v1/customer/orders/checkout', [...$this->bookingData(), 'sender_type' => 'admin'])->assertUnprocessable()->assertJsonValidationErrors('sender_type');
+        $this->postJson('/api/v1/customer/orders/checkout', [...$this->bookingData(), 'sender_type' => 'admin'])->assertOk()->assertJsonPath('data.sender_type', 'business');
     }
 
     public function test_profile_validates_account_type_and_changes_the_default_for_later_booking(): void

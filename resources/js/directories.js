@@ -1,4 +1,8 @@
-for (const directory of document.querySelectorAll('[data-directory]')) {
+const initializedDirectories = new WeakSet();
+export function bindDirectories(root = document) {
+for (const directory of root.querySelectorAll('[data-directory]')) {
+    if (initializedDirectories.has(directory)) continue;
+    initializedDirectories.add(directory);
     const links = [...directory.querySelectorAll('[data-directory-select]')];
     const panels = [...directory.querySelectorAll('[data-directory-panel]')];
     const search = directory.querySelector('[data-directory-search]');
@@ -45,6 +49,10 @@ for (const directory of document.querySelectorAll('[data-directory]')) {
     const fromHash = panels.find(panel => '#'+panel.id === location.hash);
     select(links.find(link => link.dataset.directorySelect === fromHash?.dataset.directoryPanel) || links[0]);
 }
+
+}
+bindDirectories();
+document.addEventListener('ea:workspace-rendered', () => bindDirectories());
 
 const inbox = document.querySelector('[data-inbox]');
 if (inbox) {

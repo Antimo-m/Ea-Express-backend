@@ -2,10 +2,20 @@
 
 namespace App\Http\Requests;
 
+use App\Support\CustomerIdentity;
 use App\UserRole;
 
 class CustomerOrderRequest extends StoreOrderRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if ($this->user('customer')?->role === UserRole::Customer) {
+            $this->merge(CustomerIdentity::profile($this->user('customer')));
+        }
+
+        parent::prepareForValidation();
+    }
+
     public function authorize(): bool
     {
         if ($this->route('order') && $this->user('customer')?->role === UserRole::Customer) {

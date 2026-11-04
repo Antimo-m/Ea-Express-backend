@@ -1,4 +1,5 @@
 <x-app-layout title="Dettaglio destinatario">
+    <div class="recipient-detail-page" data-workspace-region="recipient-profile">
     <nav class="page-back" aria-label="Navigazione pagina"><x-ui.icon-button action="back" :href="route('recipient-incidents.index', ['state' => $profile->active_count > 0 ? 'active' : 'restored'])" label="Destinatari non affidabili" text /></nav>
     <section class="surface recipient-detail-card">
         <header class="card-heading">
@@ -34,4 +35,5 @@
         @endforeach
         {{ $incidents->links('components.ui.pagination') }}
     </section>
+    </div>
 </x-app-layout>

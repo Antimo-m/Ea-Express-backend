@@ -29,7 +29,7 @@ class ReschedulePickup
             $locked->fill(collect($data)->only(['pickup_date', 'pickup_from', 'pickup_to'])->all());
             $locked->pickup_reminded_on = null;
             if ($locked->status !== OrderStatus::Received) {
-                $locked->status = OrderStatus::PickupScheduled;
+                $locked->status = OrderStatus::Accepted;
             }
             app(ShippingQuote::class)->estimate($locked);
             $locked->estimated_at = null;

@@ -23,6 +23,7 @@ class CustomerAuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $data = $request->validate(['email' => ['required', 'email', 'max:255'], 'password' => ['required', 'string', 'max:72'], 'remember' => ['sometimes', 'boolean']]);
+        Auth::guard('customer')->setRememberDuration((int) config('customer_privacy.remember_minutes'));
         if (! Auth::guard('customer')->attempt(['email' => $data['email'], 'password' => $data['password'], 'role' => UserRole::Customer->value, 'is_active' => true], $data['remember'] ?? false)) {
             throw ValidationException::withMessages(['email' => 'Email o password non corrette.']);
         }
@@ -50,7 +51,7 @@ class CustomerAuthController extends Controller
     {
         $user = $request->user('customer');
 
-        return response()->json(['user' => ['slug' => $user->slug, 'name' => $user->name, 'email' => $user->email, 'sender_type' => $user->sender_type, 'business_type' => $user->business_type, 'business_description' => $user->business_description, 'notify_orders' => $user->notify_orders, 'notify_messages' => $user->notify_messages], 'csrf_token' => csrf_token()]);
+        return response()->json(['user' => ['slug' => $user->slug, 'name' => $user->name, 'email' => $user->email, 'sender_type' => $user->sender_type, 'business_type' => $user->business_type, 'business_description' => $user->business_description, 'notify_orders' => $user->notify_orders, 'notify_messages' => $user->notify_messages, 'portal_preferences' => $user->portal_preferences ?? []], 'csrf_token' => csrf_token()]);
     }
 
     public function logout(Request $request): JsonResponse

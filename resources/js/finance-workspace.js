@@ -1,4 +1,8 @@
-for (const widget of document.querySelectorAll('[data-account-multiselect]')) {
+const initialized = new WeakSet();
+export function bindFinanceWorkspace(root = document) {
+for (const widget of root.querySelectorAll('[data-account-multiselect]')) {
+    if (initialized.has(widget)) continue;
+    initialized.add(widget);
     const source = widget.querySelector('[data-account-source]');
     const controls = widget.querySelector('[data-account-controls]');
     const menu = widget.querySelector('[data-account-menu]');
@@ -79,7 +83,9 @@ for (const widget of document.querySelectorAll('[data-account-multiselect]')) {
     sync();
 }
 
-for (const dialog of document.querySelectorAll('[data-finance-wizard]')) {
+for (const dialog of root.querySelectorAll('[data-finance-wizard]')) {
+    if (initialized.has(dialog)) continue;
+    initialized.add(dialog);
     const steps = [...dialog.querySelectorAll('[data-finance-step]')];
     function showStep(name) {
         if (dialog.querySelector('form[aria-busy="true"]')) return;
@@ -99,6 +105,10 @@ for (const dialog of document.querySelectorAll('[data-finance-wizard]')) {
     dialog.addEventListener('close', () => showStep('choose'));
 
 }
+
+}
+bindFinanceWorkspace();
+document.addEventListener('ea:workspace-rendered', () => bindFinanceWorkspace());
 
 document.addEventListener('click', event => {
     if (event.target.closest('[data-dialog-open="balance-add"]')) document.querySelector('[data-finance-step="choose"] button')?.focus();
