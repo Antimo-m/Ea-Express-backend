@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\CustomerOrderResource;
 use App\Models\Order;
 use App\OrderStatus;
+use App\Rules\AllowedPortalText;
 use App\Rules\SafePasswordLength;
 use App\Support\CustomerIdentity;
 use App\Support\NotificationInbox;
@@ -76,7 +77,9 @@ class CustomerWorkspaceController extends Controller
 
     public function profile(Request $request, UpdateProfile $update): JsonResponse
     {
-        $data = $request->validate([...CustomerIdentity::rules(), 'current_password' => [Rule::excludeIf($request->input('email') === $request->user()->email), 'bail', 'required', new SafePasswordLength, 'current_password:customer'], 'name' => ['required', 'string', 'max:150'], 'email' => ['required', 'email', 'lowercase', 'max:255', Rule::unique('users')->ignore($request->user()->id)]]);
+        $rules = CustomerIdentity::rules();
+        $rules['business_type'][] = new AllowedPortalText;
+        $data = $request->validate([...$rules, 'current_password' => [Rule::excludeIf($request->input('email') === $request->user()->email), 'bail', 'required', new SafePasswordLength, 'current_password:customer'], 'name' => ['required', 'string', 'max:150'], 'email' => ['required', 'email', 'lowercase', 'max:255', Rule::unique('users')->ignore($request->user()->id)]]);
         $profile = CustomerIdentity::normalize(Arr::except($data, ['current_password']), $request->user()->sender_type);
         if ($update->handle($request->user(), $profile, $data['current_password'] ?? null)) {
             $request->session()->regenerate();

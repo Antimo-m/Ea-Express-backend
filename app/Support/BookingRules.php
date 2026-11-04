@@ -11,15 +11,16 @@ class BookingRules
     public const Timezone = 'Europe/Rome';
 
     /** @return array<string, string|int> */
-    public function payload(): array
+    public function payload(int $leadMinutes = 0): array
     {
         $now = now(self::Timezone);
-        $minimum = $now->copy()->startOfMinute();
-        if ($minimum->lt($now)) {
+        $threshold = $now->copy()->addMinutes($leadMinutes);
+        $minimum = $threshold->copy()->startOfMinute();
+        if ($minimum->lt($threshold)) {
             $minimum->addMinute();
         }
 
-        return ['server_now' => $now->toIso8601String(), 'timezone' => self::Timezone, 'minimum_pickup' => $minimum->toIso8601String(), 'lead_minutes' => 0];
+        return ['server_now' => $now->toIso8601String(), 'timezone' => self::Timezone, 'minimum_pickup' => $minimum->toIso8601String(), 'lead_minutes' => $leadMinutes];
     }
 
     /** @param array<string,mixed> $data */
@@ -31,15 +32,24 @@ class BookingRules
     }
 
     /** @param array<string,mixed> $data */
-    public function validate(array $data, ?Order $order = null): void
+    public function validate(array $data, ?Order $order = null, int $leadMinutes = 0): void
     {
-        if ($this->unchanged($data, $order)) {
+        if ($leadMinutes === 0 && $this->unchanged($data, $order)) {
             return;
         }
         $value = $data['pickup_date'].' '.$data['pickup_from'];
         $start = Carbon::createFromFormat('!Y-m-d H:i', $value, self::Timezone);
-        if ($start->format('Y-m-d H:i') !== $value || $start->lt(now(self::Timezone))) {
-            throw ValidationException::withMessages(['pickup_from' => 'Scegli un orario di ritiro non ancora trascorso, nell’ora italiana.']);
+        if ($start->format('Y-m-d H:i') !== $value || $start->lt(now(self::Timezone)->addMinutes($leadMinutes))) {
+            throw ValidationException::withMessages(['pickup_from' => $leadMinutes > 0
+                ? 'Scegli un orario di ritiro almeno un minuto dopo l’ora attuale italiana.'
+                : 'Scegli un orario di ritiro non ancora trascorso, nell’ora italiana.']);
+        }
+        if ($leadMinutes > 0) {
+            $endValue = $data['pickup_date'].' '.$data['pickup_to'];
+            $end = Carbon::createFromFormat('!Y-m-d H:i', $endValue, self::Timezone);
+            if ($end->format('Y-m-d H:i') !== $endValue || ! $end->gt($start)) {
+                throw ValidationException::withMessages(['pickup_to' => 'Scegli un orario di fine ritiro valido nella data indicata, successivo all’orario iniziale.']);
+            }
         }
     }
 }

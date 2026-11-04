@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\CustomerPendingController;
 use App\Http\Controllers\Api\CustomerPreferenceController;
 use App\Http\Controllers\Api\CustomerPrivacyController;
 use App\Http\Controllers\Api\CustomerStatisticsController;
+use App\Http\Controllers\Api\CustomerTextPolicyController;
 use App\Http\Controllers\Api\CustomerWorkspaceController as Workspace;
 use App\Http\Controllers\Api\SenderAddressController;
 use App\Http\Controllers\RealtimeController;
@@ -19,6 +20,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('api/v1/customer')->name('customer.')->middleware('throttle:customer-api')->group(function (): void {
     Route::get('csrf', [Auth::class, 'csrf']);
     Route::get('privacy', CustomerPrivacyController::class);
+    Route::get('text-policy', CustomerTextPolicyController::class);
     Route::post('auth/login', [Auth::class, 'login'])->middleware(['throttle:customer-login', 'throttle:login-account']);
     Route::post('auth/register', [Auth::class, 'register'])->middleware('throttle:registration');
     Route::middleware(['auth:customer', 'auth.session', EnsureCustomer::class])->group(function (): void {

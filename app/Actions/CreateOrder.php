@@ -33,7 +33,7 @@ class CreateOrder
                 return $existing;
             }
             $data = ShippingQuote::measurements($data);
-            app(BookingRules::class)->validate($data);
+            app(BookingRules::class)->validate($data, leadMinutes: $creator->role === UserRole::Customer ? 1 : 0);
             unset($data['checkout_token'], $data['payment_method']);
             $value = $data['parcel_value'] ?? null;
             unset($data['parcel_value']);

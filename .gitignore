@@ -105,6 +105,9 @@ Thumbs.db
 !/tests/Feature/FinancialReportingTest.php
 !/tests/Feature/ShippingPhaseTest.php
 !/tests/Feature/StatisticsScalabilityTest.php
+!/tests/Feature/CustomerPickupScheduleTest.php
+!/tests/Feature/ProductRevisionTest.php
+!/tests/Feature/CustomerTextPolicyTest.php
 
 !/tests/Feature/OperationalInterfaceTest.php
 !/tests/Feature/RiderGpsHistoryTest.php

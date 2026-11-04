@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Rules\AllowedPortalText;
 use App\Rules\SafePasswordLength;
 use App\Support\CustomerIdentity;
 use App\UserRole;
@@ -35,7 +36,9 @@ class CustomerAuthController extends Controller
 
     public function register(Request $request): JsonResponse
     {
-        $data = $request->validate([...CustomerIdentity::rules(required: true), 'name' => ['required', 'string', 'max:150'], 'email' => ['required', 'email', 'lowercase', 'max:255', 'unique:users,email'], 'password' => ['required', 'confirmed', Rules\Password::min(12), new SafePasswordLength]]);
+        $rules = CustomerIdentity::rules(required: true);
+        $rules['business_type'][] = new AllowedPortalText;
+        $data = $request->validate([...$rules, 'name' => ['required', 'string', 'max:150'], 'email' => ['required', 'email', 'lowercase', 'max:255', 'unique:users,email'], 'password' => ['required', 'confirmed', Rules\Password::min(12), new SafePasswordLength]]);
         $user = new User(CustomerIdentity::normalize($data));
         $user->role = UserRole::Customer;
         $user->is_active = true;

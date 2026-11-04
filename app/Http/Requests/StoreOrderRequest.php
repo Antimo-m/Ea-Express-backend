@@ -91,11 +91,20 @@ class StoreOrderRequest extends FormRequest
                 return;
             }
             try {
-                app(BookingRules::class)->validate($this->all(), $this->route('order'));
+                app(BookingRules::class)->validate($this->all(), $this->route('order'), $this->pickupLeadMinutes());
             } catch (ValidationException $exception) {
-                $validator->errors()->add('pickup_from', $exception->errors()['pickup_from'][0]);
+                foreach ($exception->errors() as $field => $messages) {
+                    foreach ($messages as $message) {
+                        $validator->errors()->add($field, $message);
+                    }
+                }
             }
         }];
+    }
+
+    protected function pickupLeadMinutes(): int
+    {
+        return 0;
     }
 
     public function messages(): array
