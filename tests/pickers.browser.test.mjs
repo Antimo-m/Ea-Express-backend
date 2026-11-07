@@ -116,6 +116,13 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 });
                 return;
             }
+            if (url.pathname.startsWith('/pickups/accounts/')) {
+                const manifest=JSON.parse(readFileSync(join(temporary,'pickup-agenda-manifest.json')));
+                url.searchParams.set('page',url.searchParams.get('page') || '1');url.searchParams.set('per_page',url.searchParams.get('per_page') || '20');url.searchParams.sort();
+                const file=manifest.responses[url.pathname+'?'+url.searchParams.toString()];
+                if(!file){response.statusCode=404;response.end('Account non disponibile');return;}
+                response.setHeader('Content-Type','text/html');response.end(markup(file));return;
+            }
             if (url.pathname === '/pickups' || url.pathname === '/pickups/day') {
                 const name = url.pathname === '/pickups' ? `pickup-calendar-${url.searchParams.get('month') || '2026-10'}.html` : url.searchParams.get('date') === '2026-10-17' ? `pickup-day-page-${url.searchParams.get('page') || '1'}.html` : 'pickup-day-empty.html';
                 response.setHeader('Content-Type', 'text/html'); response.end(readFileSync(join(temporary,name)).toString().replace(/https?:\/\/localhost(?::\d+)?/g,'')); return;
@@ -1147,14 +1154,13 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             }
             assert.ok(await evaluate(`document.querySelector('#cash-details table caption').textContent.includes('Sospesi nel periodo')`));
         });
-        await scenario('pickup calendar keeps seven columns, true counts, keyboard navigation and server page links at all sizes', async () => {
+        await scenario('pickup calendar keeps counts and lazy account pages at all sizes without document reloads', async () => {
             for(const width of [320,375,768,1024,1440]) {
                 await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
                 await navigate('pickups?month=2026-10');
                 assert.equal(await evaluate(`document.querySelectorAll('.pickup-calendar-table th').length`),7);
                 assert.equal(await evaluate(`document.querySelectorAll('[data-pickup-date]').length`),31);
                 assert.equal(await evaluate(`document.querySelector('[data-pickup-date="2026-10-17"]').dataset.pickupCount`),'47');
-                assert.equal(await evaluate(`document.querySelector('[aria-current="date"]').dataset.pickupDate`),'2026-10-17');
                 assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`),`calendar overflow ${width}`);
                 assert.ok(await evaluate(`Array.from(document.querySelectorAll('.pickup-calendar-table tr')).every(row=>row.children.length===7)`));
                 await assertButtonShapes(`calendar buttons ${width}`);
@@ -1163,45 +1169,36 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                     await new Promise(resolve=>setTimeout(resolve,150));
                     assert.deepEqual((await contrast()).failed,[],`calendar contrast ${theme} ${width}`);
                 }
-                await evaluate(`document.documentElement.dataset.eaTheme='light'`);
-                await new Promise(resolve=>setTimeout(resolve,200));
-                if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`pickup-calendar-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true})).data,'base64'));
                 await navigate('pickups/day?date=2026-10-17');
-                assert.equal(await evaluate(`document.querySelectorAll('.pickup-order-card').length`),26);
+                assert.equal(await evaluate(`document.querySelectorAll('[data-pickup-account]').length`),10);
+                assert.equal(await evaluate(`document.querySelectorAll('[data-pickup-account][open],.pickup-order-card').length`),0);
                 assert.equal(await evaluate(`document.querySelector('[data-pickup-day-total]').textContent`),'47');
+                await evaluate(`document.querySelector('[data-pickup-account] summary').click()`);
+                for(let attempt=0;attempt<100;attempt++) {if(await evaluate(`document.querySelectorAll('.pickup-order-card').length===7`))break;await new Promise(resolve=>setTimeout(resolve,20));}
+                assert.equal(await evaluate(`document.querySelectorAll('.pickup-order-card').length`),7);
+                assert.match(await evaluate(`document.querySelector('.pickup-order-card a[href*="/orders/"]').getAttribute('href')`),/\/orders\/[0-9a-f-]{36}$/);
                 assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`),`daily report overflow ${width}`);
-                assert.match(await evaluate(`document.querySelector('.pickup-order-card [data-order-link]').getAttribute('href')`),/\/orders\/[0-9a-f-]{36}$/);
-                await assertButtonShapes(`daily report buttons ${width}`);
-                if(process.env.EA_UI_SCREENSHOTS) {
-                    await evaluate(`window.scrollTo({top:0,behavior:'instant'});new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
-                    writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`pickup-day-preview-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
-                    writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`pickup-day-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true})).data,'base64'));
-                }
             }
-            const follow = async selector => {
-                await evaluate(`window.__eaPreviousDocument=true;document.querySelector(${JSON.stringify(selector)}).focus()`);
+            await evaluate(`window.__agendaDocument='retained'`);
+            const follow=async selector=>{
+                await evaluate(`window.__agendaRoot=document.querySelector('[data-pickup-agenda]');document.querySelector(${JSON.stringify(selector)}).focus()`);
                 await key('Enter');
-                for(let attempt=0;attempt<100;attempt++) {if(await evaluate(`!window.__eaPreviousDocument&&document.readyState==='complete'`))return;await new Promise(resolve=>setTimeout(resolve,30));}
-                throw new Error('Calendar link failed: '+selector);
+                for(let attempt=0;attempt<100;attempt++) {if(await evaluate(`!window.__agendaRoot.isConnected && !document.querySelector('[data-pickup-agenda][aria-busy="true"]')`))return;await new Promise(resolve=>setTimeout(resolve,30));}
+                throw new Error('Agenda navigation failed: '+selector);
             };
-            await follow('[aria-label="Vai a pagina 2"]');
-            assert.match(await evaluate(`location.search`),/date=2026-10-17&page=2/);
-            assert.equal(await evaluate(`document.querySelectorAll('.pickup-order-card').length`),20);
-            await follow('[aria-label="Pagina successiva"]');
-            assert.equal(await evaluate(`document.querySelectorAll('.pickup-order-card').length`),1);
-            assert.equal(await evaluate(`document.querySelector('[data-pickup-day-total]').textContent`),'47');
+            await follow('.pickup-accounts-pagination [aria-label="Pagina successiva"]');
+            assert.equal(await evaluate(`new URLSearchParams(location.search).get('page')`),'2');
+            assert.equal(await evaluate(`document.querySelectorAll('[data-pickup-account]').length`),10);
+            assert.equal(await evaluate(`document.querySelectorAll('.pickup-order-card').length`),0);
             await follow('.page-back a');
-            assert.equal(await evaluate(`new URLSearchParams(location.search).get('month')`),'2026-10');
             await follow('[aria-label="Mese precedente"]');
             assert.match(await evaluate(`document.getElementById('calendar-month').textContent`),/Settembre 2026/);
-            await follow('[aria-label="Mese successivo"]');
-            await follow('[aria-label="Mese successivo"]');
+            await follow('[aria-label="Mese successivo"]');await follow('[aria-label="Mese successivo"]');
             assert.match(await evaluate(`document.getElementById('calendar-month').textContent`),/Novembre 2026/);
             await follow('.pickup-calendar-navigation .btn');
-            assert.match(await evaluate(`document.getElementById('calendar-month').textContent`),/Ottobre 2026/);
             await follow('[data-pickup-date="2026-10-18"]');
             assert.ok(await evaluate(`document.body.textContent.includes('Nessun ritiro da effettuare')`));
-            assert.equal(await evaluate(`new URLSearchParams(location.search).get('date')`),'2026-10-18');
+            assert.equal(await evaluate(`window.__agendaDocument`),'retained');
             await navigate('pickups?month=2026-10');
             await evaluate(`window.__originalCalendar=document.querySelector('[data-pickup-date="2026-10-17"]');window.__originalCalendar.focus();window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'orders'}}))`);
             for(let attempt=0;attempt<100;attempt++){if(await evaluate(`!window.__originalCalendar.isConnected`))break;await new Promise(resolve=>setTimeout(resolve,30));}

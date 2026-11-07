@@ -1,0 +1,47 @@
+[data-pickup-agenda] { min-width: 0; }
+[data-pickup-agenda] .page-heading { flex-wrap: wrap; gap: 16px; }
+[data-pickup-agenda] .pickup-calendar-heading { flex-wrap: wrap; gap: 20px; }
+[data-pickup-agenda] .pickup-calendar-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+[data-pickup-agenda] .pickup-calendar-navigation > * { min-height: 44px; }
+[data-pickup-agenda] .pickup-calendar-navigation [data-pickup-refresh] { order: 4; }
+.pickup-account-groups { display: grid; gap: 16px; min-width: 0; }
+.pickup-agenda-accounts .pickup-account-group { min-width: 0; padding: 0; margin: 0; border: 1px solid var(--ea-line); border-radius: var(--ea-radius-card); background: var(--ea-surface); }
+.pickup-account-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto 16px; align-items: center; gap: 18px; min-height: 80px; padding: 20px 24px; cursor: pointer; list-style: none; border-radius: var(--ea-radius-card); }
+.pickup-account-heading::-webkit-details-marker { display: none; }
+.pickup-account-heading > div { min-width: 0; }
+.pickup-account-heading h2 { margin: 4px 0 0; font-size: 1rem; line-height: 1.4; overflow-wrap: anywhere; }
+.pickup-account-heading .data-label { font-size: .7rem; }
+.pickup-account-heading:hover { background: var(--ea-hover); }
+.pickup-account-heading:focus-visible { outline: 3px solid var(--ea-focus); outline-offset: -3px; }
+.pickup-account-count { display: grid; gap: 4px; text-align: right; font-size: .875rem; color: var(--ea-ink); }
+.pickup-account-count small { font-size: .75rem; color: var(--ea-muted); }
+.pickup-account-group[open] > .pickup-account-heading { border-bottom: 1px solid var(--ea-line); border-radius: var(--ea-radius-card) var(--ea-radius-card) 0 0; }
+.pickup-account-group[open] > .pickup-account-heading > .bi { transform: rotate(180deg); }
+.pickup-account-body { min-width: 0; padding: 20px 24px; }
+.pickup-account-body[aria-busy=true] { opacity: .7; }
+.pickup-orders-caption { margin: 0 0 16px; color: var(--ea-muted); font-size: .8125rem; }
+.pickup-print-form { display: grid; gap: 16px; min-width: 0; }
+.pickup-print-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.pickup-print-actions > * { max-width: 100%; min-width: 0; min-height: 44px; white-space: normal; overflow-wrap: anywhere; }
+.pickup-print-form .pickup-day-orders { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; min-width: 0; }
+.pickup-print-form .pickup-order-card { margin: 0; min-width: 0; }
+.pickup-print-form .pickup-order-card > header { gap: 12px; flex-wrap: wrap; }
+.pickup-print-form .pickup-order-card > header > h3 { flex: 1 1 160px; }
+.pickup-print-form .pickup-order-card dd { overflow-wrap: anywhere; }
+.pickup-print-form .pickup-order-card footer { gap: 12px; flex-wrap: wrap; }
+.pickup-print-form .pickup-order-card footer > a { white-space: normal; min-height: 44px; }
+.pickup-accounts-pagination, .pickup-orders-pagination { margin-top: 20px; }
+.pickup-accounts-pagination .workspace-pagination, .pickup-orders-pagination .workspace-pagination { flex-wrap: wrap; }
+[data-pickup-agenda] .pickup-day-summary { scroll-margin-top: 90px; }
+@media (max-width: 767px) { .pickup-print-form .pickup-day-orders { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 575px) {
+  [data-pickup-agenda] .pickup-calendar-navigation { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px 44px; gap: 6px; width: 100%; }
+  [data-pickup-agenda] .pickup-calendar-navigation > a.btn { padding-inline: 6px; white-space: normal; font-size: .8125rem; }
+  [data-pickup-agenda] .pickup-calendar-navigation [data-pickup-refresh] { width: 44px; padding: 8px; }
+  .pickup-account-heading { padding: 16px; gap: 10px; }
+  .pickup-account-heading h2 { font-size: .9375rem; }
+  .pickup-account-count { font-size: .8125rem; }
+  .pickup-account-body { padding: 16px 12px; }
+  .pickup-print-actions { gap: 10px; }
+  .pickup-print-actions > .btn { width: 100%; }
+}

@@ -197,3 +197,6 @@ Thumbs.db
 !/tests/Feature/RiderWorkspaceRevisionTest.php
 !/tests/order-workspace.browser.test.mjs
 !/tests/rider-workspace.browser.test.mjs
+
+!/tests/Feature/AgendaPaginationLoadTest.php
+!/tests/Feature/AgendaAuthorizationTest.php

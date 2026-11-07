@@ -1,4 +1,5 @@
 <x-app-layout title="Agenda ritiri">
+<div data-pickup-agenda data-pickup-view="calendar">
     <header class="page-heading">
         <div><span class="eyebrow">EA-Express · AGENDA OPERATIVA</span><h1>Agenda ritiri</h1><p>Consulta i ritiri ancora da effettuare e apri il resoconto di una giornata.</p></div>
         @if(auth()->user()->role === \App\UserRole::Admin)<x-ui.icon-button action="add" href="{{ route('orders.create') }}" label="Prenota un ritiro" text />@endif
@@ -7,6 +8,7 @@
         <header class="pickup-calendar-heading">
             <div><span class="eyebrow">PROGRAMMAZIONE MENSILE</span><h2 id="calendar-month">{{ ucfirst($month->translatedFormat('F Y')) }}</h2><p role="status">{{ $dailyCounts->sum() }} {{ $dailyCounts->sum() === 1 ? 'ritiro' : 'ritiri' }} da effettuare nel mese</p></div>
             <nav class="pickup-calendar-navigation" aria-label="Navigazione mensile">
+                <button type="button" class="btn btn-outline-secondary" data-pickup-refresh aria-label="Aggiorna agenda"><x-ui.icon name="arrow-clockwise" /></button>
                 <x-ui.icon-button icon="chevron-left" :href="$previousMonth ? route('pickups.index', ['month' => $previousMonth]) : null" :disabled="! $previousMonth" label="Mese precedente" />
                 <a class="btn btn-outline-secondary" href="{{ route('pickups.index', ['month' => $today->format('Y-m')]) }}">Mese corrente</a>
                 <x-ui.icon-button icon="chevron-right" :href="$nextMonth ? route('pickups.index', ['month' => $nextMonth]) : null" :disabled="! $nextMonth" label="Mese successivo" />
@@ -28,4 +30,5 @@
         </table>
         <footer class="pickup-calendar-foot"><p>I conteggi includono le richieste ricevute con data di ritiro. Sono esclusi annullati, rifiutati e pacchi già ritirati. Orari e date: Europe/Rome.</p></footer>
     </section>
+</div>
 </x-app-layout>

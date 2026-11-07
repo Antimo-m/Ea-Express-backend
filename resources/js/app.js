@@ -3,6 +3,8 @@ import '../css/rider-day.css';
 import '../css/staff-auth-revision.css';
 import '../css/order-workspace-revision.css';
 import './order-history';
+import '../css/pickup-agenda.css';
+import './pickup-agenda';
 import './order-actions';
 import './operational-orders';
 import './filter-toolbar';

@@ -7,7 +7,7 @@ import { createRefreshQueue } from './refresh-queue';
 import { bindFinancialForms } from './financial-forms';
 
 const regions = createRefreshQueue(async () => {
-  if (document.querySelector('.order-archive')) return;
+  if (document.querySelector('.order-archive, [data-pickup-agenda]')) return;
   if (!document.querySelector('[data-live-region]')) return;
   const response = await fetch(location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' }, credentials: 'same-origin' });
   if (!response.ok || response.redirected) return;

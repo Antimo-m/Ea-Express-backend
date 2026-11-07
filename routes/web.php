@@ -64,6 +64,7 @@ Route::middleware(['auth', 'auth.session', EnsureStaff::class, EnsureEmailVerifi
     Route::get('/orders/history', [OrderController::class, 'index'])->name('orders.history');
     Route::get('/pickups', [PickupGroupController::class, 'index'])->name('pickups.index');
     Route::get('/pickups/day', [PickupGroupController::class, 'show'])->name('pickups.day');
+    Route::get('/pickups/accounts/{account}/orders', [PickupGroupController::class, 'orders'])->whereUuid('account')->name('pickups.account-orders');
     Route::get('/labels', [OrderLabelController::class, 'index'])->name('labels.index');
     Route::get('/customers', [CustomerController::class, 'index'])->middleware(EnsureAdmin::class)->name('customers.index');
     Route::get('/customers/{customer}', [CustomerController::class, 'show'])->middleware(EnsureAdmin::class)->name('customers.show');

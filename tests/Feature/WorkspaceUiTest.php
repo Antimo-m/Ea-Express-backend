@@ -79,6 +79,11 @@ class WorkspaceUiTest extends TestCase
             $page = $this->get('/'.$path)->assertOk();
             if ($path === 'pickups') {
                 $page->assertSee('data-pickup-calendar', false);
+                $day = $this->get(route('pickups.day', ['date' => now('Europe/Rome')->addDay()->toDateString()]))
+                    ->assertOk()->assertViewMissing('orders')->assertDontSee('data-operational-order=', false);
+                if ($directory = getenv('EA_UI_FIXTURE_DIR')) {
+                    file_put_contents($directory.'/workspace-pickup-day.html', $day->getContent());
+                }
             } else {
                 $page->assertSee('aria-label="Ripristina filtri"', false);
             }

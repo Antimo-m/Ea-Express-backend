@@ -1,162 +1,129 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createServer } from 'node:http';
-import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { extname, join, resolve } from 'node:path';
+import {createServer} from 'node:http';
+import {spawn,execFileSync} from 'node:child_process';
+import {existsSync,mkdtempSync,readFileSync,rmSync,writeFileSync} from 'node:fs';
+import {join,resolve,extname} from 'node:path';
+import {tmpdir} from 'node:os';
 
-const chrome = process.env.EA_BROWSER_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-
-test('pickup agenda keeps whole accounts, daily counts and delegated label actions after live updates', { skip: !existsSync(chrome), timeout: 120000 }, async t => {
-    const directory = mkdtempSync(join(tmpdir(), 'ea-pickup-browser-'));
-    let server, browser, socket;
-    try {
-        try {
-            execFileSync('php', ['artisan', 'test', '--compact', 'tests/Feature/PickupCalendarTest.php'], { env: { ...process.env, XDEBUG_MODE: 'off', EA_UI_FIXTURE_DIR: directory }, stdio: 'pipe' });
-        } catch (error) {
-            throw new Error(`Pickup fixture tests failed:\n${error.stdout?.toString() || error.message}`, { cause: error });
-        }
-        const markup = file => readFileSync(join(directory, file), 'utf8').replace(/https?:\/\/localhost(?::\d+)?/g, '').replace(/https?:\/\/[^/"\s]+\/build\//g, '/build/');
-        server = createServer((request, response) => {
-            const url = new URL(request.url, 'http://localhost');
-            if (url.pathname === '/pickups') {
-                response.setHeader('Content-Type', 'text/html');
-                response.end(markup(`pickup-calendar-${url.searchParams.get('month') || '2026-10'}.html`));
-                return;
-            }
-            if (url.pathname === '/pickups/day') {
-                const page = url.searchParams.get('page') || '1';
-                response.setHeader('Content-Type', 'text/html');
-                response.end(markup(url.searchParams.get('date') === '2026-10-17' ? `pickup-day-page-${page}.html` : 'pickup-day-empty.html'));
-                return;
-            }
-            if (/^\/orders\/[0-9a-f-]{36}$/.test(url.pathname)) {
-                response.setHeader('Content-Type', 'text/html');
-                response.end(`<main data-opened-order="${url.pathname.split('/').at(-1)}">Dettaglio ordine selezionato</main>`);
-                return;
-            }
-            if (request.headers.accept?.includes('application/json')) {
-                response.setHeader('Content-Type', 'application/json');
-                response.end(JSON.stringify({ unread: 0, data: [], meta: { current_page: 1, last_page: 1, total: 0 }, enabled: false }));
-                return;
-            }
-            const file = resolve('public', `.${url.pathname}`);
-            if (file.startsWith(resolve('public') + '/') && existsSync(file) && extname(file)) {
-                response.setHeader('Content-Type', ({ '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.woff': 'font/woff' })[extname(file)] || 'application/octet-stream');
-                response.end(readFileSync(file));
-                return;
-            }
-            response.statusCode = 404;
-            response.end();
-        });
-        await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
-        const origin = `http://127.0.0.1:${server.address().port}`;
-        browser = spawn(chrome, ['--headless=new', '--disable-gpu', '--no-sandbox', '--disable-breakpad', '--disable-crash-reporter', '--no-first-run', '--no-default-browser-check', '--remote-debugging-port=0', `--user-data-dir=${join(directory, 'chrome')}`, 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
-        const endpoint = await new Promise((resolve, reject) => {
-            let output = '';
-            const timer = setTimeout(() => reject(new Error('Chrome did not start: '+output.slice(-1000))), 15000);
-            browser.once('exit', code => { clearTimeout(timer); reject(new Error(`Chrome exited (${code}): ${output.slice(-1000)}`)); });
-            browser.stderr.on('data', chunk => {
-                output += chunk;
-                const match = output.match(/DevTools listening on (ws:\/\/[^\s]+)/);
-                if (match) { clearTimeout(timer); resolve(match[1]); }
-            });
-        });
-        const pages = await (await fetch(`http://127.0.0.1:${new URL(endpoint).port}/json/list`)).json();
-        socket = new WebSocket(pages.find(page => page.type === 'page').webSocketDebuggerUrl);
-        await new Promise(resolve => socket.addEventListener('open', resolve, { once: true }));
-        let sequence = 0;
-        const pending = new Map();
-        socket.addEventListener('message', ({ data }) => {
-            const result = JSON.parse(data);
-            const callback = pending.get(result.id);
-            if (!callback) return;
-            pending.delete(result.id);
-            if (result.error) callback.reject(new Error(result.error.message));
-            else callback.resolve(result.result);
-        });
-        const send = (method, params = {}) => new Promise((resolve, reject) => {
-            const id = ++sequence;
-            const timer = setTimeout(() => { pending.delete(id); reject(new Error(`Chrome timed out: ${method}`)); }, 10000);
-            pending.set(id, { resolve: result => { clearTimeout(timer); resolve(result); }, reject: error => { clearTimeout(timer); reject(error); } });
-            socket.send(JSON.stringify({ id, method, params }));
-        });
-        const evaluate = async expression => {
-            const result = await send('Runtime.evaluate', { expression: `(() => { return eval(${JSON.stringify(expression)}); })()`, awaitPromise: true, returnByValue: true });
-            if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text);
-            return result.result.value;
-        };
-        const waitFor = async expression => {
-            for (let attempt = 0; attempt < 150; attempt++) {
-                if (await evaluate(expression)) return;
-                await new Promise(resolve => setTimeout(resolve, 20));
-            }
-            throw new Error('Pickup browser did not reach: '+expression);
-        };
-        const navigate = async path => {
-            await evaluate('window.__previousPickupDocument = true');
-            await send('Page.navigate', { url: `${origin}${path}` });
-            await waitFor(`!window.__previousPickupDocument && document.readyState==='complete' && location.pathname===${JSON.stringify(path.split('?')[0])}`);
-        };
-        for (const width of [320, 375, 390, 430, 768, 1440]) {
-            await t.test(`calendar, grouped pages and label actions fit ${width}px`, async () => {
-                await send('Emulation.setDeviceMetricsOverride', { width, height: 1000, deviceScaleFactor: 1, mobile: width < 600 });
-                await navigate('/pickups?month=2026-10');
-                assert.equal(await evaluate(`document.querySelectorAll('.pickup-calendar-table th').length`), 7);
-                assert.equal(await evaluate(`document.querySelector('[data-pickup-date="2026-10-17"]').dataset.pickupCount`), '47');
-                assert.equal(await evaluate(`document.querySelector('a[href*="/pickups/grouped"]')`), null);
-                assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`), `calendar overflow at ${width}px`);
-                const seen = new Set();
-                const accounts = new Set();
-                for (const [page, expectedCards, expectedGroups] of [[1, 26, 20], [2, 20, 20], [3, 1, 1]]) {
-                    await navigate(`/pickups/day?date=2026-10-17&page=${page}`);
-                    assert.equal(await evaluate(`document.querySelector('[data-pickup-day-total]').textContent`), '47');
-                    assert.equal(await evaluate(`document.querySelectorAll('.pickup-order-card').length`), expectedCards);
-                    assert.equal(await evaluate(`document.querySelectorAll('[data-pickup-account]').length`), expectedGroups);
-                    assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`), `day page ${page} overflow at ${width}px`);
-                    const rows = await evaluate(`[...document.querySelectorAll('[data-pickup-account]')].map(group=>({account:group.dataset.pickupAccount,orders:[...group.querySelectorAll('[data-operational-order]')].map(order=>({slug:order.dataset.operationalOrder,href:order.querySelector('[data-order-link]').getAttribute('href')}))}))`);
-                    for (const group of rows) {
-                        assert.match(group.account, /^[0-9a-f-]{36}$/);
-                        assert.equal(accounts.has(group.account), false, 'account split across pages');
-                        accounts.add(group.account);
-                        for (const order of group.orders) {
-                            assert.equal(seen.has(order.slug), false, 'order duplicated across pages');
-                            seen.add(order.slug);
-                            assert.equal(order.href, `/orders/${order.slug}`);
-                        }
-                    }
-                    if (page < 3) assert.match(await evaluate(`document.querySelector('[rel="next"]').getAttribute('href')`), /date=2026-10-17.*page=/);
-                }
-                assert.equal(seen.size, 47);
-                assert.equal(accounts.size, 41);
-                await navigate('/pickups/day?date=2026-10-17');
-                assert.equal(await evaluate(`document.querySelector('[data-pickup-account]').querySelectorAll('.pickup-order-card').length`), 7);
-                await evaluate(`window.__pickupDocument='same';window.__oldPickupForm=document.querySelectorAll('[data-pickup-account] form')[1];window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'orders'}}))`);
-                await waitFor(`!window.__oldPickupForm.isConnected`);
-                assert.equal(await evaluate(`window.__pickupDocument`), 'same');
-                await evaluate(`window.__labelSubmissions=[];document.addEventListener('submit',event=>{if(event.target.matches('[data-pickup-account] form')){event.preventDefault();window.__labelSubmissions.push({account:event.target.closest('[data-pickup-account]').dataset.pickupAccount,action:event.target.getAttribute('action'),slugs:new FormData(event.target).getAll('ids[]')});}});document.querySelectorAll('[data-pickup-account]')[1].querySelector('[data-select-labels]').click()`);
-                assert.equal(await evaluate(`document.querySelectorAll('[data-pickup-account]')[1].querySelectorAll('input:checked').length`), 0);
-                assert.equal(await evaluate(`document.querySelector('[data-pickup-account]').querySelectorAll('input:checked').length`), 7);
-                const selected = await evaluate(`document.querySelectorAll('[data-pickup-account]')[1].querySelector('[data-operational-order]').dataset.operationalOrder`);
-                await evaluate(`document.querySelectorAll('[data-pickup-account]')[1].querySelector('[data-print-all-labels]').click()`);
-                const submissions = await evaluate(`window.__labelSubmissions`);
-                assert.equal(submissions.length, 1);
-                const submission = submissions[0];
-                assert.equal(submission.account, await evaluate(`document.querySelectorAll('[data-pickup-account]')[1].dataset.pickupAccount`));
-                assert.equal(submission.action, '/labels');
-                assert.deepEqual(submission.slugs, [selected]);
-                assert.equal(await evaluate(`document.querySelector('[data-pickup-account]').querySelectorAll('input:checked').length`), 7);
-            });
-        }
-        const detail = await evaluate(`document.querySelector('.pickup-order-card [data-order-link]').getAttribute('href')`);
-        await evaluate(`document.querySelector('.pickup-order-card [data-order-link]').click()`);
-        await waitFor(`document.querySelector('[data-opened-order]')!==null`);
-        assert.equal(await evaluate('location.pathname'), detail);
-    } finally {
-        socket?.close();
-        if (browser && browser.exitCode === null) await new Promise(resolve => { browser.once('exit', resolve); browser.kill('SIGTERM'); });
-        if (server) { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
-        rmSync(directory, { recursive: true, force: true, maxRetries: 3 });
-    }
+const chrome=process.env.EA_BROWSER_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+test('Agenda: account SQL separati dagli ordini, apertura limitata e aggiornamenti coerenti', {skip:!existsSync(chrome),timeout:180000},async t=>{
+ const temporary=mkdtempSync(join(tmpdir(),'ea-pickup-agenda-'));
+ try{execFileSync('php',['artisan','test','--compact','tests/Feature/PickupCalendarTest.php'],{env:{...process.env,EA_UI_FIXTURE_DIR:temporary},stdio:'pipe'});}catch(error){throw new Error(error.stdout?.toString()||error.message,{cause:error});}
+ const manifest=JSON.parse(readFileSync(join(temporary,'pickup-agenda-manifest.json')));
+ const markup=file=>readFileSync(join(temporary,file),'utf8').replace(/https?:\/\/localhost(?::\d+)?/g,'').replace(/https?:\/\/[^/"\s]+\/build\//g,'/build/');
+ const calls=[];let mode='normal',failure=0,browser,socket;
+ const keyOf=url=>{const copy=new URL(url);if(copy.pathname==='/pickups/day'){if(!copy.searchParams.has('page'))copy.searchParams.set('page','1');if(!copy.searchParams.has('per_page'))copy.searchParams.set('per_page','10');}else if(copy.pathname.includes('/accounts/')){if(!copy.searchParams.has('page'))copy.searchParams.set('page','1');if(!copy.searchParams.has('per_page'))copy.searchParams.set('per_page','20');}copy.searchParams.sort();return copy.pathname+'?'+copy.searchParams;};
+ const server=createServer((request,response)=>{
+  const url=new URL(request.url,'http://localhost');
+  const key=keyOf(url),date=url.searchParams.get('date');
+  if(url.pathname.startsWith('/pickups')){
+   calls.push({path:url.pathname,query:Object.fromEntries(url.searchParams),summary:request.headers['x-pickup-agenda']==='accounts'});
+   if(url.pathname.includes('/accounts/')&&(failure || (mode==='removed'&&url.pathname.includes(manifest.after_removal.missing_slug)))){response.statusCode=failure||404;failure=0;response.end('Dati non disponibili');return;}
+   let file;
+   if(url.pathname==='/pickups')file='pickup-calendar-'+(url.searchParams.get('month')||'2026-10')+'.html';
+   else if(url.pathname==='/pickups/day'){
+    const summary=request.headers['x-pickup-agenda']==='accounts';
+    if(mode==='removed'&&date===manifest.date)file=summary?manifest.after_removal.accounts_file:manifest.after_removal.full_file;
+    else if(mode==='changed'&&date===manifest.single.date&&summary)file=manifest.single_after_change.accounts_file;
+    else if(date==='2026-10-18')file='pickup-day-empty.html';
+    else if(summary)file=manifest.responses[key];
+    else file=date===manifest.single.date?'pickup-single.html':'pickup-day-page-'+(url.searchParams.get('page')||'1')+'.html';
+   }else if(mode==='changed'&&date===manifest.single.date&&url.searchParams.get('page')==='1')file=manifest.single_after_change.orders_file;
+   else file=manifest.responses[key];
+   if(file&&existsSync(join(temporary,file))){response.setHeader('Content-Type','text/html');response.end(markup(file));return;}
+   response.statusCode=404;response.end('Fixture non trovata: '+key);return;
+  }
+  if(/^\/orders\/[0-9a-f-]{36}$/.test(url.pathname)){response.setHeader('Content-Type','text/html');response.end('<!doctype html><html><body><h1>Dettaglio ordine selezionato</h1></body></html>');return;}
+  const file=resolve('public','.'+url.pathname);
+  if(file.startsWith(resolve('public')+'/')&&existsSync(file)&&extname(file)){response.setHeader('Content-Type',({'.js':'text/javascript','.css':'text/css','.woff2':'font/woff2','.woff':'font/woff','.svg':'image/svg+xml'})[extname(file)]||'application/octet-stream');response.end(readFileSync(file));return;}
+  response.setHeader('Content-Type','application/json');response.end(JSON.stringify({enabled:false,data:[],groups:[],unread:0}));
+ });
+ try{
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
+  browser=spawn(chrome,['--headless=new','--disable-gpu','--no-first-run','--no-default-browser-check','--remote-debugging-port=0','--user-data-dir='+join(temporary,'chrome'),'about:blank'],{stdio:['ignore','ignore','pipe']});
+  const endpoint=await new Promise((resolve,reject)=>{let output='';const timer=setTimeout(()=>reject(new Error(output)),15000);browser.stderr.on('data',chunk=>{output+=chunk;const match=output.match(/DevTools listening on (ws:\/\/[^\s]+)/);if(match){clearTimeout(timer);resolve(match[1]);}});browser.once('exit',code=>{clearTimeout(timer);reject(new Error('Chrome '+code));});});
+  const pages=await(await fetch('http://127.0.0.1:'+new URL(endpoint).port+'/json/list')).json();socket=new WebSocket(pages.find(page=>page.type==='page').webSocketDebuggerUrl);await new Promise(resolve=>socket.addEventListener('open',resolve,{once:true}));
+  let sequence=0;const pending=new Map();
+  socket.addEventListener('message',({data})=>{const result=JSON.parse(data),handler=pending.get(result.id);if(handler){pending.delete(result.id);result.error?handler.reject(new Error(result.error.message)):handler.resolve(result.result);}});
+  const send=(method,params={})=>new Promise((resolve,reject)=>{const id=++sequence,timer=setTimeout(()=>reject(new Error('Chrome timeout '+method)),15000);pending.set(id,{resolve:value=>{clearTimeout(timer);resolve(value);},reject:error=>{clearTimeout(timer);reject(error);}});socket.send(JSON.stringify({id,method,params}));});
+  const evaluate=async code=>{const result=await send('Runtime.evaluate',{expression:'(()=>{'+code+'})()',returnByValue:true,awaitPromise:true});if(result.exceptionDetails)throw new Error(result.exceptionDetails.exception?.description||result.exceptionDetails.text);return result.result.value;};
+  const waitFor=async code=>{for(let i=0;i<150;i++){if(await evaluate('return Boolean('+code+');'))return;await new Promise(resolve=>setTimeout(resolve,30));}throw new Error('Not ready: '+code+' '+await evaluate('return document.body.innerText.slice(-600);'));};
+  const navigate=async path=>{await evaluate('window.__previous=true;');await send('Page.navigate',{url:origin+path});await waitFor('!window.__previous && document.readyState==="complete" && document.querySelector("h1")');await evaluate('return document.fonts.ready.then(()=>true);');};
+  const viewport=width=>send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});
+  const check=async label=>{const result=await evaluate('return {width:innerWidth,scroll:document.documentElement.scrollWidth,overflow:[...document.querySelectorAll("main *")].filter(node=>{const r=node.getBoundingClientRect();return r.width&&r.right>innerWidth+1&&getComputedStyle(node).position!=="fixed";}).slice(0,5).map(node=>node.className)};');assert.ok(result.scroll<=result.width+1,label+' '+JSON.stringify(result));};
+  const ordersCalls=()=>calls.filter(call=>call.path.includes('/accounts/'));
+  const openFirst=async()=>{await evaluate('document.querySelector("[data-pickup-account] > summary").click();');await waitFor('document.querySelector("[data-pickup-account][open] [data-pickup-orders-page]") && !document.querySelector("[data-pickup-orders][aria-busy=true]")');};
+  const currentIds=()=>evaluate("return [...document.querySelectorAll(\"[data-pickup-account][open] input[name='ids[]']\")].map(input=>input.value);");
+  const dayUrl='/pickups/day?date='+manifest.date+'&page=1&per_page=10';
+  const singleUrl='/pickups/day?date='+manifest.single.date+'&page=1&per_page=10';
+  for(const width of[320,375,390,430,768,1024,1440])await t.test(width+'px: calendario, 10 account chiusi e ordini senza overflow',async()=>{
+   await viewport(width);await navigate('/pickups?month=2026-10');await check('calendario '+width);
+   const before=ordersCalls().length;await navigate(dayUrl);
+   assert.equal(await evaluate('return document.querySelectorAll("[data-pickup-account]").length;'),10);
+   assert.equal(await evaluate('return document.querySelectorAll("[data-pickup-account][open],.pickup-order-card").length;'),0);
+   assert.equal(ordersCalls().length,before);await check('account '+width);
+   await openFirst();assert.equal(ordersCalls().length,before+1);assert.equal((await currentIds()).length,7);await check('ordini '+width);
+   assert.ok(await evaluate('return [...document.querySelectorAll(".pickup-account-heading")].every(node=>node.getBoundingClientRect().height>=44);'));
+   if(process.env.EA_PICKUP_SCREENSHOTS)writeFileSync(join(process.env.EA_PICKUP_SCREENSHOTS,'agenda-open-'+width+'.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+  });
+  await t.test('47 ritiri: pagine 20/20/7, stampa limitata e cache senza richieste duplicate',async()=>{
+   await navigate(singleUrl);const before=ordersCalls().length;await openFirst();assert.equal(ordersCalls().length,before+1);
+   const first=await currentIds();assert.equal(first.length,20);assert.ok(first.every(id=>/^[0-9a-f-]{36}$/.test(id)));
+   await evaluate('document.querySelector(".pickup-orders-pagination a[rel=next]").click();');await waitFor("document.querySelector(\"[data-pickup-orders-page='2']\")");
+   const second=await currentIds();assert.equal(second.length,20);assert.equal(second.filter(id=>first.includes(id)).length,0);
+   const print=await evaluate('const form=document.querySelector(".pickup-print-form");return {path:new URL(form.action).pathname,ids:new FormData(form).getAll("ids[]")};');assert.equal(print.path,'/labels');assert.deepEqual(print.ids,second);
+   await evaluate('document.querySelector("[data-select-labels]").click();');assert.equal(await evaluate('return new FormData(document.querySelector(".pickup-print-form")).getAll("ids[]").length;'),0);
+   await evaluate('document.querySelector("[data-select-labels]").click();');
+   await evaluate('document.querySelector(".pickup-orders-pagination a[rel=next]").click();');await waitFor("document.querySelector(\"[data-pickup-orders-page='3']\")");const third=await currentIds();assert.equal(third.length,7);assert.equal(new Set([...first,...second,...third]).size,47);
+   const requested=ordersCalls().length;await evaluate('document.querySelector(".pickup-orders-pagination a[rel=prev]").click();');await waitFor("document.querySelector(\"[data-pickup-orders-page='2']\")");assert.equal(ordersCalls().length,requested);
+   await evaluate('document.querySelector("[data-pickup-account] > summary").click();');await openFirst();assert.equal(ordersCalls().length,requested);assert.deepEqual(await currentIds(),second);
+   const link=await evaluate('return new URL(document.querySelector(".pickup-order-card footer a").href).pathname;');assert.match(link,/^\/orders\/[0-9a-f-]{36}$/);
+  });
+  await t.test('paginazione di 10 account e calendario senza ricaricare il documento',async()=>{
+   await navigate('/pickups?month=2026-10');await evaluate('window.__agendaMarker="same-page";');
+   await evaluate('document.querySelector(\'[data-pickup-date="'+manifest.date+'"]\').click();');await waitFor('document.querySelectorAll("[data-pickup-account]").length===10');
+   await openFirst();const before=ordersCalls().length;
+   await evaluate('document.querySelector(".pickup-accounts-pagination a[rel=next]").click();');await waitFor("document.querySelector(\"[data-pickup-page='2']\")");assert.equal(ordersCalls().length,before);assert.equal(await evaluate('return document.querySelectorAll("[data-pickup-account]").length;'),10);
+   await evaluate('document.querySelector(".pickup-accounts-pagination a[rel=prev]").click();');await waitFor("document.querySelector(\"[data-pickup-page='1'] [data-pickup-account][open] [data-pickup-orders-page]\")");assert.equal(ordersCalls().length,before);
+   await evaluate('document.querySelector("[data-pickup-agenda] .page-back a").click();');await waitFor('document.querySelector("[data-pickup-calendar]")');
+   await evaluate('document.querySelector(\'[data-pickup-date="'+manifest.single.date+'"]\').click();');await waitFor('document.querySelector("[data-pickup-day-total]")?.textContent==="47"');assert.equal(await evaluate('return document.querySelectorAll("[data-pickup-account][open]").length;'),0);
+   assert.equal(await evaluate('return window.__agendaMarker;'),'same-page');
+  });
+  await t.test('errore recuperabile conserva il gruppo; Enter apre il riepilogo',async()=>{
+   await navigate(singleUrl);failure=503;
+   await evaluate('document.querySelector("[data-pickup-account] > summary").focus();');assert.equal(await evaluate('return document.activeElement.tagName;'),'SUMMARY');await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',text:'\r',unmodifiedText:'\r',windowsVirtualKeyCode:13});await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await waitFor('document.querySelector("[data-pickup-error]")');
+   assert.equal(await evaluate('return document.querySelector("[data-pickup-account]").open;'),true);
+   await evaluate('document.querySelector("[data-pickup-error] button").click();');await waitFor('document.querySelector("[data-pickup-orders-page]")');assert.equal((await currentIds()).length,20);
+  });
+  await t.test('mutazione reale invalida cache, aggiorna i conteggi a 46 e conserva espansione selezione e scroll',async()=>{
+   failure=0;await navigate(singleUrl);await openFirst();const previous=await currentIds();
+   await evaluate("const boxes=document.querySelectorAll(\"input[name='ids[]']\");boxes[1].checked=false;boxes[1].dispatchEvent(new Event(\"change\",{bubbles:true}));window.scrollTo({top:850,behavior:\"instant\"});");
+   const scroll=await evaluate('return scrollY;'),before=ordersCalls().length;mode='changed';
+   await evaluate('window.dispatchEvent(new CustomEvent("ea:workspace-updated",{detail:{kind:"order"}}));');
+   await waitFor("document.querySelector(\"[data-pickup-day-total]\")?.textContent===\"46\" && document.querySelector(\"[data-pickup-orders-total='46']\")");
+   assert.ok(ordersCalls().length>before);assert.equal(await evaluate('return document.querySelector("[data-pickup-account]").open;'),true);
+   assert.ok(Math.abs((await evaluate('return scrollY;'))-scroll)<3);
+   const current=await currentIds();assert.equal(current.length,20);assert.ok(!current.includes(manifest.single_after_change.removed_order_slug));
+   if(current.includes(previous[1]))assert.equal(await evaluate('return document.querySelector(\'input[value="'+previous[1]+'"]\').checked;'),false);
+   mode='normal';
+  });
+  await t.test('gli aggiornamenti conservano il focus del giorno e del riepilogo senza aprire gruppi chiusi',async()=>{
+   await navigate('/pickups?month=2026-10');
+   await evaluate(`document.querySelector('[data-pickup-date="${manifest.date}"]').focus();window.__oldCalendar=document.querySelector('[data-pickup-calendar]');window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}));`);
+   await waitFor('window.__oldCalendar!==document.querySelector("[data-pickup-calendar]")');
+   assert.equal(await evaluate('return document.activeElement.dataset.pickupDate;'),manifest.date);
+   await navigate(dayUrl);const before=ordersCalls().length;
+   const slug=await evaluate('const summary=document.querySelector("[data-pickup-account] > summary");summary.focus();window.__oldAccounts=document.querySelector("[data-pickup-accounts]");return summary.parentElement.dataset.pickupAccount;');
+   await evaluate('window.dispatchEvent(new CustomEvent("ea:workspace-updated",{detail:{kind:"order"}}));');
+   await waitFor('window.__oldAccounts!==document.querySelector("[data-pickup-accounts]")');
+   assert.equal(await evaluate('return document.activeElement.closest("[data-pickup-account]")?.dataset.pickupAccount;'),slug);
+   assert.equal(ordersCalls().length,before);
+  });
+  await t.test('account non più visibile con risposta 404 scompare e i riepiloghi si riallineano; nessuna richiesta ai polling generici',async()=>{
+   await navigate(dayUrl);const before=calls.length;await evaluate('window.dispatchEvent(new Event("ea:workspace-polled"));');await new Promise(resolve=>setTimeout(resolve,250));assert.equal(calls.length,before);
+   mode='removed';await evaluate('document.querySelector("[data-pickup-account] > summary").click();');await waitFor('document.querySelector("[data-pickup-day-total]")?.textContent==="40"');
+   assert.equal(await evaluate('return !!document.querySelector(\'[data-pickup-account="'+manifest.after_removal.missing_slug+'"]\');'),false);assert.equal(await evaluate('return document.querySelectorAll("[data-pickup-account][open]").length;'),0);mode='normal';
+  });
+ }finally{socket?.close();if(browser&&browser.exitCode===null)await new Promise(resolve=>{browser.once('exit',resolve);browser.kill('SIGTERM');});server.closeAllConnections();await new Promise(resolve=>server.close(resolve));rmSync(temporary,{recursive:true,force:true,maxRetries:5,retryDelay:100});}
 });

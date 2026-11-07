@@ -163,8 +163,11 @@ class OperationsRevisionTest extends TestCase
         $today = Order::factory()->create(['pickup_date' => '2026-09-23']);
         $old = Order::factory()->create(['pickup_date' => '2026-09-22']);
         $this->actingAs($admin)->get(route('pickups.index'))->assertOk()->assertSee('Settembre 2026');
-        $page = $this->get(route('pickups.day', ['date' => '2026-09-23']))->assertViewHas('orders', fn ($rows) => $rows->pluck('id')->all() === [$today->id]);
-        $this->get(route('pickups.day', ['date' => '2026-09-22']))->assertViewHas('orders', fn ($rows) => $rows->pluck('id')->all() === [$old->id]);
+        $page = $this->get(route('pickups.day', ['date' => '2026-09-23']))->assertViewMissing('orders')->assertDontSee($today->reference);
+        foreach (['2026-09-23' => $today, '2026-09-22' => $old] as $date => $order) {
+            $summary = $this->getJson(route('pickups.day', ['date' => $date]))->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('total_orders', 1);
+            $this->getJson($summary->json('data.0.orders_url'))->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.slug', $order->slug);
+        }
         if (getenv('EA_UI_CAPTURE')) {
             file_put_contents('/private/tmp/ea-ui-final/agenda.html', $page->getContent());
         }

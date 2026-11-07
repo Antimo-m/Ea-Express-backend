@@ -36,11 +36,16 @@ class StoreOperationsTest extends TestCase
         $orders = Order::factory()->count(2)->create(['rider_id' => $rider->id, 'status' => OrderStatus::Accepted, 'customer_id' => $a->id, 'package_type' => 'fragile', 'delivery_street_number' => '22', 'delivery_postal_code' => '81100']);
         $third = Order::factory()->create(['rider_id' => $rider->id, 'status' => OrderStatus::Accepted, 'customer_id' => $b->id]);
         $hidden = Order::factory()->create(['status' => OrderStatus::Accepted, 'rider_id' => User::factory()->create()->id]);
-        $day = $this->actingAs($rider)->get(route('pickups.day', ['date' => now('Europe/Rome')->addDay()->toDateString()]))->assertOk();
-        $day->assertViewHas('totalOrders', 3)->assertViewHas('groups', fn ($groups): bool => $groups->count() === 2 && $groups->first()->count() === 2)
-            ->assertSee('data-pickup-account="'.$a->slug.'"', false)->assertSee('data-pickup-account="'.$b->slug.'"', false)
-            ->assertSee($orders[0]->reference)->assertSee($orders[1]->reference)->assertSee($third->reference)->assertDontSee($hidden->reference);
-        $this->assertSame($orders->pluck('slug')->all(), $day->viewData('groups')->first()->pluck('slug')->all());
+        $dayUrl = route('pickups.day', ['date' => now('Europe/Rome')->addDay()->toDateString()]);
+        $day = $this->actingAs($rider)->getJson($dayUrl)->assertOk()
+            ->assertJsonPath('total_orders', 3)->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.slug', $a->slug)->assertJsonPath('data.0.orders_count', 2)
+            ->assertJsonPath('data.1.slug', $b->slug)->assertJsonPath('data.1.orders_count', 1);
+        $this->get($dayUrl)->assertSee('data-pickup-account="'.$a->slug.'"', false)
+            ->assertSee('data-pickup-account="'.$b->slug.'"', false)->assertDontSee($orders[0]->reference);
+        $details = $this->getJson($day->json('data.0.orders_url'))->assertOk()->assertJsonCount(2, 'data');
+        $this->assertSame($orders->pluck('slug')->all(), array_column($details->json('data'), 'slug'));
+        $this->getJson($day->json('data.1.orders_url'))->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.slug', $third->slug);
         $this->get('/labels?'.http_build_query(['ids' => $orders->pluck('slug')->all()]))->assertOk()->assertSee($orders[0]->reference)->assertSee($orders[1]->reference)->assertSee('FRAGILE')->assertSee('81100')->assertDontSee('nav-item-link');
         $this->get('/labels?ids[]='.$third->slug)->assertOk()->assertSee($third->reference)->assertDontSee($orders[0]->reference);
         $this->get('/labels?'.http_build_query(['ids' => [$third->slug, $hidden->slug]]))->assertNotFound();

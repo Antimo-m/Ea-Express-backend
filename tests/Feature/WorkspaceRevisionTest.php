@@ -56,7 +56,8 @@ class WorkspaceRevisionTest extends TestCase
         $this->assertSame(0, $xpath->query('//*[contains(@class,"recipient-risk")]//summary')->length);
         $this->get(route('orders.history'))->assertSee('is-unreliable')->assertSee('Destinatario non affidabile: precedenti registrati');
         Order::factory()->create([...$order->only(RecipientIdentity::Fields), 'status' => OrderStatus::Accepted, 'rider_id' => $admin->id, 'pickup_date' => now('Europe/Rome')->toDateString()]);
-        $this->get(route('pickups.day', ['date' => now('Europe/Rome')->toDateString()]))->assertSee('is-unreliable')->assertSee('NON AFFIDABILE');
+        $summary = $this->getJson(route('pickups.day', ['date' => now('Europe/Rome')->toDateString()]))->assertOk();
+        $this->get($summary->json('data.0.orders_url'))->assertSee('is-unreliable')->assertSee('Destinatario non affidabile: precedenti registrati');
     }
 
     public function test_recipient_register_search_filters_actual_incidents_and_preserves_removed_history(): void
