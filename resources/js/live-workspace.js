@@ -1,3 +1,4 @@
+import { cancelToast, transientFeedback } from './toast-feedback';
 import { restoreOrderPreviews } from './operational-orders';
 import { applyOrderSnapshot } from './order-snapshot';
 import { connectWorkspace } from './workspace-realtime';
@@ -6,6 +7,7 @@ import { createRefreshQueue } from './refresh-queue';
 import { bindFinancialForms } from './financial-forms';
 
 const regions = createRefreshQueue(async () => {
+  if (document.querySelector('.order-archive')) return;
   if (!document.querySelector('[data-live-region]')) return;
   const response = await fetch(location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' }, credentials: 'same-origin' });
   if (!response.ok || response.redirected) return;
@@ -93,7 +95,7 @@ if (chat) {
       list.scrollTop = atEnd ? list.scrollHeight : oldScroll;
       if (form) cleanup = observeMessageReceipts(list, result.data, (ids, state) => staffRequest(`${messagesUrl.pathname}/read`, { method: 'PATCH', data: { ids, state } }), 'team', error => { feedback.textContent = error.message; });
       if (feedback.getAttribute('role') === 'alert') { feedback.textContent = ''; feedback.setAttribute('role', 'status'); }
-    } catch (error) { feedback.textContent = error.message; feedback.setAttribute('role', 'alert'); }
+    } catch (error) { cancelToast(feedback); feedback.hidden = false; feedback.textContent = error.message; feedback.setAttribute('role', 'alert'); }
     finally { loading = false; list.removeAttribute('aria-busy'); if (again) { again = false; refresh(); } }
   }
   chat.querySelector('[data-chat-refresh]')?.addEventListener('click', refresh);
@@ -104,9 +106,9 @@ if (chat) {
   form?.addEventListener('submit', async event => {
     event.preventDefault(); const button = form.querySelector('button'); if (button.disabled) return;
     if (!submissionKey || submittedBody !== form.elements.body.value) { submissionKey = crypto.randomUUID(); submittedBody = form.elements.body.value; }
-    button.disabled = true; feedback.setAttribute('role', 'status'); feedback.textContent = 'Invio in corso…';
-    try { await staffRequest(form.action, { method: 'POST', data: { body: submittedBody, submission_key: submissionKey } }); if (form.elements.body.value === submittedBody) form.elements.body.value = ''; submissionKey = undefined; feedback.textContent = 'Messaggio inviato'; list.scrollTop = list.scrollHeight; await refresh(); }
-    catch (error) { feedback.textContent = error.message; feedback.setAttribute('role', 'alert'); }
+    button.disabled = true; cancelToast(feedback); feedback.hidden = false; feedback.setAttribute('role', 'status'); feedback.textContent = 'Invio in corso…';
+    try { await staffRequest(form.action, { method: 'POST', data: { body: submittedBody, submission_key: submissionKey } }); if (form.elements.body.value === submittedBody) form.elements.body.value = ''; submissionKey = undefined; transientFeedback(feedback, 'Messaggio inviato'); list.scrollTop = list.scrollHeight; await refresh(); }
+    catch (error) { cancelToast(feedback); feedback.hidden = false; feedback.textContent = error.message; feedback.setAttribute('role', 'alert'); }
     finally { button.disabled = false; }
   });
   refresh();

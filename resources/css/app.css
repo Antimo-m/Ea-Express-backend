@@ -3042,3 +3042,8 @@ html:has(dialog[open]) { overflow: hidden; }
 
 .trend-panel.is-compact { max-width: 760px; }
 .trend-panel.is-compact .chart-canvas { max-width: 640px; }
+
+.not-found-page { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 24px; }
+.not-found-card { width: min(100%, 560px); text-align: center; overflow-wrap: anywhere; }
+.not-found-card svg { width: min(100%, 200px); height: auto; margin-bottom: 24px; }
+.not-found-card h1 { font-size: clamp(1.5rem, 5vw, 2.25rem); }

@@ -4,7 +4,7 @@
     @php($deadline = $deadlines[$order->slug])
     <article class="operations-order" data-operation-order="{{ $order->slug }}">
         <header><a href="{{ route('orders.show', ['order'=>$order->slug, ...(($chronology ?? false) ? ['return_to'=>request()->getRequestUri()] : [])]) }}"><strong>{{ $order->displayName() }}</strong><span>{{ $order->recipient_name }}</span></a><x-ui.status-badge :status="$order->status" />
-        @if($deadline['reported_at'])<details class="delivery-late"><summary aria-label="Ritardo segnalato dal Rider"><x-ui.icon name="exclamation-triangle" /><span>{{ $deadline['overdue'] ? 'In ritardo' : 'Ritardo segnalato' }}</span></summary><div role="note"><strong>Ritardo segnalato dal Rider</strong><p>Segnalazione operativa registrata il {{ $deadline['reported_label'] }}. Lo stato della spedizione rimane {{ $order->status->label() }}.</p><dl><div><dt>Rider assegnato</dt><dd>{{ $order->rider?->name ?: 'Da assegnare' }}</dd></div></dl></div></details>@endif</header>
+</header>
         <p>Mittente: {{ $order->displayName() }} · Destinatario: {{ $order->recipient_name }}</p>
         <p>{{ $order->delivery_zone ?: $order->delivery_city }} · {{ $order->delivery_address }}, {{ $order->delivery_city }}</p>
         <x-ui.icon-button action="open" label="Apri ordine" :href="route('orders.show', ['order'=>$order->slug, ...(($chronology ?? false) ? ['return_to'=>request()->getRequestUri()] : [])])" text />

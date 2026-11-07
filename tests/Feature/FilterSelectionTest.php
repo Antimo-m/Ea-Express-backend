@@ -29,7 +29,8 @@ class FilterSelectionTest extends TestCase
         foreach ($filters as $key => $value) {
             $this->assertSame((string) $value, $next[$key]);
         }
-        $this->assertSame('2', $next['page']);
+        $this->assertSame('2', $next['day_page']);
+        $this->assertSame(now('Europe/Rome')->toDateString(), $next['day']);
     }
 
     public function test_search_matches_recipient_and_saved_zone_without_exposing_other_riders_orders(): void

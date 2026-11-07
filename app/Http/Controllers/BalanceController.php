@@ -66,7 +66,7 @@ class BalanceController extends Controller
         $orders = Order::financialFor($request->user())->when($customerIds, fn ($q) => $q->whereIn('customer_id', $customerIds))->when($search !== '', fn (Builder $q) => $this->searchOrder($q, $term));
         $completed = (clone $orders)->where('status', OrderStatus::Delivered)->whereNull('receipt_voided_at')->whereBetween('delivered_at', $period->utcRange());
         $reversed = (clone $orders)->where('status', OrderStatus::Delivered)->whereBetween('receipt_voided_at', $period->utcRange());
-        $payments = PaymentEntry::query()->where(fn ($q) => $q->where('amount_cents', '!=', 0)->orWhere('cash_amount_cents', '!=', 0))->whereHas('order', fn ($q) => $q->financialFor($request->user())->when($customerIds, fn ($q) => $q->whereIn('customer_id', $customerIds)))->when($search !== '', fn (Builder $q) => $q->where(fn (Builder $match) => $match->where('note', 'like', $term)->orWhereHas('order', fn (Builder $order) => $this->searchOrder($order, $term))))->whereBetween('created_at', $period->utcRange());
+        $payments = PaymentEntry::query()->where(fn ($q) => $q->where('amount_cents', '!=', 0)->orWhere('cash_amount_cents', '!=', 0)->orWhere('kind', 'restoration'))->whereHas('order', fn ($q) => $q->financialFor($request->user())->when($customerIds, fn ($q) => $q->whereIn('customer_id', $customerIds)))->when($search !== '', fn (Builder $q) => $q->where(fn (Builder $match) => $match->where('note', 'like', $term)->orWhereHas('order', fn (Builder $order) => $this->searchOrder($order, $term))))->whereBetween('created_at', $period->utcRange());
         $expenses = Expense::visibleTo($request->user())->when($customerIds, fn ($q) => $q->whereHas('pendingSettlement.account', fn ($account) => $account->whereIn('customer_id', $customerIds)))->whereDate('spent_on', '>=', $start->toDateString())->whereDate('spent_on', '<=', $end->toDateString())->when($search !== '', fn (Builder $q) => $q->where(fn (Builder $match) => $match->where('description', 'like', $term)->orWhereHas('pendingSettlement.account', fn (Builder $account) => $this->searchPending($account, $term))));
         $ledgerTotals = app(ReceiptLedger::class)->totals($payments);
         $cash = $ledgerTotals['cash'];
@@ -87,11 +87,14 @@ class BalanceController extends Controller
         $extraExpenses = -(int) ($manualTotals['extra_expense'] ?? 0);
         $adjustments = (int) ($manualTotals['adjustment_in'] ?? 0) + (int) ($manualTotals['adjustment_out'] ?? 0);
         $cashAdditions = (int) ($manualTotals['cash'] ?? 0);
-        $reversalTotal = $ledgerTotals['reversals'];
+        $reversalTotal = (int) ReceiptReversal::whereNull('restored_at')->where('created_at', '<=', $period->utcRange()[1])
+            ->whereHas('order', fn (Builder $query) => $query->financialFor($request->user())->when($customerIds, fn (Builder $query) => $query->whereIn('customer_id', $customerIds)))
+            ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $match) => $match->where('reason', 'like', $term)->orWhereHas('order', fn (Builder $order) => $this->searchOrder($order, $term))))
+            ->sum('corrected_cents');
         $restorationTotal = $ledgerTotals['restorations'];
         $refundTotal = $ledgerTotals['refunds'];
-        $grossIncome = $ledgerTotals['gross'] + $generalReceipts + $extraIncome + $adjustments;
-        $registeredIncome = $grossIncome - $reversalTotal + $restorationTotal;
+        $grossIncome = $ledgerTotals['net'] + $generalReceipts + $extraIncome + $adjustments;
+        $registeredIncome = $grossIncome;
         $totalExpenses = $spent + $extraExpenses;
         $receiptEconomics = app(ShippingEconomics::class)->receipts($payments);
         $operatingNet = $registeredIncome - $totalExpenses;
@@ -131,14 +134,13 @@ class BalanceController extends Controller
             'legacyReversals' => (clone $payments)->where('amount_cents', '<', 0)->whereNull('original_entry_id')->with(['order' => fn ($q) => $q->withDisplayIdentity(), 'user:id,slug,name'])->latest()->orderByDesc('id')->paginate(10, ['*'], 'legacy_reversals_page')->withQueryString(),
             'reversalEntries' => ReceiptReversal::whereHas('order', fn ($q) => $q->financialFor($request->user())->when($customerIds, fn ($q) => $q->whereIn('customer_id', $customerIds)))->when($search !== '', fn (Builder $q) => $q->where(fn (Builder $match) => $match->where('reason', 'like', $term)->orWhere('restore_reason', 'like', $term)->orWhereHas('order', fn (Builder $order) => $this->searchOrder($order, $term))))->where(fn ($q) => $q->whereBetween('created_at', $period->utcRange())->orWhereBetween('restored_at', $period->utcRange())->orWhereHas('payments', fn ($entries) => $entries->where('kind', 'refund')->whereBetween('created_at', $period->utcRange())))->with(['order' => fn ($q) => $q->withDisplayIdentity()->withReceiptLedger(), 'user:id,slug,name', 'restoredBy:id,slug,name', 'payments.originalEntry'])->latest()->orderByDesc('id')->paginate(10, ['*'], 'reversals_page')->withQueryString(),
             'ledger' => $ledger, 'receiptSort' => $receiptSort, 'search' => $search, 'cashBalance' => $cashBalance, 'manualSections' => $manualSections, 'paymentSections' => $paymentSections,
-            'cashMovementBalance' => $cashAdditions, 'operatingResult' => $grossIncome - $totalExpenses, 'finalNet' => $operatingNet,
+            'cashMovementBalance' => $cashAdditions, 'operatingResult' => $operatingNet, 'finalNet' => $operatingNet + $pendingImpact + $cashAdditions,
             'deliveredCount' => (clone $orders)->where('status', OrderStatus::Delivered)->whereBetween('delivered_at', $period->utcRange())->count(),
             'pendingEntries' => $ledger === 'pending' ? (clone $pendingQuery)->with(['customer:id,slug,name', 'order:id,slug,reference'])->latest('occurred_on')->orderByDesc('id')->paginate(10, ['*'], 'pending_page')->withQueryString() : null,
             'selectedCustomerSlugs' => $selectedCustomerSlugs, 'reversalTotal' => $reversalTotal, 'registeredIncome' => $registeredIncome,
             'reversedCount' => (clone $reversed)->count(),
             'manualEntries' => $ledger === 'cash' ? (clone $manual)->with(['user:id,slug,name', 'customer:id,slug,name', 'order:id,slug,reference'])->latest('occurred_on')->orderByDesc('id')->paginate(10, ['*'], 'cash_page')->withQueryString() : null,
             'grossIncome' => $grossIncome, 'totalExpenses' => $totalExpenses, 'cashAdditions' => $cashAdditions,
-            'cashEntries' => (clone $manual)->where('kind', 'cash')->with('user:id,slug,name')->latest('occurred_on')->orderByDesc('id')->paginate(10, ['*'], 'cash_page')->withQueryString(),
             'receiptEconomics' => $receiptEconomics, 'shippingEconomics' => app(ShippingEconomics::class)->summarize($completed), 'period' => $period, 'customers' => $customers, 'extraIncome' => $extraIncome, 'extraExpenses' => $extraExpenses, 'adjustments' => $adjustments, 'operatingNet' => $operatingNet, 'pendingIncoming' => $pendingIncoming, 'pendingOutgoing' => $pendingOutgoing, 'pendingImpact' => $pendingImpact,
             'pendingCount' => (clone $openPending)->count(),
             'generalEntries' => $generalQuery->with(['account', 'user'])->latest()->orderByDesc('id')->paginate(10, ['*'], 'general_page')->withQueryString(), 'summaries' => $summaries, 'earned' => (int) (clone $completed)->sum('price_cents'), 'completedCount' => (clone $completed)->count(),

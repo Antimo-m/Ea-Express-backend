@@ -4,7 +4,9 @@ namespace App\Http\Requests;
 
 use App\Rules\AllowedPortalText;
 use App\Support\CustomerIdentity;
+use App\Support\PortalTextPolicy;
 use App\UserRole;
+use Illuminate\Validation\Rule;
 
 class CustomerOrderRequest extends StoreOrderRequest
 {
@@ -15,6 +17,7 @@ class CustomerOrderRequest extends StoreOrderRequest
 
     protected function prepareForValidation(): void
     {
+        $this->merge(PortalTextPolicy::normalizeFields($this->only(['store_name'])));
         if ($this->user('customer')?->role === UserRole::Customer) {
             $this->merge(CustomerIdentity::profile($this->user('customer')));
         }
@@ -37,7 +40,7 @@ class CustomerOrderRequest extends StoreOrderRequest
         $rules['content_description'][] = new AllowedPortalText;
         $rules['category'][] = new AllowedPortalText(contentCategory: true);
         unset($rules['contact_email'], $rules['notes'], $rules['customer_id']);
-        $rules['store_name'] = ['sometimes', 'required', 'string', 'max:150'];
+        $rules['store_name'] = ['sometimes', 'required', 'string', 'max:150', Rule::when($this->user('customer')?->sender_type !== 'private', [new AllowedPortalText])];
         $rules['customer_notes'] = ['nullable', 'string', 'max:2000'];
         $rules['checkout_token'] = [$this->routeIs('customer.checkout', 'customer.orders.review') ? 'nullable' : 'required', 'string', 'max:30000'];
         if ($this->route('order')) {

@@ -36,9 +36,14 @@ class FinancialStatementTest extends TestCase
             && $sections['income']['entries']->every(fn ($entry): bool => $entry->kind === 'income'))
             ->assertSee('data-movement-category="cash"', false)->assertSee('data-movement-category="income"', false)
             ->assertSee('customer_ids%5B0%5D='.$customer->slug, false)->assertSee('q=selezionata', false)
-            ->assertDontSee('Voce di altro cliente');
+            ->assertDontSee('Voce di altro cliente')->assertDontSee('class="pagination-pages"', false)
+            ->assertSee('aria-label="Pagina 2">2</span>', false);
         if ($directory = getenv('EA_UI_FIXTURE_DIR')) {
             file_put_contents($directory.'/finance-manual-categories.html', $response->getContent());
+            $firstQuery = http_build_query(['ledger' => 'cash', 'period' => 'today', 'q' => 'selezionata', 'customer_ids' => [$customer->slug], 'cash_page' => 1]);
+            $firstPage = $this->get('/balance?'.$firstQuery)->assertOk();
+            file_put_contents($directory.'/finance-manual-first.html', $firstPage->getContent());
+            file_put_contents($directory.'/finance-pagination.json', json_encode(['initial' => 'balance?'.$firstQuery], JSON_THROW_ON_ERROR));
         }
     }
 
@@ -82,7 +87,8 @@ class FinancialStatementTest extends TestCase
         FinancialMovement::factory()->create(['user_id' => $admin->id, 'kind' => 'cash', 'amount_cents' => 8000, 'occurred_on' => '2026-10-31']);
 
         $this->get('/balance?period=today')->assertViewHas('cashMovementBalance', 3000)
-            ->assertViewHas('totalExpenses', 400)->assertViewHas('operatingResult', 1100)->assertViewHas('finalNet', 1100)
+            ->assertViewHas('totalExpenses', 400)->assertViewHas('operatingResult', 1100)->assertViewHas('finalNet', 4100)
+            ->assertSee('Contanti disponibili')->assertDontSee('Saldo movimenti Contanti')
             ->assertSeeTextInOrder(['Risultato operativo', 'Sospesi', 'Contanti', 'Risultato finale']);
     }
 
@@ -93,8 +99,8 @@ class FinancialStatementTest extends TestCase
         $this->actingAs($admin)->postJson(route('payments.store', $order), ['action' => 'receive', 'version' => 1])->assertOk();
         $this->postJson(route('payments.store', $order), ['action' => 'reverse', 'version' => 2, 'note' => 'Rettifica verificata'])->assertOk();
 
-        $this->get('/balance')->assertOk()->assertViewHas('grossIncome', 1000)->assertViewHas('totalExpenses', 0)
-            ->assertViewHas('operatingResult', 1000)->assertViewHas('finalNet', 0)->assertViewHas('cashMovementBalance', 0)
+        $this->get('/balance')->assertOk()->assertViewHas('grossIncome', 0)->assertViewHas('totalExpenses', 0)
+            ->assertViewHas('operatingResult', 0)->assertViewHas('finalNet', 0)->assertViewHas('cashMovementBalance', 0)
             ->assertViewHas('deliveredCount', 1)->assertViewHas('completedCount', 0)
             ->assertSee('aria-label="1 consegne effettuate nel periodo"', false);
 
@@ -108,14 +114,14 @@ class FinancialStatementTest extends TestCase
         $customer = User::factory()->create(['role' => UserRole::Customer]);
         $incoming = PendingAccount::factory()->create(['created_by' => $admin->id, 'customer_id' => $customer->id, 'direction' => 'incoming', 'amount_cents' => 1000]);
         $outgoing = PendingAccount::factory()->create(['created_by' => $admin->id, 'customer_id' => $customer->id, 'direction' => 'outgoing', 'amount_cents' => 400]);
-        $this->actingAs($admin)->get('/balance')->assertViewHas('pendingImpact', 600)->assertViewHas('finalNet', 0);
+        $this->actingAs($admin)->get('/balance')->assertViewHas('pendingImpact', 600)->assertViewHas('finalNet', 600);
 
         $this->postJson(route('pending.settle', $incoming), ['version' => 1, 'amount' => '2', 'method' => 'cash', 'submission_key' => (string) Str::uuid()])->assertOk();
         $this->postJson(route('pending.settle', $outgoing), ['version' => 1, 'amount' => '1', 'method' => 'cash', 'submission_key' => (string) Str::uuid()])->assertOk();
 
         $this->get('/balance')->assertViewHas('pendingIncoming', 800)->assertViewHas('pendingOutgoing', 300)
             ->assertViewHas('pendingImpact', 500)->assertViewHas('grossIncome', 200)->assertViewHas('totalExpenses', 100)
-            ->assertViewHas('finalNet', 100)->assertViewHas('cashMovementBalance', 0);
+            ->assertViewHas('finalNet', 600)->assertViewHas('cashMovementBalance', 0);
     }
 
     public function test_customer_and_period_filters_scope_all_totals_and_delivery_badge(): void

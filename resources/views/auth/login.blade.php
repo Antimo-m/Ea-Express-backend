@@ -6,5 +6,4 @@
         <label class="form-check mb-0"><input class="form-check-input" type="checkbox" name="remember" @checked(old('remember'))><span class="form-check-label">Ricordami</span></label>
         <button class="btn btn-primary auth-submit" type="submit">Accedi <x-ui.icon name="arrow-right" class="ms-2" /></button>
     </form>
-    <p class="staff-login-help">Riservato ad amministratori e Rider EA-Express.<br>Per un account, contatta il responsabile.</p>
 </x-guest-layout>

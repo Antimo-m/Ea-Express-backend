@@ -199,7 +199,7 @@ class RiderOperationsTest extends TestCase
         Order::factory()->create(['rider_id' => $rider->id, 'pickup_date' => '2026-09-14', 'delivery_zone' => 'Aversa', 'store_name' => 'Prima dell’intervallo']);
         Order::factory()->create(['rider_id' => $rider->id, 'pickup_date' => '2026-09-18', 'delivery_zone' => 'Aversa', 'store_name' => 'Dopo l’intervallo']);
         Order::factory()->create(['rider_id' => $rider->id, 'pickup_date' => '2026-09-16', 'delivery_zone' => 'Napoli']);
-        $context = ['from' => '2026-09-15', 'to' => '2026-09-17', 'period' => 'custom', 'zone' => 'Aversa', 'view' => 'zone', 'q' => 'Aver', 'sort' => 'volume', 'selected' => 'Aversa', 'filter' => 'open', 'scope' => 'programmed', 'detail_page' => 2];
+        $context = ['from' => '2026-09-15', 'to' => '2026-09-17', 'period' => 'custom', 'zone' => 'Aversa', 'view' => 'zone', 'q' => 'Aver', 'sort' => 'pending', 'selected' => 'Aversa', 'filter' => 'open', 'detail_page' => 2];
         $this->actingAs($admin);
 
         $feed = $this->getJson('/rider-operations/feed?from=2026-09-15&to=2026-09-17');
@@ -239,7 +239,7 @@ class RiderOperationsTest extends TestCase
 
     public function test_range_controls_and_reset_preserve_other_operational_filters(): void
     {
-        $context = ['from' => '2026-09-15', 'to' => '2026-09-17', 'period' => 'custom', 'view' => 'rider', 'q' => 'Rider', 'filter' => 'open', 'sort' => 'volume', 'scope' => 'programmed'];
+        $context = ['from' => '2026-09-15', 'to' => '2026-09-17', 'period' => 'custom', 'view' => 'rider', 'q' => 'Rider', 'filter' => 'open', 'sort' => 'pending'];
         $this->actingAs($this->admin());
 
         $response = $this->get('/rider-operations?'.http_build_query($context));

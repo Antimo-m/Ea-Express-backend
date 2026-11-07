@@ -7,7 +7,7 @@
     <nav class="page-back" aria-label="Navigazione pagina"><x-ui.icon-button action="back" :href="$operationsReturn ?: route($returnRoute)" label="Torna indietro" text /></nav>
     <header class="page-heading order-detail-heading">
         <div><span class="eyebrow text-break">Ordine: {{ $order->reference }}</span><h1>{{ $order->displayName() }}</h1><p>{{ $order->sender_type === 'private' ? 'Privato' : ($order->sender_type === 'online_shop' ? 'Shop online' : ($order->business_type ?: 'Attività commerciale')) }} · {{ $order->pickup_city }} → {{ $order->delivery_city }}</p></div>
-        <div class="row-actions"><x-ui.status-badge :status="$order->status" />@if($order->receipt_voided_at)<span class="status-pill tone-danger">Incasso stornato</span>@endif<x-orders.delay-badge :order="$order" /><x-ui.icon-button action="message" :href="route('messages.show', $order)" label="Apri messaggi del cliente" /><x-ui.icon-button action="print" href="{{ route('labels.index', ['ids' => [$order->slug]]) }}" label="Stampa etichetta" target="_blank" rel="noopener" /></div>
+        <div class="row-actions"><x-ui.status-badge :status="$order->status" />@if($order->receipt_voided_at)<span class="status-pill tone-danger">Incasso stornato</span>@endif<x-ui.icon-button action="message" :href="route('messages.show', $order)" label="Apri messaggi del cliente" /><x-ui.icon-button action="print" href="{{ route('labels.index', ['ids' => [$order->slug]]) }}" label="Stampa etichetta" target="_blank" rel="noopener" /></div>
     </header>
     <div class="order-workflow">
         @can('update', $order)
@@ -65,7 +65,6 @@
                     </section>
                 @endif
             @endif
-            <x-orders.delay-controls :order="$order" />
         </aside>
     </div>
     <section class="surface order-event-history" id="order-events"><header class="section-heading"><div><span class="eyebrow">PASSAGGI REGISTRATI</span><h2>Cronologia ordine <span class="count-pill">{{ $events->total() }}</span></h2></div></header><x-orders.timeline :events="$events" /></section>

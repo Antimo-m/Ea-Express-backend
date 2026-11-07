@@ -1,4 +1,6 @@
 import { openDialog, closeDialog } from './dialogs';
+import { cancelToast, transientFeedback } from './toast-feedback';
+import { workspaceFeedback } from './workspace-updates';
 import { confirmAction } from './confirmations';
 const editor = document.querySelector('#rate-editor');
 const history = document.querySelector('#rate-history');
@@ -44,12 +46,12 @@ async function mutate(dialog, operation) {
     const buttons = [...(dialog || document.querySelector('#rates-results')).querySelectorAll('button')];
     buttons.forEach(button => button.disabled = true);
     const errorNode = dialog?.querySelector('[data-modal-error]') || feedback;
-    errorNode.textContent = '';
+    cancelToast(errorNode); errorNode.hidden = false; errorNode.textContent = '';
     let saved = false;
     try {
         await operation(); saved = true;
         await refresh();
-        feedback.textContent = 'Listino aggiornato. Le spedizioni precedenti mantengono il prezzo salvato.';
+        transientFeedback(feedback, 'Listino aggiornato. Le spedizioni precedenti mantengono il prezzo salvato.');
         dialog?.removeAttribute('aria-busy');
         if (dialog) closeDialog(dialog);
     } catch (error) {
@@ -97,14 +99,14 @@ if (editor) {
             const rate = selected;
             confirmAction({name: [rate.city, rate.zone, rate.postal_code, money(rate.price_cents)].filter(Boolean).join(' · '), action: 'Archivia tariffa', description: 'Le spedizioni precedenti mantengono il prezzo salvato.', onConfirm: async () => {
                 await request(`/rates/${rate.slug}`, 'DELETE');
-                await refresh().catch(() => { feedback.textContent = 'Tariffa archiviata. Ricarica la pagina per aggiornare le card.'; });
+                await refresh().catch(() => workspaceFeedback('Tariffa archiviata. Aggiorna i dati per vedere le card.', { error: true, retry: refresh }));
             }});
         } else if (button.matches('[data-rate-toggle]')) {
             const rate = selected;
             if (rate.active) {
                 confirmAction({name: rate.city, action: 'Disattiva tariffa', description: 'La tariffa non sarà disponibile per nuove richieste.', onConfirm: async () => {
                     await request(`/rates/${rate.slug}/state`, 'PATCH', {active: false});
-                    await refresh().catch(() => { feedback.textContent = 'Tariffa disattivata. Ricarica la pagina per aggiornare le card.'; });
+                    await refresh().catch(() => workspaceFeedback('Tariffa disattivata. Aggiorna i dati per vedere le card.', { error: true, retry: refresh }));
                 }});
             } else {
                 await mutate(null, () => request(`/rates/${rate.slug}/state`, 'PATCH', {active: true}));

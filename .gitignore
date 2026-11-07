@@ -150,8 +150,9 @@ Thumbs.db
 # Revisione funzionale, contabile e responsive delle due piattaforme.
 !/tests/Feature/BalanceAccountingTest.php
 !/tests/Feature/FinancialIntegrityTest.php
-!/tests/Feature/ManualOrderDelayTest.php
-!/tests/Feature/ManualOrderDelayConcurrencyTest.php
+!/tests/Feature/RetiredOrderFeaturesTest.php
+!/tests/Feature/StoreOperationsTest.php
+!/tests/Feature/OrderWorkflowTest.php
 !/tests/Feature/InterfaceTest.php
 !/tests/Feature/PublicRateLimitTest.php
 !/tests/Feature/RecoveryConcurrencyTest.php
@@ -178,6 +179,21 @@ Thumbs.db
 !/database/factories/SenderAddressFactory.php
 
 # Report e revisioni interne rimangono esclusivamente locali.
+!/tests/Feature/LaunchReadinessTest.php
+!/tests/Feature/ReceiptLifecycleTest.php
+!/tests/Feature/CustomerCorsTest.php
+!/tests/Feature/DatabaseBackupTest.php
+!/tests/Feature/OrderMailTest.php
+!/tests/Feature/LaunchScalabilityTest.php
+!/tests/Feature/BookingCorrectionTest.php
+!/tests/Feature/ConcurrentPortalLoadTest.php
+!/tests/concurrent-portal.load.mjs
+!/tests/pickup-agenda.browser.test.mjs
 /[Rr][Ee][Pp][Oo][Rr][Tt]*
 /[Aa][Ii][Kk][Ii][Dd][Oo]*
 /[Rr][Ee][Vv][Ee][Rr][Bb]_[Gg][Uu][Ii][Dd][Ee]*
+
+!/tests/Feature/OrderWorkspaceRevisionTest.php
+!/tests/Feature/RiderWorkspaceRevisionTest.php
+!/tests/order-workspace.browser.test.mjs
+!/tests/rider-workspace.browser.test.mjs

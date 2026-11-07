@@ -38,7 +38,7 @@ document.addEventListener('submit', async event => {
         if (dialog) closeDialog(dialog);
         applyOrderSnapshot(result.html, { force: true, scroll });
         const region = document.querySelector('#next-action') || document.querySelector('[data-live-order]');
-        const success = document.createElement('p'); success.className = 'order-action-feedback text-success'; success.setAttribute('role', 'status'); success.textContent = result.message;
+        const success = document.createElement('p'); success.className = 'order-action-feedback text-success'; success.dataset.toast = ''; success.setAttribute('role', 'status'); success.textContent = result.message;
         region?.append(success);
         region?.querySelector('.workflow-primary-actions > button.action-confirm, .rider-assignment-controls > button.action-confirm')?.focus({ preventScroll: true });
         window.dispatchEvent(new CustomEvent('ea:workspace-updated', { detail: { order_slug: orderId, kind: 'order-action' } }));

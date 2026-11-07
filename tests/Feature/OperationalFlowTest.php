@@ -42,7 +42,8 @@ class OperationalFlowTest extends TestCase
         $this->assertCount(min(20, $count), $page->items());
         if ($pages > 1) {
             $this->assertStringContainsString('q=Verifica', $page->nextPageUrl());
-            $last = $this->get('/orders/'.$section.'?q=Verifica&page='.$pages)->assertOk()->viewData('orders');
+            $pageName = $section === 'history' ? 'day_page' : 'page';
+            $last = $this->get('/orders/'.$section.'?q=Verifica&'.$pageName.'='.$pages)->assertOk()->viewData('orders');
             $this->assertFalse($last->hasMorePages());
             $this->assertSame($pages, $last->currentPage());
             $this->assertCount($count - 20 * ($pages - 1), $last->items());
@@ -134,7 +135,7 @@ class OperationalFlowTest extends TestCase
             }
         }
         $this->assertNotNull($order->fresh()->delivered_at);
-        $this->get('/orders/history')->assertOk()->assertSee($order->reference);
+        $this->get('/orders/history')->assertOk()->assertSee(route('orders.show', $order), false);
         $this->actingAs(User::factory()->create())->patchJson('/orders/'.$order->slug, ['status' => 'delivered', 'version' => 7])->assertForbidden();
     }
 

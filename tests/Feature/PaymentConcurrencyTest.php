@@ -18,7 +18,7 @@ class PaymentConcurrencyTest extends TestCase
 {
     public static function concurrentActions(): array
     {
-        return ['receive' => ['receive', 1, 1000, 1000, 2], 'reverse' => ['reverse', 3, 0, 0, 4], 'restore' => ['restore', 4, 1000, 0, 3], 'refund' => ['refund', 3, 0, 0, 0]];
+        return ['receive' => ['receive', 1, 1000, 1000, 2], 'reverse' => ['reverse', 3, 0, 0, 4], 'restore' => ['restore', 4, 0, 0, 3], 'refund' => ['refund', 3, 0, 0, 0]];
     }
 
     #[DataProvider('concurrentActions')]
@@ -27,10 +27,21 @@ class PaymentConcurrencyTest extends TestCase
         $database = tempnam(sys_get_temp_dir(), 'ea-payment-race-');
         $gate = $database.'.start';
         $workers = [];
-        config(['database.default' => 'payment_race', 'database.connections.payment_race' => [
-            'driver' => 'sqlite', 'database' => $database, 'prefix' => '', 'foreign_key_constraints' => true, 'busy_timeout' => 5000,
-        ]]);
+        $mysqlDatabase = null;
+        $mysqlOwner = null;
         try {
+            $connection = [...config('database.connections.sqlite'), 'url' => null, 'database' => $database, 'foreign_key_constraints' => true, 'busy_timeout' => 5000];
+            $source = DB::connection()->getConfig();
+            if (($source['driver'] ?? null) === 'mysql') {
+                $this->assertContains($source['host'], ['127.0.0.1', 'localhost', '::1']);
+                $this->assertMatchesRegularExpression('/\Aea_launch_test_[a-f0-9]{16}\z/', $source['database']);
+                $mysqlDatabase = 'ea_launch_test_'.bin2hex(random_bytes(8));
+                $mysqlOwner = DB::connection()->getPdo();
+                $mysqlOwner->exec('CREATE DATABASE `'.$mysqlDatabase.'` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+                $connection = [...$source, 'url' => null, 'database' => $mysqlDatabase];
+            }
+            unset($connection['name']);
+            config(['database.default' => 'payment_race', 'database.connections.payment_race' => $connection]);
             $this->artisan('migrate', ['--database' => 'payment_race', '--force' => true])->assertSuccessful();
             $admins = User::factory()->count(2)->create(['role' => UserRole::Admin]);
             $order = Order::factory()->create([
@@ -51,8 +62,8 @@ require 'vendor/autoload.php';
 $app = require 'bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 $input = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
-config(['database.default' => 'sqlite', 'database.connections.sqlite.database' => $input['database'], 'database.connections.sqlite.url' => null, 'database.connections.sqlite.busy_timeout' => 5000, 'session.driver' => 'array', 'cache.default' => 'array', 'queue.default' => 'sync', 'broadcasting.default' => 'null']);
-Illuminate\Support\Facades\DB::purge('sqlite');
+config(['database.default' => 'payment_race', 'database.connections.payment_race' => $input['connection'], 'session.driver' => 'array', 'cache.default' => 'array', 'queue.default' => 'sync', 'broadcasting.default' => 'null']);
+Illuminate\Support\Facades\DB::purge('payment_race');
 $user = App\Models\User::findOrFail($input['user']);
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 $login = Illuminate\Http\Request::create('/login', 'POST', ['email' => $user->email, 'password' => 'password']);
@@ -63,7 +74,7 @@ foreach ($loginResponse->headers->getCookies() as $cookie) {
 }
 $paused = false;
 Illuminate\Support\Facades\DB::listen(function ($query) use (&$paused, $input): void {
-    if (! $paused && Illuminate\Support\Facades\DB::transactionLevel() > 0 && str_contains($query->sql, '"orders"') && str_starts_with($query->sql, 'select')) {
+    if (! $paused && Illuminate\Support\Facades\DB::transactionLevel() > 0 && str_contains(str_replace(['"', '`'], '', $query->sql), 'from orders') && str_starts_with($query->sql, 'select')) {
         $paused = true;
         touch($input['locked']);
         $deadline = microtime(true) + 5;
@@ -89,7 +100,7 @@ CODE;
                     'APP_CONFIG_CACHE' => base_path('bootstrap/cache/config.security.php'),
                 ]);
                 $worker->setInput(json_encode([
-                    'database' => $database, 'ready' => $database.'.ready'.$index, 'gate' => $gate,
+                    'connection' => $connection, 'ready' => $database.'.ready'.$index, 'gate' => $gate,
                     'locked' => $database.'.locked'.$index, 'started' => $database.'.started'.$index, 'peer_started' => $database.'.started'.(1 - $index),
                     'user' => $admin->id, 'order' => $order->slug, 'payload' => ['action' => $action, 'version' => $version, ...($action === 'receive' ? ['received_amount' => '10'] : ['note' => 'Operazione verificata'])],
                 ], JSON_THROW_ON_ERROR));
@@ -129,6 +140,9 @@ CODE;
                 }
             }
             DB::purge('payment_race');
+            if ($mysqlDatabase !== null && $mysqlOwner !== null) {
+                $mysqlOwner->exec('DROP DATABASE `'.$mysqlDatabase.'`');
+            }
             foreach ([$database, $gate, $database.'.ready0', $database.'.ready1', $database.'.locked0', $database.'.locked1', $database.'.started0', $database.'.started1', $database.'-wal', $database.'-shm'] as $file) {
                 if (file_exists($file)) {
                     unlink($file);

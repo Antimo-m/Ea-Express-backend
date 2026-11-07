@@ -156,14 +156,15 @@ class OperationsRevisionTest extends TestCase
         $this->assertSame(4, $admin->notifications()->count());
     }
 
-    public function test_agenda_uses_rome_date_and_separates_overdue_from_today(): void
+    public function test_agenda_uses_rome_date_and_keeps_each_calendar_day_separate(): void
     {
         $this->travelTo(Carbon::parse('2026-09-22 22:30:00', 'UTC'));
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $today = Order::factory()->create(['pickup_date' => '2026-09-23']);
         $old = Order::factory()->create(['pickup_date' => '2026-09-22']);
-        $this->actingAs($admin)->get('/pickups/grouped')->assertOk()->assertViewHas('orders', fn ($rows) => $rows->pluck('id')->all() === [$today->id]);
-        $page = $this->get('/pickups?view=overdue')->assertViewHas('orders', fn ($rows) => $rows->pluck('id')->all() === [$old->id]);
+        $this->actingAs($admin)->get(route('pickups.index'))->assertOk()->assertSee('Settembre 2026');
+        $page = $this->get(route('pickups.day', ['date' => '2026-09-23']))->assertViewHas('orders', fn ($rows) => $rows->pluck('id')->all() === [$today->id]);
+        $this->get(route('pickups.day', ['date' => '2026-09-22']))->assertViewHas('orders', fn ($rows) => $rows->pluck('id')->all() === [$old->id]);
         if (getenv('EA_UI_CAPTURE')) {
             file_put_contents('/private/tmp/ea-ui-final/agenda.html', $page->getContent());
         }

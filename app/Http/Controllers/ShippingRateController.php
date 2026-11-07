@@ -82,6 +82,7 @@ class ShippingRateController extends Controller
         $data = $request->validate(['province' => ['nullable', 'string', 'max:100'], 'region' => ['nullable', 'string', 'max:100'], 'shipping_type' => ['nullable', 'in:regional,external'], 'weight_kg' => ['nullable', 'numeric', 'min:0.01', 'max:10000'], 'max_dimension_cm' => ['nullable', 'numeric', 'min:1', 'max:500'], 'zone' => ['nullable', 'string', 'max:100'], 'street' => ['nullable', 'string', 'max:255'], 'city' => ['required', 'string', 'max:100'], 'postal_code' => ['nullable', 'regex:/^[0-9]{5}$/D']]);
 
         $result = $quote->find($data['city'], $data['postal_code'] ?? null, $data['zone'] ?? null, $data['street'] ?? null, false, $data['shipping_type'] ?? 'regional', isset($data['weight_kg']) ? (float) $data['weight_kg'] : null, isset($data['max_dimension_cm']) ? (float) $data['max_dimension_cm'] : null, $data['province'] ?? null, $data['region'] ?? null);
+        unset($result['rate_id']);
 
         return response()->json($request->user()->role === UserRole::Customer ? ShippingQuote::customerData($result) : $result);
     }

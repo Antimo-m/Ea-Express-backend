@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\Support\CheckoutReview;
 use App\Support\OrderDetail;
+use App\Support\OrderHistory;
 use App\Support\OrderSelection;
 use App\Support\PublicReferences;
 use App\Support\RecipientRisk;
@@ -29,19 +30,29 @@ class OrderController extends Controller
         $selection = app(OrderSelection::class);
         $query = $selection->query($request, $section)->withDisplayIdentity()->with('rider');
         if ($section !== 'orders.history') {
-            $query->with(['events' => fn ($events) => $events->latest()->orderByDesc('id')->limit(4)]);
+            $query->with(['events' => fn ($events) => $events->whereNull('delay_action')->latest()->orderByDesc('id')->limit(4)]);
         }
         $title = match ($section) {
             'orders.incoming' => 'Ordini in entrata', 'orders.in-progress' => 'Spedizioni in corso', default => 'Storico ordini'
         };
 
-        $orders = $query->latest()->orderByDesc('id')->paginate(20)->withQueryString();
+        $archive = $section === 'orders.history' ? app(OrderHistory::class)->page($query, $request) : [];
+        $orders = $archive['orders'] ?? $query->latest()->orderByDesc('id')->paginate(20)->withQueryString();
 
-        if ($orders->currentPage() > $orders->lastPage()) {
-            return redirect()->route($section, [...$request->query(), 'page' => $orders->lastPage()]);
+        if (isset($archive['archiveDays']) && $archive['archiveDays']->currentPage() > $archive['archiveDays']->lastPage()) {
+            return redirect()->route($section, [...$request->except(['day', 'day_page']), 'page' => $archive['archiveDays']->lastPage()]);
         }
 
-        return view('orders.index', ['orders' => $orders, 'recipientRisks' => app(RecipientRisk::class)->forOrders($orders->getCollection()), 'title' => $title, 'section' => $section, 'customers' => User::where('role', UserRole::Customer)->whereIn('id', $selection->query($request, $section, false)->select('customer_id'))->orderBy('name')->get(['id', 'slug', 'name', 'email']), 'riders' => User::whereIn('id', $selection->query($request, $section, false)->select('rider_id'))->orderBy('name')->get(['id', 'slug', 'name', 'email']), 'currentCount' => $selection->query($request, 'orders.in-progress', false)->count()]);
+        if ($orders->currentPage() > $orders->lastPage()) {
+            return redirect()->route($section, [...$request->query(), $orders->getPageName() => $orders->lastPage()]);
+        }
+
+        $data = [...$archive, 'orders' => $orders, 'recipientRisks' => app(RecipientRisk::class)->forOrders($orders->getCollection()), 'title' => $title, 'section' => $section];
+        if ($section === 'orders.history' && $request->header('X-Order-History') === 'day') {
+            return view('orders.history-day', $data);
+        }
+
+        return view('orders.index', [...$data, 'customers' => User::where('role', UserRole::Customer)->whereIn('id', $selection->query($request, $section, false)->select('customer_id'))->orderBy('name')->get(['id', 'slug', 'name', 'email']), 'riders' => User::whereIn('id', $selection->query($request, $section, false)->select('rider_id'))->orderBy('name')->get(['id', 'slug', 'name', 'email']), 'currentCount' => $selection->query($request, 'orders.in-progress', false)->count()]);
     }
 
     public function create(): View

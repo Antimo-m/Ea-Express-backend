@@ -12,7 +12,7 @@ use App\Rules\AllowedPortalText;
 use App\Rules\SafePasswordLength;
 use App\Support\CustomerIdentity;
 use App\Support\NotificationInbox;
-use Illuminate\Database\Eloquent\Builder;
+use App\Support\PortalTextPolicy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -30,9 +30,7 @@ class CustomerWorkspaceController extends Controller
             'active' => (clone $active)->count(),
             'pickups' => (clone $active)->whereDoesntHave('events', fn ($q) => $q->where('status', OrderStatus::PickedUp))->count(),
             'delivered' => (clone $base)->where('status', OrderStatus::Delivered)->count(),
-            'attention' => (clone $base)->where(fn (Builder $orders): Builder => $orders
-                ->whereIn('status', ['delivery_issue', 'delivery_attempted', 'rejected'])
-                ->orWhere(fn (Builder $delayed): Builder => $delayed->whereNotNull('delay_reported_at')->whereNotIn('status', OrderStatus::closed())))->count(),
+            'attention' => (clone $base)->whereIn('status', ['delivery_issue', 'delivery_attempted', 'rejected'])->count(),
             'unread' => $request->user()->unreadNotifications()->count(),
         ], 'live_order' => ($liveOrder = (clone $active)->withDisplayIdentity()->with('rider')->whereNotNull('rider_id')->latest('updated_at')->orderByDesc('id')->first()) ? new CustomerOrderResource($liveOrder) : null, 'recent' => CustomerOrderResource::collection((clone $base)->withDisplayIdentity()->with('rider')->latest()->orderByDesc('id')->limit(5)->get()), 'next_pickups' => CustomerOrderResource::collection((clone $active)->withDisplayIdentity()->with('rider')->whereDoesntHave('events', fn ($q) => $q->where('status', OrderStatus::PickedUp))->orderBy('pickup_date')->orderBy('pickup_from')->orderBy('id')->limit(3)->get())]);
     }
@@ -77,9 +75,11 @@ class CustomerWorkspaceController extends Controller
 
     public function profile(Request $request, UpdateProfile $update): JsonResponse
     {
+        $request->merge(PortalTextPolicy::normalizeFields($request->only(['name', 'business_type', 'business_description'])));
         $rules = CustomerIdentity::rules();
         $rules['business_type'][] = new AllowedPortalText;
-        $data = $request->validate([...$rules, 'current_password' => [Rule::excludeIf($request->input('email') === $request->user()->email), 'bail', 'required', new SafePasswordLength, 'current_password:customer'], 'name' => ['required', 'string', 'max:150'], 'email' => ['required', 'email', 'lowercase', 'max:255', Rule::unique('users')->ignore($request->user()->id)]]);
+        $rules['business_description'][] = new AllowedPortalText;
+        $data = $request->validate([...$rules, 'current_password' => [Rule::excludeIf($request->input('email') === $request->user()->email), 'bail', 'required', new SafePasswordLength, 'current_password:customer'], 'name' => ['required', 'string', 'max:150', Rule::when(($request->input('sender_type') ?? $request->user()->sender_type) !== 'private', [new AllowedPortalText])], 'email' => ['required', 'email', 'lowercase', 'max:255', Rule::unique('users')->ignore($request->user()->id)]]);
         $profile = CustomerIdentity::normalize(Arr::except($data, ['current_password']), $request->user()->sender_type);
         if ($update->handle($request->user(), $profile, $data['current_password'] ?? null)) {
             $request->session()->regenerate();

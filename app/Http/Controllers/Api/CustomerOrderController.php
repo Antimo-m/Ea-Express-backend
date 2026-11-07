@@ -63,7 +63,7 @@ class CustomerOrderController extends Controller
     {
         $this->authorizeOwner($request, $order);
 
-        return new CustomerOrderResource($order->load(['customer:id,slug,name', 'creator:id,slug,name', 'rider', 'priceProposals' => fn ($q) => $q->latest(), 'events' => fn ($q) => $q->orderBy('id')]));
+        return new CustomerOrderResource($order->load(['customer:id,slug,name', 'creator:id,slug,name', 'rider', 'priceProposals' => fn ($q) => $q->latest(), 'events' => fn ($q) => $q->whereNull('delay_action')->orderBy('id')]));
     }
 
     public function review(CustomerOrderRequest $request, CheckoutReview $review, ?Order $order = null): JsonResponse

@@ -62,6 +62,9 @@ class RecipientRisk
             ->groupBy('phone_key', 'address_key')->get();
         $result = [];
         foreach ($keys as $id => $identity) {
+            if (! $identity['phone_key'] && ! $identity['address_key']) {
+                continue;
+            }
             $matches = $groups->filter(fn ($group): bool => ($identity['phone_key'] && $identity['phone_key'] === $group->phone_key) || ($identity['address_key'] && $identity['address_key'] === $group->address_key));
             $result[$id] = ['count' => (int) $matches->sum('incident_count'), 'last_at' => $matches->max('last_at')];
         }

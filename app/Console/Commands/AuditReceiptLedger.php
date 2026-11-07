@@ -29,6 +29,9 @@ class AuditReceiptLedger extends Command
                     $net = (int) $entries->sum('amount_cents');
                     $cash = (int) $entries->sum(fn ($entry) => $entry->cash_amount_cents ?? $entry->amount_cents);
                     $codes = [];
+                    if ($entries->contains(fn ($entry) => $entry->kind === 'restoration' && $entry->amount_cents > 0)) {
+                        $codes[] = 'legacy_restoration: ripristino storico con ricavo positivo; verificare incassi successivi e registrare soltanto eventuali compensazioni approvate nel periodo aperto';
+                    }
                     if ($entries->contains(fn ($entry) => $entry->amount_cents < 0 && ! $entry->original_entry_id)) {
                         $codes[] = 'missing_original: identificare gli incassi originali e verificare se il rimborso sia stato pagato; preservare date e importi';
                         $available = collect();

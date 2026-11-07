@@ -9,4 +9,4 @@
         <td><div class="register-actions">@include('balance.receipt-actions')</div></td>
     </tr>@empty<tr><td colspan="5" class="register-empty">{{ $empty }}</td></tr>@endforelse</tbody>
 </table></div>
-{{ $receipts->links('components.ui.pagination', ['descriptive' => true, 'numbered' => true]) }}
+{{ $receipts->links('components.ui.pagination', ['compact' => true]) }}

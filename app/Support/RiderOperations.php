@@ -23,9 +23,9 @@ class RiderOperations
         'closed' => [OrderStatus::Cancelled, OrderStatus::Rejected],
     ];
 
-    public function dailyWorkload(Carbon $date, int $riderId, ?string $zone = null): Builder
+    public function dailyWorkload(Carbon $date, int $riderId, ?string $zone = null, ?Carbon $end = null): Builder
     {
-        return $this->assignedQuery(null, $zone)->where('pickup_date', '>=', $date->toDateString())->where('pickup_date', '<', $date->copy()->addDay()->toDateString())
+        return $this->assignedQuery(null, $zone)->where('pickup_date', '>=', $date->toDateString())->where('pickup_date', '<', ($end ?? $date)->copy()->addDay()->toDateString())
             ->where(fn ($orders) => $orders->where(fn ($current) => $current->where('rider_id', $riderId)->where('status', '!=', OrderStatus::Delivered))
                 ->orWhere(fn ($delivered) => $this->attributedToRider($delivered->where('status', OrderStatus::Delivered), $riderId)));
     }
@@ -40,7 +40,7 @@ class RiderOperations
     public function filterDailyState(Builder $query, string $state): Builder
     {
         if ($state === 'issues') {
-            return $query->where(fn ($issues) => $issues->whereIn('status', [OrderStatus::DeliveryIssue, OrderStatus::DeliveryAttempted])->orWhere(fn ($delayed) => $delayed->whereNotIn('status', OrderStatus::closed())->whereNotNull('delay_reported_at')));
+            return $query->whereIn('status', [OrderStatus::DeliveryIssue, OrderStatus::DeliveryAttempted]);
         }
 
         return isset(self::DailyStates[$state]) ? $query->whereIn('status', self::DailyStates[$state]) : $query;
@@ -55,7 +55,6 @@ class RiderOperations
             $counts[$state] = array_sum(array_map(fn (OrderStatus $status): int => (int) ($statuses[$status->value] ?? 0), $values));
         }
         $counts['issues'] = $this->filterDailyState(clone $query, 'issues')->count();
-        $counts['missing_deadlines'] = (clone $query)->whereNotIn('status', OrderStatus::closed())->whereNull('estimated_at')->whereNull('estimated_delivery_to')->whereDoesntHave('scheduleEvents', fn ($events) => $events->where(fn ($schedule) => $schedule->whereNotNull('schedule_change->after->deadline_at')->orWhereNotNull('schedule_change->after->estimated_at')))->count();
         $counts['progress'] = $counts['total'] ? (int) round($counts['completed'] / $counts['total'] * 100) : 0;
 
         return $counts;
@@ -67,9 +66,9 @@ class RiderOperations
         $attributedOrders = $this->attributedToRider($this->assignedQuery(null, $zone), $riderId);
         $payments = PaymentEntry::whereIn('order_id', (clone $attributedOrders)->select('id'))->whereBetween('created_at', $period->utcRange());
         $totals = app(ReceiptLedger::class)->totals($payments);
-        $expenses = Expense::whereNull('voided_at')->where('spent_on', '>=', $period->start->toDateString())->where('spent_on', '<', $period->start->copy()->addDay()->toDateString())->where(fn ($expense) => $expense->where('user_id', $riderId)->orWhereHas('pendingSettlement.account', fn ($account) => $account->whereIn('order_id', (clone $attributedOrders)->select('id'))));
+        $expenses = Expense::whereNull('voided_at')->where('spent_on', '>=', $period->start->toDateString())->where('spent_on', '<', $period->end->copy()->addDay()->toDateString())->where(fn ($expense) => $expense->where('user_id', $riderId)->orWhereHas('pendingSettlement.account', fn ($account) => $account->whereIn('order_id', (clone $attributedOrders)->select('id'))));
         $spent = (int) $expenses->sum('amount_cents');
-        $pending = PendingAccount::whereIn('order_id', (clone $attributedOrders)->select('id'))->where('occurred_on', '>=', $period->start->toDateString())->where('occurred_on', '<', $period->start->copy()->addDay()->toDateString())->whereIn('state', ['open', 'partially_paid']);
+        $pending = PendingAccount::whereIn('order_id', (clone $attributedOrders)->select('id'))->where('occurred_on', '>=', $period->start->toDateString())->where('occurred_on', '<', $period->end->copy()->addDay()->toDateString())->whereIn('state', ['open', 'partially_paid']);
         $incoming = (int) (clone $pending)->where('direction', 'incoming')->selectRaw('COALESCE(SUM(amount_cents - settled_cents), 0) AS cents')->value('cents');
         $outgoing = (int) (clone $pending)->where('direction', 'outgoing')->selectRaw('COALESCE(SUM(amount_cents - settled_cents), 0) AS cents')->value('cents');
         $unrecorded = (clone $workload)->where('status', OrderStatus::Delivered)->whereNull('paid_at')->whereNull('receipt_voided_at');
@@ -101,81 +100,87 @@ class RiderOperations
     {
         $period = new ReportingPeriod($date, ($end ?? $date)->copy()->endOfDay());
         $reference = $period->reference();
-        $orders = $this->metadata($this->query($date, $selectedRiderId, $zone, $period->end), $reference)->orderBy('id')->get();
-        $lateIds = $this->lateIds($period, $selectedRiderId, $zone, $missingIds);
-        $backlogIds = array_values(array_diff($lateIds, $orders->modelKeys()));
-        $backlog = $backlogIds ? $this->metadata(Order::whereIn('id', $backlogIds), $reference)->get() : collect();
-        $all = $orders->concat($backlog)->unique('id');
-        $zones = $all->groupBy(fn ($order) => $this->zone($order))->map(fn ($items, $name) => $this->group($items, (string) $name, 'zone', $period, $orders, $reference))->sortBy('name')->values();
-        $riders = $all->groupBy('rider_id')->map(fn ($items) => $this->group($items, $items->first()->rider?->name ?? 'Da assegnare', 'rider', $period, $orders, $reference))->sortBy('name')->values();
-        $summary = $this->counts($orders, $reference);
-        $summary['overdue'] = count($lateIds);
-        $summary['backlog'] = count($backlogIds);
-        $summary['riders'] = $all->pluck('rider_id')->filter()->unique()->count();
-        $summary['zones'] = $zones->count();
-        $summary['unassigned'] = $orders->whereNull('rider_id')->whereNotIn('status', [OrderStatus::Delivered, OrderStatus::Rejected, OrderStatus::Cancelled])->count();
-        $summary['missing_deadlines'] = $this->assignedQuery($selectedRiderId, $zone)->whereNotIn('status', OrderStatus::closed())->where('created_at', '<=', $reference->copy()->utc())->whereNull('estimated_at')->whereNull('estimated_delivery_to')->whereDoesntHave('scheduleEvents', fn ($events) => $events->where(fn ($schedule) => $schedule->whereNotNull('schedule_change->after->deadline_at')->orWhereNotNull('schedule_change->after->estimated_at')))->count();
-        $summary['history_unknown'] = $all->filter(fn ($order) => ! app(DeliveryDeadline::class)->forOrder($order, $reference)['history_complete'])->count();
+        $summary = $this->emptyCounts();
+        $zones = [];
+        $riders = [];
+        $assignedRiders = [];
+        $consume = function (Collection $orders) use (&$summary, &$zones, &$riders, &$assignedRiders, $period): void {
+            foreach ($orders as $order) {
+                $this->countOrder($summary, $order);
+                if ($order->rider_id) {
+                    $assignedRiders[$order->rider_id] = true;
+                }
+                $zoneName = $this->zone($order);
+                $this->accumulateGroup($zones, $zoneName, $zoneName, 'zone', $order, $period);
+                $this->accumulateGroup($riders, (string) ($order->rider_id ?? 'unassigned'), $order->rider?->name ?? 'Da assegnare', 'rider', $order, $period);
+            }
+        };
+        $this->metadata($this->query($date, $selectedRiderId, $zone, $period->end))->chunkById(1500, $consume);
+        $zones = $this->finalizeGroups($zones);
+        $riders = $this->finalizeGroups($riders);
+        $summary['riders'] = count($assignedRiders);
+        $summary['zones'] = count($zones);
         $moved = OrderEvent::query()->where('schedule_change->before->pickup_date', '>=', $date->toDateString())->where('schedule_change->before->pickup_date', '<=', $period->end->toDateString())->with(['user:id,slug,name', 'order:id,slug,reference'])->orderByDesc('id')->limit(20)->get();
         $scheduleHistory = $moved->map(fn ($event) => ['reference' => $event->order?->reference, 'url' => $event->order ? route('orders.show', $event->order) : null, 'before' => $event->schedule_change['before'], 'after' => $event->schedule_change['after'], 'at' => $event->created_at->toIso8601String(), 'operator' => $event->user?->name, 'reason' => $event->note])->all();
 
-        return ['date' => $date->toDateString(), 'to' => $period->end->toDateString(), 'reference_at' => $reference->toIso8601String(), 'today' => $date->isSameDay(now('Europe/Rome')), 'summary' => $summary, 'zones' => $zones->all(), 'riders' => $riders->all(), 'schedule_history' => $scheduleHistory, 'orders' => $orders, 'generated_at' => now()->toIso8601String()];
+        return ['date' => $date->toDateString(), 'to' => $period->end->toDateString(), 'reference_at' => $reference->toIso8601String(), 'today' => $date->isSameDay(now('Europe/Rome')), 'summary' => $summary, 'zones' => $zones, 'riders' => $riders, 'schedule_history' => $scheduleHistory, 'generated_at' => now()->toIso8601String()];
     }
 
-    /** @return array<int, int> */
-    public function lateIds(ReportingPeriod $period, ?int $riderId = null, ?string $zone = null, ?array &$missingIds = null): array
+    private function metadata(Builder $query): Builder
     {
-        $reference = $period->reference();
-        $query = $this->assignedQuery($riderId, $zone)
-            ->where('created_at', '<=', $reference->copy()->utc())
-            ->where(fn ($query) => $query->where('delay_reported_at', '<=', $reference->copy()->utc())->orWhereHas('delayEvents', fn ($events) => $events->where('delay_action', 'reported')->where('created_at', '<=', $reference->copy()->utc())));
-        if ($reference->isSameDay(now('Europe/Rome'))) {
-            $query->whereNotIn('status', OrderStatus::closed());
-        }
-        $ids = [];
-        $missingIds = [];
-        $this->metadata($query, $reference)->chunkById(300, function ($orders) use (&$ids, &$missingIds, $reference): void {
-            foreach ($orders as $order) {
-                $deadline = app(DeliveryDeadline::class)->forOrder($order, $reference);
-                if (! $deadline['at'] && ! in_array($order->status->value, OrderStatus::closed(), true)) {
-                    $missingIds[] = $order->id;
-                }
-                if ($deadline['overdue']) {
-                    $ids[] = $order->id;
-                }
-            }
-        });
-
-        return $ids;
-    }
-
-    private function metadata(Builder $query, Carbon $reference): Builder
-    {
-        return $query->select(['id', 'slug', 'reference', 'rider_id', 'status', 'delivery_zone', 'delivery_city', 'pickup_date', 'delivered_at', 'estimated_at', 'estimated_delivery_to', 'delay_reported_at', 'price_cents', 'shipping_type', 'assigned_at', 'created_at', 'updated_at'])
+        return $query->select(['id', 'slug', 'rider_id', 'status', 'delivery_zone', 'delivery_city', 'price_cents'])
             ->withSum('payments as cash_cents', DB::raw(ReceiptLedger::CashExpression))->withSum('payments as retained_cents', DB::raw('COALESCE(ea_amount_cents, amount_cents)'))
-            ->with(['rider:id,slug,name', 'delayEvents', 'scheduleEvents', 'deliveryEvent', 'events' => fn ($events) => $events->where('created_at', '<=', $reference->copy()->utc())->latest('created_at')->orderByDesc('id')->limit(1)]);
+            ->with(['rider:id,slug,name', 'deliveryEvent']);
     }
 
     /** @return array<string, int> */
-    private function counts(Collection $orders, Carbon $reference): array
+    private function emptyCounts(): array
     {
-        $delivered = $orders->where('status', OrderStatus::Delivered)->count();
-
-        return ['total' => $orders->count(), 'delivered' => $delivered, 'undelivered' => $orders->count() - $delivered, 'active' => $orders->whereNotIn('status', [OrderStatus::Delivered, OrderStatus::Cancelled, OrderStatus::Rejected])->count(), 'closed_unfulfilled' => $orders->whereIn('status', [OrderStatus::Cancelled, OrderStatus::Rejected])->count(), 'overdue' => $orders->filter(fn ($order) => app(DeliveryDeadline::class)->forOrder($order, $reference)['overdue'])->count()];
+        return ['total' => 0, 'delivered' => 0, 'undelivered' => 0, 'active' => 0, 'closed_unfulfilled' => 0, 'pending' => 0, 'unassigned' => 0];
     }
 
-    /** @return array<string, mixed> */
-    private function group(Collection $all, string $name, string $kind, ReportingPeriod $period, Collection $programmed, Carbon $reference): array
+    /** @param array<string, mixed> $counts */
+    private function countOrder(array &$counts, Order $order): void
     {
-        $orders = $all->whereIn('id', $programmed->modelKeys());
-        $rider = $all->first()->rider;
-        $riders = $all->pluck('rider')->filter()->unique('id')->map(fn ($person) => ['slug' => $person->slug, 'name' => $person->name])->values()->all();
-        $zones = $all->countBy(fn ($order) => $this->zone($order))->map(fn ($count, $zone) => ['name' => (string) $zone, 'count' => $count])->values()->all();
-        $counts = $this->counts($orders, $reference);
-        $counts['overdue'] = $this->counts($all, $reference)['overdue'];
-        $counts['backlog'] = $counts['overdue'] - $this->counts($orders, $reference)['overdue'];
+        $counts['total']++;
+        $counts['delivered'] += (int) ($order->status === OrderStatus::Delivered);
+        $counts['undelivered'] += (int) ($order->status !== OrderStatus::Delivered);
+        $counts['active'] += (int) ! in_array($order->status->value, OrderStatus::closed(), true);
+        $counts['closed_unfulfilled'] += (int) in_array($order->status, [OrderStatus::Cancelled, OrderStatus::Rejected], true);
+        $counts['pending'] += (int) ($order->rider_id !== null && ! in_array($order->status->value, OrderStatus::closed(), true));
+        $counts['unassigned'] += (int) ($order->rider_id === null && ! in_array($order->status->value, OrderStatus::closed(), true));
+    }
 
-        return [...$counts, 'key' => $kind === 'zone' ? $name : ($rider?->slug ?? 'unassigned'), 'name' => $name, 'slug' => $kind === 'rider' ? $rider?->slug : null, 'state' => $counts['active'] || $counts['backlog'] ? 'active' : ($counts['delivered'] ? 'completed' : 'waiting'), 'label' => $counts['active'] || $counts['backlog'] ? 'Ordini in lavorazione' : 'Consegne completate', 'riders' => $riders, 'zones' => $zones, 'cash_cents' => (int) $orders->sum('cash_cents'), 'retained_cents' => (int) $orders->sum('retained_cents'), 'expected_cents' => (int) $orders->sum('price_cents'), 'missing_prices' => $orders->whereNull('price_cents')->count(), 'url' => $kind === 'rider' && $rider ? route('rider-operations.show', ['rider' => $rider->slug, 'date' => $period->start->toDateString()]) : null];
+    /** @param array<string, array<string, mixed>> $groups */
+    private function accumulateGroup(array &$groups, string $key, string $name, string $kind, Order $order, ReportingPeriod $period): void
+    {
+        $rider = $order->rider;
+        $periodParameters = ['from' => $period->start->toDateString(), 'to' => $period->end->toDateString(), 'period' => 'custom'];
+        $groups[$key] ??= [...$this->emptyCounts(), 'key' => $kind === 'zone' ? $name : ($rider?->slug ?? 'unassigned'), 'name' => $name, 'slug' => $kind === 'rider' ? $rider?->slug : null, 'riders' => [], 'zones' => [], 'cash_cents' => 0, 'retained_cents' => 0, 'expected_cents' => 0, 'missing_prices' => 0, 'url' => $kind === 'rider' && $rider ? route('rider-operations.show', ['rider' => $rider->slug, ...$periodParameters]) : null];
+        $group = &$groups[$key];
+        $this->countOrder($group, $order);
+        $group['cash_cents'] += (int) $order->cash_cents;
+        $group['retained_cents'] += (int) $order->retained_cents;
+        $group['expected_cents'] += (int) $order->price_cents;
+        $group['missing_prices'] += (int) ($order->price_cents === null);
+        if ($rider) {
+            $group['riders'][$rider->slug] = ['slug' => $rider->slug, 'name' => $rider->name, 'url' => route('rider-operations.show', ['rider' => $rider->slug, ...$periodParameters])];
+        }
+        $zone = $this->zone($order);
+        $group['zones'][$zone] = ($group['zones'][$zone] ?? 0) + 1;
+    }
+
+    /** @param array<string, array<string, mixed>> $groups @return list<array<string, mixed>> */
+    private function finalizeGroups(array $groups): array
+    {
+        return collect($groups)->map(function (array $group): array {
+            $group['state'] = $group['active'] ? 'active' : ($group['delivered'] ? 'completed' : 'waiting');
+            $group['label'] = $group['active'] ? 'Ordini in lavorazione' : 'Consegne completate';
+            $group['riders'] = array_values($group['riders']);
+            $group['zones'] = collect($group['zones'])->map(fn (int $count, string $zone): array => ['name' => $zone, 'count' => $count])->values()->all();
+
+            return $group;
+        })->sortBy('name')->values()->all();
     }
 
     /** @return Collection<int, array<string, mixed>> */

@@ -12,14 +12,13 @@ use App\OrderStatus;
 use App\Support\AccountingPeriod;
 use App\Support\Money;
 use App\Support\OrderPrice;
-use App\Support\ReceiptLedger;
 use App\UserRole;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class ManageReceipt
 {
-    public function __construct(private RecordEconomicAudit $audit, private NotifyAccountingParticipants $notify, private ReceiptLedger $ledger, private OrderPrice $price) {}
+    public function __construct(private RecordEconomicAudit $audit, private NotifyAccountingParticipants $notify, private OrderPrice $price) {}
 
     /** @param array{action: string, version: int|string, note?: string, received_amount?: string} $data */
     public function handle(User $actor, Order $order, array $data): string
@@ -112,8 +111,9 @@ class ManageReceipt
                     $message = 'Rimborso pagato registrato nella cassa. Il netto contabile non viene sottratto una seconda volta.';
                 } else {
                     $this->price->assertApproved($order);
+                    abort_if($cash > 0, 409, 'Registra prima il rimborso dello storno: il ripristino non deve creare un nuovo incasso.');
                     foreach ($negative as $entry) {
-                        $this->entry($actor, $order, 'restoration', -$entry->amount_cents, -$entry->ea_amount_cents, 0, $reason, 'restore:'.$entry->slug, $reversal, $entry);
+                        $this->entry($actor, $order, 'restoration', 0, 0, 0, $reason, 'restore:'.$entry->slug, $reversal, $entry);
                     }
                     $reversalBefore = $reversal->toArray();
                     $reversal->restored_at = now();
@@ -121,17 +121,12 @@ class ManageReceipt
                     $reversal->restore_reason = $reason;
                     $reversal->save();
                     $this->audit->handle($actor, $reversal, 'receipt.reversal_restored', $reversalBefore, $reversal->toArray());
-                    $refunded = $payments->where('receipt_reversal_id', $reversal->id)->contains('kind', 'refund');
-                    if ($pending && $reversal->pending_state && ! $refunded) {
-                        $this->pendingState($actor, $pending, $reversal->pending_state, $reason);
-                    }
                     $order->receipt_voided_at = null;
                     $order->receipt_voided_by = null;
                     $order->receipt_void_reason = null;
-                    $paid = $reversal->corrected_cents > 0 && $cash === $order->price_cents;
-                    $order->paid_at = $paid ? ($reversal->original_paid_at ?? now()) : null;
-                    $order->paid_by = $paid ? ($reversal->original_paid_by ?? $actor->id) : null;
-                    $message = $paid ? 'Rettifica compensata: l’incasso originale resta valido, senza un secondo pagamento.' : ($refunded ? 'Ripristino contabile registrato. Il rimborso resta in cassa: il credito residuo richiede un nuovo incasso effettivo.' : 'Storno ripristinato. Il residuo torna da registrare, senza creare incassi automatici.');
+                    $order->paid_at = null;
+                    $order->paid_by = null;
+                    $message = 'Storno ripristinato. L’incasso torna da registrare; il totale lordo resta invariato fino a un nuovo pagamento effettivo.';
                 }
             }
             $order->version++;

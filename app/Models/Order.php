@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\DB;
 
 #[Fillable(['shipping_type', 'delivery_province', 'delivery_region', 'weight_kg', 'max_dimension_cm', 'delivery_zone', 'pickup_street_number', 'pickup_postal_code', 'delivery_street_number', 'delivery_postal_code', 'package_type', 'package_description', 'packages', 'store_name', 'contact_email', 'recipient_name', 'recipient_phone', 'pickup_address', 'pickup_city', 'delivery_address', 'delivery_city', 'pickup_date', 'pickup_from', 'pickup_to', 'delivery_window', 'parcel_count', 'content_description', 'category', 'urgency', 'notes', 'customer_notes', 'sender_type', 'business_type', 'business_description'])]
-#[Hidden(['delay_reported_by', 'gps_session_id', 'pickup_point', 'delivery_point', 'tracking_token', 'conversation_token', 'carrier_cost_cents'])]
+#[Hidden(['delay_reported_at', 'delay_reported_by', 'gps_session_id', 'pickup_point', 'delivery_point', 'tracking_token', 'conversation_token', 'carrier_cost_cents'])]
 class Order extends Model
 {
     /** @use HasFactory<OrderFactory> */
@@ -42,22 +42,6 @@ class Order extends Model
             'label' => $this->receipt_voided_at ? 'Incasso stornato' : ($this->paid_at ? 'Pagato' : 'Da registrare'),
             'paid_at' => $this->paid_at?->toIso8601String(),
         ];
-    }
-
-    /** @return array{reported: bool, active: bool, reported_at: ?string, label: ?string} */
-    public function delayData(): array
-    {
-        return ['reported' => $this->delay_reported_at !== null, 'active' => $this->delay_reported_at !== null && ! in_array($this->status->value, OrderStatus::closed(), true), 'reported_at' => $this->delay_reported_at?->toIso8601String(), 'label' => $this->delay_reported_at ? (in_array($this->status->value, OrderStatus::closed(), true) ? 'Ritardo segnalato' : 'In ritardo') : null];
-    }
-
-    public function delayEvents(): HasMany
-    {
-        return $this->hasMany(OrderEvent::class)->whereNotNull('delay_action')->orderBy('created_at')->orderBy('id');
-    }
-
-    public function delayReporter(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'delay_reported_by');
     }
 
     public function totalCents(): ?int

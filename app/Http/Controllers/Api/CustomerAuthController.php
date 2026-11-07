@@ -7,10 +7,12 @@ use App\Models\User;
 use App\Rules\AllowedPortalText;
 use App\Rules\SafePasswordLength;
 use App\Support\CustomerIdentity;
+use App\Support\PortalTextPolicy;
 use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 
@@ -36,9 +38,11 @@ class CustomerAuthController extends Controller
 
     public function register(Request $request): JsonResponse
     {
+        $request->merge(PortalTextPolicy::normalizeFields($request->only(['name', 'business_type', 'business_description'])));
         $rules = CustomerIdentity::rules(required: true);
         $rules['business_type'][] = new AllowedPortalText;
-        $data = $request->validate([...$rules, 'name' => ['required', 'string', 'max:150'], 'email' => ['required', 'email', 'lowercase', 'max:255', 'unique:users,email'], 'password' => ['required', 'confirmed', Rules\Password::min(12), new SafePasswordLength]]);
+        $rules['business_description'][] = new AllowedPortalText;
+        $data = $request->validate([...$rules, 'name' => ['required', 'string', 'max:150', Rule::when($request->input('sender_type') !== 'private', [new AllowedPortalText])], 'email' => ['required', 'email', 'lowercase', 'max:255', 'unique:users,email'], 'password' => ['required', 'confirmed', Rules\Password::min(12), new SafePasswordLength]]);
         $user = new User(CustomerIdentity::normalize($data));
         $user->role = UserRole::Customer;
         $user->is_active = true;

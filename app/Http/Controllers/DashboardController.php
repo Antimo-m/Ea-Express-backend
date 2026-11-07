@@ -15,14 +15,17 @@ class DashboardController extends Controller
     public function __invoke(Request $request): View
     {
         $now = now('Europe/Rome')->locale('it');
-        $base = Order::visibleTo($request->user())->withDisplayIdentity()->with('rider:id,slug,name');
+        $base = Order::visibleTo($request->user())->withDisplayIdentity();
+        if ($request->user()->role === UserRole::Rider) {
+            $base->with('rider:id,slug,name');
+        }
         $incoming = (clone $base)->where('status', OrderStatus::Received);
         $active = (clone $base)->whereNotIn('status', [...OrderStatus::closed(), OrderStatus::Received->value]);
         $completed = (clone $base)->where('status', OrderStatus::Delivered)->whereBetween('delivered_at', [$now->copy()->startOfDay()->utc(), $now->copy()->endOfDay()->utc()]);
 
         $requests = $incoming->latest()->orderByDesc('id')->limit(3)->get();
         $shipments = $active->orderBy('pickup_date')->orderBy('pickup_from')->orderBy('id')->limit(3)->get();
-        $recipientRisks = app(RecipientRisk::class)->forOrders($requests->concat($shipments));
+        $recipientRisks = $request->user()->role === UserRole::Rider ? app(RecipientRisk::class)->forOrders($shipments) : [];
 
         return view($request->user()->role === UserRole::Rider ? 'dashboard.rider' : 'dashboard.index', [
             'metrics' => [

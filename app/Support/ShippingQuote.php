@@ -21,11 +21,11 @@ class ShippingQuote
             $place = app(PostalCodeResolver::class)->canonical($city, $postalCode, $province, $region);
             $postalCode = $place['postal_code'];
         } catch (ValidationException $exception) {
-            return ['available' => false, 'price_cents' => null, 'rate_id' => null, 'territory_valid' => false, 'errors' => $exception->errors(), 'reason' => $exception->errors()['delivery_postal_code'][0]];
+            return ['available' => false, 'availability_status' => 'unverified', 'price_cents' => null, 'rate_id' => null, 'territory_valid' => false, 'errors' => $exception->errors(), 'reason' => $exception->errors()['delivery_postal_code'][0]];
         }
         $cityKey = self::cityKey($place['name']);
         $missingMeasurements = $shippingType === 'external' && ($weight === null || $dimension === null);
-        $rates = ShippingRate::where('shipping_type', $shippingType)->whereNull('archived_at')->where('active', true)->where('territory_review_required', false)
+        $rates = ShippingRate::where('shipping_type', $shippingType)->whereNull('archived_at')->where('territory_review_required', false)
             ->where(fn ($rates) => $rates->where('city_key', $cityKey)->when($shippingType === 'external', fn ($rates) => $rates->orWhere('is_default', true)))
             ->when($lock, fn ($query) => $query->lockForUpdate())->get()
             ->filter(fn ($rate) => (! $rate->postal_code || $rate->postal_code === $postalCode)
@@ -33,7 +33,7 @@ class ShippingQuote
         if ($rates->contains(fn ($rate) => ! $rate->is_default)) {
             $rates = $rates->reject(fn ($rate) => $rate->is_default);
         }
-        $unavailable = fn (string $reason): array => ['available' => false, 'price_cents' => null, 'rate_id' => null, 'territory_valid' => true, 'postal_code' => $postalCode, 'reason' => $reason];
+        $unavailable = fn (string $reason, string $status = 'unverified'): array => ['available' => false, 'availability_status' => $status, 'price_cents' => null, 'rate_id' => null, 'territory_valid' => true, 'postal_code' => $postalCode, 'reason' => $reason];
         $streets = $rates->filter(fn ($rate) => (bool) $rate->street);
         if ($streets->isNotEmpty()) {
             $rates = $streets->filter(fn ($rate) => $street && self::streetKey($rate->street) === self::streetKey($street));
@@ -59,6 +59,10 @@ class ShippingQuote
         $matches = $rates->filter(fn ($rate) => ($rate->max_weight_kg === null || ($weight !== null && $weight > 0 && $weight <= (float) $rate->max_weight_kg))
             && ($rate->max_dimension_cm === null || ($dimension !== null && $dimension > 0 && $dimension <= (float) $rate->max_dimension_cm)))
             ->sortBy(fn ($rate) => [(float) ($rate->max_weight_kg ?? INF), (float) ($rate->max_dimension_cm ?? INF)]);
+        if ($matches->isNotEmpty() && ! $matches->contains(fn ($rate) => $rate->active)) {
+            return $unavailable('Al momento questa zona non è attiva per le consegne, ma sarà presto disponibile.', 'inactive');
+        }
+        $matches = $matches->filter(fn ($rate) => $rate->active);
         if ($matches->isNotEmpty()) {
             $best = $matches->first();
             $matches = $matches->filter(fn ($rate) => $rate->max_weight_kg === $best->max_weight_kg && $rate->max_dimension_cm === $best->max_dimension_cm);
@@ -68,7 +72,7 @@ class ShippingQuote
         }
         $rate = $matches->first();
 
-        return ['territory_valid' => true, 'shipping_type' => $rate->shipping_type, 'carrier_name' => $rate->carrier_name, 'carrier_cost_cents' => $rate->carrier_cost_cents, 'delivery_days_min' => $rate->delivery_days_min, 'delivery_days_max' => $rate->delivery_days_max, 'available' => true, 'rate_id' => $rate->id, 'price_cents' => $rate->price_cents, 'city' => $rate->city, 'zone' => $rate->zone, 'street' => $rate->street, 'area' => $rate->area, 'postal_code' => $postalCode, 'delivery_time' => $rate->delivery_time, 'source_reference' => $rate->source_reference, 'reason' => $rate->is_default ? 'Tariffa generale fuori regione.' : ($rate->postal_code || $rate->postal_codes ? null : 'Tariffa per località; il listino non specifica un CAP.')];
+        return ['territory_valid' => true, 'availability_status' => 'active', 'shipping_type' => $rate->shipping_type, 'carrier_name' => $rate->carrier_name, 'carrier_cost_cents' => $rate->carrier_cost_cents, 'delivery_days_min' => $rate->delivery_days_min, 'delivery_days_max' => $rate->delivery_days_max, 'available' => true, 'rate_id' => $rate->id, 'rate_slug' => $rate->slug, 'price_cents' => $rate->price_cents, 'city' => $rate->city, 'zone' => $rate->zone, 'street' => $rate->street, 'area' => $rate->area, 'postal_code' => $postalCode, 'delivery_time' => $rate->delivery_time, 'source_reference' => $rate->source_reference, 'reason' => $rate->is_default ? 'Tariffa generale fuori regione.' : ($rate->postal_code || $rate->postal_codes ? null : 'Tariffa per località; il listino non specifica un CAP.')];
     }
 
     public static function streetKey(string $street): string
@@ -104,7 +108,7 @@ class ShippingQuote
     /** Only customer-facing tariff fields may leave the backend. @return array<string,mixed> */
     public static function customerData(?array $quote): ?array
     {
-        return $quote === null ? null : array_intersect_key($quote, array_flip(['available', 'rate_id', 'price_cents', 'city', 'zone', 'street', 'area', 'postal_code', 'delivery_time', 'reason', 'shipping_type', 'territory_valid', 'errors', 'delivery_days_min', 'delivery_days_max']));
+        return $quote === null ? null : array_intersect_key($quote, array_flip(['available', 'availability_status', 'rate_slug', 'price_cents', 'city', 'zone', 'street', 'area', 'postal_code', 'delivery_time', 'reason', 'shipping_type', 'territory_valid', 'errors', 'delivery_days_min', 'delivery_days_max']));
     }
 
     public function estimate(Order $order): void

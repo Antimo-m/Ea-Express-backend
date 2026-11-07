@@ -97,7 +97,7 @@ class BalanceAccountingTest extends TestCase
         $this->postJson($path, ['action' => 'reverse', 'version' => 2, 'note' => 'Rimborso cliente'])->assertOk();
         $query = http_build_query(['month' => '2026-10', 'customer_ids' => [$customer->slug], 'ledger' => 'reversed']);
         $this->get('/balance?'.$query)->assertViewHas('reversedCount', 1)->assertViewHas('completedCount', 0)
-            ->assertViewHas('grossIncome', 0)->assertViewHas('reversalTotal', 1000)->assertViewHas('cash', -1000)->assertViewHas('operatingNet', -1000)
+            ->assertViewHas('grossIncome', -1000)->assertViewHas('reversalTotal', 1000)->assertViewHas('cash', -1000)->assertViewHas('operatingNet', -1000)
             ->assertViewHas('reversalEntries', fn ($rows): bool => $rows->first()->order->slug === $order->slug)
             ->assertSee('Ordini stornati')->assertSee('Rimborso cliente');
         $this->get('/balance?month=2026-09')->assertViewHas('cash', 1000)->assertViewHas('reversalTotal', 0)->assertViewHas('completedCount', 0);
@@ -106,11 +106,11 @@ class BalanceAccountingTest extends TestCase
         $this->assertDatabaseCount('payment_entries', 4);
         $this->assertNull($order->fresh()->receipt_voided_at);
         $this->assertNull($order->fresh()->paid_at);
-        $this->get('/balance?'.$query)->assertViewHas('reversedCount', 0)->assertViewHas('reversalTotal', 1000)->assertViewHas('cash', -1000);
+        $this->get('/balance?'.$query)->assertViewHas('reversedCount', 0)->assertViewHas('reversalTotal', 0)->assertViewHas('cash', -1000);
         $this->get('/balance?month=2026-09')->assertViewHas('completedCount', 1)->assertViewHas('outstanding', 1000)
             ->assertViewHas('orders', fn ($rows): bool => $rows->total() === 1);
         $this->postJson($path, ['action' => 'receive', 'version' => 4])->assertOk();
-        $this->get('/balance?'.$query)->assertViewHas('grossIncome', 0)->assertViewHas('reversalTotal', 1000)->assertViewHas('restorationTotal', 1000)->assertViewHas('cash', 0)->assertViewHas('operatingNet', 0);
+        $this->get('/balance?'.$query)->assertViewHas('grossIncome', 0)->assertViewHas('reversalTotal', 0)->assertViewHas('restorationTotal', 0)->assertViewHas('cash', 0)->assertViewHas('operatingNet', 0);
         $this->assertSame(1000, (int) PaymentEntry::sum('amount_cents'));
         $this->assertDatabaseCount('payment_entries', 5);
         $this->assertDatabaseHas('economic_audits', ['entity_type' => 'orders', 'entity_id' => $order->id, 'action' => 'receipt.restore']);
@@ -142,7 +142,7 @@ class BalanceAccountingTest extends TestCase
         $this->payment($order, $admin, -200);
 
         $this->actingAs($admin)->get('/balance?customer_ids[]='.$customer->slug)
-            ->assertViewHas('grossIncome', 1000)->assertViewHas('reversalTotal', 200)->assertViewHas('cash', 800)
+            ->assertViewHas('grossIncome', 800)->assertViewHas('reversalTotal', 0)->assertViewHas('cash', 800)
             ->assertViewHas('operatingNet', 800)->assertViewHas('completedCount', 1)->assertViewHas('earned', 1000)
             ->assertViewHas('reversedCount', 0)->assertViewHas('outstanding', 200);
         $this->assertNull($order->fresh()->receipt_voided_at);
@@ -225,21 +225,21 @@ class BalanceAccountingTest extends TestCase
         $this->actingAs($admin)->postJson($path, ['action' => 'receive', 'version' => 1])->assertOk();
         $original = PaymentEntry::sole()->getAttributes();
         $this->postJson($path, ['action' => 'reverse', 'version' => 2, 'note' => 'Servizio annullato', 'amount_cents' => -99999])->assertOk();
-        $this->get('/balance?ledger=reversed')->assertViewHas('grossIncome', 1000)->assertViewHas('reversalTotal', 1000)
+        $this->get('/balance?ledger=reversed')->assertViewHas('grossIncome', 0)->assertViewHas('reversalTotal', 1000)
             ->assertViewHas('operatingNet', 0)->assertViewHas('cash', 0)->assertSee('Con rettifica contabile')->assertDontSee('Conferma rimborso');
         $this->postJson($path, ['action' => 'refund', 'version' => 3, 'note' => 'Denaro restituito'])->assertConflict();
         $this->get('/balance')->assertViewHas('cash', 0)->assertViewHas('refundTotal', 1000)->assertViewHas('totalExpenses', 0)->assertViewHas('operatingNet', 0);
         $this->postJson($path, ['action' => 'refund', 'version' => 3, 'note' => 'Invio duplicato'])->assertConflict();
         $this->postJson($path, ['action' => 'restore', 'version' => 3, 'note' => 'Servizio ripristinato'])->assertOk();
         $this->assertNull($order->fresh()->paid_at);
-        $this->get('/balance')->assertViewHas('grossIncome', 1000)->assertViewHas('reversalTotal', 1000)->assertViewHas('restorationTotal', 1000)
-            ->assertViewHas('operatingNet', 1000)->assertViewHas('cash', 0)->assertViewHas('outstanding', 1000);
+        $this->get('/balance')->assertViewHas('grossIncome', 0)->assertViewHas('reversalTotal', 0)->assertViewHas('restorationTotal', 0)
+            ->assertViewHas('operatingNet', 0)->assertViewHas('cash', 0)->assertViewHas('outstanding', 1000);
         $this->postJson($path, ['action' => 'restore', 'version' => 4, 'note' => 'Ripristino duplicato'])->assertUnprocessable();
         $this->postJson($path, ['action' => 'receive', 'version' => 4])->assertOk();
         $this->get('/balance')->assertViewHas('grossIncome', 1000)->assertViewHas('operatingNet', 1000)->assertViewHas('cash', 1000)->assertViewHas('outstanding', 0);
         $this->get('/reports')->assertViewHas('operatingNet', 1000)->assertViewHas('cash', 1000)->assertViewHas('spent', 0);
         $this->assertSame($original, PaymentEntry::oldest('id')->first()->getAttributes());
-        $this->assertDatabaseHas('payment_entries', ['kind' => 'recollection', 'amount_cents' => 0, 'cash_amount_cents' => 1000]);
+        $this->assertDatabaseHas('payment_entries', ['kind' => 'receipt', 'amount_cents' => 1000, 'cash_amount_cents' => 1000]);
         $this->assertDatabaseCount('payment_entries', 5);
         $this->assertDatabaseCount('expenses', 0);
         $this->postJson($path, ['action' => 'receive', 'version' => 5])->assertUnprocessable();
@@ -260,7 +260,7 @@ class BalanceAccountingTest extends TestCase
         $this->postJson(route('pending.settle', $account), ['version' => 2, 'amount' => '10', 'submission_key' => (string) Str::uuid()])->assertConflict();
         $this->postJson($path, ['action' => 'refund', 'version' => 2, 'note' => 'Non ricevuto'])->assertUnprocessable();
         $this->postJson($path, ['action' => 'restore', 'version' => 2, 'note' => 'Ripristino autorizzato'])->assertOk();
-        $this->assertSame('open', $account->fresh()->state);
+        $this->assertSame('cancelled', $account->fresh()->state);
         $this->get('/balance?ledger=reversed')->assertViewHas('operatingNet', 0)->assertViewHas('cash', 0)->assertViewHas('outstanding', 1000)
             ->assertSee('Ripristinato il');
         $this->assertDatabaseCount('payment_entries', 0);
@@ -279,14 +279,14 @@ class BalanceAccountingTest extends TestCase
         $this->postJson($path, ['action' => 'reverse', 'version' => 2, 'note' => 'Storno parziale incassato'])->assertOk();
         $this->get('/balance')->assertViewHas('operatingNet', 0)->assertViewHas('cash', 0)->assertViewHas('pendingIncoming', 0);
         $this->postJson($path, ['action' => 'restore', 'version' => 3, 'note' => 'Ripristino'])->assertOk();
-        $this->get('/balance')->assertViewHas('operatingNet', 400)->assertViewHas('cash', 0)->assertViewHas('outstanding', 1000)->assertViewHas('pendingIncoming', 0);
+        $this->get('/balance')->assertViewHas('operatingNet', 0)->assertViewHas('cash', 0)->assertViewHas('outstanding', 1000)->assertViewHas('pendingIncoming', 0);
         $this->assertSame('cancelled', $account->fresh()->state);
         $this->postJson($path, ['action' => 'receive', 'version' => 4])->assertOk();
         $this->postJson($path, ['action' => 'reverse', 'version' => 5, 'note' => 'Secondo ciclo'])->assertOk();
         $this->get('/balance')->assertViewHas('operatingNet', 0)->assertViewHas('cash', 0);
         $this->postJson($path, ['action' => 'restore', 'version' => 6, 'note' => 'Secondo ripristino'])->assertOk();
-        $this->get('/balance')->assertViewHas('grossIncome', 1000)->assertViewHas('restorationTotal', 1400)->assertViewHas('reversalTotal', 1400)
-            ->assertViewHas('operatingNet', 1000)->assertViewHas('cash', 0)->assertViewHas('outstanding', 1000);
+        $this->get('/balance')->assertViewHas('grossIncome', 0)->assertViewHas('restorationTotal', 0)->assertViewHas('reversalTotal', 0)
+            ->assertViewHas('operatingNet', 0)->assertViewHas('cash', 0)->assertViewHas('outstanding', 1000);
         $settlement = PendingSettlement::oldest('id')->first();
         $this->patchJson(route('pending.settlements.update', [$account, $settlement]), ['version' => $account->fresh()->version, 'amount' => '3', 'reason' => 'Non riscrivere lo storico'])->assertConflict();
     }
@@ -307,11 +307,11 @@ class BalanceAccountingTest extends TestCase
         $this->postJson(route('payments.store', $orders[1]), ['action' => 'restore', 'version' => 3, 'note' => 'Conferma'])->assertOk();
         foreach ([['from' => '2026-10-18', 'to' => '2026-10-18'], ['from' => '2026-10-12', 'to' => '2026-10-18'], ['month' => '2026-10'], ['year' => 2026]] as $period) {
             $query = http_build_query([...$period, 'customer_ids' => [$customers[0]->slug, $customers[1]->slug]]);
-            $this->get('/balance?'.$query)->assertViewHas('grossIncome', 3000)->assertViewHas('reversalTotal', 3000)->assertViewHas('restorationTotal', 2000)
-                ->assertViewHas('operatingNet', 2000)->assertViewHas('cash', 0);
+            $this->get('/balance?'.$query)->assertViewHas('grossIncome', 0)->assertViewHas('reversalTotal', 1000)->assertViewHas('restorationTotal', 0)
+                ->assertViewHas('operatingNet', 0)->assertViewHas('cash', 0);
         }
         $this->get('/balance?customer_id='.$customers[0]->slug)->assertViewHas('operatingNet', 0)->assertViewHas('cash', 0);
-        $this->get('/reports?month=2026-10')->assertViewHas('operatingNet', 11000)->assertViewHas('cash', 9000);
+        $this->get('/reports?month=2026-10')->assertViewHas('operatingNet', 9000)->assertViewHas('cash', 9000);
     }
 
     public function test_accounting_actions_refuse_unauthorized_roles_and_legacy_uncertain_balances_without_writes(): void
@@ -355,11 +355,11 @@ class BalanceAccountingTest extends TestCase
         $this->postJson($path, ['action' => 'restore', 'version' => 3, 'note' => 'Compensazione di novembre'])->assertOk();
         $this->get('/balance?month=2026-09&ledger=recorded')->assertViewHas('grossIncome', 1000)->assertViewHas('operatingNet', 1000)
             ->assertViewHas('recordedOrders', fn ($rows): bool => $rows->total() === 0);
-        $this->get('/balance?month=2026-10')->assertViewHas('grossIncome', 0)->assertViewHas('reversalTotal', 1000)->assertViewHas('operatingNet', -1000);
-        $this->get('/balance?month=2026-11&ledger=reversed')->assertViewHas('grossIncome', 0)->assertViewHas('restorationTotal', 1000)
-            ->assertViewHas('operatingNet', 1000)->assertViewHas('cash', 0)->assertSee('Compensazione di novembre');
-        $this->get('/balance?year=2026')->assertViewHas('grossIncome', 1000)->assertViewHas('reversalTotal', 1000)->assertViewHas('restorationTotal', 1000)->assertViewHas('operatingNet', 1000)->assertViewHas('cash', 0);
-        $this->get('/reports?month=2026-11')->assertViewHas('operatingNet', 1000)->assertViewHas('cash', 0);
+        $this->get('/balance?month=2026-10')->assertViewHas('grossIncome', -1000)->assertViewHas('reversalTotal', 0)->assertViewHas('operatingNet', -1000);
+        $this->get('/balance?month=2026-11&ledger=reversed')->assertViewHas('grossIncome', 0)->assertViewHas('restorationTotal', 0)
+            ->assertViewHas('operatingNet', 0)->assertViewHas('cash', 0)->assertSee('Compensazione di novembre');
+        $this->get('/balance?year=2026')->assertViewHas('grossIncome', 0)->assertViewHas('reversalTotal', 0)->assertViewHas('restorationTotal', 0)->assertViewHas('operatingNet', 0)->assertViewHas('cash', 0);
+        $this->get('/reports?month=2026-11')->assertViewHas('operatingNet', 0)->assertViewHas('cash', 0);
         $this->assertNull($order->fresh()->paid_at);
         $this->assertTrue($originalDate->equalTo(PaymentEntry::oldest('id')->first()->created_at));
         AccountingControl::first()->forceFill(['closed_through' => '2026-11-03'])->save();

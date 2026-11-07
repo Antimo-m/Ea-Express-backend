@@ -1,3 +1,5 @@
+import { cancelToast, expireToast } from './toast-feedback';
+
 let refresh = Promise.resolve();
 
 export function workspaceFeedback(message, { error = false, retry } = {}) {
@@ -8,6 +10,8 @@ export function workspaceFeedback(message, { error = false, retry } = {}) {
         (document.querySelector('main') || document.body).prepend(notice);
     }
     notice.className = `workspace-feedback alert ${error ? 'alert-warning' : 'alert-success'}`;
+    cancelToast(notice);
+    notice.hidden = false;
     notice.setAttribute('role', error ? 'alert' : 'status');
     notice.replaceChildren(document.createTextNode(message));
     if (retry) {
@@ -20,6 +24,13 @@ export function workspaceFeedback(message, { error = false, retry } = {}) {
             catch { button.disabled = false; }
         });
         notice.append(button);
+    } else {
+        const close = document.createElement('button');
+        close.type = 'button'; close.className = 'btn-close';
+        close.setAttribute('aria-label', 'Chiudi messaggio');
+        close.addEventListener('click', () => { cancelToast(notice); notice.remove(); });
+        notice.append(close);
+        expireToast(notice);
     }
 }
 

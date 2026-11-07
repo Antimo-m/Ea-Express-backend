@@ -5,7 +5,7 @@
             <div class="register-table-wrap"><table class="table register-table accounting-table" data-table-static><thead><tr><th scope="col">Ordine e cliente</th><th scope="col">Data e operatore</th><th scope="col" class="text-end">Rettifica storica</th><th scope="col">Verifica</th></tr></thead><tbody>
             @foreach($legacyReversals as $entry)<tr><td><a class="register-primary" href="{{ route('orders.show', $entry->order) }}">{{ $entry->order->displayName() }}</a><span class="register-reference">{{ $entry->order->reference }}</span><span class="register-note">{{ $entry->note }}</span></td><td>{{ $entry->created_at->timezone('Europe/Rome')->format('d/m/Y H:i') }}<small class="register-note">{{ $entry->user->name }}</small></td><td class="register-amount text-end">{{ \App\Support\Money::format($entry->amount_cents) }}</td><td><span class="status-pill tone-orange">Storico da riconciliare</span><a class="register-note" href="{{ route('audits.index', ['type' => 'orders', 'slug' => $entry->order->slug]) }}">Verifica incasso, storno e ripristino</a></td></tr>@endforeach
             </tbody></table></div>
-            {{ $legacyReversals->links('components.ui.pagination', ['descriptive' => true, 'numbered' => true]) }}
+            {{ $legacyReversals->links('components.ui.pagination', ['compact' => true]) }}
         </x-ui.data-panel>
     @endif
     @if($reversedOrders->total())
@@ -27,7 +27,7 @@
             @endunless
             @if(auth()->user()->role === \App\UserRole::Admin)<x-ui.icon-button action="history" label="Storico modifiche" :href="route('audits.index', ['type' => 'expenses', 'slug' => $expense->slug])" />@endif
         </div></td></tr>@empty<tr><td colspan="5" class="register-empty">Nessuna spesa nel periodo.</td></tr>@endforelse</tbody></table></div>
-        {{ $expenses->links('components.ui.pagination', ['descriptive' => true, 'numbered' => true]) }}
+        {{ $expenses->links('components.ui.pagination', ['compact' => true]) }}
     </x-ui.data-panel>
 @elseif($ledger === 'cash' && auth()->user()->role === \App\UserRole::Admin)
     <x-ui.data-panel id="cash-register" title="Contanti e altre categorie" :count="$manualEntries->total()" description="Categorie separate per origine del movimento. Gli incassi delle spedizioni, le spese e gli storni hanno registri dedicati.">
@@ -51,7 +51,7 @@
                 <td><x-ui.icon-button action="open" label="Gestisci sospeso" :href="route('pending.index', ['slug' => $account->slug, 'direction' => $account->direction])" /></td>
             </tr>@empty<tr><td colspan="5" class="register-empty">Nessuna posizione sospesa corrisponde ai filtri.</td></tr>@endforelse</tbody>
         </table></div>
-        {{ $pendingEntries->links('components.ui.pagination', ['descriptive' => true, 'numbered' => true]) }}
+        {{ $pendingEntries->links('components.ui.pagination', ['compact' => true]) }}
     </x-ui.data-panel>
 @else
     <x-ui.data-panel title="Incassi e rettifiche" :count="$payments->total()" description="Ogni movimento appartiene alla propria data di registrazione. Storni e ripristini contabili non muovono denaro; i rimborsi pagati sono separati.">
@@ -61,6 +61,6 @@
                 @include('balance.payment-entries', ['entries' => $category['entries']])
             </section>
         @empty<p class="register-empty">Nessun movimento delle spedizioni nel periodo.</p>@endforelse
-        @if($generalEntries->total())<div class="register-subheading"><h3>Pagamenti ricevuti senza ordine</h3><p>Già inclusi nelle entrate registrate: {{ \App\Support\Money::format($generalReceipts) }}.</p></div><div class="register-table-wrap"><table class="table register-table" data-table-static><thead><tr><th scope="col">Origine del pagamento</th><th scope="col">Data e operatore</th><th scope="col" class="text-end">Importo</th></tr></thead><tbody>@foreach($generalEntries as $entry)<tr><td><strong class="register-primary">{{ $entry->account->subject }}</strong><span class="register-note">{{ $entry->account->description }}</span>@if(auth()->user()->role === \App\UserRole::Admin)<a class="register-note" href="{{ route('pending.index', ['slug' => $entry->account->slug]) }}">Apri sospeso</a>@endif</td><td>{{ $entry->created_at->timezone('Europe/Rome')->format('d/m/Y H:i') }}<small class="register-note">{{ $entry->user?->name }}</small></td><td class="text-end"><x-ui.signed-money :amount="$entry->amount_cents" /></td></tr>@endforeach</tbody></table></div>{{ $generalEntries->links('components.ui.pagination', ['descriptive' => true, 'numbered' => true]) }}@endif
+        @if($generalEntries->total())<div class="register-subheading"><h3>Pagamenti ricevuti senza ordine</h3><p>Già inclusi nelle entrate registrate: {{ \App\Support\Money::format($generalReceipts) }}.</p></div><div class="register-table-wrap"><table class="table register-table" data-table-static><thead><tr><th scope="col">Origine del pagamento</th><th scope="col">Data e operatore</th><th scope="col" class="text-end">Importo</th></tr></thead><tbody>@foreach($generalEntries as $entry)<tr><td><strong class="register-primary">{{ $entry->account->subject }}</strong><span class="register-note">{{ $entry->account->description }}</span>@if(auth()->user()->role === \App\UserRole::Admin)<a class="register-note" href="{{ route('pending.index', ['slug' => $entry->account->slug]) }}">Apri sospeso</a>@endif</td><td>{{ $entry->created_at->timezone('Europe/Rome')->format('d/m/Y H:i') }}<small class="register-note">{{ $entry->user?->name }}</small></td><td class="text-end"><x-ui.signed-money :amount="$entry->amount_cents" /></td></tr>@endforeach</tbody></table></div>{{ $generalEntries->links('components.ui.pagination', ['compact' => true]) }}@endif
     </x-ui.data-panel>
 @endif

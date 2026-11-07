@@ -5,4 +5,4 @@
             </x-ui.action-dialog>
             <form method="post" action="{{ route('movements.destroy', $entry) }}" data-financial-form data-confirm="Annulla movimento" data-confirm-name="{{ $entry->description }}">@csrf @method('delete')<input type="hidden" name="version" value="{{ $entry->version }}"><x-ui.icon-button action="delete" label="Annulla movimento" type="submit" /></form>
             @endunless <x-ui.icon-button action="history" label="Storico del movimento" :href="route('audits.index', ['type' => 'financial_movements', 'slug' => $entry->slug])" /></div></td></tr>@empty<tr><td colspan="5" class="register-empty">Nessuna registrazione nel periodo.</td></tr>@endforelse</tbody></table></div>
-        {{ $entries->links('components.ui.pagination', ['descriptive' => true, 'numbered' => true]) }}
+        {{ $entries->links('components.ui.pagination', ['compact' => true]) }}

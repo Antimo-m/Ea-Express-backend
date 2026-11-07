@@ -75,8 +75,13 @@ class WorkspaceUiTest extends TestCase
             PaymentEntry::where('order_id', $order->id)->update(['created_at' => $order->created_at]);
         }
 
-        foreach (['balance', 'pending', 'customers', 'rates', 'reports', 'orders/in-progress', 'orders/history', 'orders/incoming', 'pickups/grouped'] as $path) {
-            $page = $this->get('/'.$path)->assertOk()->assertSee('aria-label="Ripristina filtri"', false);
+        foreach (['balance', 'pending', 'customers', 'rates', 'reports', 'orders/in-progress', 'orders/history', 'orders/incoming', 'pickups'] as $path) {
+            $page = $this->get('/'.$path)->assertOk();
+            if ($path === 'pickups') {
+                $page->assertSee('data-pickup-calendar', false);
+            } else {
+                $page->assertSee('aria-label="Ripristina filtri"', false);
+            }
             if (getenv('EA_UI_CAPTURE')) {
                 file_put_contents('/private/tmp/ea-ui-final/'.str_replace('/', '-', $path).'.html', $page->getContent());
             }

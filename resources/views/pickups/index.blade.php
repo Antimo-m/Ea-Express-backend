@@ -1,7 +1,7 @@
 <x-app-layout title="Agenda ritiri">
     <header class="page-heading">
         <div><span class="eyebrow">EA-Express · AGENDA OPERATIVA</span><h1>Agenda ritiri</h1><p>Consulta i ritiri ancora da effettuare e apri il resoconto di una giornata.</p></div>
-        <div class="row-actions"><a class="btn btn-outline-secondary" href="{{ route('pickups.grouped') }}">Vista raggruppata</a>@if(auth()->user()->role === \App\UserRole::Admin)<x-ui.icon-button action="add" href="{{ route('orders.create') }}" label="Prenota un ritiro" text />@endif</div>
+        @if(auth()->user()->role === \App\UserRole::Admin)<x-ui.icon-button action="add" href="{{ route('orders.create') }}" label="Prenota un ritiro" text />@endif
     </header>
     <section class="pickup-calendar surface" data-live-region="pickup-calendar" data-pickup-calendar aria-labelledby="calendar-month">
         <header class="pickup-calendar-heading">
@@ -26,6 +26,6 @@
                 @else<span class="pickup-calendar-outside" aria-hidden="true"></span>@endif
             </td>@endforeach</tr>@endforeach</tbody>
         </table>
-        <footer class="pickup-calendar-foot"><p>I conteggi includono le richieste ricevute con data di ritiro. Sono esclusi annullati, rifiutati e pacchi già ritirati. Orari e date: Europe/Rome.</p><a class="btn btn-outline-secondary" href="{{ route('pickups.grouped', ['view' => 'overdue']) }}">Arretrati <span class="count-badge">{{ $overdueCount }}</span></a></footer>
+        <footer class="pickup-calendar-foot"><p>I conteggi includono le richieste ricevute con data di ritiro. Sono esclusi annullati, rifiutati e pacchi già ritirati. Orari e date: Europe/Rome.</p></footer>
     </section>
 </x-app-layout>

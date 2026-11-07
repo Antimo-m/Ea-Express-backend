@@ -69,14 +69,15 @@ class ReceiptReconciliationTest extends TestCase
         $this->actingAs($admin)->postJson(route('payments.store', $order), ['action' => 'reconcile', 'version' => 1, 'resolution' => 'refunded', 'confirmed' => true, 'note' => 'Rimborso storico verificato sulla ricevuta'])->assertOk();
         $this->assertNull($order->fresh()->paid_at);
         $this->assertSame(0, app(ReceiptLedger::class)->cash(PaymentEntry::where('order_id', $order->id)));
-        $this->assertSame(2000, (int) $order->payments()->sum('amount_cents'));
-        $this->get('/balance?month=2026-09')->assertViewHas('outstanding', 2000)->assertDontSee('Storico da riconciliare');
+        $this->assertSame(0, (int) $order->payments()->sum('amount_cents'));
+        $this->get('/balance?month=2026-09')->assertViewHas('outstanding', 2000)->assertViewHas('grossIncome', 0)
+            ->assertViewHas('finalNet', 0)->assertDontSee('Storico da riconciliare');
 
         $this->postJson(route('payments.store', $order), ['action' => 'receive', 'version' => 2])->assertOk();
 
         $recollection = $order->payments()->latest('id')->first();
-        $this->assertSame('recollection', $recollection->kind);
-        $this->assertSame(0, $recollection->amount_cents);
+        $this->assertSame('receipt', $recollection->kind);
+        $this->assertSame(2000, $recollection->amount_cents);
         $this->assertSame(2000, $recollection->cash_amount_cents);
         $this->assertSame(2000, (int) $order->payments()->sum('amount_cents'));
         $this->assertSame(2000, app(ReceiptLedger::class)->cash(PaymentEntry::where('order_id', $order->id)));

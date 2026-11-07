@@ -42,7 +42,7 @@ class PublicSlugTest extends TestCase
         $customer = User::factory()->create(['role' => UserRole::Customer]);
         $rider = User::factory()->create(['role' => UserRole::Rider]);
         $order = Order::factory()->create(['customer_id' => $customer->id, 'status' => OrderStatus::Accepted]);
-        $this->actingAs($admin)->get(route('orders.in-progress', ['customer_id' => $customer->slug]))->assertOk()->assertSee($order->reference);
+        $this->actingAs($admin)->get(route('orders.in-progress', ['customer_id' => $customer->slug]))->assertOk()->assertSee($order->slug);
         $this->get(route('orders.create'))->assertOk()->assertSee('value="'.$customer->slug.'"', false);
         $this->getJson(route('orders.in-progress', ['customer_id' => $customer->id]))->assertUnprocessable()->assertJsonValidationErrors('customer_id');
         $this->get(route('labels.index', ['ids' => [$order->slug]]))->assertOk()->assertSee($order->reference);

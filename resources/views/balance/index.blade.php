@@ -12,7 +12,7 @@
         <section class="finance-statement-section" aria-labelledby="operating-heading">
             <h3 id="operating-heading">Risultato operativo</h3>
             <div class="finance-metrics">
-                <x-ui.metric label="Totale lordo" :value="\App\Support\Money::format($grossIncome)" note="Incassi registrati, altre entrate e rettifiche manuali; prima degli storni" icon="arrow-down-left" tone="positive" />
+                <x-ui.metric label="Totale lordo" :value="\App\Support\Money::format($grossIncome)" note="Incassi registrati, altre entrate e rettifiche; gli incassi stornati sono già esclusi" icon="arrow-down-left" tone="positive" />
                 <x-ui.metric label="Totale spese" :value="\App\Support\Money::format($totalExpenses)" note="Spese e pagamenti effettivi dei debiti" icon="arrow-up-right" />
                 <x-ui.metric label="Totale netto operativo" :value="\App\Support\Money::format($operatingResult)" note="Totale lordo − totale spese" icon="wallet2" />
             </div>
@@ -24,24 +24,24 @@
                 <div><dt>Sospesi in uscita <small>Residui da corrispondere</small></dt><dd>{{ \App\Support\Money::format($pendingOutgoing) }}</dd></div>
                 <div><dt>Differenza sospesi <small>Entrata − uscita</small></dt><dd>{{ \App\Support\Money::format($pendingImpact) }}</dd></div>
             </dl>
-            <p class="register-note">Posizioni sorte nel periodo, con residuo aggiornato a oggi. Non sono denaro incassato e non si sommano al risultato finale. I pagamenti effettivi compaiono una sola volta negli incassi o nelle spese.</p>
+            <p class="register-note">Posizioni sorte nel periodo, con residuo aggiornato a oggi. Solo la differenza ancora da regolare si somma al risultato finale: gli importi già pagati sono esclusi dai residui e compaiono una sola volta negli incassi o nelle spese.</p>
         </section>
         <section class="finance-statement-section" aria-labelledby="cash-heading">
             <h3 id="cash-heading">Contanti</h3>
-            <dl class="statement-lines"><div><dt>Saldo movimenti Contanti <small>Soltanto operazioni classificate come Contanti</small></dt><dd>{{ \App\Support\Money::format($cashMovementBalance) }}</dd></div></dl>
-            <p class="register-note">Incassi delle spedizioni, spese e rimborsi sono esclusi da questa voce. Gli apporti di cassa non sono ricavi e non si sommano al risultato economico.</p>
+            <dl class="statement-lines"><div><dt>Contanti disponibili</dt><dd>{{ \App\Support\Money::format($cashMovementBalance) }}</dd></div></dl>
+            <p class="register-note">Movimenti classificati come Contanti, aggiunti una sola volta al totale finale. Gli incassi delle spedizioni sono già nel risultato operativo e non aumentano questa voce.</p>
         </section>
         <section class="finance-statement-section" aria-labelledby="final-heading">
             <h3 id="final-heading">Risultato finale</h3>
             <article class="metric-tile statement-net">
                 <header><span>Totale netto finale</span><x-ui.icon name="wallet2" /></header>
                 <div class="finance-final-value"><strong class="metric-tile-value">{{ \App\Support\Money::format($finalNet) }}</strong><span class="delivery-count-badge" aria-label="{{ $deliveredCount }} consegne effettuate nel periodo" title="Consegne effettuate nel periodo">{{ $deliveredCount }}</span></div>
-                <p>Netto operativo − storni + ripristini. Il badge conta le spedizioni effettivamente consegnate, anche quando il relativo incasso è stato stornato.</p>
+                <p>Totale netto operativo + differenza sospesi + contanti disponibili. Il badge conta le spedizioni effettivamente consegnate, anche quando il relativo incasso è stato stornato.</p>
             </article>
             <dl class="statement-lines finance-corrections">
-                <div><dt>Storni contabilizzati</dt><dd>{{ \App\Support\Money::format(-$reversalTotal) }}</dd></div>
-                @if($restorationTotal)<div><dt>Ripristini contabili</dt><dd>{{ \App\Support\Money::format($restorationTotal) }}</dd></div>@endif
+                <div><dt>Storni <small>Attivi e non ancora ripristinati, aggiornati a oggi</small></dt><dd>{{ \App\Support\Money::format($reversalTotal) }}</dd></div>
             </dl>
+            <p class="register-note">Gli storni sono informativi: gli incassi annullati sono già esclusi dal lordo e non vengono sottratti di nuovo. Il ripristino riporta l’incasso Da registrare, senza aumentare le entrate.</p>
         </section>
         <p class="register-note statement-policy">Ogni movimento incide nel proprio periodo di registrazione. Il valore del pacco non è un ricavo. {{ count($selectedCustomerSlugs) ? 'Le spese generali senza account sono escluse dalla selezione.' : 'Gli importi includono tutti gli account e le spese generali.' }}</p>
         <p class="register-note statement-policy">Flusso effettivo degli incassi: <strong>{{ \App\Support\Money::format($cash) }}</strong> · rimborsi pagati nel periodo: {{ \App\Support\Money::format($refundTotal) }}. Lo storno rettifica il netto e registra anche il rimborso già effettuato; il denaro non viene sottratto due volte. I movimenti storici privi di classificazione conservano il saldo precedente e richiedono riconciliazione.</p>

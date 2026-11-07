@@ -64,7 +64,7 @@ export function bindFinancialForms(root = document) {
     const saved = sessionStorage.getItem('ea:financial-feedback');
     if (saved && root.querySelector('[data-financial-form]')) {
         sessionStorage.removeItem('ea:financial-feedback');
-        const notice = document.createElement('p'); notice.className = 'alert alert-success'; notice.setAttribute('role', 'status'); notice.textContent = saved;
+        const notice = document.createElement('p'); notice.className = 'alert alert-success'; notice.dataset.toast = ''; notice.setAttribute('role', 'status'); notice.textContent = saved;
         (root.querySelector('main') || root).prepend(notice);
     }
 }

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Order;
 use App\Models\User;
 use App\OrderStatus;
+use App\Support\DeliveryDeadline;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -28,33 +29,18 @@ class OperationalRevisionTest extends TestCase
         return $order;
     }
 
-    public function test_backlog_is_distinct_and_disappears_after_delivery_with_historical_delay_preserved(): void
+    public function test_unfinished_orders_and_later_completions_remain_in_the_programmed_period(): void
     {
-        $this->travelTo(Carbon::parse('2026-09-28 16:00', 'Europe/Rome'));
+        $this->travelTo(Carbon::parse('2026-10-06 12:00', 'Europe/Rome'));
         $admin = $this->admin();
         $order = $this->order($admin);
-        $this->actingAs($admin)->getJson('/rider-operations/feed?period=today')->assertJsonPath('summary.total', 1)->assertJsonPath('summary.overdue', 0);
-        $this->travelTo(Carbon::parse('2026-09-29 12:00', 'Europe/Rome'));
-        $this->postJson('/orders/'.$order->slug.'/delay', ['version' => 1])->assertOk();
-        $this->travelTo(Carbon::parse('2026-10-06 12:00', 'Europe/Rome'));
-        $this->getJson('/rider-operations/feed?period=today')->assertJsonPath('summary.total', 0)->assertJsonPath('summary.overdue', 1)->assertJsonPath('summary.backlog', 1)->assertJsonPath('summary.riders', 1)->assertJsonPath('summary.zones', 1);
-        $this->get('/rider-operations/detail?period=today&scope=late')->assertSee('Negozio Rossi')->assertSee('Dettaglio ordine')->assertViewHas('orders', fn ($orders) => $orders->total() === 1);
-        $this->getJson('/rider-operations/feed?date=2026-09-29')->assertJsonPath('summary.overdue', 1);
-        $directory = getenv('EA_UI_FIXTURE_DIR');
-        if ($directory) {
-            file_put_contents($directory.'/backlog-day.html', $this->get('/rider-operations?period=today&view=rider')->getContent());
-            file_put_contents($directory.'/backlog-before.json', $this->getJson('/rider-operations/feed?period=today')->getContent());
-            file_put_contents($directory.'/backlog-orders.html', $this->get('/rider-operations/detail?period=today&scope=late')->getContent());
-        }
+        $this->actingAs($admin)->getJson('/rider-operations/feed?period=today')->assertJsonPath('summary.total', 0)->assertJsonMissingPath('summary.overdue')->assertJsonMissingPath('summary.backlog');
+        $this->getJson('/rider-operations/feed?date=2026-09-28')->assertJsonPath('summary.total', 1)->assertJsonPath('summary.pending', 1);
         $order->forceFill(['status' => OrderStatus::Delivered, 'delivered_at' => now()])->save();
         $order->events()->create(['user_id' => $admin->id, 'rider_id' => $admin->id, 'status' => OrderStatus::Delivered]);
-        $this->getJson('/rider-operations/feed?period=today')->assertJsonPath('summary.overdue', 0)->assertJsonPath('summary.backlog', 0);
-        if ($directory) {
-            file_put_contents($directory.'/backlog-after.json', $this->getJson('/rider-operations/feed?period=today')->getContent());
-        }
-        $this->getJson('/rider-operations/feed?date=2026-09-29')->assertJsonPath('summary.overdue', 1);
-        $this->get('/orders/'.$order->slug)->assertSee('Ritardo segnalato');
-        $this->get('/rider-operations/detail?date=2026-09-28')->assertSee('28/09/2026 23:59')->assertDontSee('Ritardo segnalato dal Rider');
+        $this->getJson('/rider-operations/feed?period=today')->assertJsonPath('summary.total', 0);
+        $this->getJson('/rider-operations/feed?date=2026-09-28')->assertJsonPath('summary.total', 1)->assertJsonPath('summary.delivered', 1)->assertJsonPath('summary.pending', 0);
+        $this->get('/rider-operations/detail?date=2026-09-28')->assertSee('28/09/2026 23:59')->assertSee('06/10/2026 12:00');
     }
 
     #[TestWith(['accepted'])]
@@ -65,24 +51,24 @@ class OperationalRevisionTest extends TestCase
     #[TestWith(['out_for_delivery'])]
     #[TestWith(['delivery_issue'])]
     #[TestWith(['delivery_attempted'])]
-    public function test_all_operational_workflow_states_can_have_manual_delay_reports(string $status): void
+    public function test_all_open_workflow_states_are_counted_only_in_the_programmed_period(string $status): void
     {
         $this->travelTo(Carbon::parse('2026-09-29 12:00', 'Europe/Rome'));
         $admin = $this->admin();
         $order = $this->order($admin, OrderStatus::from($status));
-        $this->actingAs($admin)->postJson('/orders/'.$order->slug.'/delay', ['version' => 1])->assertOk();
-        $this->getJson('/rider-operations/feed')->assertJsonPath('summary.overdue', 1)->assertJsonPath('summary.backlog', 1)->assertJsonPath('summary.riders', 1)->assertJsonPath('summary.zones', 1);
+        $this->actingAs($admin)->getJson('/rider-operations/feed?date=2026-09-28')->assertJsonPath('summary.pending', 1)->assertJsonPath('summary.active', 1)->assertJsonPath('summary.riders', 1)->assertJsonPath('summary.zones', 1);
+        $this->getJson('/rider-operations/feed?period=today')->assertJsonPath('summary.total', 0);
     }
 
     #[TestWith(['delivered'])]
     #[TestWith(['cancelled'])]
     #[TestWith(['rejected'])]
-    public function test_terminal_states_are_not_active_delays(string $status): void
+    public function test_terminal_states_are_not_pending_or_awaiting_assignment(string $status): void
     {
         $this->travelTo(Carbon::parse('2026-10-06 12:00', 'Europe/Rome'));
         $admin = $this->admin();
         $this->order($admin, OrderStatus::from($status));
-        $this->actingAs($admin)->getJson('/rider-operations/feed')->assertJsonPath('summary.overdue', 0);
+        $this->actingAs($admin)->getJson('/rider-operations/feed?date=2026-09-28')->assertJsonPath('summary.total', 1)->assertJsonPath('summary.active', 0)->assertJsonPath('summary.pending', 0)->assertJsonPath('summary.unassigned', 0);
     }
 
     public function test_authorized_eta_and_original_deadline_survive_later_updates(): void
@@ -93,30 +79,23 @@ class OperationalRevisionTest extends TestCase
         $order->events()->create(['user_id' => $admin->id, 'rider_id' => $admin->id, 'status' => OrderStatus::PickedUp]);
         $this->actingAs($admin)->patchJson('/orders/'.$order->slug, ['version' => 1, 'status' => 'rescheduled', 'estimated_at' => '2026-10-02T16:00', 'note' => 'Accordo cliente'])->assertOk();
         $this->assertSame('2026-09-28T21:59:59.999999Z', $order->events()->latest('id')->first()->schedule_change['before']['deadline_at']);
-        $this->travelTo(Carbon::parse('2026-10-02 15:59', 'Europe/Rome'));
-        $this->getJson('/rider-operations/feed')->assertJsonPath('summary.overdue', 0);
         $this->patchJson('/orders/'.$order->slug, ['version' => 2, 'status' => 'out_for_delivery'])->assertOk();
         $this->travelTo(Carbon::parse('2026-10-02 16:01', 'Europe/Rome'));
-        $this->getJson('/rider-operations/feed')->assertJsonPath('summary.overdue', 0);
-        $this->postJson('/orders/'.$order->slug.'/delay', ['version' => 3])->assertOk();
-        $this->getJson('/rider-operations/feed')->assertJsonPath('summary.overdue', 1);
-        $this->getJson('/rider-operations/feed?date=2026-09-28')->assertJsonPath('summary.overdue', 0);
-        $this->getJson('/rider-operations/feed?date=2026-09-29')->assertJsonPath('summary.overdue', 0);
+        $this->getJson('/rider-operations/feed')->assertJsonPath('summary.total', 0);
+        $this->getJson('/rider-operations/feed?date=2026-09-28')->assertJsonPath('summary.total', 1);
+        $this->get('/rider-operations/detail?date=2026-09-28')->assertSee('28/09/2026 23:59');
+        $this->assertSame('02/10/2026 16:00', app(DeliveryDeadline::class)->forOrder($order->fresh())['label']);
     }
 
-    public function test_missing_delivery_dates_are_reported_without_inventing_lateness(): void
+    public function test_orders_without_delivery_dates_still_render_without_monitoring_warnings(): void
     {
-        $this->travelTo(Carbon::parse('2026-10-06 12:00', 'Europe/Rome'));
+        $this->travelTo(Carbon::parse('2026-09-28 12:00', 'Europe/Rome'));
         $admin = $this->admin();
         $order = $this->order($admin);
         $order->forceFill(['estimated_delivery_to' => null])->save();
-        $order->events()->create(['user_id' => $admin->id, 'status' => OrderStatus::Received, 'schedule_change' => ['before' => null, 'after' => $order->pickupSchedule()]]);
-        $this->actingAs($admin)->getJson('/rider-operations/feed')->assertJsonPath('summary.total', 0)->assertJsonPath('summary.overdue', 0)->assertJsonPath('summary.missing_deadlines', 1);
-        $this->get('/rider-operations')->assertSee('non hanno un termine previsto');
-        $this->get('/rider-operations/'.$admin->slug.'?date=2026-09-28')->assertSee('privi di un termine previsto');
-        $legacy = $this->order($admin, OrderStatus::Rescheduled);
-        $legacy->forceFill(['estimated_delivery_to' => null, 'estimated_at' => now()->subHour()])->save();
-        $this->getJson('/rider-operations/feed')->assertJsonPath('summary.overdue', 0)->assertJsonPath('summary.missing_deadlines', 1);
+        $this->actingAs($admin)->getJson('/rider-operations/feed')->assertJsonPath('summary.total', 1)->assertJsonMissingPath('summary.missing_deadlines');
+        $this->get('/rider-operations')->assertOk()->assertDontSee('non hanno un termine previsto');
+        $this->get('/rider-operations/'.$admin->slug)->assertOk()->assertSee('Negozio Rossi')->assertDontSee('privi di un termine previsto');
     }
 
     public function test_order_navigation_restores_operational_filters_and_rejects_external_return_urls(): void
@@ -124,7 +103,7 @@ class OperationalRevisionTest extends TestCase
         $this->travelTo(Carbon::parse('2026-10-06 12:00', 'Europe/Rome'));
         $admin = $this->admin();
         $order = $this->order($admin);
-        $context = '/rider-operations?period=custom&date=2026-09-29&view=rider&q=Rossi&sort=late&scope=late';
+        $context = '/rider-operations?period=custom&date=2026-09-29&view=rider&q=Rossi&sort=pending';
         $this->actingAs($admin)->get('/orders/'.$order->slug.'?return_to='.urlencode($context))->assertSee('href="'.htmlspecialchars($context, ENT_QUOTES).'"', false);
         $this->get($context)->assertSee('aria-pressed="true">Per Rider', false)->assertSee('value="Rossi"', false);
         $this->get('/orders/'.$order->slug.'?return_to='.urlencode('https://example.test/'))->assertDontSee('href="https://example.test/"', false)->assertSee(route('orders.incoming'));

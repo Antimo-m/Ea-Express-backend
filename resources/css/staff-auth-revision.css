@@ -17,7 +17,6 @@
 .staff-auth .auth-card .form-check-input { margin: 0; float: none; }
 .staff-auth .auth-card .form-check-label { font-size: .78rem; }
 .staff-auth .auth-card .auth-submit { width: 100%; min-height: 44px; margin: 3px 0 0; justify-content: center; font-size: .85rem; }
-.staff-auth .staff-login-help { border-top: 1px solid var(--ea-line); padding-top: 20px; margin: 24px 0 0; text-align: center; color: var(--ea-muted); font-size: .73rem; line-height: 1.75; }
 .staff-auth .auth-footer { margin: 22px 0 0; max-width: 424px; font-size: .68rem; }
 .staff-auth .auth-card .invalid-feedback, .staff-auth .auth-card .field-error { font-size: .75rem; line-height: 1.5; }
 .staff-auth .auth-card button:focus-visible, .staff-auth .auth-card input:focus-visible { outline: 3px solid var(--ea-focus); outline-offset: 3px; }

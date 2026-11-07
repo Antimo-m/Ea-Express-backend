@@ -15,13 +15,14 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
     let browser, server, socket, phpServer;
     let zoneFeedRequests = 0, operationFeedFixture = 'rider-feed.json', operationDetailFixture;
     let financeWrites = 0, financeRejectNext = false;
+    let financePageFailNext = false;
     let batchMode = false, batchStep = 0, batchWrites = 0, failBatchRefresh = false, settingsSaved = false, settingsWrites = 0;
     let chatData, chatWrites = 0, chatRejectNext = false;
     const chatReceipts = [];
     let actionRequests = 0, failNextAction = false, delayOrderRefresh = false;
     try {
         try {
-            execFileSync('php', ['artisan', 'test', '--compact', 'tests/Feature/WorkspacePresentationTest.php', 'tests/Feature/OperationalFlowTest.php', 'tests/Feature/OperationalSurfaceTest.php', 'tests/Feature/OperationalDayTest.php', 'tests/Feature/OperationalRevisionTest.php', 'tests/Feature/GpsRemovalAndZoneOrdersTest.php', 'tests/Feature/PickupCalendarTest.php', 'tests/Feature/BalanceExperienceTest.php', 'tests/Feature/RoundedWorkspaceTest.php', 'tests/Feature/WorkspaceUiTest.php', 'tests/Feature/ManualOrderDelayTest.php', 'tests/Feature/NotificationPresentationTest.php', 'tests/Feature/CustomerDirectoryTest.php', 'tests/Feature/RecipientDetailTest.php', 'tests/Feature/WorkspaceMutationTest.php', 'tests/Feature/ReceiptReconciliationTest.php', 'tests/Feature/FinancialStatementTest.php'], { env: { ...process.env, XDEBUG_MODE: 'off', EA_UI_FIXTURE_DIR: temporary }, stdio: 'pipe' });
+            execFileSync('php', ['artisan', 'test', '--compact', 'tests/Feature/WorkspacePresentationTest.php', 'tests/Feature/OperationalFlowTest.php', 'tests/Feature/OperationalSurfaceTest.php', 'tests/Feature/OperationalDayTest.php', 'tests/Feature/OperationalRevisionTest.php', 'tests/Feature/GpsRemovalAndZoneOrdersTest.php', 'tests/Feature/PickupCalendarTest.php', 'tests/Feature/BalanceExperienceTest.php', 'tests/Feature/RoundedWorkspaceTest.php', 'tests/Feature/WorkspaceUiTest.php', 'tests/Feature/NotificationPresentationTest.php', 'tests/Feature/CustomerDirectoryTest.php', 'tests/Feature/RecipientDetailTest.php', 'tests/Feature/WorkspaceMutationTest.php', 'tests/Feature/ReceiptReconciliationTest.php', 'tests/Feature/FinancialStatementTest.php', 'tests/Feature/LaunchReadinessTest.php'], { env: { ...process.env, XDEBUG_MODE: 'off', EA_UI_FIXTURE_DIR: temporary }, stdio: 'pipe' });
         } catch (error) {
             throw new Error(`Browser fixture generation failed:\n${error.stdout?.toString() || error.message}`, { cause: error });
         }
@@ -93,6 +94,11 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 response.end(request.headers.accept?.includes('application/json')?JSON.stringify(chatData):readFileSync(join(temporary,'rounded-thread.html')).toString().replace(/https?:\/\/localhost(?::\d+)?/g,''));return;
             }
             if (url.pathname === '/balance') {
+                if (url.searchParams.get('q') === 'selezionata') {
+                    if (financePageFailNext) { financePageFailNext = false; response.statusCode = 503; response.end('Temporaneamente non disponibile'); return; }
+                    response.setHeader('Content-Type', 'text/html');
+                    response.end(markup(url.searchParams.get('cash_page') === '2' ? 'finance-manual-categories.html' : 'finance-manual-first.html')); return;
+                }
                 const view=url.searchParams.get('ledger') || 'payments';
                 response.setHeader('Content-Type','text/html');response.end(readFileSync(join(temporary,`finance-${view}.html`)).toString().replace(/https?:\/\/localhost(?::\d+)?/g,''));return;
             }
@@ -324,7 +330,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                     const changed=JSON.parse(originalFeed); changed.zones[0].name='Zona aggiornata realtime';
                     writeFileSync(join(temporary,'rider-feed.json'),JSON.stringify(changed));
                     const requestsBefore=zoneFeedRequests;
-                    await evaluate(`window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
+                    await evaluate(`if(document.querySelector('[data-operations-refresh]')) document.querySelector('[data-operations-refresh]').click(); else window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
                     for(let i=0;i<100;i++){if(await evaluate(`document.querySelector('[data-operations-list]').textContent.includes('Zona aggiornata realtime')`))break;await new Promise(resolve=>setTimeout(resolve,20));}
                     assert.ok(zoneFeedRequests>requestsBefore);
                     assert.ok(await evaluate(`document.querySelector('[data-operations-list]').textContent.includes('Zona aggiornata realtime')`));
@@ -365,12 +371,12 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                         assert.equal(await evaluate(`document.querySelector('[data-operations-view="rider"]').getAttribute('aria-pressed')`),'true');
                         assert.equal(await evaluate(`window.__operationsPage`),'preserved');
                     }
-                    const context = await evaluate(`(()=>{const seed=JSON.parse(document.querySelector('[data-zone-initial]').textContent),search=document.querySelector('[data-operations-search]'),sort=document.querySelector('[data-operations-sort]');search.value=seed.riders.find(rider=>rider.slug).name;search.dispatchEvent(new Event('input',{bubbles:true}));sort.value='volume';sort.dispatchEvent(new Event('change',{bubbles:true}));return {q:search.value,selected:new URL(location.href).searchParams.get('selected')};})()`);
+                    const context = await evaluate(`(()=>{const seed=JSON.parse(document.querySelector('[data-zone-initial]').textContent),search=document.querySelector('[data-operations-search]'),sort=document.querySelector('[data-operations-sort]');search.value=seed.riders.find(rider=>rider.slug).name;search.dispatchEvent(new Event('input',{bubbles:true}));sort.value='delivered';sort.dispatchEvent(new Event('change',{bubbles:true}));return {q:search.value,selected:new URL(location.href).searchParams.get('selected')};})()`);
                     operationFeedFixture='operations-range.json';
                     await evaluate(`document.querySelector('[data-custom-period]').click();const from=document.querySelector('[name="from"]'),to=document.querySelector('[name="to"]');from.value='2026-09-29';from.dispatchEvent(new Event('change',{bubbles:true}));to.value='2026-10-03';to.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('[data-operations-period]').requestSubmit()`);
                     await waitFor(`document.querySelector('.filter-period-caption').textContent==='2026-09-29 – 2026-10-03'`);
                     const interval = await evaluate(`(()=>{const url=new URL(location.href),feed=new URL(document.querySelector('[data-rider-operations]').dataset.feed);return {from:url.searchParams.get('from'),to:url.searchParams.get('to'),feedFrom:feed.searchParams.get('from'),feedTo:feed.searchParams.get('to'),q:url.searchParams.get('q'),selected:url.searchParams.get('selected'),sort:url.searchParams.get('sort'),view:url.searchParams.get('view')};})()`);
-                    assert.deepEqual(interval,{from:'2026-09-29',to:'2026-10-03',feedFrom:'2026-09-29',feedTo:'2026-10-03',q:context.q,selected:context.selected,sort:'volume',view:'rider'});
+                    assert.deepEqual(interval,{from:'2026-09-29',to:'2026-10-03',feedFrom:'2026-09-29',feedTo:'2026-10-03',q:context.q,selected:context.selected,sort:'delivered',view:'rider'});
                     assert.equal(await evaluate(`window.__operationsPage`),'preserved');
                     assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`),`range overflow @${width}`);
                     if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`operations-range-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
@@ -390,7 +396,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                     await evaluate(`document.querySelector('.filter-reset').click()`);
                     await waitFor(`!new URL(location.href).searchParams.has('from') && document.querySelector('[data-custom-dates]').hidden`);
                     assert.equal(await evaluate(`new URL(location.href).searchParams.get('q')`),context.q);
-                    assert.equal(await evaluate(`new URL(location.href).searchParams.get('sort')`),'volume');
+                    assert.equal(await evaluate(`new URL(location.href).searchParams.get('sort')`),'delivered');
                     operationFeedFixture='operations-range.json';
                     await evaluate(`history.pushState(null,'',${JSON.stringify(customUrl)});window.dispatchEvent(new PopStateEvent('popstate'))`);
                     await waitFor(`document.querySelector('.filter-period-caption').textContent==='2026-09-29 – 2026-10-03'`);
@@ -400,39 +406,8 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                     await waitFor(`!new URL(location.href).searchParams.has('from') && document.querySelector('[data-custom-dates]').hidden`);
                     assert.equal(await evaluate(`window.__operationsPage`),'preserved');
                     assert.equal(await evaluate(`new URL(location.href).searchParams.get('selected')`),context.selected);
-                    await evaluate(`window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
+                    await evaluate(`if(document.querySelector('[data-operations-refresh]')) document.querySelector('[data-operations-refresh]').click(); else window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
                     await waitFor(`document.querySelector('[data-operations-view="rider"]').getAttribute('aria-pressed')==='true'`);
-                }
-            } finally { operationFeedFixture='rider-feed.json';operationDetailFixture=undefined; }
-        });
-        await scenario('backlog from earlier days stays separate and updates after delivery at all responsive widths', async () => {
-            try {
-                for(const width of [1440,1280,1024,768,375]) {
-                    operationFeedFixture='backlog-before.json';operationDetailFixture='backlog-orders.html';
-                    await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
-                    await navigate('backlog-day.html?period=today&view=rider');
-                    assert.equal(await evaluate(`document.querySelector('[data-kpi="total"]').textContent`),'0');
-                    assert.equal(await evaluate(`document.querySelector('[data-kpi="backlog"]').textContent`),'1');
-                    await evaluate(`document.querySelector('[data-operations-scope="late"]').click()`);
-                    for(let i=0;i<100;i++){if(await evaluate(`document.querySelector('[data-explorer-orders]')?.textContent.includes('07/10/2026 23:59') && document.querySelector('[data-explorer-orders]').getAttribute('aria-busy')!=='true'`))break;await new Promise(resolve=>setTimeout(resolve,20));}
-                    assert.ok(await evaluate(`document.querySelector('[data-explorer-orders]').textContent.includes('Negozio Rossi')`));
-                    assert.equal(await evaluate(`document.querySelector('[data-rider-gps]')`),null);
-                    assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth`));
-                    if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`backlog-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
-                    operationFeedFixture='backlog-after.json';
-                    await evaluate(`window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
-                    for(let i=0;i<100;i++){if(await evaluate(`document.querySelector('[data-kpi="overdue"]').textContent==='0'`))break;await new Promise(resolve=>setTimeout(resolve,20));}
-                    assert.equal(await evaluate(`document.querySelector('[data-kpi="backlog"]').textContent`),'0');
-                }
-                for(const width of [1440,1280,1024,768,375]) {
-                    await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
-                    await navigate('revision-rider.html');
-                    assert.equal(await evaluate(`document.querySelectorAll('[data-rider-delivery]').length`),20);
-                    assert.equal(await evaluate(`document.querySelectorAll('.workspace-pagination').length`),1);
-                    assert.ok(await evaluate(`document.querySelector('.workspace-pagination').textContent.includes('Pagina 1 di 2')`));
-                    assert.equal(await evaluate(`document.querySelector('[data-rider-gps]')`),null);
-                    assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth`));
-                    if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`revision-rider-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
                 }
             } finally { operationFeedFixture='rider-feed.json';operationDetailFixture=undefined; }
         });
@@ -456,7 +431,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             try {
             for (const width of [1440,1280,768,375]) {
                 await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
-                await navigate('zones-50.html?date=2026-10-07&view=zone&selected=Zona+00&sort=volume');
+                await navigate('zones-50.html?date=2026-10-07&view=zone&selected=Zona+00&sort=delivered');
                 assert.equal(await evaluate(`document.querySelector('[data-explorer-orders]')`), null);
                 assert.ok(await evaluate(`document.querySelector('[data-zone-orders]').textContent.includes('Vai agli ordini')`));
                 assert.equal(await evaluate(`new URL(document.querySelector('[data-zone-orders]').href).searchParams.get('date')`),'2026-10-07');
@@ -508,7 +483,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                         assert.ok(await evaluate(`document.querySelector('.explorer-list').getBoundingClientRect().height<=575`));
                         await evaluate(`document.querySelector('.explorer-item').focus()`);await key('ArrowDown');await key('Enter');
                         assert.equal(await evaluate(`document.querySelector('.explorer-detail h2').textContent`),'Zona 01');
-                        await evaluate(`window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
+                        await evaluate(`if(document.querySelector('[data-operations-refresh]')) document.querySelector('[data-operations-refresh]').click(); else window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
                         await new Promise(resolve=>setTimeout(resolve,150));
                         assert.equal(await evaluate(`document.querySelector('.explorer-detail h2').textContent`),'Zona 01');
                         await evaluate(`const search=document.querySelector('[data-operations-search]');search.value='Zona 00';search.dispatchEvent(new Event('input'))`);
@@ -520,7 +495,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 }
             } finally {writeFileSync(join(temporary,'rider-feed.json'),originalFeed);}
         });
-        await scenario('real daily data updates late counts and cards without GPS or reloading', async () => {
+        await scenario('explicit refresh updates daily delivery counts and cards without GPS or reloading', async () => {
             operationFeedFixture='late-before.json';operationDetailFixture='late-orders-before.html';
             try {
                 for(const width of [1440,1280,1024,768,375]){
@@ -529,7 +504,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                     await navigate('late-day.html?view=rider');
                     let dailySnapshot, settled=0;
                     for(let i=0;i<100;i++){
-                        dailySnapshot=await evaluate(`({undelivered:document.querySelector('[data-kpi="undelivered"]').textContent,orders:document.querySelector('[data-explorer-orders]')?.textContent || '',busy:document.querySelector('[data-explorer-orders]')?.getAttribute('aria-busy')==='true'})`);
+                        dailySnapshot=await evaluate(`({undelivered:document.querySelector('[data-kpi="pending"]').textContent,orders:document.querySelector('[data-explorer-orders]')?.textContent || '',busy:document.querySelector('[data-explorer-orders]')?.getAttribute('aria-busy')==='true'})`);
                         settled=dailySnapshot.undelivered==='4' && dailySnapshot.orders.includes('07/10/2026 23:59') && !dailySnapshot.busy?settled+1:0;
                         if(settled>=3)break;
                         await new Promise(resolve=>setTimeout(resolve,20));
@@ -539,17 +514,17 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                     assert.equal(dailySnapshot.busy,false);
                     await evaluate(`window.__dailyPage='same'`);
                     operationFeedFixture='late-after.json';operationDetailFixture='late-orders-after.html';
-                    await evaluate(`window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
+                    await evaluate(`if(document.querySelector('[data-operations-refresh]')) document.querySelector('[data-operations-refresh]').click(); else window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
                     for(let i=0;i<100;i++){if(await evaluate(`document.querySelector('[data-kpi="delivered"]').textContent==='17'`))break;await new Promise(resolve=>setTimeout(resolve,20));}
-                    assert.equal(await evaluate(`document.querySelector('[data-kpi="undelivered"]').textContent`),'3');
-                    assert.equal(await evaluate(`document.querySelector('[data-kpi="overdue"]').textContent`),'0');
+                    assert.equal(await evaluate(`document.querySelector('[data-kpi="pending"]').textContent`),'3');
+                    assert.equal(await evaluate(`document.querySelector('[data-kpi="overdue"]')`),null);
                     assert.equal(await evaluate(`window.__dailyPage`),'same');
                     assert.equal(await evaluate(`document.querySelector('[data-operational-map]')`),null);
                     if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`late-day-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
                 }
             } finally { operationFeedFixture='rider-feed.json';operationDetailFixture=undefined; }
         });
-        await scenario('operational units expand with keyboard and keep state through realtime refresh', async () => {
+        await scenario('operational units expand with keyboard and keep state through explicit refresh', async () => {
             for (const width of [1440,1280,1024,768,375]) {
                 await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
                 for (const page of ['orders_incoming.html','orders_in-progress.html']) {
@@ -1039,6 +1014,73 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 }
             }
         });
+        await scenario('finance compact pagination keeps filters and browser history without reloading, handles errors and aligns category headings', async () => {
+            const initial = JSON.parse(readFileSync(join(temporary, 'finance-pagination.json'))).initial;
+            const waitFor = async expression => {
+                for (let attempt = 0; attempt < 150; attempt++) {
+                    if (await evaluate(expression)) return;
+                    await new Promise(resolve => setTimeout(resolve, 20));
+                }
+                throw new Error('Finance pagination did not reach '+expression);
+            };
+            for (const width of [320,375,390,430,768,1440]) {
+                await send('Emulation.setDeviceMetricsOverride', { width, height: 1000, deviceScaleFactor: 1, mobile: width < 600 });
+                await navigate(initial);
+                const filters = await evaluate(`(()=>{const url=new URL(location.href);return ['ledger','period','q','customer_ids[0]'].map(name=>url.searchParams.get(name));})()`);
+                assert.ok(await evaluate(`document.querySelector('[data-movement-category="cash"] [aria-label="Pagina precedente"]').disabled`));
+                assert.equal(await evaluate(`document.querySelector('[data-movement-category="cash"] [aria-live]').textContent.trim()`), '1');
+                assert.equal(await evaluate(`document.querySelector('.finance-ledger .pagination-pages')`), null);
+                const padding = await evaluate(`parseFloat(getComputedStyle(document.querySelector('[data-movement-category="cash"] .register-subheading')).paddingLeft)`);
+                assert.equal(padding, width < 576 ? 16 : 20, `category heading padding at ${width}`);
+                assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`));
+                await evaluate(`window.__financePaginationDocument='preserved';document.querySelector('[data-movement-category="cash"] [rel="next"]').focus()`);
+                await key('Enter');
+                await waitFor(`document.querySelector('[data-movement-category="cash"] [data-pagination-page]').dataset.paginationPage==='2' && !document.querySelector('.finance-ledger[aria-busy]')`);
+                assert.equal(await evaluate(`window.__financePaginationDocument`), 'preserved');
+                assert.equal(await evaluate(`document.querySelector('[data-movement-category="cash"] [aria-live]').textContent.trim()`), '2');
+                assert.equal(await evaluate(`document.querySelectorAll('[data-movement-category="cash"] tbody tr').length`), 3);
+                assert.ok(await evaluate(`document.querySelector('[data-movement-category="cash"] [aria-label="Pagina successiva"]').disabled`));
+                assert.deepEqual(await evaluate(`(()=>{const url=new URL(location.href);return ['ledger','period','q','customer_ids[0]'].map(name=>url.searchParams.get(name));})()`), filters);
+                await evaluate(`history.back()`);
+                await waitFor(`new URL(location.href).searchParams.get('cash_page')==='1' && document.querySelector('[data-movement-category="cash"] [data-pagination-page]').dataset.paginationPage==='1' && !document.querySelector('.finance-ledger[aria-busy]')`);
+                assert.equal(await evaluate(`window.__financePaginationDocument`), 'preserved');
+                await evaluate(`history.forward()`);
+                await waitFor(`new URL(location.href).searchParams.get('cash_page')==='2' && document.querySelector('[data-movement-category="cash"] [data-pagination-page]').dataset.paginationPage==='2' && !document.querySelector('.finance-ledger[aria-busy]')`);
+                assert.equal(await evaluate(`window.__financePaginationDocument`), 'preserved');
+                await evaluate(`document.querySelector('[data-movement-category="cash"] [rel="prev"]').click()`);
+                await waitFor(`document.querySelector('[data-movement-category="cash"] [data-pagination-page]').dataset.paginationPage==='1' && !document.querySelector('.finance-ledger[aria-busy]')`);
+            }
+            financePageFailNext = true;
+            await evaluate(`document.querySelector('[data-movement-category="cash"] [rel="next"]').click()`);
+            await waitFor(`!!document.querySelector('[data-workspace-feedback].alert-warning') && !document.querySelector('.finance-ledger[aria-busy]')`);
+            assert.equal(await evaluate(`document.querySelector('[data-movement-category="cash"] [data-pagination-page]').dataset.paginationPage`), '1');
+            assert.equal(await evaluate(`new URL(location.href).searchParams.get('cash_page')`), '1');
+            await evaluate(`document.querySelector('[data-workspace-feedback] button').click()`);
+            await waitFor(`document.querySelector('[data-movement-category="cash"] [data-pagination-page]').dataset.paginationPage==='2' && !document.querySelector('.finance-ledger[aria-busy]')`);
+            assert.equal(await evaluate(`window.__financePaginationDocument`), 'preserved');
+        });
+        await scenario('staff 404 centers on every requested width, counts down, cleans timers and redirects to its own home', async () => {
+            for (const width of [320,375,390,430,768,1440]) {
+                await send('Emulation.setDeviceMetricsOverride', { width, height: 1000, deviceScaleFactor: 1, mobile: width < 600 });
+                await navigate('not-found.html');
+                assert.equal(await evaluate(`document.querySelector('h1').textContent`), 'Error Not Found 404');
+                assert.equal(await evaluate(`document.querySelector('[data-not-found-countdown]').textContent`), '5');
+                assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`));
+                assert.ok(await evaluate(`(()=>{const r=document.querySelector('[data-not-found]').getBoundingClientRect();return Math.abs((r.left+r.right)/2-innerWidth/2)<2&&Math.abs((r.top+r.bottom)/2-innerHeight/2)<2;})()`), `404 centered at ${width}`);
+            }
+            await new Promise(resolve => setTimeout(resolve, 1150));
+            assert.equal(await evaluate(`document.querySelector('[data-not-found-countdown]').textContent`), '4');
+            await evaluate(`window.dispatchEvent(new PageTransitionEvent('pagehide'))`);
+            await new Promise(resolve => setTimeout(resolve, 1150));
+            assert.equal(await evaluate(`document.querySelector('[data-not-found-countdown]').textContent`), '4');
+            await evaluate(`window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}))`);
+            assert.equal(await evaluate(`document.querySelector('[data-not-found-countdown]').textContent`), '5');
+            for (let attempt = 0; attempt < 200; attempt++) {
+                if (await evaluate(`location.pathname==='/dashboard' && document.readyState==='complete'`)) break;
+                await new Promise(resolve => setTimeout(resolve, 30));
+            }
+            assert.equal(await evaluate(`location.pathname`), '/dashboard');
+        });
         await scenario('balance operation chooser keeps one modal, preserves failed values and filters, prevents double submission and exposes contextual receipts', async () => {
             for(const width of [320,375,768,1024,1440]) {
                 await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
@@ -1125,7 +1167,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 await new Promise(resolve=>setTimeout(resolve,200));
                 if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`pickup-calendar-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true})).data,'base64'));
                 await navigate('pickups/day?date=2026-10-17');
-                assert.equal(await evaluate(`document.querySelectorAll('.pickup-order-card').length`),20);
+                assert.equal(await evaluate(`document.querySelectorAll('.pickup-order-card').length`),26);
                 assert.equal(await evaluate(`document.querySelector('[data-pickup-day-total]').textContent`),'47');
                 assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`),`daily report overflow ${width}`);
                 assert.match(await evaluate(`document.querySelector('.pickup-order-card [data-order-link]').getAttribute('href')`),/\/orders\/[0-9a-f-]{36}$/);
@@ -1146,7 +1188,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             assert.match(await evaluate(`location.search`),/date=2026-10-17&page=2/);
             assert.equal(await evaluate(`document.querySelectorAll('.pickup-order-card').length`),20);
             await follow('[aria-label="Pagina successiva"]');
-            assert.equal(await evaluate(`document.querySelectorAll('.pickup-order-card').length`),7);
+            assert.equal(await evaluate(`document.querySelectorAll('.pickup-order-card').length`),1);
             assert.equal(await evaluate(`document.querySelector('[data-pickup-day-total]').textContent`),'47');
             await follow('.page-back a');
             assert.equal(await evaluate(`new URLSearchParams(location.search).get('month')`),'2026-10');
@@ -1193,25 +1235,6 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 await evaluate(`document.documentElement.dataset.eaTheme='light'`);
                 await new Promise(resolve=>setTimeout(resolve,200));
                 if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`portal-dashboard-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true})).data,'base64'));
-            }
-        });
-        await scenario('manual delay controls keep role permissions, persistent history and correction forms readable at every requested width', async () => {
-            for (const width of [320,360,375,390,430,768,1024,1440]) {
-                await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});
-                await navigate('delay-rider-unreported.html');
-                assert.equal(await evaluate(`document.querySelector('.order-delay-panel button[type="submit"]').textContent.trim()`),'Segnala ritardo');
-                assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`),`delay action overflow at ${width}`);
-                await navigate('delay-rider-reported.html');
-                assert.ok(await evaluate(`document.querySelector('.order-delay-badge').textContent.includes('In ritardo')`));
-                assert.ok(await evaluate(`!document.querySelector('.order-delay-panel form')`),'duplicate rider action absent');
-                assert.ok(await evaluate(`document.querySelector('.tracking-timeline').textContent.includes('Ritardo segnalato')`));
-                await navigate('delay-admin-correction.html');
-                await evaluate(`document.querySelector('.order-delay-panel summary').click();document.querySelector('#delay-correction').value='Correzione motivata e conservata nello storico'`);
-                assert.ok(await evaluate(`document.querySelector('.order-delay-panel form').checkValidity()`));
-                assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`),`delay correction overflow at ${width}`);
-                await navigate('delay-admin-terminal.html');
-                assert.ok(await evaluate(`document.querySelector('.order-delay-badge').textContent.includes('Ritardo segnalato')`),'completed shipment keeps historical label');
-                assert.ok(await evaluate(`![...document.querySelectorAll('button')].some(node=>node.textContent.includes('Segnala ritardo'))`));
             }
         });
         await scenario('shared navigation and pending workspace preserve centered creation, payment actions and bounded close tooltips', async () => {
@@ -1298,7 +1321,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             assert.equal(await evaluate(`document.querySelectorAll('.notification-event').length`),3);
         });
         await scenario('workspace registers keep scrolling headings, icon-only creation and touch controls at every requested width', async () => {
-            const pages = ['workspace-pending.html','workspace-customers.html','workspace-rates.html','workspace-reports.html','workspace-orders-in-progress.html','workspace-orders-history.html','workspace-orders-incoming.html','workspace-pickups-grouped.html','workspace-settings-index.html','workspace-profile-edit.html','workspace-users-index.html','workspace-notifications-index.html','finance-payments.html'];
+            const pages = ['workspace-pending.html','workspace-customers.html','workspace-rates.html','workspace-reports.html','workspace-orders-in-progress.html','workspace-orders-history.html','workspace-orders-incoming.html','workspace-pickups.html','workspace-settings-index.html','workspace-profile-edit.html','workspace-users-index.html','workspace-notifications-index.html','finance-payments.html'];
             for (const width of [320,360,375,390,430,768,1024,1440]) {
                 await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});
                 for (const page of pages) {
@@ -1418,10 +1441,10 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 await evaluate(`window.__remoteTimeline='same'`);
                 writeFileSync(join(temporary,'ajax-order.html'),JSON.parse(readFileSync(join(temporary,'ajax-rider_arriving.json'))).html);
                 delayOrderRefresh=true;
-                await evaluate(`window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
+                await evaluate(`if(document.querySelector('[data-operations-refresh]')) document.querySelector('[data-operations-refresh]').click(); else window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
                 await new Promise(resolve=>setTimeout(resolve,50));
                 writeFileSync(join(temporary,'ajax-order.html'),JSON.parse(readFileSync(join(temporary,'ajax-picked_up.json'))).html);
-                await evaluate(`for(let i=0;i<8;i++)window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
+                await evaluate(`for(let i=0;i<8;i++)if(document.querySelector('[data-operations-refresh]')) document.querySelector('[data-operations-refresh]').click(); else window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'order'}}))`);
                 for(let i=0;i<100;i++){if(await evaluate(`document.querySelector('[data-progress-status="picked_up"]').getAttribute('data-progress-state')==='current'`))break;await new Promise(resolve=>setTimeout(resolve,20));}
                 assert.equal(await evaluate(`document.querySelector('[data-progress-status="picked_up"]').getAttribute('data-progress-state')`),'current');
                 assert.equal(await evaluate(`document.querySelector('[data-live-order]').dataset.orderVersion`),'4');

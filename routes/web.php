@@ -14,7 +14,6 @@ use App\Http\Controllers\FinancialMovementController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrderController;
-use App\Http\Controllers\OrderDelayController;
 use App\Http\Controllers\OrderLabelController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PendingAccountController;
@@ -65,7 +64,6 @@ Route::middleware(['auth', 'auth.session', EnsureStaff::class, EnsureEmailVerifi
     Route::get('/orders/history', [OrderController::class, 'index'])->name('orders.history');
     Route::get('/pickups', [PickupGroupController::class, 'index'])->name('pickups.index');
     Route::get('/pickups/day', [PickupGroupController::class, 'show'])->name('pickups.day');
-    Route::get('/pickups/grouped', [PickupGroupController::class, 'grouped'])->name('pickups.grouped');
     Route::get('/labels', [OrderLabelController::class, 'index'])->name('labels.index');
     Route::get('/customers', [CustomerController::class, 'index'])->middleware(EnsureAdmin::class)->name('customers.index');
     Route::get('/customers/{customer}', [CustomerController::class, 'show'])->middleware(EnsureAdmin::class)->name('customers.show');
@@ -81,8 +79,6 @@ Route::middleware(['auth', 'auth.session', EnsureStaff::class, EnsureEmailVerifi
     Route::post('/rates/{rate?}', [ShippingRateController::class, 'store'])->middleware('throttle:writes')->middleware(EnsureAdmin::class)->name('rates.store');
     Route::patch('/orders/{order}/carrier', [CarrierShipmentController::class, 'update'])->middleware('throttle:writes')->name('orders.carrier');
     Route::patch('/orders/{order}/price', [ShippingPriceController::class, 'update'])->middleware('throttle:writes')->middleware(EnsureAdmin::class)->name('prices.update');
-    Route::post('/orders/{order}/delay', [OrderDelayController::class, 'store'])->middleware('throttle:writes')->name('orders.delay.store');
-    Route::patch('/orders/{order}/delay', [OrderDelayController::class, 'update'])->middleware([EnsureAdmin::class, 'throttle:writes'])->name('orders.delay.update');
     Route::patch('/orders/{order}/rider', [RiderAssignmentController::class, 'update'])->middleware([EnsureAdmin::class, 'throttle:writes'])->name('orders.rider');
     Route::get('/orders/{order}', [OrderController::class, 'show'])->name('orders.show');
     Route::patch('/orders/{order}', [OrderController::class, 'update'])->middleware('throttle:writes')->name('orders.update');

@@ -1,6 +1,8 @@
 import { attachShippingQuote } from './shipping-quote';
 import '../css/rider-day.css';
 import '../css/staff-auth-revision.css';
+import '../css/order-workspace-revision.css';
+import './order-history';
 import './order-actions';
 import './operational-orders';
 import './filter-toolbar';
@@ -127,7 +129,13 @@ if (document.body.dataset.notificationsUrl) {
 
 for (const conversation of document.querySelectorAll('[data-conversation-list]')) { conversation.scrollTop = conversation.scrollHeight; }
 
-document.querySelector('[data-select-labels]')?.addEventListener('click', (event) => { const boxes = [...event.target.closest('form').querySelectorAll('input[name="ids[]"]')]; const checked = !boxes.every(box => box.checked); boxes.forEach(box => { box.checked = checked; }); });
+document.addEventListener('click', event => {
+    const button = event.target.closest('[data-select-labels]');
+    if (!button) return;
+    const boxes = [...button.closest('form').querySelectorAll('input[name="ids[]"]')];
+    const checked = !boxes.every(box => box.checked);
+    boxes.forEach(box => { box.checked = checked; });
+});
 const quoteBox = document.querySelector('[data-shipping-quote]');
 if (quoteBox) {
     const form = quoteBox.closest('form');
@@ -143,7 +151,13 @@ if (quoteBox) {
     }; type.addEventListener('change', updatePackage); updatePackage();
 }
 
-document.querySelector('[data-print-all-labels]')?.addEventListener('click', (event) => { const form = event.target.closest('form'); form.querySelectorAll('input[name="ids[]"]').forEach(box => { box.checked = true; }); form.requestSubmit(); });
+document.addEventListener('click', event => {
+    const button = event.target.closest('[data-print-all-labels]');
+    if (!button) return;
+    const form = button.closest('form');
+    form.querySelectorAll('input[name="ids[]"]').forEach(box => { box.checked = true; });
+    form.requestSubmit();
+});
 
 const pendingPublicForms = new WeakSet();
 document.addEventListener('submit', event => {
@@ -216,3 +230,4 @@ accountChoice?.addEventListener('change', () => {
 
 import './finance-workspace';
 import './directories';
+import './not-found';

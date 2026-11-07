@@ -50,8 +50,8 @@ class ReconcileReceipt
                 abort_unless($resolution === 'refunded' && ! $order->paid_at && $net === 0 && $cash === 0 && $last && -$last->amount_cents === $price, 409, 'Il ripristino storico non è riconciliabile con questa attestazione.');
                 abort_unless(EconomicAudit::where('entity_type', 'orders')->where('entity_id', $order->id)->where('action', 'receipt.restore')->where('created_at', '>=', $last->created_at)->exists(), 409, 'Manca la traccia del ripristino storico: verifica i documenti prima di correggere.');
                 $this->price->assertApproved($order);
-                $this->entry($actor, $order, 'restoration', $price, -($last->ea_amount_cents ?? $last->amount_cents), 0, $data['note'], $last);
-                $message = 'Ripristino contabile riconciliato con il rimborso storico dichiarato. Nessun denaro aggiunto; l’eventuale nuovo incasso resta da registrare soltanto quando ricevuto.';
+                $this->entry($actor, $order, 'restoration', 0, 0, 0, $data['note'], $last);
+                $message = 'Ripristino riconciliato con il rimborso storico dichiarato. Nessun ricavo o denaro aggiunto; il nuovo incasso resta da registrare soltanto quando ricevuto.';
             }
             foreach ($links as $entryId => $originalId) {
                 $entry = $payments->firstWhere('id', $entryId);

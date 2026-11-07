@@ -15,7 +15,7 @@
         </div>
     </header>
     <dl class="operation-facts workflow-context">
-        <div><dt>Stato attuale</dt><dd><x-ui.status-badge :status="$order->status" /><x-orders.delay-badge :order="$order" /></dd></div>
+        <div><dt>Stato attuale</dt><dd><x-ui.status-badge :status="$order->status" /></dd></div>
         @if($primary)<div><dt>Passaggio previsto</dt><dd>{{ $primary->label() }}</dd></div>@endif
         <div><dt>Rider</dt><dd>{{ $order->rider?->name ?: 'Da assegnare' }}</dd></div>
         <div><dt>Consegna a</dt><dd>{{ $order->recipient_name }} · {{ $order->delivery_city }}</dd></div>

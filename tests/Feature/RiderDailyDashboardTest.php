@@ -85,12 +85,12 @@ class RiderDailyDashboardTest extends TestCase
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $rider = User::factory()->create();
-        $delayed = Order::factory()->create(['rider_id' => $rider->id, 'pickup_date' => '2026-10-08', 'status' => OrderStatus::OutForDelivery, 'delay_reported_at' => now()]);
-        Order::factory()->create(['rider_id' => $rider->id, 'pickup_date' => '2026-10-08', 'status' => OrderStatus::Delivered, 'delay_reported_at' => now()]);
+        $issue = Order::factory()->create(['rider_id' => $rider->id, 'pickup_date' => '2026-10-08', 'status' => OrderStatus::DeliveryIssue]);
+        Order::factory()->create(['rider_id' => $rider->id, 'pickup_date' => '2026-10-08', 'status' => OrderStatus::Delivered]);
         Order::factory()->create(['rider_id' => $rider->id, 'pickup_date' => '2026-10-07', 'status' => OrderStatus::DeliveryIssue]);
 
         $this->actingAs($admin)->get('/rider-operations/'.$rider->slug.'?state=issues')->assertViewHas('counts', fn ($counts) => $counts['issues'] === 1)
-            ->assertViewHas('orders', fn ($orders) => $orders->pluck('slug')->all() === [$delayed->slug])->assertSee('Ritardo segnalato');
+            ->assertViewHas('orders', fn ($orders) => $orders->pluck('slug')->all() === [$issue->slug])->assertSee('Problema nella consegna');
     }
 
     public function test_official_reschedule_moves_the_delivery_card_and_later_completion_keeps_scheduled_day(): void

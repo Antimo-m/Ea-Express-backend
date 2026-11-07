@@ -1,0 +1,74 @@
+.dashboard-workspace-revision { gap: 24px; align-items: start; }
+.dashboard-workspace-revision .control-context, .dashboard-workspace-revision .control-registers { display: grid; gap: 24px; min-width: 0; }
+.dashboard-workspace-revision .control-panel, .dashboard-workspace-revision .control-register { min-width: 0; border: 1px solid var(--ea-line); border-radius: var(--ea-radius-card); background: var(--ea-surface); }
+.dashboard-workspace-revision .control-panel { padding: 24px; }
+.dashboard-section-icon { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 12px; color: var(--ea-info); font-size: 21px; }
+.dashboard-section-icon .bi-arrow-right { font-size: 14px; color: var(--ea-muted); }
+.dashboard-workspace-revision .control-register-heading { display: flex; flex-wrap: wrap; gap: 16px; padding: 24px; }
+.dashboard-workspace-revision .control-register-heading > div { min-width: 0; }
+.dashboard-workspace-revision .control-register-heading .eyebrow { display: block; }
+.dashboard-workspace-revision .control-register-heading .btn { min-height: 44px; white-space: normal; }
+.dashboard-order-previews { display: grid; gap: 12px; padding: 0 20px 20px; }
+.dashboard-order-preview { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; min-width: 0; padding: 18px; border: 1px solid var(--ea-line); border-radius: var(--ea-radius-card); color: var(--ea-ink); background: var(--ea-surface-muted); text-decoration: none; }
+.dashboard-order-preview:hover { color: var(--ea-ink); background: var(--ea-hover); border-color: var(--ea-info); }
+.dashboard-order-preview:focus-visible { outline: 3px solid var(--ea-focus); outline-offset: 3px; }
+.dashboard-order-preview > div { display: grid; align-content: start; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.dashboard-order-preview time { color: var(--ea-muted); font-size: .8125rem; }
+.order-route-points { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; min-width: 0; color: var(--ea-ink); }
+.order-route-points > strong { font-size: inherit; font-weight: 650; overflow-wrap: anywhere; }
+.order-route-points > .bi { flex: 0 0 auto; color: var(--ea-muted); }
+.order-recipient { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 8px; max-width: 100%; min-width: 0; }
+.order-recipient > strong { min-width: 0; overflow-wrap: anywhere; }
+.recipient-dot { display: inline-block; width: 9px; height: 9px; flex: 0 0 9px; border-radius: 50%; border: 1px solid currentColor; }
+.recipient-dot--safe { color: var(--ea-success); background: var(--ea-success); }
+.recipient-dot--danger { color: var(--ea-danger); background: var(--ea-danger); }
+.order-workspace-revision .operational-order-list { display: grid; gap: 16px; border: 0; background: transparent; }
+.operational-order--revised { min-width: 0; border: 1px solid var(--ea-line); border-radius: var(--ea-radius-card); background: var(--ea-surface); }
+.operational-order--revised.operational-priority-standard { border-left: 4px solid var(--ea-success); background: color-mix(in srgb, var(--ea-success) 4%, var(--ea-surface)); }
+.operational-order--revised.operational-priority-urgent { border-left: 4px solid var(--ea-danger); background: color-mix(in srgb, var(--ea-danger) 4%, var(--ea-surface)); }
+.operational-order--revised .operational-order-main { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 1.1fr) minmax(80px, .65fr); align-items: start; gap: 20px; padding: 22px; }
+.operational-order--revised .operational-card-heading { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.operational-order--revised .operational-identity, .operational-order--revised .operational-route, .operational-order--revised .operational-time, .operational-order--revised .operational-price { display: grid; align-content: start; gap: 7px; min-width: 0; grid-column: auto; grid-row: auto; }
+.operational-order--revised .operational-identity .data-label:not(:first-child) { margin-top: 7px; }
+.operational-order--revised .operational-name { font-size: 1rem; line-height: 1.4; }
+.order-elapsed, .order-priority-label { font-size: .8125rem; color: var(--ea-muted); }
+.operational-order--revised .operational-actions { grid-column: 1 / -1; display: flex; flex-direction: row; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; }
+.operational-order--revised .operational-order-main:hover { background: var(--ea-hover); }
+.operational-order--revised .operational-order-main:focus-visible { outline: 3px solid var(--ea-focus); outline-offset: -3px; border-radius: var(--ea-radius-card); }
+.operational-order--revised .order-preview-button { min-height: 44px; padding: 8px 14px; max-width: 100%; white-space: normal; }
+.operational-order--revised .operational-preview { padding: 20px 22px; }
+.operational-order--revised .operational-preview-route { margin-bottom: 18px; font-size: 1rem; }
+.order-workspace-revision .archive-day { padding: 0; border: 1px solid var(--ea-line); border-radius: var(--ea-radius-card); background: var(--ea-surface); min-width: 0; }
+.order-workspace-revision .archive-day-heading { display: flex; align-items: center; gap: 12px; padding: 18px 20px; min-height: 60px; cursor: pointer; list-style: none; }
+.order-workspace-revision .archive-day-heading::-webkit-details-marker { display: none; }
+.order-workspace-revision .archive-day-heading > time { flex: 1; font-weight: 650; overflow-wrap: anywhere; }
+.order-workspace-revision .archive-day-heading > span { white-space: nowrap; color: var(--ea-muted); font-size: .8125rem; }
+.order-workspace-revision .archive-day-heading > .bi { flex: 0 0 auto; }
+.order-workspace-revision .archive-day[open] > summary > .bi { transform: rotate(180deg); }
+.order-workspace-revision .archive-day-heading:hover { background: var(--ea-hover); border-radius: var(--ea-radius-card); }
+.order-workspace-revision .archive-day-heading:focus-visible { outline: 3px solid var(--ea-focus); outline-offset: -3px; border-radius: var(--ea-radius-card); }
+.archive-day-content, [data-history-day-content] { padding: 0 16px 16px; min-width: 0; }
+.archive-page-caption, .archive-empty-date { padding: 12px 4px; color: var(--ea-muted); font-size: .8125rem; }
+.history-day-orders { display: grid; gap: 12px; }
+.order-workspace-revision .history-order { min-width: 0; margin: 0; border: 1px solid var(--ea-line); border-radius: var(--ea-radius-card); padding: 20px; }
+.order-workspace-revision .history-order-identity, .order-workspace-revision .history-order-route { min-width: 0; }
+.order-workspace-revision .history-order-identity > strong, .order-workspace-revision .history-order-route strong { font-size: .9375rem; overflow-wrap: anywhere; }
+.order-workspace-revision .history-order-identity .register-note { display: grid; gap: 4px; margin-top: 8px; }
+.order-workspace-revision .history-order .history-order-actions { align-items: center; }
+@media (max-width: 1100px) { .operational-order--revised .operational-order-main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .operational-order--revised .operational-actions { justify-content: flex-start; } }
+@media (max-width: 575px) {
+  .dashboard-workspace-revision, .dashboard-workspace-revision .control-context, .dashboard-workspace-revision .control-registers { gap: 20px; }
+  .dashboard-workspace-revision .control-panel, .dashboard-workspace-revision .control-register-heading { padding: 20px; }
+  .dashboard-order-previews { padding: 0 16px 16px; }
+  .dashboard-order-preview { grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 16px; }
+  .operational-order--revised .operational-order-main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: 18px 16px; gap: 18px 12px; }
+  .operational-order--revised .operational-identity, .operational-order--revised .operational-route { grid-column: 1 / -1; }
+  .operational-order--revised .operational-price strong { font-size: 1rem; }
+  .operational-order--revised .operational-preview { padding: 18px 16px; }
+  .operational-order--revised .operational-preview-addresses { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .operational-order--revised .operational-preview footer { gap: 14px; flex-wrap: wrap; }
+  .order-workspace-revision .archive-day-heading { padding: 16px; gap: 8px; }
+  .order-workspace-revision .archive-day-heading > time { font-size: .875rem; }
+  .archive-day-content, [data-history-day-content] { padding-inline: 12px; }
+  .order-workspace-revision .history-order { padding: 16px; }
+}

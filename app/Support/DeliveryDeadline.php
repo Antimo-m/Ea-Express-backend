@@ -8,7 +8,7 @@ use Illuminate\Support\Carbon;
 
 class DeliveryDeadline
 {
-    /** @return array{at: ?string, label: ?string, overdue: bool, delivered_late: bool, elapsed: ?string, history_complete: bool, reported_at: ?string, reported_label: ?string} */
+    /** @return array{at: ?string, label: ?string, history_complete: bool} */
     public function forOrder(Order $order, ?Carbon $reference = null): array
     {
         $reference ??= now('Europe/Rome');
@@ -38,16 +38,7 @@ class DeliveryDeadline
         if ($historical && ! $status) {
             $complete = false;
         }
-        $closed = ! $status || in_array($status->value, OrderStatus::closed(), true);
-        $reportedAt = $order->delay_reported_at?->copy();
-        if ($historical) {
-            $reports = $order->relationLoaded('delayEvents') ? $order->delayEvents : $order->delayEvents()->get();
-            $report = $reports->last(fn ($event) => $event->created_at->lte($reference));
-            $reportedAt = $report?->delay_action === 'reported' ? $report->created_at->copy() : null;
-        }
-        $overdue = $reportedAt && ! $closed && $reportedAt->lte($reference);
-        $late = $reportedAt && $status === OrderStatus::Delivered && $reportedAt->lte($reference);
 
-        return ['at' => $deadline?->toISOString(), 'label' => $deadline?->copy()->timezone('Europe/Rome')->format('d/m/Y H:i'), 'overdue' => (bool) $overdue, 'delivered_late' => (bool) $late, 'elapsed' => $overdue ? $reportedAt->diffForHumans($reference, true) : null, 'history_complete' => $complete, 'reported_at' => $reportedAt?->toISOString(), 'reported_label' => $reportedAt?->copy()->timezone('Europe/Rome')->format('d/m/Y H:i')];
+        return ['at' => $deadline?->toISOString(), 'label' => $deadline?->copy()->timezone('Europe/Rome')->format('d/m/Y H:i'), 'history_complete' => $complete];
     }
 }

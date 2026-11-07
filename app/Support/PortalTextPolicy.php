@@ -4,6 +4,25 @@ namespace App\Support;
 
 class PortalTextPolicy
 {
+    public static function normalize(string $value): string
+    {
+        $value = \Normalizer::normalize($value, \Normalizer::FORM_C) ?: $value;
+
+        return trim(preg_replace('/[\p{Z}\s]+/u', ' ', $value));
+    }
+
+    /** @param array<string, mixed> $data @return array<string, mixed> */
+    public static function normalizeFields(array $data): array
+    {
+        foreach (['name', 'store_name', 'business_type', 'business_description'] as $field) {
+            if (isset($data[$field]) && is_string($data[$field])) {
+                $data[$field] = self::normalize($data[$field]);
+            }
+        }
+
+        return $data;
+    }
+
     /** @return array{version: int, message: string, substitutions: array<string, string>, terms: list<string>} */
     public function definition(): array
     {
@@ -12,6 +31,7 @@ class PortalTextPolicy
 
     public function allows(string $value): bool
     {
+        $value = self::normalize($value);
         $definition = $this->definition();
         $normalized = preg_replace('/[\p{Mn}\p{Cf}]/u', '', strtr(mb_strtolower($value, 'UTF-8'), $definition['substitutions']));
         foreach ($definition['terms'] as $term) {

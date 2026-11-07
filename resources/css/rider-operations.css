@@ -1,0 +1,25 @@
+.rider-create-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; }
+.rider-create-actions .btn { min-width: 100px; }
+.rider-refresh-controls { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.rider-operations-page .operations-period-filter .period-options a, .rider-operations-page .operations-period-filter [data-custom-period] { min-height: 44px; }
+.rider-day-range { display: grid; width: 100%; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; gap: 12px; }
+.rider-day-range > label { display: grid; min-width: 0; gap: 6px; font-size: .78rem; font-weight: 600; }
+.rider-day-range input[type="date"] { display: block; width: 100%; min-width: 0; min-height: 42px; padding: 7px 10px; border: 1px solid var(--ea-control-border); border-radius: var(--ea-radius-button); background: var(--ea-surface); color: var(--ea-ink); }
+.rider-range-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.rider-day .rider-day-controls { flex-wrap: wrap; }
+.rider-day .rider-day-context { margin-left: auto; }
+.rider-operations-page .assignment-name[href] { text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 575px) {
+    .rider-operations-page .operations-period-filter .filter-primary { display: grid; grid-template-columns: minmax(0, .7fr) minmax(0, 1fr) minmax(0, .7fr) minmax(0, 1.4fr); align-items: start; gap: 6px; width: 100%; }
+    .rider-operations-page .operations-period-filter .period-options, .rider-operations-page .operations-period-filter .filter-range { display: contents; }
+    .rider-operations-page .operations-period-filter .period-options a, .rider-operations-page .operations-period-filter [data-custom-period] { min-width: 0; width: 100%; min-height: 44px; padding: 7px 2px; font-size: .72rem; white-space: nowrap; justify-content: center; }
+    .rider-operations-page .operations-period-filter [data-custom-period] .bi { display: none; }
+    .rider-operations-page .operations-period-filter .filter-range-dates { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+    .rider-operations-page .operations-period-filter .filter-range-dates[hidden] { display: none; }
+    .rider-operations-page .operations-period-filter .filter-range-dates > * { min-width: 0; }
+    .rider-operations-page .operations-period-filter .filter-period-caption { grid-column: 1 / -1; }
+    .rider-refresh-controls [data-zone-updated] { display: none; }
+    .rider-day-range { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+    .rider-range-actions { grid-column: 1 / -1; }
+    .rider-day .rider-day-context { margin-left: 0; }
+}

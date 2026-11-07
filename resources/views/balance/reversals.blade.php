@@ -13,11 +13,11 @@
                 <td><time datetime="{{ $reversal->created_at->toIso8601String() }}">{{ $reversal->created_at->timezone('Europe/Rome')->format('d/m/Y H:i') }}</time><small class="register-note">{{ $reversal->user->name }}</small></td>
                 <td class="text-end register-amount">{{ \App\Support\Money::format(-$reversal->corrected_cents) }}<small>Originale: {{ \App\Support\Money::format($reversal->original_amount_cents) }}</small><small>Incassato: {{ \App\Support\Money::format($reversal->collected_cents) }}</small><small>Rimborsato: {{ \App\Support\Money::format(-$reversal->payments->where('kind', 'refund')->sum('cash_amount_cents')) }}</small></td>
                 <td><span class="status-pill {{ $reversal->corrected_cents ? 'tone-danger' : 'tone-neutral' }}">{{ $reversal->corrected_cents ? 'Con rettifica contabile' : 'Senza effetto sul netto' }}</span>
-                    @if($reversal->restored_at)<small class="register-note">Ripristinato il {{ $reversal->restored_at->timezone('Europe/Rome')->format('d/m/Y H:i') }} · {{ $reversal->restoredBy?->name }}<br>{{ $reversal->restore_reason }}<br>Rettifica compensata: {{ \App\Support\Money::format($reversal->corrected_cents) }}</small>@else<small class="register-note">Storno attivo · incasso sospeso</small>@endif
+                    @if($reversal->restored_at)<small class="register-note">Ripristinato il {{ $reversal->restored_at->timezone('Europe/Rome')->format('d/m/Y H:i') }} · {{ $reversal->restoredBy?->name }}<br>{{ $reversal->restore_reason }}<br>Escluso dagli storni attivi; il pagamento richiede una registrazione separata.</small>@else<small class="register-note">Storno attivo · incasso sospeso</small>@endif
                 </td>
                 <td><div class="register-actions">@if(! $reversal->restored_at)@include('balance.receipt-actions')@else<x-ui.icon-button action="history" label="Storico dell’incasso" :href="route('audits.index', ['type' => 'orders', 'slug' => $order->slug])" />@endif</div></td>
             </tr>
         @empty<tr><td colspan="5" class="register-empty">Nessuno storno nel periodo.</td></tr>@endforelse</tbody>
     </table></div>
-    {{ $reversalEntries->links('components.ui.pagination', ['descriptive' => true, 'numbered' => true]) }}
+    {{ $reversalEntries->links('components.ui.pagination', ['compact' => true]) }}
 </x-ui.data-panel>

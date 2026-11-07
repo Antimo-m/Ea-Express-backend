@@ -30,7 +30,7 @@ class GpsRemovalAndZoneOrdersTest extends TestCase
         Order::factory()->count(25)->create(['rider_id' => $rider->id, 'pickup_date' => '2026-09-15', 'delivery_zone' => 'Giugliano in Campania', 'store_name' => 'Azienda Test · Centro distribuzione alimentare dimostrativo della provincia e dei comuni limitrofi', 'recipient_name' => 'Destinatario Test Nominativo Esteso', 'pickup_address' => 'Via Test Dimostrativa per il ritiro numero 145', 'delivery_address' => 'Via Test Dimostrativa per il ritiro numero 145']);
         Order::factory()->create(['pickup_date' => '2026-10-07', 'delivery_zone' => 'Giugliano in Campania', 'store_name' => 'Fuori periodo']);
         Order::factory()->create(['pickup_date' => '2026-09-15', 'delivery_zone' => 'Napoli', 'store_name' => 'Altra zona']);
-        $context = ['date' => '2026-09-15', 'period' => 'custom', 'zone' => 'Giugliano in Campania', 'view' => 'zone', 'selected' => 'Giugliano in Campania', 'q' => 'Giugliano', 'sort' => 'volume', 'scope' => 'programmed'];
+        $context = ['date' => '2026-09-15', 'period' => 'custom', 'zone' => 'Giugliano in Campania', 'view' => 'zone', 'selected' => 'Giugliano in Campania', 'q' => 'Giugliano', 'sort' => 'pending'];
 
         $response = $this->actingAs($admin)->get('/rider-operations/zone-orders?'.http_build_query($context));
 
@@ -79,16 +79,17 @@ class GpsRemovalAndZoneOrdersTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => UserRole::Admin]))->getJson('/rider-operations/zone-orders')->assertUnprocessable()->assertJsonValidationErrors('zone');
     }
 
-    public function test_open_filter_and_backlog_scope_use_existing_operational_rules(): void
+    public function test_open_filter_excludes_closed_orders_and_orders_outside_the_selected_period(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $open = Order::factory()->create(['pickup_date' => '2026-10-07', 'delivery_zone' => 'Napoli', 'status' => OrderStatus::OutForDelivery]);
         Order::factory()->create(['pickup_date' => '2026-10-07', 'delivery_zone' => 'Napoli', 'status' => OrderStatus::Delivered]);
-        $backlog = Order::factory()->create(['rider_id' => $admin->id, 'pickup_date' => '2026-10-06', 'delivery_zone' => 'Napoli', 'status' => OrderStatus::OutForDelivery, 'estimated_delivery_to' => '2026-10-06']);
+        foreach ([OrderStatus::Cancelled, OrderStatus::Rejected] as $status) {
+            Order::factory()->create(['pickup_date' => '2026-10-07', 'delivery_zone' => 'Napoli', 'status' => $status]);
+        }
+        $previous = Order::factory()->create(['rider_id' => $admin->id, 'pickup_date' => '2026-10-06', 'delivery_zone' => 'Napoli', 'status' => OrderStatus::OutForDelivery]);
 
         $this->actingAs($admin)->get('/rider-operations/zone-orders?zone=Napoli&filter=open')->assertViewHas('orders', fn ($orders) => $orders->modelKeys() === [$open->id]);
-        $this->postJson('/orders/'.$backlog->slug.'/delay', ['version' => 1])->assertOk();
-        $this->get('/rider-operations/zone-orders?zone=Napoli&scope=late')->assertViewHas('orders', fn ($orders) => $orders->modelKeys() === [$backlog->id]);
-        $this->assertSame('2026-10-06', $backlog->fresh()->pickup_date->toDateString());
+        $this->get('/rider-operations/zone-orders?zone=Napoli&filter=open&date=2026-10-06')->assertViewHas('orders', fn ($orders) => $orders->modelKeys() === [$previous->id]);
     }
 }

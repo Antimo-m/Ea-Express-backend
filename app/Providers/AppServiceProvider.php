@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Support\NotificationInbox;
+use App\Support\PostalCodeResolver;
 use App\Support\SecurityEvent;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -15,7 +16,10 @@ use Illuminate\View\View;
 
 class AppServiceProvider extends ServiceProvider
 {
-    public function register(): void {}
+    public function register(): void
+    {
+        $this->app->scoped(PostalCodeResolver::class);
+    }
 
     public function boot(): void
     {

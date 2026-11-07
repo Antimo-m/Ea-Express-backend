@@ -95,7 +95,12 @@ class StatisticsScalabilityTest extends TestCase
         $measure('staff_statistics_detail', fn () => $this->get('/customers/'.$customers->first()->slug))->assertViewHas('orders', fn ($orders) => $orders->total() === 1000 && $orders->count() === 20);
         $measure('staff_dashboard', fn () => $this->get('/dashboard'));
         $measure('staff_orders', fn () => $this->get('/orders/incoming'))->assertViewHas('orders', fn ($orders) => $orders->total() === 6000 && $orders->count() === 20);
-        $measure('staff_pickups', fn () => $this->get('/pickups?view=tomorrow'))->assertViewHas('orders', fn ($orders) => $orders->count() === 50);
+        $measure('staff_pickup_calendar', fn () => $this->get('/pickups?month=2026-09'))
+            ->assertViewHas('dailyCounts', fn ($counts): bool => $counts->get('2026-09-28') === 6000);
+        $measure('staff_pickups', fn () => $this->get('/pickups/day?date=2026-09-28'))
+            ->assertViewHas('totalOrders', 6000)
+            ->assertViewHas('groups', fn ($groups): bool => $groups->total() === 60 && $groups->count() === 20 && $groups->getCollection()->every(fn ($orders): bool => $orders->count() === 100 && $orders->pluck('customer_id')->unique()->count() === 1))
+            ->assertViewHas('orders', fn ($orders): bool => $orders->count() === 2000);
         $measure('staff_reports', fn () => $this->get('/reports'));
         $measure('staff_balance', fn () => $this->get('/balance'));
         foreach ($customers as $index => $customer) {

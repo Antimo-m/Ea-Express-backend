@@ -13,5 +13,4 @@
     @endif
     @if($order->delivered_at)<span class="operation-deadline">Consegnata: {{ $order->delivered_at->timezone('Europe/Rome')->format('d/m/Y H:i') }}</span>@endif
     @if($deadline['label'])<span class="operation-deadline">Termine: {{ $deadline['label'] }}</span>@endif
-    @if($deadline['reported_at'])<span class="operation-late" title="Segnalato dal Rider il {{ $deadline['reported_label'] }}">{{ $deadline['overdue'] ? 'In ritardo' : 'Ritardo segnalato dal Rider' }}</span>@endif
 </article>

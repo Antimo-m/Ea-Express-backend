@@ -1,3 +1,5 @@
+import { applyWorkspaceSnapshot, workspaceFeedback } from './workspace-updates';
+
 const initialized = new WeakSet();
 export function bindFinanceWorkspace(root = document) {
 for (const widget of root.querySelectorAll('[data-account-multiselect]')) {
@@ -127,4 +129,44 @@ document.addEventListener('keydown', event => {
     if (event.key !== 'Escape' || document.querySelector('dialog[open]')) return;
     const menu = document.activeElement?.closest('.row-actions-menu[open]');
     if (menu) { menu.open = false; menu.querySelector('summary').focus(); }
+});
+
+let paginationRequest;
+const financePath = document.querySelector('.finance-workspace') ? location.pathname : null;
+async function navigateFinancePage(url, { push = true, pageName } = {}) {
+    paginationRequest?.abort();
+    const request = new AbortController();
+    paginationRequest = request;
+    document.querySelector('.finance-ledger')?.setAttribute('aria-busy', 'true');
+    try {
+        const response = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'text/html', 'X-Requested-With': 'XMLHttpRequest' }, signal: request.signal });
+        if (!response.ok || response.redirected) throw new Error('Pagina dei movimenti non disponibile. Riprova.');
+        const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+        if (request.signal.aborted) return;
+        if (!page.querySelector('.finance-ledger')) throw new Error('Pagina dei movimenti non disponibile. Riprova.');
+        applyWorkspaceSnapshot(page);
+        if (push) history.pushState(history.state, '', url);
+        const pager = [...document.querySelectorAll('.finance-ledger [data-pagination-name]')].find(node => node.dataset.paginationName === pageName);
+        if (pager) { pager.tabIndex = -1; pager.focus({ preventScroll: true }); }
+    } catch (error) {
+        if (error.name !== 'AbortError') workspaceFeedback('Non è stato possibile caricare i movimenti.', { error: true, retry: () => navigateFinancePage(url, { push, pageName }) });
+    } finally {
+        if (paginationRequest === request) {
+            document.querySelector('.finance-ledger')?.removeAttribute('aria-busy');
+            paginationRequest = undefined;
+        }
+    }
+}
+
+document.addEventListener('click', event => {
+    if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    const link = event.target.closest('.finance-ledger .workspace-pagination a');
+    if (!link) return;
+    const url = new URL(link.href, location.href);
+    if (url.origin !== location.origin || url.pathname !== financePath) return;
+    event.preventDefault();
+    navigateFinancePage(url.href, { pageName: link.closest('[data-pagination-name]').dataset.paginationName });
+});
+window.addEventListener('popstate', () => {
+    if (financePath && location.pathname === financePath) navigateFinancePage(location.href, { push: false });
 });

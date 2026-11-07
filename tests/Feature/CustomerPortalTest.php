@@ -56,9 +56,9 @@ class CustomerPortalTest extends TestCase
         $this->assertNull($order->rider_id);
         $this->assertNull($order->notes);
         $this->assertSame('Citofono Rossi', $order->customer_notes);
-        $this->actingAs($rider, 'web')->get('/orders/incoming')->assertDontSee($order->reference);
+        $this->actingAs($rider, 'web')->get('/orders/incoming')->assertDontSee($order->slug);
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $this->actingAs($admin)->get('/orders/incoming')->assertSee($order->reference);
+        $this->actingAs($admin)->get('/orders/incoming')->assertSee($order->slug);
         $this->patch(route('orders.update', $order), ['status' => 'accepted', 'rider_id' => $rider->slug, 'version' => 1, 'price' => '9.50'])->assertSessionHasNoErrors();
         $this->assertSame(1, $customer->unreadNotifications()->count());
         $this->actingAs($customer, 'customer')->getJson($this->api.'/orders/'.$order->slug)->assertOk()->assertJsonPath('data.rider.name', $rider->name)->assertJsonMissingPath('data.notes')->assertJsonMissingPath('data.rider.email')->assertJsonMissingPath('data.tracking_token');
@@ -174,7 +174,7 @@ class CustomerPortalTest extends TestCase
         $this->actingAs($customer, 'customer')->postJson($this->api.'/orders', $this->checkoutData($this->payload()))->assertCreated();
         $order = Order::sole();
         $this->getJson($this->api.'/orders/'.$order->slug)->assertOk();
-        $this->actingAs($otherRider, 'web')->get('/orders/incoming')->assertDontSee($order->reference);
+        $this->actingAs($otherRider, 'web')->get('/orders/incoming')->assertDontSee($order->slug);
         $this->actingAs($admin, 'web')->patch(route('orders.update', $order), ['status' => 'accepted', 'rider_id' => $rider->slug, 'version' => 1])->assertSessionHasNoErrors();
         $this->post('/logout');
         $this->post('/login', ['email' => $rider->email, 'password' => 'PasswordSicura123'])->assertRedirect(route('email-otp.notice'));
@@ -183,7 +183,7 @@ class CustomerPortalTest extends TestCase
         $code = Notification::sent($rider, RiderEmailOtp::class)->sole()->code;
         $this->post('/verify-email-otp/confirm', ['code' => $code])->assertSessionHasNoErrors();
         $this->assertNotNull($rider->fresh()->email_verified_at);
-        $this->actingAs($rider->fresh(), 'web')->get('/orders/in-progress')->assertOk()->assertSee($order->reference);
+        $this->actingAs($rider->fresh(), 'web')->get('/orders/in-progress')->assertOk()->assertSee($order->slug);
         foreach (['rider_arriving', 'picked_up', 'out_for_delivery', 'delivered'] as $status) {
             $this->patch(route('orders.update', $order), ['status' => $status, 'version' => $order->fresh()->version])->assertSessionHasNoErrors();
         }

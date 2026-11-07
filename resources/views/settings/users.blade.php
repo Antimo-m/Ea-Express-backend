@@ -1,5 +1,5 @@
 <x-app-layout title="Rider">
-    <header class="page-heading"><div><span class="eyebrow">IL TEAM SUL TERRITORIO</span><h1>Rider</h1><p>Persone, carichi di lavoro e accessi del tuo team.</p></div><x-ui.icon-button action="add" :href="route('users.create')" label="Aggiungi Rider" text /></header>
+    <header class="page-heading"><div><span class="eyebrow">IL TEAM SUL TERRITORIO</span><h1>Rider</h1><p>Persone, carichi di lavoro e accessi del tuo team.</p></div><a class="btn btn-primary" href="{{ route('users.create') }}">Aggiungi</a></header>
     @if($users->isNotEmpty())
     <x-ui.directory label="Team Rider" search-label="Cerca nome o email in questa pagina" class="rider-directory">
         <x-slot:summary><p>{{ $users->total() }} account Rider</p></x-slot:summary>
@@ -26,5 +26,5 @@
         </section>
         @endforeach
     </x-ui.directory>
-    @else<section class="surface empty-state"><x-ui.icon name="people" /><h2>Il team parte da qui</h2><p>Crea il primo account Rider per assegnare le richieste.</p><x-ui.icon-button action="add" :href="route('users.create')" label="Aggiungi Rider" /></section>@endif
+    @else<section class="surface empty-state"><x-ui.icon name="people" /><h2>Il team parte da qui</h2><p>Crea il primo account Rider per assegnare le richieste.</p><a class="btn btn-primary" href="{{ route('users.create') }}">Aggiungi</a></section>@endif
 </x-app-layout>
