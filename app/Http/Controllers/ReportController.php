@@ -14,15 +14,29 @@ use App\Support\ReportingPeriod;
 use App\Support\ShippingEconomics;
 use App\UserRole;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class ReportController extends Controller
 {
     public function index(Request $request): View
     {
-        $data = $request->validate(['month' => ['nullable', 'date_format:Y-m']]);
-        $period = ReportingPeriod::month($data['month'] ?? now('Europe/Rome')->format('Y-m'));
-        $previous = ReportingPeriod::month($period->start->copy()->subMonth()->format('Y-m'));
+        $data = $request->validate([
+            'month' => ['nullable', 'date_format:Y-m'],
+            'from' => ['nullable', 'required_with:to', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'required_with:from', 'date_format:Y-m-d', 'after_or_equal:from'],
+        ], ['to.after_or_equal' => 'La data finale deve essere uguale o successiva alla data iniziale.']);
+        $customPeriod = ! empty($data['from']) && ! empty($data['to']);
+        $period = $customPeriod
+            ? new ReportingPeriod(Carbon::createFromFormat('!Y-m-d', $data['from'], 'Europe/Rome'), Carbon::createFromFormat('!Y-m-d', $data['to'], 'Europe/Rome')->endOfDay())
+            : ReportingPeriod::month($data['month'] ?? now('Europe/Rome')->format('Y-m'));
+        if ($period->start->diffInDays($period->end) > 366) {
+            throw ValidationException::withMessages(['to' => 'Intervallo non valido: massimo un anno.']);
+        }
+        $previous = $customPeriod
+            ? new ReportingPeriod($period->start->copy()->subDays((int) $period->start->diffInDays($period->end->copy()->startOfDay()) + 1), $period->start->copy()->subDay()->endOfDay())
+            : ReportingPeriod::month($period->start->copy()->subMonth()->format('Y-m'));
         $base = Order::financialFor($request->user());
         if ($request->user()->role !== UserRole::Admin) {
             $base = Order::query()->where(fn ($q) => $q->where('rider_id', $request->user()->id)->orWhere('created_by', $request->user()->id)->orWhere('rejected_by', $request->user()->id));
@@ -50,37 +64,40 @@ class ReportController extends Controller
             $cashDays[$day][$amount >= 0 ? 'incoming' : 'outgoing'] += abs($amount);
         };
         foreach ((clone $payments)->select(['id', 'slug', 'created_at', 'amount_cents', 'ea_amount_cents'])->lazyById(500) as $payment) {
-            $addCash($payment->created_at->timezone('Europe/Rome')->format('d/m'), $payment->amount_cents);
+            $addCash($payment->created_at->timezone('Europe/Rome')->toDateString(), $payment->amount_cents);
         }
         foreach ((clone $general)->select(['id', 'slug', 'created_at', 'amount_cents'])->lazyById(500) as $payment) {
-            $addCash($payment->created_at->timezone('Europe/Rome')->format('d/m'), $payment->amount_cents);
+            $addCash($payment->created_at->timezone('Europe/Rome')->toDateString(), $payment->amount_cents);
         }
         foreach ((clone $expenses)->select(['id', 'slug', 'spent_on', 'amount_cents'])->lazyById(500) as $expense) {
-            $addCash($expense->spent_on->format('d/m'), -$expense->amount_cents);
+            $addCash($expense->spent_on->toDateString(), -$expense->amount_cents);
         }
         foreach ((clone $manual)->where('kind', '!=', 'cash')->select(['id', 'slug', 'occurred_on', 'amount_cents'])->lazyById(500) as $movement) {
-            $addCash($movement->occurred_on->format('d/m'), $movement->amount_cents);
+            $addCash($movement->occurred_on->toDateString(), $movement->amount_cents);
         }
         $topCustomers = (clone $cohort)->whereNotNull('customer_id')->select('customer_id')->selectRaw('COUNT(*) AS shipments')->groupBy('customer_id')->with('customer:id,slug,name')->orderByDesc('shipments')->orderBy('customer_id')->limit(5)->get();
         $zones = (clone $cohort)->select('delivery_city')->selectRaw('COUNT(*) as total')->groupBy('delivery_city')->orderByDesc('total')->orderBy('delivery_city')->limit(10)->get();
         $days = [];
+        $ordersByDate = [];
         foreach (app(OrderStatistics::class)->trend($cohort, $period) as $point) {
             if ($point['shipments'] > 0) {
                 $day = substr($point['date'], 8, 2).'/'.substr($point['date'], 5, 2);
-                $days[$day] = $point['shipments'];
+                $days[$customPeriod ? $point['date'] : $day] = $point['shipments'];
+                $ordersByDate[$point['date']] = $point['shipments'];
             }
         }
         ksort($days);
         $trend = [];
         for ($date = $period->start->copy(); $date->lte($period->end); $date->addDay()) {
-            $label = $date->format('d/m');
-            $trend[] = ['label' => $label, 'orders' => $days[$label] ?? 0, 'incoming' => $cashDays[$label]['incoming'] ?? 0, 'outgoing' => $cashDays[$label]['outgoing'] ?? 0];
+            $label = $date->format($period->start->year === $period->end->year ? 'd/m' : 'd/m/Y');
+            $key = $date->toDateString();
+            $trend[] = ['label' => $label, 'orders' => $ordersByDate[$key] ?? 0, 'incoming' => $cashDays[$key]['incoming'] ?? 0, 'outgoing' => $cashDays[$key]['outgoing'] ?? 0];
         }
         $incomingTotal = array_sum(array_column($cashDays, 'incoming'));
         $outgoingTotal = array_sum(array_column($cashDays, 'outgoing'));
 
         $shippingEconomics = app(ShippingEconomics::class)->summarize($delivered);
 
-        return view('reports.index', ['receiptEconomics' => $receiptEconomics, 'shippingEconomics' => $shippingEconomics, 'shippingCounts' => (clone $cohort)->select('shipping_type')->selectRaw('COUNT(*) AS total')->groupBy('shipping_type')->pluck('total', 'shipping_type'), 'period' => $period, 'received' => $received, 'previous' => $before, 'growth' => $before ? round(($received - $before) / $before * 100, 1) : null, 'states' => $states, 'accepted' => $accepted, 'delivered' => $delivered->count(), 'earned' => (int) (clone $delivered)->sum('price_cents'), 'ledgerTotals' => $ledgerTotals, 'cash' => (int) $cash, 'zones' => $zones, 'days' => $days, 'trend' => $trend, 'spent' => $spent, 'manualNet' => $manualNet, 'operatingNet' => $operatingNet, 'topCustomers' => $topCustomers, 'incomingTotal' => $incomingTotal, 'outgoingTotal' => $outgoingTotal]);
+        return view('reports.index', ['customPeriod' => $customPeriod, 'receiptEconomics' => $receiptEconomics, 'shippingEconomics' => $shippingEconomics, 'shippingCounts' => (clone $cohort)->select('shipping_type')->selectRaw('COUNT(*) AS total')->groupBy('shipping_type')->pluck('total', 'shipping_type'), 'period' => $period, 'received' => $received, 'previous' => $before, 'growth' => $before ? round(($received - $before) / $before * 100, 1) : null, 'states' => $states, 'accepted' => $accepted, 'delivered' => $delivered->count(), 'earned' => (int) (clone $delivered)->sum('price_cents'), 'ledgerTotals' => $ledgerTotals, 'cash' => (int) $cash, 'zones' => $zones, 'days' => $days, 'trend' => $trend, 'spent' => $spent, 'manualNet' => $manualNet, 'operatingNet' => $operatingNet, 'topCustomers' => $topCustomers, 'incomingTotal' => $incomingTotal, 'outgoingTotal' => $outgoingTotal]);
     }
 }

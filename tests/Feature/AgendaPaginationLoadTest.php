@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\OrderStatus;
 use App\UserRole;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
@@ -46,6 +47,7 @@ class AgendaPaginationLoadTest extends TestCase
             config(['database.default' => 'agenda_load', 'database.connections.agenda_load' => [...$source, 'url' => null, 'database' => $database]]);
             $this->artisan('migrate', ['--database' => 'agenda_load', '--force' => true])->assertSuccessful();
             $this->travelTo(now('Europe/Rome')->setDate(2026, 11, 7)->setTime(12, 0));
+            $results['metadata']['transaction_isolation'] = DB::selectOne('SELECT @@transaction_isolation AS isolation_level')->isolation_level;
             $results['metadata']['indexes'] = DB::select('SHOW INDEX FROM orders');
             $results['metadata']['event_indexes'] = DB::select('SHOW INDEX FROM order_events');
             $before = $this->registerPreviousAgenda($directory);
@@ -114,6 +116,7 @@ class AgendaPaginationLoadTest extends TestCase
                     DB::flushQueryLog();
                 }
             }
+            $results['concurrent_reads'] = $this->assertReadSnapshots($source);
             $this->artisan('migrate:rollback', ['--database' => 'agenda_load', '--step' => 1, '--force' => true])->assertSuccessful();
             $this->assertNotContains('orders_pickup_account_chronology_index', array_column(DB::select('SHOW INDEX FROM orders'), 'Key_name'));
             $this->assertNotContains('order_events_order_status_index', array_column(DB::select('SHOW INDEX FROM order_events'), 'Key_name'));
@@ -137,6 +140,67 @@ class AgendaPaginationLoadTest extends TestCase
             $results['metadata']['temporary_database_removed'] = true;
             file_put_contents($directory.'/result.json', json_encode($results, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
         }
+    }
+
+    /** @param array<string, mixed> $source @return array<string, mixed> */
+    private function assertReadSnapshots(array $source): array
+    {
+        $database = DB::connection()->getDatabaseName();
+        $writer = new PDO('mysql:host='.$source['host'].';port='.$source['port'].';dbname='.$database.';charset=utf8mb4', $source['username'], $source['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION] + ($source['options'] ?? []));
+        $isolation = DB::selectOne('SELECT @@transaction_isolation AS isolation_level')->isolation_level;
+        $results = [];
+        DB::statement('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
+        try {
+            foreach (['accounts', 'orders'] as $phase) {
+                $fixture = $this->fixtures([2]);
+                $this->actingAs($fixture['admin']);
+                $slug = array_key_first($fixture['orders']);
+                $slugs = $fixture['orders'][$slug];
+                $state = (object) ['armed' => true, 'writes' => 0];
+                DB::listen(function (QueryExecuted $event) use ($state, $writer, $slugs): void {
+                    $sql = strtolower($event->sql);
+                    if (! $state->armed || $event->connectionName !== 'agenda_load' || ! str_contains($sql, 'count(') || ! str_contains($sql, 'from `orders`')) {
+                        return;
+                    }
+                    $state->armed = false;
+                    $writer->beginTransaction();
+                    try {
+                        $writer->prepare('DELETE FROM orders WHERE slug = ?')->execute([$slugs[0]]);
+                        $writer->prepare('UPDATE orders SET pickup_date = ? WHERE slug = ?')->execute(['2026-11-08', $slugs[1]]);
+                        $writer->commit();
+                        $state->writes++;
+                    } catch (\Throwable $exception) {
+                        $writer->rollBack();
+                        throw $exception;
+                    }
+                });
+                try {
+                    $url = $phase === 'accounts' ? '/pickups/day?date=2026-11-07' : route('pickups.account-orders', ['account' => $slug, 'kind' => 'customer', 'date' => '2026-11-07']);
+                    $response = $this->getJson($url)->assertOk();
+                    $this->assertSame(1, $state->writes);
+                    if ($phase === 'accounts') {
+                        $response->assertJsonPath('total_orders', 2)->assertJsonPath('meta.total', 1)->assertJsonCount(1, 'data')->assertJsonPath('data.0.orders_count', 2);
+                    } else {
+                        $response->assertJsonPath('account.orders_count', 2)->assertJsonPath('meta.total', 2)->assertJsonCount(2, 'data');
+                        $this->assertSame($slugs, array_column($response->json('data'), 'slug'));
+                        $this->getJson($url)->assertNotFound();
+                    }
+                    $this->getJson('/pickups/day?date=2026-11-07')->assertOk()->assertJsonPath('total_orders', 0)->assertJsonCount(0, 'data');
+                    $this->getJson('/pickups/day?date=2026-11-08')->assertOk()->assertJsonPath('total_orders', 1)->assertJsonCount(1, 'data');
+                    $this->assertSame('READ-COMMITTED', DB::selectOne('SELECT @@transaction_isolation AS isolation_level')->isolation_level);
+                    $results[$phase] = ['snapshot_count' => 2, 'subsequent_day_count' => 0, 'next_day_count' => 1, 'independent_writer_commits' => $state->writes];
+                } finally {
+                    $state->armed = false;
+                    DB::table('orders')->delete();
+                    DB::table('users')->delete();
+                }
+            }
+        } finally {
+            $level = str_replace('-', ' ', $isolation);
+            DB::statement('SET SESSION TRANSACTION ISOLATION LEVEL '.$level);
+        }
+
+        return ['session_isolation_tested' => 'READ-COMMITTED', 'requests_use_repeatable_read_snapshot' => true, 'cases' => $results];
     }
 
     /** @param list<int> $sizes @return array{admin: User, orders: array<string, list<string>>} */

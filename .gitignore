@@ -200,3 +200,31 @@ Thumbs.db
 
 !/tests/Feature/AgendaPaginationLoadTest.php
 !/tests/Feature/AgendaAuthorizationTest.php
+
+# Regressioni della revisione funzionale di novembre 2026.
+!/tests/Feature/FunctionalRevisionTest.php
+!/tests/Feature/StaffOtpNavigationTest.php
+!/tests/Feature/OperationalNotificationIsolationTest.php
+!/tests/Feature/ShipmentCardInformationTest.php
+!/tests/Feature/MessagingTest.php
+!/tests/Feature/PendingAccountsTest.php
+!/tests/Feature/PendingOwnershipTest.php
+!/tests/functional-revision.browser.test.mjs
+!/tests/Feature/ShippingRatePostalRevisionTest.php
+!/tests/Feature/PickupFlowParityTest.php
+!/tests/rates-booking.browser.test.mjs
+
+# Regressioni e configurazione riproducibili della sicurezza di autenticazione.
+!/phpunit.xml
+!/tests/Feature/AuthSecurityTest.php
+!/tests/Feature/AuthSecurityConcurrencyTest.php
+!/tests/Feature/DevelopmentAccessTest.php
+!/tests/Feature/Auth/AccessControlTest.php
+!/tests/Feature/AuthSecurityPruningTest.php
+
+# Le esportazioni delle conversazioni rimangono locali.
+*.jsonl
+/conversations/
+/conversazioni/
+/transcripts/
+/chat-exports/

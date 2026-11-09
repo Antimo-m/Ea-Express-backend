@@ -21,6 +21,11 @@ class StoreOrderRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $category = $this->input('category');
+        if (is_string($category) && $category !== 'custom' && isset(OrderContent::Categories[$category])
+            && $this->input('content_description') === OrderContent::Categories[$category]) {
+            $this->merge(['content_description' => null]);
+        }
         if ($this->missing('sender_type') && $this->user()?->role === UserRole::Customer) {
             $this->merge(['sender_type' => $this->user()->sender_type]);
         }

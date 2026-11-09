@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Route;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
@@ -193,8 +194,8 @@ class StaffAuthenticationSecurityTest extends TestCase
         Auth::guard('web')->setUser($user->fresh());
         $this->putJson('/password', ['current_password' => 'password', 'password' => 'new-password', 'password_confirmation' => 'new-password'])->assertForbidden();
         $this->assertTrue(Hash::check('password', $user->fresh()->password));
-        $this->get('/verify-email-otp')->assertRedirect(route('login'));
-        $this->assertGuest();
+        $this->get('/verify-email-otp')->assertOk();
+        $this->assertSame(StaffAuthenticationState::PrimaryAuthenticated->value, session('staff_authentication.state'));
     }
 
     public function test_disabled_password_reset_does_not_authenticate_or_satisfy_pending_verification(): void
@@ -220,17 +221,18 @@ class StaffAuthenticationSecurityTest extends TestCase
         $this->assertSame(StaffAuthenticationState::FullyAuthenticated->value, session('staff_authentication.state'));
     }
 
-    public function test_admin_and_verified_rider_keep_the_existing_login_policy(): void
+    public function test_admin_and_verified_rider_require_otp_before_access(): void
     {
         Notification::fake();
         foreach ([UserRole::Admin, UserRole::Rider] as $role) {
             $user = User::factory()->create(['role' => $role]);
-            $this->post('/login', ['email' => $user->email, 'password' => 'password'])->assertRedirect('/dashboard');
+            $this->post('/login', ['email' => $user->email, 'password' => 'password'])->assertRedirect(route('email-otp.notice'));
+            $this->post('/verify-email-otp/confirm', ['code' => $this->code($user)])->assertRedirect('/dashboard');
             $this->assertSame(StaffAuthenticationState::FullyAuthenticated->value, session('staff_authentication.state'));
             $this->get('/profile')->assertOk();
             $this->post('/logout');
         }
-        Notification::assertNothingSent();
+        Notification::assertCount(2);
     }
 
     public function test_missing_or_expired_server_proof_requires_a_new_login(): void
@@ -278,13 +280,14 @@ class StaffAuthenticationSecurityTest extends TestCase
 
     public function test_security_events_do_not_contain_credentials_or_otp(): void
     {
-        Log::spy();
+        $logger = \Mockery::spy(LoggerInterface::class);
+        Log::shouldReceive('channel')->with('security')->andReturn($logger);
         $user = $this->loginPending();
         $code = $this->code($user);
         $this->getJson('/profile')->assertForbidden();
         $this->post('/verify-email-otp/confirm', ['code' => $code])->assertSessionHasNoErrors();
         foreach (['otp_challenge_created', 'otp_sent', 'partial_auth_access_denied', 'otp_verified'] as $event) {
-            Log::shouldHaveReceived('notice')->with('security.'.$event, \Mockery::on(function (array $context) use ($code): bool {
+            $logger->shouldHaveReceived('notice')->with('security.'.$event, \Mockery::on(function (array $context) use ($code): bool {
                 return array_keys($context) === ['user_id', 'ip', 'route', 'request_id']
                     && ! in_array($code, $context, true)
                     && ! array_key_exists('password', $context);

@@ -17,7 +17,28 @@ class ReviseShippingRate
     {
         return DB::transaction(function () use ($user, $data, $rate): ShippingRate {
             User::where('role', UserRole::Admin)->orderBy('id')->lockForUpdate()->firstOrFail();
-            $territoryChanged = ! $rate || ($data['city'] ?? $rate->city) !== $rate->city || ($data['postal_code'] ?? null) !== $rate->postal_code || ($data['postal_codes'] ?? $rate->postal_codes) !== $rate->postal_codes;
+            $postalErrorField = ! empty($data['postal_code']) ? 'postal_code' : 'postal_codes';
+            if ($rate) {
+                $rate = ShippingRate::query()->lockForUpdate()->findOrFail($rate->id);
+                abort_if($rate->archived_at !== null, 409, 'Questa tariffa è archiviata.');
+                abort_if(ShippingRate::where('supersedes_id', $rate->id)->exists(), 409, 'Questa versione è stata sostituita. Apri la versione più recente.');
+            }
+            if (array_key_exists('postal_codes', $data)) {
+                $codes = $data['postal_codes'] ?? [];
+                if (! empty($data['postal_code'])) {
+                    if ($codes !== [] && $codes !== [$data['postal_code']]) {
+                        throw ValidationException::withMessages(['postal_codes' => 'Il CAP singolo e l’elenco dei CAP non coincidono. Correggi la selezione.']);
+                    }
+                    $codes = [$data['postal_code']];
+                }
+                $data['postal_codes'] = $codes;
+                $data['postal_code'] = count($codes) === 1 ? $codes[0] : null;
+            } elseif (array_key_exists('postal_code', $data)) {
+                $data['postal_codes'] = ! empty($data['postal_code']) ? [$data['postal_code']] : [];
+            }
+            $territoryChanged = ! $rate || ($data['city'] ?? $rate->city) !== $rate->city
+                || (array_key_exists('postal_code', $data) && $data['postal_code'] !== $rate->postal_code)
+                || (array_key_exists('postal_codes', $data) && $data['postal_codes'] !== $rate->postal_codes);
             $data = [...($rate?->only($rate->getFillable()) ?? []), ...$data];
             $data['source_reference'] ??= 'Inserimento dal gestionale';
             $data['is_default'] = $rate?->is_default ?? false;
@@ -29,12 +50,16 @@ class ReviseShippingRate
                 }
             }
             $data['city_key'] = ShippingQuote::cityKey($data['city']);
-            if (! $data['is_default'] && $territoryChanged) {
+            if (! $data['is_default'] && ($territoryChanged || (($data['active'] ?? true) && ($rate?->territory_review_required || ! $rate?->active)))) {
                 $places = app(PostalCodeResolver::class)->places($data['city']);
+                $selectedCodes = ($data['postal_codes'] ?? []) ?: (! empty($data['postal_code']) ? [$data['postal_code']] : []);
+                if (count($places) > 1 && $selectedCodes !== []) {
+                    $places = array_values(array_filter($places, fn (array $place): bool => array_diff($selectedCodes, $place['postal_codes']) === []));
+                }
                 if (count($places) === 1) {
                     $codes = $places[0]['postal_codes'];
                     if (! empty($data['postal_code']) && ! in_array($data['postal_code'], $codes, true)) {
-                        throw ValidationException::withMessages(['postal_code' => 'Il CAP non corrisponde alla località del listino.']);
+                        throw ValidationException::withMessages([$postalErrorField => 'Il CAP non corrisponde alla località del listino.']);
                     }
                     $data['city'] = $places[0]['name'];
                     $data['city_key'] = ShippingQuote::cityKey($data['city']);
@@ -42,11 +67,11 @@ class ReviseShippingRate
                     if (array_diff($selectedCodes, $codes)) {
                         throw ValidationException::withMessages(['postal_codes' => 'Uno o più CAP non corrispondono alla località del listino.']);
                     }
-                    $data['postal_codes'] = $selectedCodes ?: $codes;
+                    $data['postal_codes'] = array_values($selectedCodes ?: $codes);
                     $data['postal_code'] = count($data['postal_codes']) === 1 ? $data['postal_codes'][0] : null;
                     $data['territory_review_required'] = false;
                 } else {
-                    throw ValidationException::withMessages(['city' => 'Comune non identificato con certezza. Verifica la località prima di salvare.']);
+                    throw ValidationException::withMessages(['city' => 'Comune non identificato con certezza. Usa il nome ufficiale e, per i comuni omonimi, aggiungi la sigla della provincia tra parentesi (es. Samone (TO)).']);
                 }
             }
             foreach (['zone', 'street'] as $field) {
@@ -63,9 +88,6 @@ class ReviseShippingRate
             }
             $before = null;
             if ($rate) {
-                $rate = ShippingRate::query()->lockForUpdate()->findOrFail($rate->id);
-                abort_if($rate->archived_at !== null, 409, 'Questa tariffa è archiviata.');
-                abort_if(ShippingRate::where('supersedes_id', $rate->id)->exists(), 409, 'Questa versione è stata sostituita. Apri la versione più recente.');
                 $before = $rate->toArray();
                 $rate->active = false;
                 $rate->save();

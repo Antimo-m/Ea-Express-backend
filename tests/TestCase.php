@@ -3,6 +3,7 @@
 namespace Tests;
 
 use App\Models\User;
+use App\StaffAuthenticationState;
 use App\Support\StaffAuthentication;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
@@ -27,6 +28,10 @@ abstract class TestCase extends BaseTestCase
         if (($guard ?? config('auth.defaults.guard')) === 'web' && $user instanceof User && $user->isStaff()) {
             request()->setLaravelSession(app('session.store'));
             app(StaffAuthentication::class)->begin(request(), $user);
+            if ($user->email_verified_at !== null) {
+                session()->put('staff_authentication.state', StaffAuthenticationState::FullyAuthenticated->value);
+                session()->put('staff_authentication.factor_verified_at', now()->timestamp);
+            }
             app('session.store')->save();
         }
 

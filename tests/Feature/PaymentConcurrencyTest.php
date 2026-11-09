@@ -67,9 +67,17 @@ Illuminate\Support\Facades\DB::purge('payment_race');
 $user = App\Models\User::findOrFail($input['user']);
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 $login = Illuminate\Http\Request::create('/login', 'POST', ['email' => $user->email, 'password' => 'password']);
+Illuminate\Support\Facades\Notification::fake();
 $loginResponse = $kernel->handle($login);
 $cookies = [];
 foreach ($loginResponse->headers->getCookies() as $cookie) {
+    $cookies[$cookie->getName()] = $cookie->getValue();
+}
+
+$code = Illuminate\Support\Facades\Notification::sent($user, App\Notifications\RiderEmailOtp::class)->last()->code;
+$otp = Illuminate\Http\Request::create('/verify-email-otp/confirm', 'POST', ['code' => $code], $cookies);
+$otpResponse = $kernel->handle($otp);
+foreach ($otpResponse->headers->getCookies() as $cookie) {
     $cookies[$cookie->getName()] = $cookie->getValue();
 }
 $paused = false;
@@ -132,7 +140,7 @@ CODE;
             $this->assertSame($cash, (int) PaymentEntry::sum('cash_amount_cents'));
             $this->assertSame($action === 'receive', $order->fresh()->paid_at !== null);
             $this->assertSame($version + ($action === 'refund' ? 0 : 1), $order->fresh()->version);
-            $this->assertDatabaseCount('economic_audits', $auditsBefore + $auditCount);
+            $this->assertDatabaseCount('economic_audits', $auditsBefore + $auditCount + 2);
         } finally {
             foreach ($workers as $worker) {
                 if ($worker->isRunning()) {

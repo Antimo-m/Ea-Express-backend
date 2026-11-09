@@ -20,7 +20,8 @@ class LaunchReadinessTest extends TestCase
     public function test_registration_normalizes_unicode_and_whitespace_without_corrupting_legitimate_names(): void
     {
         $this->postJson($this->api.'/auth/register', [...$this->registration(), 'name' => "\u{00A0} Caffe\u{0300}  &\tArtigianato \u{2003}", 'business_type' => "  Articoli\u{00A0} da  regalo  "])
-            ->assertCreated()->assertJsonPath('user.name', 'Caffè & Artigianato')->assertJsonPath('user.business_type', 'Articoli da regalo');
+            ->assertAccepted();
+        $this->assertDatabaseHas('users', ['email' => $this->registration()['email'], 'name' => 'Caffè & Artigianato', 'business_type' => 'Articoli da regalo']);
         $this->assertDatabaseHas('users', ['email' => 'launch@example.test', 'name' => 'Caffè & Artigianato']);
     }
 
@@ -33,7 +34,8 @@ class LaunchReadinessTest extends TestCase
         $this->postJson($this->api.'/auth/register', [...$this->registration(), 'name' => "\u{00A0}\u{2003}"])
             ->assertUnprocessable()->assertJsonValidationErrors('name');
         $this->postJson($this->api.'/auth/register', [...$this->registration(), 'sender_type' => 'private', 'name' => 'Maria Troia'])
-            ->assertCreated()->assertJsonPath('user.name', 'Maria Troia');
+            ->assertAccepted();
+        $this->assertDatabaseHas('users', ['email' => $this->registration()['email'], 'name' => 'Maria Troia']);
     }
 
     public function test_profile_and_booking_cannot_bypass_business_name_validation(): void

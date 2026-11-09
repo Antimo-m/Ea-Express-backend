@@ -6,12 +6,14 @@ use App\Models\Order;
 use App\Support\PickupAgenda;
 use App\Support\PublicReferences;
 use App\Support\RecipientRisk;
+use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class PickupGroupController extends Controller
@@ -41,16 +43,19 @@ class PickupGroupController extends Controller
     {
         $data = $this->pagination($request, 10);
         $date = Carbon::createFromFormat('!Y-m-d', $data['date'], 'Europe/Rome')->locale('it');
-        ['groups' => $groups, 'totalOrders' => $totalOrders] = $agenda->accounts($request->user(), $date, $data['page'] ?? 1, $data['per_page'] ?? 10);
-        if ($request->expectsJson()) {
-            return response()->json([
-                'date' => $date->toDateString(), 'total_orders' => $totalOrders,
-                'data' => $groups->items(), ...$this->pageData($groups),
-            ])->header('Cache-Control', 'private, no-store');
-        }
-        $view = $request->header('X-Pickup-Agenda') === 'accounts' ? 'pickups.accounts' : 'pickups.day';
 
-        return response()->view($view, compact('date', 'groups', 'totalOrders'))->header('Cache-Control', 'private, no-store');
+        return $this->readSnapshot(function () use ($request, $agenda, $date, $data): Response|JsonResponse {
+            ['groups' => $groups, 'totalOrders' => $totalOrders] = $agenda->accounts($request->user(), $date, $data['page'] ?? 1, $data['per_page'] ?? 10);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'date' => $date->toDateString(), 'total_orders' => $totalOrders,
+                    'data' => $groups->items(), ...$this->pageData($groups),
+                ])->header('Cache-Control', 'private, no-store');
+            }
+            $view = $request->header('X-Pickup-Agenda') === 'accounts' ? 'pickups.accounts' : 'pickups.day';
+
+            return response()->view($view, compact('date', 'groups', 'totalOrders'))->header('Cache-Control', 'private, no-store');
+        });
     }
 
     public function orders(Request $request, string $account, PickupAgenda $agenda): Response|JsonResponse
@@ -58,23 +63,36 @@ class PickupGroupController extends Controller
         $data = $this->pagination($request, 20);
         $kind = $request->validate(['kind' => ['nullable', 'in:customer,manual']])['kind'] ?? 'customer';
         $date = Carbon::createFromFormat('!Y-m-d', $data['date'], 'Europe/Rome')->locale('it');
-        $reference = $kind === 'manual' ? 'order_id' : 'customer_id';
-        $referenceId = PublicReferences::ids([$reference => $account])[$reference];
-        ['query' => $query, 'summary' => $accountSummary] = $agenda->account($request->user(), $date, $referenceId, $kind);
-        $orders = $agenda->orders($query, $accountSummary->orders_count, $data['page'] ?? 1, $data['per_page'] ?? 20)
-            ->appends(['date' => $date->toDateString(), 'kind' => $kind, 'per_page' => $data['per_page'] ?? 20]);
-        $recipientRisks = app(RecipientRisk::class)->forOrders($orders->getCollection());
-        if ($request->expectsJson()) {
-            return response()->json([
-                'date' => $date->toDateString(), 'account' => $accountSummary,
-                'data' => $orders->getCollection()->map(fn (Order $order): array => $this->orderData($order, $recipientRisks[$order->id] ?? null))->all(),
-                ...$this->pageData($orders),
-            ])->header('Cache-Control', 'private, no-store');
-        }
-        $accountSlug = $accountSummary->slug;
 
-        return response()->view('pickups.account-orders', compact('date', 'orders', 'recipientRisks', 'accountSummary', 'accountSlug', 'kind'))
-            ->header('Cache-Control', 'private, no-store');
+        return $this->readSnapshot(function () use ($request, $account, $agenda, $date, $data, $kind): Response|JsonResponse {
+            $reference = $kind === 'manual' ? 'order_id' : 'customer_id';
+            $referenceId = PublicReferences::ids([$reference => $account])[$reference];
+            ['query' => $query, 'summary' => $accountSummary] = $agenda->account($request->user(), $date, $referenceId, $kind);
+            $orders = $agenda->orders($query, $accountSummary->orders_count, $data['page'] ?? 1, $data['per_page'] ?? 20)
+                ->appends(['date' => $date->toDateString(), 'kind' => $kind, 'per_page' => $data['per_page'] ?? 20]);
+            $recipientRisks = app(RecipientRisk::class)->forOrders($orders->getCollection());
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'date' => $date->toDateString(), 'account' => $accountSummary,
+                    'data' => $orders->getCollection()->map(fn (Order $order): array => $this->orderData($order, $recipientRisks[$order->id] ?? null))->all(),
+                    ...$this->pageData($orders),
+                ])->header('Cache-Control', 'private, no-store');
+            }
+            $accountSlug = $accountSummary->slug;
+
+            return response()->view('pickups.account-orders', compact('date', 'orders', 'recipientRisks', 'accountSummary', 'accountSlug', 'kind'))
+                ->header('Cache-Control', 'private, no-store');
+        });
+    }
+
+    private function readSnapshot(Closure $read): Response|JsonResponse
+    {
+        $connection = DB::connection();
+        if ($connection->getDriverName() === 'mysql' && $connection->transactionLevel() === 0) {
+            $connection->statement('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+        }
+
+        return $connection->transaction($read);
     }
 
     /** @return array{date: string, page?: int, per_page?: int} */

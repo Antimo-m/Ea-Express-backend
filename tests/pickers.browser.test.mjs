@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
+import { createHash } from 'node:crypto';
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, readdirSync, existsSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -277,10 +278,10 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
             await navigate('pending');
             await evaluate(`document.querySelector('select').nextElementSibling.click()`);
-            await evaluate(`Array.from(document.querySelectorAll('[role="option"]')).find(node=>node.textContent.startsWith('Storico')).click();document.querySelector('.portal-filter-toolbar').requestSubmit()`);
+            await evaluate(`Array.from(document.querySelectorAll('[role="option"]')).find(node=>node.value==='history').click();document.querySelector('.portal-filter-toolbar').requestSubmit()`);
             assert.equal(await evaluate(`new URLSearchParams(location.search).get('view')`), 'history');
             assert.equal(await evaluate(`document.querySelector('select').value`), 'history');
-            assert.match(await evaluate(`document.querySelector('select').nextElementSibling.textContent`), /Storico/);
+            assert.match(await evaluate(`document.querySelector('select').nextElementSibling.textContent`), /Archivio/);
             await evaluate(`document.querySelectorAll('select')[1].nextElementSibling.click()`);
             await key('ArrowDown');
             await key('Enter');
@@ -348,7 +349,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 await navigate('rider-detail.html');
                 assert.equal(await evaluate(`document.querySelector('.rider-order-events')`),null);
                 assert.equal(await evaluate(`document.querySelectorAll('[data-rider-delivery]').length`),1);
-                assert.ok(await evaluate(`document.querySelector('.rider-day-accounting').textContent.includes('Contabilità del giorno')`));
+                assert.ok(await evaluate(`document.querySelector('.rider-day-accounting').textContent.includes('Contabilità del periodo')`));
             }
         });
         await scenario('operational periods preserve Rider perspective, selection and navigation context without reloading', async () => {
@@ -542,7 +543,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                     await key('Enter');
                     assert.equal(await evaluate(`document.querySelector('[data-order-preview-toggle]').getAttribute('aria-expanded')`),'true');
                     assert.equal(await evaluate(`document.querySelector('.operational-preview').hidden`),false);
-                    assert.ok(await evaluate(`document.querySelector('.operational-preview').textContent.includes('CONSEGNA')`));
+                    assert.ok(await evaluate(`document.querySelector('.operational-preview .operational-preview-addresses').children.length===2 && document.querySelector('.operational-preview .operational-preview-addresses > div:last-child p').textContent.trim().length>0`));
                     assert.ok(await evaluate(`document.querySelector('.operational-preview a').pathname.match(new RegExp("^/orders/[0-9a-f-]{36}$"))`));
                     if (process.env.EA_UI_SCREENSHOTS) writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`preview-${page}-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
                     await key('Enter');
@@ -609,8 +610,8 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
                 for (const page of pages) {
                     await navigate(page);
-                    const geometry = await evaluate(`(()=>{const toolbar=document.querySelector('[data-filter-toolbar]');return {controls:[...toolbar.querySelectorAll('.ea-picker-trigger,.form-control:not(.ea-picker-source),.filter-actions .icon-button,.filter-more:not([hidden]),[data-custom-period]')].filter(node=>node.getClientRects().length).map(node=>({height:node.getBoundingClientRect().height,left:node.getBoundingClientRect().left,right:node.getBoundingClientRect().right})),search:toolbar.querySelector('.filter-search')?.getBoundingClientRect().toJSON(),primary:toolbar.querySelector('.filter-primary').getBoundingClientRect().toJSON(),reset:toolbar.querySelector('.filter-reset').getBoundingClientRect().toJSON()}})()`);
-                    assert.ok(geometry.controls.every(control=>Math.abs(control.height-(width<768?44:38))<1),`${page} at ${width}: ${JSON.stringify(geometry.controls)}`);
+                    const geometry = await evaluate(`(()=>{const toolbar=document.querySelector('[data-filter-toolbar]');return {controls:[...toolbar.querySelectorAll('.ea-picker-trigger,.form-control:not(.ea-picker-source),.filter-actions .icon-button,.filter-more:not([hidden]),[data-custom-period]')].filter(node=>node.getClientRects().length).map(node=>({height:node.getBoundingClientRect().height,left:node.getBoundingClientRect().left,right:node.getBoundingClientRect().right,class:node.className,filterHeight:getComputedStyle(node).getPropertyValue('--filter-height')})),search:toolbar.querySelector('.filter-search')?.getBoundingClientRect().toJSON(),primary:toolbar.querySelector('.filter-primary').getBoundingClientRect().toJSON(),reset:toolbar.querySelector('.filter-reset').getBoundingClientRect().toJSON()}})()`);
+                    assert.ok(geometry.controls.every(control=>control.height>=(width<768?44:38)&&Math.abs(control.height-geometry.controls[0].height)<1),`${page} at ${width}: ${JSON.stringify(geometry.controls)}`);
                     assert.ok(geometry.controls.every(control=>control.right<=width+1),`${page} controls extend at ${width}`);
                     if(geometry.search && width>=576) assert.ok(geometry.search.top<=geometry.primary.top,`${page}: search comes first`);
                     assert.equal(await evaluate(`document.querySelector('.filter-actions').lastElementChild.matches('.filter-reset')`),true);
@@ -975,7 +976,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 await assertButtonShapes(`reversal controls ${width}`);
                 assert.equal(await evaluate(`document.querySelector('[data-dialog-open^="receipt-refund-"]')`),null,'the reversal already records the refund');
                 await evaluate(`const row=[...document.querySelectorAll('[data-reversal]')].find(node=>node.textContent.includes('Con rettifica contabile')&&node.querySelector('[data-dialog-open^="receipt-state-"]'));row.querySelector('.row-actions-menu summary').click();row.querySelector('[data-dialog-open^="receipt-state-"]').click()`);
-                assert.ok(await evaluate(`document.querySelector('dialog[open]').textContent.includes('nuovo incasso effettivo')`));
+                assert.ok(await evaluate(`document.querySelector('dialog[open]').textContent.includes('nuova registrazione del pagamento')`));
                 assert.equal(await evaluate(`document.querySelector('dialog[open] [name="action"]').value`),'restore');
                 assert.ok(await evaluate(`document.querySelector('dialog[open] [name="note"]').required`));
                 await key('Escape');
@@ -1195,7 +1196,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             assert.match(await evaluate(`document.getElementById('calendar-month').textContent`),/Settembre 2026/);
             await follow('[aria-label="Mese successivo"]');await follow('[aria-label="Mese successivo"]');
             assert.match(await evaluate(`document.getElementById('calendar-month').textContent`),/Novembre 2026/);
-            await follow('.pickup-calendar-navigation .btn');
+            await follow('.pickup-calendar-navigation a.btn');
             await follow('[data-pickup-date="2026-10-18"]');
             assert.ok(await evaluate(`document.body.textContent.includes('Nessun ritiro da effettuare')`));
             assert.equal(await evaluate(`window.__agendaDocument`),'retained');
@@ -1239,7 +1240,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});
                 await navigate('workspace-pending.html');
                 await evaluate('document.fonts.ready');
-                assert.ok(await evaluate(`document.querySelectorAll('.pending-account-panel').length >= 3`));
+                assert.ok(await evaluate(`document.querySelectorAll('.pending-account-panel').length === 2`));
                 assert.ok(await evaluate(`![...document.querySelectorAll('.pending-account-panel [data-dialog-open]')].some(node=>!/^pending-(assign|settle|edit|history)-[0-9a-f-]{36}$/.test(node.dataset.dialogOpen))`));
                 const colors = await evaluate(`(()=>{const style=node=>getComputedStyle(document.querySelector(node));const token=name=>getComputedStyle(document.documentElement).getPropertyValue(name).trim();return {search:style('.filter-submit').getPropertyValue('--action-color').trim(),reset:style('.filter-reset').getPropertyValue('--action-color').trim(),filter:style('.filter-more').backgroundColor,searchBackground:style('.filter-submit').backgroundColor,edit:style('.pending-account-panel .action-edit').getPropertyValue('--action-color').trim(),brand:token('--ea-brand'),info:token('--ea-info'),success:token('--ea-success')};})()`);
                 assert.equal(colors.search,colors.brand); assert.equal(colors.reset,colors.info); assert.equal(colors.edit,colors.success); assert.equal(colors.filter,colors.searchBackground);
@@ -1254,9 +1255,9 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 for(const mode of ['hover','focus']){
                     if(mode==='hover')await send('Input.dispatchMouseEvent',{type:'mouseMoved',...close});
                     else{await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:0,y:0});await key('Tab');await evaluate(`document.querySelector('dialog[open] .modal-heading [data-dialog-close]').focus()`);}
-                    const bounds = await evaluate(`(()=>{const b=document.querySelector('dialog[open] .modal-heading [data-dialog-close]'),s=getComputedStyle(b,'::after'),r=b.getBoundingClientRect(),d=b.closest('dialog').getBoundingClientRect();return {content:s.content,left:r.right-parseFloat(s.width),right:r.right,top:r.top+parseFloat(s.top),bottom:r.top+parseFloat(s.top)+parseFloat(s.height),dialog:{left:d.left,right:d.right,top:d.top,bottom:d.bottom}};})()`);
-                    assert.equal(bounds.content,'"Chiudi finestra"');
-                    assert.ok(bounds.left>=bounds.dialog.left && bounds.right<=bounds.dialog.right && bounds.top>=bounds.dialog.top && bounds.bottom<=bounds.dialog.bottom,JSON.stringify({width,mode,bounds}));
+                    const bounds = await evaluate(`(()=>{const tooltip=document.querySelector('.ea-tooltip'),r=tooltip.getBoundingClientRect();return {content:tooltip.textContent,left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth,height:innerHeight};})()`);
+                    assert.equal(bounds.content,'Chiudi finestra');
+                    assert.ok(bounds.left>=12 && bounds.right<=bounds.width-11 && bounds.top>=12 && bounds.bottom<=bounds.height-11,JSON.stringify({width,mode,bounds}));
                 }
                 await key('Escape');
                 await evaluate(`document.querySelector('.pending-account-panel .action-history').click()`);
@@ -1374,10 +1375,8 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                     if(overlaps)failures.push(`${file} price edit overlaps rate timing at ${width}px`);
                 }
                 if (file === 'orders_in-progress.html') {
-                    const overlap = await evaluate(`(()=>{const row=document.querySelector('.recipient-identity');const name=row?.querySelector('span').getBoundingClientRect();const badge=row?.querySelector('.recipient-status').getBoundingClientRect();return name&&badge&&name.left<badge.right&&name.right>badge.left&&name.top<badge.bottom&&name.bottom>badge.top})()`);
-                    if (overlap) failures.push(`${file} recipient badge overlaps at ${width}px`);
-                    const below=await evaluate(`(()=>{const row=document.querySelector('.recipient-identity');return row.querySelector('.recipient-status').getBoundingClientRect().top >= row.querySelector('.recipient-name').getBoundingClientRect().bottom-1})()`);
-                    if (!below) failures.push(`${file} recipient badge is not below name at ${width}px`);
+                    const layout = await evaluate(`(()=>{const row=document.querySelector('.operational-identity .order-recipient'),name=row.querySelector('.recipient-name').getBoundingClientRect(),dot=row.querySelector('.recipient-dot'),badge=dot.getBoundingClientRect();return {overlap:name.left<badge.right&&name.right>badge.left&&name.top<badge.bottom&&name.bottom>badge.top,label:dot.getAttribute('aria-label'),right:badge.right,width:badge.width};})()`);
+                    if(layout.overlap || layout.right>width+1 || !layout.label) failures.push(`${file} recipient indicator is unreadable at ${width}px: ${JSON.stringify(layout)}`);
                 }
             }
         }
@@ -1452,7 +1451,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             for(const width of [1440,1280,1024,768,375]) {
                 await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
                 await navigate('orders_create.html');
-                assert.ok(await evaluate(`const a=document.querySelector('.booking-content [for="category"]').getBoundingClientRect(),b=document.querySelector('.booking-content [for="urgency"]').getBoundingClientRect();Math.abs(a.top-b.top)<3`));
+                assert.ok(await evaluate(`const a=document.querySelector('.booking-content [for="content_description"]').getBoundingClientRect(),b=document.querySelector('.booking-content [for="urgency"]').getBoundingClientRect();Math.abs(a.top-b.top)<3`));
                 await evaluate(`const date=document.querySelector('[name="pickup_date"]');date.value=new Date(Date.now()+2*86400000).toISOString().slice(0,10);date.dispatchEvent(new Event('change',{bubbles:true}));date.closest('.booking-step').scrollIntoView({behavior:'instant'});`);
                 await clickPicker('pickup_from');
                 await new Promise(resolve=>setTimeout(resolve,160));
@@ -1502,10 +1501,20 @@ $app = require '${resolve('bootstrap/app.php')}';
 $app->make(Illuminate\\Contracts\\Http\\Kernel::class)->bootstrap();
 $app->make(Illuminate\\Foundation\\Vite::class)->useHotFile('${temporary}/vite.hot');
 config(['session.files'=>'${temporary}/sessions', 'session.secure'=>false, 'session.domain'=>null, 'session.encrypt'=>false]);
+config(['logging.channels.security.path'=>'${temporary}/security.log']);
+Illuminate\\Support\\Facades\\Event::listen(Illuminate\\Notifications\\Events\\NotificationSending::class, function (Illuminate\\Notifications\\Events\\NotificationSending $event): ?bool {
+    if ($event->notification instanceof App\\Notifications\\RiderEmailOtp) {
+        $file = '${temporary}/otp-'.hash('sha256', $event->notifiable->email).'.json';
+        file_put_contents($file, json_encode(['code' => $event->notification->code], JSON_THROW_ON_ERROR), LOCK_EX);
+        chmod($file, 0600);
+        return false;
+    }
+    return null;
+});
 Illuminate\\Http\\Request::enableHttpMethodParameterOverride();
 $app->handleRequest(Illuminate\\Http\\Request::capture());
 `);
-            phpServer=spawn('php',['-S',`127.0.0.1:${port}`,'-t',resolve('public'),router],{env:{...process.env,APP_ENV:'testing',APP_URL:phpOrigin,DB_CONNECTION:'sqlite',DB_DATABASE:join(temporary,'browser.sqlite'),DB_URL:'',SESSION_DRIVER:'file',CACHE_STORE:'array',MAIL_MAILER:'array',QUEUE_CONNECTION:'sync',BROADCAST_CONNECTION:'null'},stdio:['ignore','ignore','pipe']});
+            phpServer=spawn('php',['-S',`127.0.0.1:${port}`,'-t',resolve('public'),router],{env:{...process.env,APP_ENV:'testing',APP_URL:phpOrigin,AUTH_SECURITY_STORE:'array',AUTH_PASSWORD_BREACH_CHECK:'false',AUTH_ALERT_QUEUE_CONNECTION:'database',DB_CONNECTION:'sqlite',DB_DATABASE:join(temporary,'browser.sqlite'),DB_URL:'',SESSION_DRIVER:'file',CACHE_STORE:'array',MAIL_MAILER:'array',QUEUE_CONNECTION:'sync',BROADCAST_CONNECTION:'null'},stdio:['ignore','ignore','pipe']});
             let phpErrors='';phpServer.stderr.on('data',data=>phpErrors+=data);
             for(let i=0;i<100;i++){try{const r=await fetch(phpOrigin+'/api/v1/customer/csrf');if(r.ok)break;}catch{}await new Promise(resolve=>setTimeout(resolve,30));}
             const fixtureOrigin=origin;origin=phpOrigin;
@@ -1524,7 +1533,9 @@ $app->handleRequest(Illuminate\\Http\\Request::capture());
                 }
                 await evaluate(`document.querySelector('[name="sender_type"][value="online_shop"]').click()`);
                 await fill({name:'Shop verifica browser',email:'browser@example.test',password:'PasswordSicura123',password_confirmation:'PasswordSicura123'});
-                await evaluate(`document.querySelector('form').requestSubmit()`);await waitFor(`location.pathname==='/dashboard'`);
+                await evaluate(`document.querySelector('form').requestSubmit()`);await waitFor(`location.pathname==='/login' && document.querySelector('.portal-auth.is-login form')`);
+                await fill({email:'browser@example.test',password:'PasswordSicura123'});
+                await evaluate(`document.querySelector('.portal-auth form').requestSubmit()`);await waitFor(`location.pathname==='/dashboard'`);
                 await send('Page.navigate',{url:origin+'/pickups/new'});await waitFor(`document.querySelector('[name="store_name"]')`);
                 assert.equal(await evaluate(`document.querySelector('[name="sender_type"]')`),null);
                 assert.match(await evaluate(`document.querySelector('.sender-profile-type').textContent`),/Shop online.*Dal tuo profilo/);
@@ -1546,14 +1557,20 @@ $app->handleRequest(Illuminate\\Http\\Request::capture());
                 await waitFor(`/^\\/pickups\\/[0-9a-f-]{36}$/.test(location.pathname)`);
                 const orderId=await evaluate(`location.pathname.split('/').at(-1)`);
                 async function staff(role) {
-                    // Stop portal polling before resetting the cookies for the next account.
                     await send('Page.navigate', {url:'about:blank'});
                     await waitFor(`location.href === 'about:blank'`);
                     await send('Network.clearBrowserCookies');
-                    await send('Page.navigate', {url:origin+'/login'});
+                    const target = role === 'admin' ? '/orders/create' : '/orders/'+orderId;
+                    await send('Page.navigate', {url:origin+target});
                     await waitFor(`document.querySelector('[data-auth-form]')`);
                     await fill({email:role+'@example.test',password:'password'});
-                    await evaluate(`fetch(document.querySelector('[data-auth-form]').action,{method:'POST',body:new FormData(document.querySelector('[data-auth-form]')),credentials:'same-origin',redirect:'manual'}).then(()=>true)`);
+                    await evaluate(`document.querySelector('[data-auth-form]').requestSubmit()`);
+                    await waitFor(`document.querySelector('[name="code"]') && location.pathname==='/verify-email-otp'`);
+                    const otpFile=join(temporary,'otp-'+createHash('sha256').update(role+'@example.test').digest('hex')+'.json');
+                    const code=JSON.parse(readFileSync(otpFile,'utf8')).code;
+                    await fill({code});
+                    await evaluate(`document.querySelector('form[action$="/verify-email-otp/confirm"]').requestSubmit()`);
+                    await waitFor(`location.pathname===${JSON.stringify(target)} && document.querySelector(${JSON.stringify(role === 'admin' ? '[data-shipping-quote]' : '#next-action')})`);
                 }
                 await staff('admin');
                 await send('Page.navigate',{url:origin+'/orders/create'});await waitFor(`document.querySelector('[data-shipping-quote]')`);

@@ -35,13 +35,13 @@
     <x-ui.modal id="rate-editor" title="Nuova tariffa" description="Definisci dove consegniamo e il costo della spedizione.">
         <form data-rate-form class="form-stack">
             <div class="modal-content-area field-grid">
-                <div><label class="form-label" for="rate-type">Servizio</label><select class="form-select" id="rate-type" name="shipping_type"><option value="regional">Regionale</option><option value="external">Fuori regione</option></select></div>
+                <div><label class="form-label" for="rate-type">Servizio</label><select class="form-select" id="rate-type" name="shipping_type" required><option value="regional">Regionale</option><option value="external">Fuori regione</option></select></div>
                 <div data-external-rate-fields class="field-grid"><x-ui.field name="carrier_name" label="Vettore previsto" maxlength="100"/>
                 <x-ui.field name="carrier_cost" label="Costo vettore previsto (€, facoltativo)" inputmode="decimal" pattern="[0-9]{1,6}([.,][0-9]{1,2})?"/>
                 <x-ui.field name="delivery_days_min" label="Giorni lavorativi minimi dal ritiro" type="number" min="1" max="365"/>
-                <x-ui.field name="delivery_days_max" label="Giorni lavorativi massimi dal ritiro" type="number" min="1" max="365"/>
+                <x-ui.field name="delivery_days_max" label="Giorni lavorativi massimi dal ritiro" type="number" min="1" max="365" data-required-when="delivery_days_min"/>
                 </div>
-                <x-ui.field name="city" id="rate-city" label="Località" maxlength="100" required/>
+                <x-ui.field name="city" id="rate-city" label="Località" maxlength="100" help="Usa il nome ufficiale del comune. Se omonimo, specifica la provincia: es. Samone (TO)." required/>
                 <x-ui.field name="area" id="rate-area" label="Area" maxlength="100"/>
                 <x-ui.field name="postal_code" id="rate-postal" label="CAP" maxlength="700" help="Se il comune ha più CAP, separali con una virgola. Lascia vuoto per tutti i CAP verificati del comune."/>
                 <input type="hidden" name="zone"/>

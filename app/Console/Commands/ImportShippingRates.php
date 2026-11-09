@@ -47,7 +47,12 @@ class ImportShippingRates extends Command
 
                 return self::FAILURE;
             }
-            $data = array_map(fn ($v) => trim($v) === '' ? null : trim($v), array_combine($header, $values));
+            $data = array_combine($header, $values);
+            foreach ($data as $field => $value) {
+                if ($field !== 'price') {
+                    $data[$field] = trim($value) === '' ? null : trim($value);
+                }
+            }
             $validator = Validator::make($data, ['area' => 'nullable|string|max:100', 'city' => 'required|string|max:100', 'postal_code' => ['nullable', 'regex:/^[0-9]{5}$/D'], 'price' => ['required', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'], 'delivery_time' => 'nullable|string|max:100', 'source_reference' => 'required|string|max:255']);
             if (! $validator->fails()) {
                 $places = $resolver->places($data['city']);

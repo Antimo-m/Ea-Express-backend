@@ -58,6 +58,11 @@ class PostalCodeResolver
     /** @return list<array<string, mixed>> */
     public function places(string $city): array
     {
+        if (preg_match('/^(.*?)\s*\(([A-Za-z]{2})\)\s*$/u', trim($city), $suffix)) {
+            return array_values(array_filter($this->municipalities()[ShippingQuote::cityKey($suffix[1])] ?? [],
+                fn (array $place): bool => strcasecmp($place['province_code'], $suffix[2]) === 0));
+        }
+
         return $this->municipalities()[ShippingQuote::cityKey($city)] ?? [];
     }
 

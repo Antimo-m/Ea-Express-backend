@@ -24,7 +24,7 @@ class AdminOperationalAssignmentTest extends TestCase
     public function test_admin_can_accept_for_self_and_complete_pickup_tracking_and_delivery(): void
     {
         $this->freezeTime();
-        $admin = User::factory()->unverified()->create(['role' => UserRole::Admin]);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
         $order = Order::factory()->create(['status' => OrderStatus::Received, 'pricing_version' => 1, 'price_state' => 'agreed', 'price_cents' => 12550, 'quoted_price_cents' => 12550]);
 
         $this->actingAs($admin)->get('/orders/'.$order->slug)->assertViewHas('riders', fn ($riders) => $riders->contains('id', $admin->id));

@@ -21,6 +21,9 @@ class IntendedDestination
             return '/dashboard';
         }
         $path = $parts['path'] ?? '/dashboard';
+        if (in_array(rtrim($path, '/'), ['/login', '/logout', '/register', '/verify-email-otp', '/verify-email-otp/send', '/verify-email-otp/confirm'], true)) {
+            return '/dashboard';
+        }
         if (! str_starts_with($path, '/') || str_starts_with($path, '//')) {
             return '/dashboard';
         }

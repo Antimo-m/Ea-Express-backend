@@ -30,11 +30,13 @@ class PendingAccountController extends Controller
     public function index(Request $request): View
     {
         abort_unless($request->user()->role === UserRole::Admin, 403);
-        $data = $request->validate(['customer_id' => ['nullable', 'uuid', 'exists:users,slug'], 'slug' => ['nullable', 'uuid'], 'direction' => ['nullable', 'in:incoming,outgoing'], 'state' => ['nullable', 'in:open,partially_paid,paid,cancelled'], 'q' => ['nullable', 'string', 'max:150'], 'sort' => ['nullable', 'in:recent,due,remaining']]);
+        $data = $request->validate(['customer_id' => ['nullable', 'uuid', 'exists:users,slug'], 'slug' => ['nullable', 'uuid'], 'direction' => ['nullable', 'in:incoming,outgoing'], 'state' => ['nullable', 'in:outstanding,all,open,partially_paid,paid,cancelled'], 'q' => ['nullable', 'string', 'max:150'], 'sort' => ['nullable', 'in:recent,due,remaining']]);
+        $selectedState = $data['state'] ?? (isset($data['slug']) ? 'all' : 'outstanding');
         $data = PublicReferences::ids($data);
         $query = PendingAccount::query()->when($data['customer_id'] ?? null, fn ($q, $id) => $q->where('customer_id', $id))->when($data['slug'] ?? null, fn ($q, $slug) => $q->where('slug', $slug))
             ->when($data['q'] ?? null, fn ($q, $term) => $q->where(fn ($search) => $search->where('subject', 'like', '%'.$term.'%')->orWhere('description', 'like', '%'.$term.'%')->orWhereHas('customer', fn ($customer) => $customer->where(fn ($identity) => $identity->where('name', 'like', '%'.$term.'%')->orWhere('email', 'like', '%'.$term.'%')->orWhere('business_description', 'like', '%'.$term.'%')))))
-            ->when($data['state'] ?? null, fn ($q, $state) => $q->where('state', $state));
+            ->when($selectedState === 'outstanding', fn ($q) => $q->whereIn('state', ['open', 'partially_paid']))
+            ->when(! in_array($selectedState, ['outstanding', 'all']), fn ($q) => $q->where('state', $selectedState));
         $totals = (clone $query)->whereIn('state', ['open', 'partially_paid'])->selectRaw('direction, SUM(amount_cents - settled_cents) AS remaining')->groupBy('direction')->pluck('remaining', 'direction');
         $list = (clone $query)->when($data['direction'] ?? null, fn ($q, $direction) => $q->where('direction', $direction))
             ->with(['customer:id,slug,name,email,business_type,business_description,is_active', 'order:id,slug,reference,shipping_type', 'settlements' => fn ($q) => $q->with('user:id,slug,name')->latest()->orderByDesc('id')]);
@@ -46,7 +48,7 @@ class PendingAccountController extends Controller
         $accounts = $list->orderByDesc('id')->paginate(20)->withQueryString();
         $customers = User::where('role', UserRole::Customer)->orderBy('name')->get(['id', 'slug', 'name', 'email', 'business_type', 'business_description', 'is_active']);
 
-        return view('pending.index', compact('accounts', 'totals', 'customers'));
+        return view('pending.index', compact('accounts', 'totals', 'customers', 'selectedState'));
     }
 
     public function store(PendingAccountRequest $request): JsonResponse|RedirectResponse

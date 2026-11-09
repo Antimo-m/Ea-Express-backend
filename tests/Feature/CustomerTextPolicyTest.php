@@ -62,7 +62,7 @@ class CustomerTextPolicyTest extends TestCase
     #[DataProvider('legitimateTexts')]
     public function test_registration_accepts_legitimate_text_without_substring_false_positives(string $text): void
     {
-        $this->postJson($this->api.'/auth/register', $this->registration($text))->assertCreated()->assertJsonPath('user.business_type', $text);
+        $this->postJson($this->api.'/auth/register', $this->registration($text))->assertAccepted();
         $this->assertDatabaseHas('users', ['email' => 'policy@example.test', 'business_type' => $text]);
     }
 

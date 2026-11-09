@@ -52,6 +52,15 @@ return [
 
     'channels' => [
 
+        'security' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/security.log'),
+            'level' => 'notice',
+            'days' => (int) env('AUTH_LOG_RETENTION_DAYS', 14),
+            'permission' => 0600,
+            'replace_placeholders' => true,
+        ],
+
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),

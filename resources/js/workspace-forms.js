@@ -1,4 +1,5 @@
 import { applyWorkspaceSnapshot, refreshWorkspace, workspaceFeedback } from './workspace-updates';
+import { showFieldErrors } from './form-validation';
 
 const pending = new WeakSet();
 const specialized = '[data-financial-form],[data-order-action],[data-rate-form],[data-prevent-repeat],.message-composer,.staff-booking-form';
@@ -38,6 +39,7 @@ document.addEventListener('submit', async event => {
             return;
         }
         if (!response.ok) {
+            if (response.status === 422) showFieldErrors(form, result?.errors);
             throw new Error(Object.values(result?.errors || {}).flat().join(' ') || result?.message || (response.status === 419 || response.status === 401 ? 'Sessione scaduta. Accedi nuovamente.' : 'Operazione non riuscita. Riprova.'));
         }
         saved = true;

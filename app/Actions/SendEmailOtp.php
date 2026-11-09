@@ -4,8 +4,9 @@ namespace App\Actions;
 
 use App\Models\User;
 use App\Notifications\RiderEmailOtp;
+use App\Support\AuthSecurityMonitor;
+use App\Support\AuthSecurityStore;
 use App\Support\SecurityEvent;
-use App\UserRole;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -16,30 +17,41 @@ class SendEmailOtp
 {
     public function handle(User $user): void
     {
+        app(AuthSecurityStore::class)->consume(AuthSecurityStore::key('otp:send:ip', (string) request()->ip()), config('auth_security.otp.ip_sends'), config('auth_security.otp.window_seconds'));
+        app(AuthSecurityMonitor::class)->activity('otp_requests');
+        if (! $this->safeMailer((string) config('auth_security.otp.mailer'))) {
+            SecurityEvent::record('otp_mailer_misconfigured', $user->id);
+            throw ValidationException::withMessages(['code' => 'Invio del codice temporaneamente non disponibile. Contatta l’amministratore.']);
+        }
         $code = (string) random_int(100000, 999999);
         $recipient = DB::transaction(function () use ($user, &$code): User {
             $locked = User::query()->lockForUpdate()->findOrFail($user->id);
-            abort_unless($locked->is_active && $locked->role === UserRole::Rider, 403);
-            if ($locked->email_verified_at) {
-                throw ValidationException::withMessages(['code' => 'L’email è già verificata.']);
-            }
-            if ($locked->email_otp_sent_at?->greaterThan(now()->subMinute())) {
-                throw ValidationException::withMessages(['code' => 'Attendi un minuto prima di richiedere un nuovo codice.']);
-            }
-            if (! $locked->email_otp_window_at || $locked->email_otp_window_at->lessThanOrEqualTo(now()->subHour())) {
+            abort_unless($locked->is_active && $locked->isStaff(), 403);
+            $window = config('auth_security.otp.window_seconds');
+            if (! $locked->email_otp_window_at || $locked->email_otp_window_at->lessThanOrEqualTo(now()->subSeconds($window))) {
                 $locked->email_otp_window_at = now();
                 $locked->email_otp_send_count = 0;
+                $locked->email_otp_attempts = 0;
             }
-            if ($locked->email_otp_send_count >= 3) {
-                throw ValidationException::withMessages(['code' => 'Limite di tre invii in un’ora raggiunto. Riprova più tardi.']);
+            $retry = max(1, $locked->email_otp_window_at->timestamp + $window - now()->timestamp);
+            if ($locked->email_otp_attempts >= config('auth_security.otp.attempts')) {
+                SecurityEvent::record('otp_procedure_exhausted', $locked->id);
+                app(AuthSecurityStore::class)->limited($retry);
+            }
+            if ($locked->email_otp_sent_at?->greaterThan(now()->subSeconds(config('auth_security.otp.resend_seconds')))) {
+                SecurityEvent::record('otp_resend_limited', $locked->id);
+                app(AuthSecurityStore::class)->limited($locked->email_otp_sent_at->timestamp + config('auth_security.otp.resend_seconds') - now()->timestamp);
+            }
+            if ($locked->email_otp_send_count >= config('auth_security.otp.resends') + 1) {
+                SecurityEvent::record('otp_resend_limited', $locked->id);
+                app(AuthSecurityStore::class)->limited($retry);
             }
             while ($locked->email_otp_hash && Hash::check(self::digest($locked, $code), $locked->email_otp_hash)) {
                 $code = (string) random_int(100000, 999999);
             }
             $locked->email_otp_hash = Hash::make(self::digest($locked, $code));
-            $locked->email_otp_expires_at = now()->addMinutes(15);
+            $locked->email_otp_expires_at = now()->addSeconds(config('auth_security.otp.ttl_seconds'));
             $locked->email_otp_sent_at = now();
-            $locked->email_otp_attempts = 0;
             $locked->email_otp_send_count++;
             $locked->save();
 
@@ -59,14 +71,38 @@ class SendEmailOtp
             ]);
             SecurityEvent::record('otp_challenge_created', $recipient->id);
             SecurityEvent::record('otp_sent', $recipient->id);
-        } catch (Throwable $exception) {
-            report($exception);
+        } catch (Throwable) {
+            SecurityEvent::record('otp_delivery_failed', $recipient->id);
             User::whereKey($user->id)->where('email_otp_hash', $hash)->update(['email_otp_hash' => null, 'email_otp_expires_at' => null]);
             throw ValidationException::withMessages(['code' => 'Invio email non riuscito. Attendi un minuto e riprova.']);
         }
     }
 
-    public static function digest(User $user, string $code): string
+    /** @param list<string> $visited */
+    private function safeMailer(string $name, array $visited = []): bool
+    {
+        if (in_array($name, $visited, true)) {
+            return false;
+        }
+        $mailer = config('mail.mailers.'.$name, []);
+        $transport = $mailer['transport'] ?? null;
+        if ($transport === null || $transport === 'log' || ($transport === 'array' && ! app()->environment('testing'))) {
+            return false;
+        }
+        if (in_array($transport, ['failover', 'roundrobin'], true)) {
+            foreach ($mailer['mailers'] ?? [] as $child) {
+                if (! $this->safeMailer($child, [...$visited, $name])) {
+                    return false;
+                }
+            }
+
+            return count($mailer['mailers'] ?? []) > 0;
+        }
+
+        return true;
+    }
+
+    public static function digest(User $user, #[\SensitiveParameter] string $code): string
     {
         return hash_hmac('sha256', $user->id.'|'.$user->email.'|'.$code, (string) config('app.key'));
     }

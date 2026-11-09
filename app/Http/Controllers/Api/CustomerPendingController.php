@@ -12,14 +12,16 @@ class CustomerPendingController extends Controller
     public function index(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'view' => ['nullable', 'in:all,open,history'],
+            'view' => ['nullable', 'in:all,open,partial,settled,history'],
             'direction' => ['nullable', 'in:incoming,outgoing'],
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
         $query = $request->user('customer')->pendingAccounts();
         $totals = (clone $query)->whereIn('state', ['open', 'partially_paid'])->selectRaw('direction, SUM(amount_cents - settled_cents) AS remaining')->groupBy('direction')->pluck('remaining', 'direction');
         $accounts = $query
-            ->when(($data['view'] ?? 'all') === 'open', fn ($q) => $q->whereIn('state', ['open', 'partially_paid']))
+            ->when(($data['view'] ?? 'open') === 'open', fn ($q) => $q->whereIn('state', ['open', 'partially_paid']))
+            ->when(($data['view'] ?? null) === 'partial', fn ($q) => $q->where('state', 'partially_paid'))
+            ->when(($data['view'] ?? null) === 'settled', fn ($q) => $q->where('state', 'paid'))
             ->when(($data['view'] ?? 'all') === 'history', fn ($q) => $q->whereIn('state', ['paid', 'cancelled']))
             ->when($data['direction'] ?? null, fn ($q, $direction) => $q->where('direction', $direction))
             ->latest()->orderByDesc('id')->paginate(20);

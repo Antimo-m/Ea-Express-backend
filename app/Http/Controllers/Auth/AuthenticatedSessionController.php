@@ -8,7 +8,6 @@ use App\Http\Requests\Auth\LoginRequest;
 use App\Support\IntendedDestination;
 use App\Support\SecurityEvent;
 use App\Support\StaffAuthentication;
-use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -39,10 +38,9 @@ class AuthenticatedSessionController extends Controller
         }
         $request->session()->regenerate(true);
         $authentication->begin($request, $request->user(), $request->boolean('remember'));
-        SecurityEvent::record($authentication->requiresVerification($request->user()) ? 'primary_authenticated' : 'authentication_completed', $request->user()->id);
         $request->session()->put('password_hash_web', $request->user()->password);
 
-        if ($request->user()->role === UserRole::Rider && ! $request->user()->email_verified_at) {
+        if ($authentication->requiresVerification($request->user())) {
             try {
                 app(SendEmailOtp::class)->handle($request->user());
             } catch (ValidationException $exception) {

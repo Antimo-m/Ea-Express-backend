@@ -1,4 +1,5 @@
 import { refreshWorkspace, workspaceFeedback } from './workspace-updates';
+import { showFieldErrors } from './form-validation';
 
 export function bindFinancialForms(root = document) {
     for (const form of root.querySelectorAll('[data-financial-form]')) {
@@ -30,6 +31,7 @@ export function bindFinancialForms(root = document) {
                 const response = await fetch(form.getAttribute('action'), { method: 'POST', credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' }, body: data });
                 const result = response.headers.get('content-type')?.includes('application/json') ? await response.json() : {};
                 if (!response.ok || response.redirected) {
+                    if (response.status === 422) showFieldErrors(form, result.errors);
                     const retry = Number(response.headers.get('Retry-After')) || 60;
                     const message = response.status === 429 ? `Troppe richieste. Attendi ${retry} secondi prima di riprovare.`
                         : response.status === 419 || response.status === 401 || response.redirected ? 'Sessione scaduta. Ricarica la pagina e accedi nuovamente.'

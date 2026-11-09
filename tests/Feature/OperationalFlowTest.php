@@ -71,7 +71,7 @@ class OperationalFlowTest extends TestCase
     public function test_registered_account_type_controls_customer_booking_and_prefills_staff_booking(string $type): void
     {
         ShippingRate::factory()->create(['city' => 'Caserta', 'city_key' => 'caserta', 'postal_code' => '81100', 'postal_codes' => ['81100'], 'price_cents' => 850]);
-        $this->postJson('/api/v1/customer/auth/register', ['name' => 'Cliente prova', 'email' => 'cliente@example.test', 'password' => 'PasswordSicura123', 'password_confirmation' => 'PasswordSicura123', 'sender_type' => $type])->assertCreated()->assertJsonPath('user.sender_type', $type);
+        $this->postJson('/api/v1/customer/auth/register', ['name' => 'Cliente prova', 'email' => 'cliente@example.test', 'password' => 'PasswordSicura123', 'password_confirmation' => 'PasswordSicura123', 'sender_type' => $type])->assertAccepted();
         $customer = User::where('email', 'cliente@example.test')->sole();
         $this->assertSame($type, $customer->sender_type);
         $this->actingAs($customer, 'customer');

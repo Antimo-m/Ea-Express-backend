@@ -76,6 +76,7 @@ test('Rider workspace: ranges, status sorting, stable state and mobile controls'
             await evaluate('window.__previousRiderDocument = true');
             await send('Page.navigate', { url: origin + path });
             await until('!window.__previousRiderDocument && document.readyState === "complete" && (!document.querySelector("select,input[type=date],input[type=month]") || document.querySelector(".ea-picker-trigger"))');
+            await evaluate('document.fonts.ready.then(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))))');
         };
         const viewport = width => send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
         const change = (selector, value, type = 'change') => evaluate(`{const input=document.querySelector(${JSON.stringify(selector)}); input.value=${JSON.stringify(value)}; input.dispatchEvent(new Event(${JSON.stringify(type)},{bubbles:true}));}`);
@@ -122,7 +123,7 @@ test('Rider workspace: ranges, status sorting, stable state and mobile controls'
             await wait(32000);
             assert.equal(feedRequests, before, 'operational feed is never polled automatically');
             assert.equal(await evaluate('document.querySelector("[data-operations-detail]").firstElementChild===window.__riderStableNode && document.querySelector("[data-user-open]").open'), true);
-            assert.equal(await evaluate('scrollY===window.__riderScroll'), true);
+            assert.equal(await evaluate('scrollY===window.__riderScroll'), true, JSON.stringify(await evaluate('({actual:scrollY,expected:window.__riderScroll})')));
             assert.equal(await evaluate('document.querySelector("[data-operations-search]").value'), 'Nap');
             assert.equal(await evaluate('new URL(location.href).searchParams.get("selected")'), 'Napoli');
             await evaluate('document.querySelector("[data-operations-refresh]").click()'); await until('!document.querySelector("[data-zone-error]").textContent');
@@ -141,7 +142,7 @@ test('Rider workspace: ranges, status sorting, stable state and mobile controls'
             await evaluate('document.querySelector(".workspace-pagination a[rel=next]").click()');
             await until('location.search.includes("page=2") && !document.querySelector("[data-rider-day-results]").hasAttribute("aria-busy")');
             assert.equal(await evaluate('document.querySelectorAll("[data-rider-delivery]").length'), 2);
-            assert.equal(await evaluate('window.__riderDocumentMarker'), 'retained'); assert.equal(await evaluate('scrollY===window.__riderScroll'), true);
+            assert.equal(await evaluate('window.__riderDocumentMarker'), 'retained'); assert.equal(await evaluate('scrollY===window.__riderScroll'), true, JSON.stringify(await evaluate('({actual:scrollY,expected:window.__riderScroll})')));
             await evaluate('[...document.querySelectorAll(".rider-day-tabs a")].find(node=>node.textContent.includes("Completate")).click()');
             await until('location.search.includes("state=completed") && !document.querySelector("[data-rider-day-results]").hasAttribute("aria-busy")');
             assert.equal(await evaluate('document.querySelectorAll("[data-rider-delivery]").length'), 1);

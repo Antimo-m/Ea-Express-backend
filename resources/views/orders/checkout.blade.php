@@ -1,5 +1,6 @@
 <x-app-layout title="Checkout ritiro">
     <header class="mb-4"><span class="eyebrow">NUOVO RITIRO</span><h1>Checkout ritiro</h1><p class="text-secondary">Verifica i dati e la tariffa prima di confermare la richiesta.</p></header>
+    <nav class="form-progress mb-3" aria-label="Avanzamento prenotazione"><span>1. Dati del ritiro</span><span aria-hidden="true"> → </span><strong>2. Riepilogo e conferma</strong></nav>
     <section class="surface p-4 mb-4">
         <h2 class="h5">Riepilogo spedizione</h2>
         <dl class="operation-facts">
@@ -9,6 +10,10 @@
             <div><dt>Consegna</dt><dd>{{ $review['data']['delivery_address'] }} {{ $review['data']['delivery_street_number'] }}, {{ $review['data']['delivery_postal_code'] }} {{ $review['data']['delivery_city'] }}</dd></div>
             <div><dt>Data e fascia ritiro</dt><dd>{{ \Illuminate\Support\Carbon::parse($review['data']['pickup_date'])->format('d/m/Y') }} · {{ $review['data']['pickup_from'] }}–{{ $review['data']['pickup_to'] }}</dd></div>
             <div><dt>Pacchi</dt><dd>{{ $review['data']['parcel_count'] }} · {{ \App\Support\OrderContent::label($review['data']['category'], $review['data']['content_description'] ?? null) }}</dd></div>
+            <div><dt>Caratteristiche del pacco</dt><dd>{{ match ($review['data']['package_type']) { 'fragile' => 'Fragile', 'other' => $review['data']['package_description'] ?? 'Altro', default => 'Standard' } }}</dd></div>
+            <div><dt>Priorità</dt><dd>{{ $review['data']['urgency'] === 'urgent' ? 'Urgente' : 'Standard' }}</dd></div>
+            <div><dt>Servizio</dt><dd>{{ ($review['data']['shipping_type'] ?? 'regional') === 'external' ? 'Fuori regione' : 'Regionale' }} · Rete EA-Express</dd></div>
+            @if(!empty($review['data']['notes']))<div><dt>Istruzioni per il rider</dt><dd>{{ $review['data']['notes'] }}</dd></div>@endif
             <div><dt>Valore dichiarato della merce</dt><dd>{{ \App\Support\Money::format($review['parcel_value_cents']) }}</dd></div>
             <div><dt>Tariffa spedizione</dt><dd>{{ \App\Support\Money::format($review['shipping_price_cents']) }}</dd></div>
             <div><dt>Merce e spedizione</dt><dd>{{ \App\Support\Money::format($review['total_cents']) }}</dd></div>

@@ -44,7 +44,7 @@ class ProductRevisionTest extends TestCase
     public function test_rates_can_be_disabled_reenabled_and_archived_without_destroying_history(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $rate = ShippingRate::factory()->create();
+        $rate = ShippingRate::factory()->create(['city' => 'Aversa', 'city_key' => 'aversa', 'postal_code' => '81031', 'postal_codes' => ['81031']]);
         $order = Order::factory()->create(['shipping_rate_id' => $rate->id, 'price_cents' => 500]);
         $this->actingAs($admin);
         $inactive = $this->patchJson('/rates/'.$rate->slug.'/state', ['active' => false])->assertOk()->json('data.slug');

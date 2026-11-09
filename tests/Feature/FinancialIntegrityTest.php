@@ -109,7 +109,7 @@ class FinancialIntegrityTest extends TestCase
             } elseif ($amount === 200) {
                 $this->get('/balance')->assertDontSee('tone-green">Saldato', false)
                     ->assertViewHas('generalEntries', fn ($entries): bool => $entries->total() === 1 && $entries->first()->amount_cents === 20000 && $entries->first()->account->state === 'paid');
-                $this->get('/pending')->assertSee('tone-green">Saldato', false);
+                $this->get('/pending?state=paid')->assertSee('tone-green">Saldato', false);
             }
             $this->patchJson(route('pending.settlements.update', [$account, $payment]), ['version' => $version, 'amount' => '120', 'reason' => 'Invio duplicato'])->assertConflict();
         }

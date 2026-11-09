@@ -38,7 +38,7 @@ class ReschedulePickup
             $after = [...$locked->pickupSchedule(), 'deadline_at' => $locked->estimated_delivery_to?->copy()->timezone('Europe/Rome')->endOfDay()->toISOString()];
             $message = 'Ritiro ripianificato al '.$locked->pickup_date->format('d/m/Y').' · '.$after['pickup_from'].'–'.$after['pickup_to'].'.';
             $locked->events()->create(['rider_id' => $locked->rider_id, 'operational_zone' => app(RiderOperations::class)->zone($locked), 'user_id' => $actor->id, 'status' => $locked->status, 'note' => $data['reason'], 'public_note' => $message, 'schedule_change' => compact('before', 'after')]);
-            $this->notify->handle($locked, $message, $actor->id);
+            $this->notify->handle($locked, $message, $actor->id, requiresAdministration: true);
         }, 3);
     }
 }

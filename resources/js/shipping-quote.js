@@ -1,10 +1,12 @@
 export function attachShippingQuote(box) {
     const form = box.closest('form');
     const feedback = form.querySelector('[data-territory-feedback]');
+    const reviewButton = form.querySelector('[data-booking-review]');
     const names = ['delivery_city', 'delivery_postal_code', 'shipping_type', 'delivery_address', 'delivery_zone', 'delivery_province', 'delivery_region'];
     let timer, controller, sequence = 0;
     const render = (state, title, lines = []) => {
         box.dataset.state = state;
+        if (reviewButton) reviewButton.disabled = state === 'inactive';
         box.setAttribute('aria-busy', String(state === 'loading'));
         const heading = document.createElement('strong'); heading.textContent = title;
         box.replaceChildren(heading);
@@ -39,7 +41,7 @@ export function attachShippingQuote(box) {
                     for (const name of ['delivery_city', 'delivery_postal_code']) form.elements[name].setAttribute('aria-invalid', 'true');
                 }
                 if (!data.available || !Number.isInteger(data.price_cents)) {
-                    render('unavailable', 'Tariffa non disponibile', [data.reason || 'Nessuna tariffa compatibile nel listino.']);
+                    render(data.availability_status === 'inactive' ? 'inactive' : 'unavailable', 'Tariffa non disponibile', [data.reason || 'Nessuna tariffa compatibile nel listino.']);
                     return;
                 }
                 render('ready', new Intl.NumberFormat('it-IT', {style: 'currency', currency: 'EUR'}).format(data.price_cents / 100), [

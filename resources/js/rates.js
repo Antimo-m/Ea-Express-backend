@@ -2,6 +2,7 @@ import { openDialog, closeDialog } from './dialogs';
 import { cancelToast, transientFeedback } from './toast-feedback';
 import { workspaceFeedback } from './workspace-updates';
 import { confirmAction } from './confirmations';
+import { showFieldErrors, clearFieldError, validateForm } from './form-validation';
 const editor = document.querySelector('#rate-editor');
 const history = document.querySelector('#rate-history');
 const form = document.querySelector('[data-rate-form]');
@@ -57,8 +58,12 @@ async function mutate(dialog, operation) {
     } catch (error) {
         errorNode.textContent = saved ? 'Operazione salvata. Ricarica la pagina per aggiornare le card.' : error instanceof TypeError ? 'Connessione interrotta. Verifica il listino prima di riprovare.' : error.message;
         if (error.fields && form) {
-            for (const name of Object.keys(error.fields)) form.elements.namedItem(name)?.setAttribute('aria-invalid','true');
-            form.querySelector('[aria-invalid="true"]')?.focus();
+            const fields = {};
+            for (const [name, messages] of Object.entries(error.fields)) {
+                const key = name === 'postal_codes' || name.startsWith('postal_codes.') ? 'postal_code' : name;
+                fields[key] = [...(fields[key] || []), ...messages];
+            }
+            showFieldErrors(form, fields);
         }
         if (error.status === 409) await refresh().catch(() => {});
     } finally {
@@ -73,7 +78,7 @@ if (editor) {
         selected = button.closest('[data-rate]') ? JSON.parse(button.closest('[data-rate]').dataset.rate) : null;
         if (button.matches('[data-rate-create],[data-rate-edit]')) {
             form.reset(); form.querySelector('[data-modal-error]').textContent = '';
-            form.querySelectorAll('[aria-invalid]').forEach(input => input.removeAttribute('aria-invalid'));
+            [...form.elements].forEach(input => clearFieldError(input));
             for (const name of ['city','area','postal_code','zone','street','delivery_time','source_reference','carrier_name','delivery_days_min','delivery_days_max']) form.elements.namedItem(name).value = selected?.[name] || '';
             form.elements.postal_code.value = selected?.postal_codes?.join(', ') || selected?.postal_code || '';
             form.elements.source_reference.value = selected?.source_reference || 'Inserimento dal gestionale';
@@ -121,6 +126,7 @@ if (editor) {
     });
     form.addEventListener('submit', event => {
         event.preventDefault();
+        if (!validateForm(form)) return;
         const data = Object.fromEntries(new FormData(form)); data.active = form.elements.active.checked;
         for (const name of ['area','postal_code','zone','street','delivery_time','carrier_name','carrier_cost','delivery_days_min','delivery_days_max']) if (!data[name]) data[name] = null;
         data.postal_codes = form.elements.postal_code.disabled ? null : (data.postal_code || '').split(',').map(code => code.trim()).filter(Boolean);

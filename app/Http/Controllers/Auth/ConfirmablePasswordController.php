@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Rules\SafePasswordLength;
 use App\Support\IntendedDestination;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,7 +26,7 @@ class ConfirmablePasswordController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $request->validate(['password' => ['required', 'string', 'max:72']]);
+        $request->validate(['password' => ['required', 'string', new SafePasswordLength]]);
         if (! Auth::guard('web')->validate([
             'email' => $request->user()->email,
             'password' => $request->password,

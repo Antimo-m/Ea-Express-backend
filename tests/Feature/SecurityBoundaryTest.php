@@ -10,6 +10,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Psr\Log\LoggerInterface;
 use Tests\TestCase;
 
 class SecurityBoundaryTest extends TestCase
@@ -54,13 +55,13 @@ class SecurityBoundaryTest extends TestCase
     {
         $this->freezeTime();
         $user = User::factory()->create(['role' => $role]);
-        for ($attempt = 1; $attempt <= 10; $attempt++) {
+        for ($attempt = 1; $attempt <= 3; $attempt++) {
             $this->withServerVariables(['REMOTE_ADDR' => '192.0.2.'.$attempt])->postJson($path, ['email' => $user->email, 'password' => 'wrong'])->assertInvalid('email');
         }
         $this->withServerVariables(['REMOTE_ADDR' => '192.0.2.99'])->postJson($path, ['email' => strtoupper($user->email), 'password' => 'password'])->assertTooManyRequests();
-        $this->travel(61)->seconds();
+        $this->travel(10)->seconds();
         $response = $this->postJson($path, ['email' => $user->email, 'password' => 'password']);
-        $role === UserRole::Customer ? $response->assertOk() : $response->assertRedirect('/dashboard');
+        $role === UserRole::Customer ? $response->assertOk() : $response->assertRedirect(route('email-otp.notice'));
     }
 
     public function test_malformed_email_in_customer_limiter_is_a_validation_error(): void
@@ -76,16 +77,22 @@ class SecurityBoundaryTest extends TestCase
     #[DataProvider('unsafeDestinations')]
     public function test_login_rejects_unsafe_intended_destinations(string $destination): void
     {
+        Notification::fake();
         $user = User::factory()->create();
-        $this->withSession(['url.intended' => $destination])->post('/login', ['email' => $user->email, 'password' => 'password'])->assertRedirect('/dashboard');
+        $this->withSession(['url.intended' => $destination])->post('/login', ['email' => $user->email, 'password' => 'password'])->assertRedirect(route('email-otp.notice'));
+        $code = Notification::sent($user, RiderEmailOtp::class)->last()->code;
+        $this->post('/verify-email-otp/confirm', ['code' => $code])->assertRedirect('/dashboard');
     }
 
     public function test_login_preserves_internal_navigation_and_rotates_the_session(): void
     {
+        Notification::fake();
         $user = User::factory()->create();
         $this->withSession(['url.intended' => '/orders/history?status=delivered']);
         $old = session()->getId();
-        $this->post('/login', ['email' => $user->email, 'password' => 'password'])->assertRedirect('/orders/history?status=delivered');
+        $this->post('/login', ['email' => $user->email, 'password' => 'password'])->assertRedirect(route('email-otp.notice'));
+        $code = Notification::sent($user, RiderEmailOtp::class)->last()->code;
+        $this->post('/verify-email-otp/confirm', ['code' => $code])->assertRedirect('/orders/history?status=delivered');
         $this->assertNotSame($old, session()->getId());
     }
 
@@ -133,10 +140,11 @@ class SecurityBoundaryTest extends TestCase
 
     public function test_failed_login_logs_context_without_credentials(): void
     {
-        Log::spy();
+        $logger = \Mockery::spy(LoggerInterface::class);
+        Log::shouldReceive('channel')->with('security')->andReturn($logger);
         $user = User::factory()->create();
         $this->postJson('/login', ['email' => $user->email, 'password' => 'secret-test-password'])->assertInvalid('email');
-        Log::shouldHaveReceived('notice')->once()->with('security.login_failed', \Mockery::on(function (array $context) use ($user): bool {
+        $logger->shouldHaveReceived('notice')->once()->with('security.login_failed', \Mockery::on(function (array $context) use ($user): bool {
             $this->assertSame($user->id, $context['user_id']);
             $this->assertArrayHasKey('request_id', $context);
             $this->assertStringNotContainsString('secret-test-password', json_encode($context));

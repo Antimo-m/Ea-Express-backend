@@ -3,11 +3,12 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use App\Notifications\RiderEmailOtp;
+use App\Support\AuthProtection;
 use App\UserRole;
-use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -20,32 +21,21 @@ class AuthenticationSecurityTest extends TestCase
     {
         $this->freezeTime();
         $user = User::factory()->create();
-        Event::fake([Lockout::class]);
+        Notification::fake();
 
-        for ($attempt = 0; $attempt < 5; $attempt++) {
-            $this->post('/login', [
-                'email' => $user->email,
-                'password' => 'incorrect-password',
-            ])->assertSessionHasErrors(['email' => __('auth.failed')]);
+        foreach ([0, 0, 10, 30, 60] as $delay) {
+            $this->post('/login', ['email' => $user->email, 'password' => 'incorrect-password'])
+                ->assertSessionHasErrors(['email' => AuthProtection::INVALID_CREDENTIALS]);
+            if ($delay) {
+                $this->post('/login', ['email' => $user->email, 'password' => 'password'])
+                    ->assertTooManyRequests()->assertHeader('Retry-After', (string) $delay);
+                $this->travel($delay)->seconds();
+            }
         }
 
-        $response = $this->post('/login', [
-            'email' => $user->email,
-            'password' => 'password',
-        ]);
-
-        $response->assertSessionHasErrors([
-            'email' => __('auth.throttle', ['seconds' => 60, 'minutes' => 1]),
-        ]);
-        $this->assertGuest();
-        Event::assertDispatched(Lockout::class);
-
-        $this->travel(61)->seconds();
-
-        $this->post('/login', [
-            'email' => $user->email,
-            'password' => 'password',
-        ])->assertRedirect(route('dashboard'));
+        $this->post('/login', ['email' => $user->email, 'password' => 'password'])->assertRedirect(route('email-otp.notice'));
+        $code = Notification::sent($user, RiderEmailOtp::class)->last()->code;
+        $this->post('/verify-email-otp/confirm', ['code' => $code])->assertRedirect('/dashboard');
         $this->assertAuthenticatedAs($user);
     }
 

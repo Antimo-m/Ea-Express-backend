@@ -5,12 +5,14 @@ use App\Http\Middleware\EnsureStaffAuthentication;
 use App\Http\Middleware\LimitRequestInput;
 use App\Http\Middleware\PreservePageNavigation;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\TrustAuthenticationProxies;
 use App\Support\SecurityEvent;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Session\Middleware\StartSession;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,7 +24,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->replace(TrustProxies::class, TrustAuthenticationProxies::class);
         $middleware->prepend([LimitRequestInput::class, SecurityHeaders::class]);
+        $middleware->trimStrings(except: ['price', 'parcel_value', 'carrier_cost', 'amount']);
         $middleware->web(append: [EnsureActiveAccount::class, EnsureStaffAuthentication::class], replace: [StartSession::class => PreservePageNavigation::class]);
         $middleware->prependToPriorityList(AuthenticatesRequests::class, EnsureStaffAuthentication::class);
     })
@@ -33,7 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             $retryAfter = max(1, (int) ($headers['Retry-After'] ?? 60));
             $minutes = (int) ceil($retryAfter / 60);
             $unit = $minutes === 1 ? 'minuto' : 'minuti';
-            $message = "Troppe richieste. Potrai riprovare tra {$minutes} {$unit}.";
+            $message = $retryAfter < 60 ? "Troppe richieste. Potrai riprovare tra {$retryAfter} secondi." : "Troppe richieste. Potrai riprovare tra {$minutes} {$unit}.";
 
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json(['message' => $message, 'retry_after' => $retryAfter], 429, $headers);
@@ -41,7 +45,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return response()->view('auth.rate-limited', compact('message', 'retryAfter'), 429, $headers);
         });
-        $exceptions->dontFlash(['token', 'checkout_token', 'code', 'phone', 'password', 'password_confirmation', 'current_password']);
+        $exceptions->dontFlash(['cf-turnstile-response', 'token', 'checkout_token', 'code', 'phone', 'password', 'password_confirmation', 'current_password']);
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );

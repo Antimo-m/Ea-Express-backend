@@ -3,7 +3,9 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use App\Notifications\RiderEmailOtp;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
@@ -19,6 +21,7 @@ class AuthenticationTest extends TestCase
 
     public function test_users_can_authenticate_using_the_login_screen(): void
     {
+        Notification::fake();
         $user = User::factory()->create();
 
         $response = $this->post('/login', [
@@ -27,7 +30,9 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $response->assertRedirect(route('email-otp.notice', absolute: false));
+        $code = Notification::sent($user, RiderEmailOtp::class)->last()->code;
+        $this->post('/verify-email-otp/confirm', ['code' => $code])->assertRedirect('/dashboard');
     }
 
     public function test_users_can_not_authenticate_with_invalid_password(): void

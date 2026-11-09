@@ -1,7 +1,8 @@
 .rider-create-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; }
 .rider-create-actions .btn { min-width: 100px; }
 .rider-refresh-controls { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
-.rider-operations-page .operations-period-filter .period-options a, .rider-operations-page .operations-period-filter [data-custom-period] { min-height: 44px; }
+.rider-operations-page .operations-period-filter .period-options a, .rider-operations-page .operations-period-filter [data-custom-period] { min-height: var(--filter-height, 44px); }
+.rider-operations-page .operations-period-filter { --filter-height: 44px; --ea-icon-size: 44px; }
 .rider-day-range { display: grid; width: 100%; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; gap: 12px; }
 .rider-day-range > label { display: grid; min-width: 0; gap: 6px; font-size: .78rem; font-weight: 600; }
 .rider-day-range input[type="date"] { display: block; width: 100%; min-width: 0; min-height: 42px; padding: 7px 10px; border: 1px solid var(--ea-control-border); border-radius: var(--ea-radius-button); background: var(--ea-surface); color: var(--ea-ink); }

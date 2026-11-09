@@ -47,7 +47,8 @@ class CustomerExperienceTest extends TestCase
     public function test_private_accounts_do_not_keep_business_fields_and_can_later_describe_a_business(): void
     {
         $this->postJson('/api/v1/customer/auth/register', ['name' => 'Rita Rossi', 'email' => 'rita@example.test', 'password' => 'PasswordSicura123', 'password_confirmation' => 'PasswordSicura123', 'sender_type' => 'private', 'business_type' => 'Negozio', 'business_description' => 'Da eliminare'])
-            ->assertCreated()->assertJsonPath('user.sender_type', 'private')->assertJsonPath('user.business_type', null);
+            ->assertAccepted();
+        $this->postJson('/api/v1/customer/auth/login', ['email' => 'rita@example.test', 'password' => 'PasswordSicura123'])->assertOk()->assertJsonPath('user.sender_type', 'private')->assertJsonPath('user.business_type', null);
         $user = User::where('email', 'rita@example.test')->sole();
         $this->assertNull($user->business_description);
         $this->patchJson('/api/v1/customer/profile', ['name' => 'Rita Lab', 'email' => $user->email, 'sender_type' => 'business', 'business_type' => 'Restauro di strumenti musicali', 'business_description' => 'Riparazioni artigianali su misura'])

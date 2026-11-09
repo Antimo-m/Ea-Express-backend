@@ -26,7 +26,8 @@ class RemindPickups extends Command
                         if (! $locked || $locked->pickup_date->toDateString() > $today || $locked->pickup_reminded_on?->toDateString() === $today || ! Order::awaitingPickup()->whereKey($locked->id)->exists()) {
                             return;
                         }
-                        $notify->handle($locked, $locked->pickup_date->toDateString() < $today ? 'Ritiro arretrato: verifica o ripianifica la richiesta' : 'Ritiro previsto oggi · '.substr($locked->pickup_from, 0, 5).'–'.substr($locked->pickup_to, 0, 5), null);
+                        $overdue = $locked->pickup_date->toDateString() < $today;
+                        $notify->handle($locked, $overdue ? 'Ritiro arretrato: verifica o ripianifica la richiesta' : 'Ritiro previsto oggi · '.substr($locked->pickup_from, 0, 5).'–'.substr($locked->pickup_to, 0, 5), null, requiresAdministration: $overdue);
                         $locked->pickup_reminded_on = $today;
                         $locked->save();
                         $count++;

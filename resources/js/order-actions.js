@@ -1,5 +1,6 @@
 import { applyOrderSnapshot } from './order-snapshot';
 import { closeDialog } from './dialogs';
+import { showFieldErrors } from './form-validation';
 
 const pending = new Set();
 document.addEventListener('submit', async event => {
@@ -31,6 +32,7 @@ document.addEventListener('submit', async event => {
         const response = await fetch(form.action, { method: 'POST', body: data, credentials: 'same-origin', headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
         const result = await response.json().catch(() => ({}));
         if (!response.ok || response.redirected) {
+            if (response.status === 422) showFieldErrors(form, result.errors);
             const message = response.status === 401 || response.status === 419 ? 'Sessione scaduta. Accedi nuovamente.' : Object.values(result.errors || {}).flat().join(' ') || result.message || 'Aggiornamento non riuscito. Riprova.';
             throw new Error(message);
         }

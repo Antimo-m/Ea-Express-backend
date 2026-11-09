@@ -2,12 +2,14 @@
 
 namespace App\Http\Middleware;
 
+use App\Actions\SendEmailOtp;
 use App\StaffAuthenticationState;
 use App\Support\SecurityEvent;
 use App\Support\StaffAuthentication;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureStaffAuthentication
@@ -24,6 +26,11 @@ class EnsureStaffAuthentication
         if ($guard->viaRemember() && ! $request->session()->has('staff_authentication')) {
             $request->session()->regenerate(true);
             $this->authentication->begin($request, $user);
+            try {
+                app(SendEmailOtp::class)->handle($user);
+            } catch (ValidationException) {
+                // The pending session can request another code when delivery is available.
+            }
         }
         $state = $this->authentication->state($request, $user);
         if ($request->routeIs('logout') || $state === StaffAuthenticationState::FullyAuthenticated) {

@@ -56,7 +56,7 @@ class CarrierShipmentController extends Controller
             $labels = ['booked' => 'Spedizione prenotata presso il vettore', 'handed_over' => 'Affidata al vettore', 'in_transit' => 'In transito con il vettore', 'delivery_issue' => 'Problema di consegna del vettore'];
             $locked->events()->create(['rider_id' => $locked->rider_id, 'operational_zone' => app(RiderOperations::class)->zone($locked), 'user_id' => $request->user()->id, 'status' => $locked->status, 'public_note' => $labels[$data['carrier_status']]]);
             app(RecordEconomicAudit::class)->handle($request->user(), $locked, 'carrier.updated', $before, $locked->only(array_keys($before)));
-            $notify->handle($locked, $labels[$data['carrier_status']], $request->user()->id);
+            $notify->handle($locked, $labels[$data['carrier_status']], $request->user()->id, requiresAdministration: $data['carrier_status'] === 'delivery_issue');
         }, 3);
 
         return back()->with('status', 'Dati del vettore aggiornati.');

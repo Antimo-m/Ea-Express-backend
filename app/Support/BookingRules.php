@@ -44,12 +44,10 @@ class BookingRules
                 ? 'Scegli un orario di ritiro almeno un minuto dopo l’ora attuale italiana.'
                 : 'Scegli un orario di ritiro non ancora trascorso, nell’ora italiana.']);
         }
-        if ($leadMinutes > 0) {
-            $endValue = $data['pickup_date'].' '.$data['pickup_to'];
-            $end = Carbon::createFromFormat('!Y-m-d H:i', $endValue, self::Timezone);
-            if ($end->format('Y-m-d H:i') !== $endValue || ! $end->gt($start)) {
-                throw ValidationException::withMessages(['pickup_to' => 'Scegli un orario di fine ritiro valido nella data indicata, successivo all’orario iniziale.']);
-            }
+        $endValue = $data['pickup_date'].' '.$data['pickup_to'];
+        $end = Carbon::createFromFormat('!Y-m-d H:i', $endValue, self::Timezone);
+        if ($end->format('Y-m-d H:i') !== $endValue || ! $end->gt($start)) {
+            throw ValidationException::withMessages(['pickup_to' => 'Scegli un orario di fine ritiro valido nella data indicata, successivo all’orario iniziale.']);
         }
     }
 }

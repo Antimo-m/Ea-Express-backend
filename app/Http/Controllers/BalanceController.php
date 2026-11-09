@@ -123,7 +123,7 @@ class BalanceController extends Controller
                             $query->orWhere(fn (Builder $legacy) => $legacy->whereNull('kind')->where('amount_cents', $category === 'receipts' ? '>=' : '<', 0));
                         }
                     }
-                })->with(['order:id,slug,reference', 'user:id,slug,name', 'originalEntry:id,slug,created_at'])->latest()->orderByDesc('id')->paginate(10, ['*'], $category === 'receipts' ? 'payments_page' : 'payment_'.$category.'_page')->withQueryString();
+                })->with(['order' => fn ($q) => $q->select(['id', 'slug', 'reference', 'store_name', 'customer_id', 'created_by'])->withDisplayIdentity(), 'user:id,slug,name', 'originalEntry:id,slug,created_at'])->latest()->orderByDesc('id')->paginate(10, ['*'], $category === 'receipts' ? 'payments_page' : 'payment_'.$category.'_page')->withQueryString();
                 $paymentSections[$category] = ['label' => $section['label'], 'entries' => $entries];
             }
         }
@@ -150,7 +150,7 @@ class BalanceController extends Controller
             'reversedOrders' => (clone $reversed)->whereDoesntHave('receiptReversals')->withDisplayIdentity()->withReceiptLedger()->latest('receipt_voided_at')->orderByDesc('id')->paginate(10, ['*'], 'reversed_page')->withQueryString(),
             'recordedOrders' => (clone $orders)->where('status', OrderStatus::Delivered)->whereNull('receipt_voided_at')->whereBetween('paid_at', $period->utcRange())->withDisplayIdentity()->withReceiptLedger()->latest('delivered_at')->orderByDesc('id')->paginate(10, ['*'], 'recorded_page')->withQueryString(),
             'expenses' => $expenses->with(['user:id,slug,name', 'pendingSettlement.account'])->latest('spent_on')->orderByDesc('id')->paginate(10, ['*'], 'expenses_page')->withQueryString(),
-            'payments' => $payments->with(['order:id,slug,reference', 'user:id,slug,name', 'originalEntry:id,slug,created_at'])->latest()->orderByDesc('id')->paginate(10, ['*'], 'payments_page')->withQueryString(),
+            'payments' => $payments->with(['order' => fn ($q) => $q->select(['id', 'slug', 'reference', 'store_name', 'customer_id', 'created_by'])->withDisplayIdentity(), 'user:id,slug,name', 'originalEntry:id,slug,created_at'])->latest()->orderByDesc('id')->paginate(10, ['*'], 'payments_page')->withQueryString(),
         ]);
     }
 

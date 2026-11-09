@@ -34,7 +34,9 @@ class CustomerPortalTest extends TestCase
         $rider = User::factory()->create();
         $this->postJson($this->api.'/auth/login', ['email' => $rider->email, 'password' => 'password'])->assertUnprocessable();
         $this->getJson($this->api.'/dashboard')->assertUnauthorized();
-        $this->postJson($this->api.'/auth/register', ['sender_type' => 'business', 'name' => 'Boutique Centro', 'email' => 'shop@example.com', 'password' => 'SecurePassword123', 'password_confirmation' => 'SecurePassword123', 'role' => 'admin'])->assertCreated()->assertJsonPath('user.name', 'Boutique Centro')->assertJsonPath('user.notify_orders', true)->assertJsonPath('user.notify_messages', true);
+        $this->postJson($this->api.'/auth/register', ['sender_type' => 'business', 'name' => 'Boutique Centro', 'email' => 'shop@example.com', 'password' => 'SecurePassword123', 'password_confirmation' => 'SecurePassword123', 'role' => 'admin'])->assertAccepted();
+        $this->assertGuest('customer');
+        $this->postJson($this->api.'/auth/login', ['email' => 'shop@example.com', 'password' => 'SecurePassword123'])->assertOk()->assertJsonPath('user.name', 'Boutique Centro')->assertJsonPath('user.notify_orders', true)->assertJsonPath('user.notify_messages', true);
         $user = User::where('email', 'shop@example.com')->sole();
         $this->assertSame(UserRole::Customer, $user->role);
         $this->getJson($this->api.'/auth/me')->assertOk();

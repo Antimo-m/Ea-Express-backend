@@ -12,12 +12,12 @@ use App\Rules\AllowedPortalText;
 use App\Rules\SafePasswordLength;
 use App\Support\CustomerIdentity;
 use App\Support\NotificationInbox;
+use App\Support\PasswordPolicy;
 use App\Support\PortalTextPolicy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 
 class CustomerWorkspaceController extends Controller
 {
@@ -101,7 +101,7 @@ class CustomerWorkspaceController extends Controller
 
     public function password(Request $request): JsonResponse
     {
-        $data = $request->validate(['current_password' => ['bail', 'required', 'string', 'max:72', 'current_password:customer'], 'password' => ['required', 'confirmed', Password::min(12), new SafePasswordLength]]);
+        $data = $request->validate(['current_password' => ['bail', 'required', 'string', new SafePasswordLength, 'current_password:customer'], 'password' => [...PasswordPolicy::rules(), 'confirmed']]);
         app(ChangePassword::class)->handle($request->user(), $data['current_password'], $data['password']);
         $request->session()->put('password_hash_customer', $request->user()->password);
         $request->session()->regenerate();

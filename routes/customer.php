@@ -15,14 +15,15 @@ use App\Http\Controllers\RealtimeController;
 use App\Http\Controllers\ShippingPriceController;
 use App\Http\Controllers\ShippingRateController;
 use App\Http\Middleware\EnsureCustomer;
+use App\Http\Middleware\ProtectAuthentication;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('api/v1/customer')->name('customer.')->middleware('throttle:customer-api')->group(function (): void {
     Route::get('csrf', [Auth::class, 'csrf']);
     Route::get('privacy', CustomerPrivacyController::class);
     Route::get('text-policy', CustomerTextPolicyController::class);
-    Route::post('auth/login', [Auth::class, 'login'])->middleware(['throttle:customer-login', 'throttle:login-account']);
-    Route::post('auth/register', [Auth::class, 'register'])->middleware('throttle:registration');
+    Route::post('auth/login', [Auth::class, 'login'])->middleware([ProtectAuthentication::class]);
+    Route::post('auth/register', [Auth::class, 'register'])->middleware(ProtectAuthentication::class.':register');
     Route::middleware(['auth:customer', 'auth.session', EnsureCustomer::class])->group(function (): void {
         Route::get('realtime/configuration', [RealtimeController::class, 'configuration'])->middleware('throttle:60,1');
         Route::post('realtime/auth', [RealtimeController::class, 'authenticate'])->middleware('throttle:realtime-writes');
@@ -57,7 +58,7 @@ Route::prefix('api/v1/customer')->name('customer.')->middleware('throttle:custom
             Route::patch('notifications/read-all', [Workspace::class, 'readAll']);
             Route::patch('notifications/{id}/read', [Workspace::class, 'readNotification']);
             Route::patch('profile', [Workspace::class, 'profile'])->middleware('throttle:profile-update');
-            Route::put('password', [Workspace::class, 'password']);
+            Route::put('password', [Workspace::class, 'password'])->middleware(ProtectAuthentication::class.':password');
             Route::patch('preferences', [Workspace::class, 'preferences']);
         });
     });

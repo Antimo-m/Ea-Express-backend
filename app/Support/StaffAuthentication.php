@@ -4,7 +4,6 @@ namespace App\Support;
 
 use App\Models\User;
 use App\StaffAuthenticationState;
-use App\UserRole;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -12,7 +11,7 @@ class StaffAuthentication
 {
     public function requiresVerification(User $user): bool
     {
-        return $user->role === UserRole::Rider && $user->email_verified_at === null;
+        return $user->isStaff();
     }
 
     public function binding(Request $request): string
@@ -20,7 +19,7 @@ class StaffAuthentication
         return hash_hmac('sha256', $request->session()->getId(), (string) config('app.key'));
     }
 
-    private function credentials(User $user): string
+    public function credentialProof(User $user): string
     {
         return hash_hmac('sha256', implode('|', [$user->id, $user->password, $user->email, $user->role->value, (int) $user->is_active]), (string) config('app.key'));
     }
@@ -36,11 +35,11 @@ class StaffAuthentication
             || ! is_string($proof['binding'] ?? null)
             || ! hash_equals($this->binding($request), $proof['binding'])
             || ! is_string($proof['credentials'] ?? null)
-            || ! hash_equals($this->credentials($user), $proof['credentials'])) {
+            || ! hash_equals($this->credentialProof($user), $proof['credentials'])) {
             return StaffAuthenticationState::Guest;
         }
         $state = is_string($proof['state'] ?? null) ? (StaffAuthenticationState::tryFrom($proof['state']) ?? StaffAuthenticationState::Guest) : StaffAuthenticationState::Guest;
-        if ($state === StaffAuthenticationState::FullyAuthenticated && $this->requiresVerification($user)) {
+        if ($state === StaffAuthenticationState::FullyAuthenticated && (! $user->email_verified_at || ! ($proof['factor_verified_at'] ?? null))) {
             return StaffAuthenticationState::Guest;
         }
         if ($state !== StaffAuthenticationState::FullyAuthenticated && ($proof['started_at'] ?? 0) <= now()->subMinutes(30)->timestamp) {
@@ -56,7 +55,7 @@ class StaffAuthentication
             'state' => $this->requiresVerification($user) ? StaffAuthenticationState::PrimaryAuthenticated->value : StaffAuthenticationState::FullyAuthenticated->value,
             'user_id' => $user->id,
             'binding' => $this->binding($request),
-            'credentials' => $this->credentials($user),
+            'credentials' => $this->credentialProof($user),
             'started_at' => now()->timestamp,
             'factor_verified_at' => null,
             'remember' => $remember,
@@ -80,7 +79,8 @@ class StaffAuthentication
 
     public function complete(Request $request, User $user): void
     {
-        abort_unless($this->state($request, $user) === StaffAuthenticationState::FactorVerified && ! $this->requiresVerification($user), 403);
+        abort_unless($this->state($request, $user) === StaffAuthenticationState::FactorVerified && $user->email_verified_at !== null, 403);
+        app(AuthProtection::class)->completed($request, $user);
         $remember = $request->session()->get('staff_authentication.remember', false);
         if ($remember) {
             Auth::guard('web')->login($user, true);
@@ -88,9 +88,10 @@ class StaffAuthentication
         $request->session()->regenerate(true);
         $request->session()->put('staff_authentication.state', StaffAuthenticationState::FullyAuthenticated->value);
         $request->session()->put('staff_authentication.binding', $this->binding($request));
-        $request->session()->put('staff_authentication.credentials', $this->credentials($user));
+        $request->session()->put('staff_authentication.credentials', $this->credentialProof($user));
         $request->session()->put('password_hash_web', $user->password);
-        SecurityEvent::record('authentication_completed', $user->id);
+        $request->session()->forget(['staff_authentication.started_at', 'staff_authentication.remember']);
+        app(StaffDeviceProof::class)->issue($user);
     }
 
     public function invalidateChallenge(Request $request): void

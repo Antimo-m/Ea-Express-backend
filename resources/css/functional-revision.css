@@ -1,0 +1,48 @@
+.required-marker { color: var(--ea-danger); font-weight: 700; }
+.field-error, .invalid-feedback, .form-feedback { max-width: 100%; overflow-wrap: anywhere; }
+.field-error { font-size: .75rem; line-height: 1.45; margin-top: 5px; }
+[data-tooltip]::after { content: none !important; display: none !important; }
+.ea-tooltip { position: fixed; inset: auto; margin: 0; width: max-content; max-width: min(240px, calc(100vw - 24px)); padding: 8px 12px; border: 1px solid var(--ea-line); border-radius: var(--ea-radius-control); background: var(--ea-popup); color: var(--ea-ink); box-shadow: var(--ea-shadow-dialog); font: 500 12px/1.45 var(--ea-font); overflow-wrap: anywhere; white-space: normal; pointer-events: none; z-index: var(--ea-layer-tooltip); }
+.picker-time .picker-content { display: grid; justify-items: stretch; gap: 12px; }
+.picker-time .time-popover-fields { margin: 0; }
+.picker-time .picker-content .picker-feedback:empty { display: none; }
+.picker-time .picker-content > button { --ea-icon-size: 44px; justify-self: end; min-width: 44px; min-height: 44px; margin: 0; }
+.ea-modal, .filter-dialog, .ea-picker-popup { max-width: calc(100vw - 24px); }
+.ea-modal input, .ea-modal textarea, .ea-modal select { min-width: 0; max-width: 100%; }
+.finance-mobile-list { display: none; }
+.ea-app .filter-toolbar .ea-picker-trigger { height: var(--filter-height); min-height: var(--filter-height); }
+@media (max-width: 991px) {
+  .app-header > div:first-child { min-width: 0; }
+}
+@media (max-width: 767px) {
+  .finance-workspace .filter-bar { gap: 14px; }
+  .finance-workspace .period-options { flex-wrap: wrap; gap: 8px; }
+  .finance-workspace .period-options > * { flex: 1 1 auto; min-height: 44px; justify-content: center; white-space: normal; text-align: center; }
+  .finance-workspace .filter-period { min-width: 0; gap: 12px; }
+  .finance-workspace .filter-actions { gap: 12px; flex-wrap: wrap; }
+  .finance-workspace .ledger-navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .finance-workspace .ledger-navigation > a { min-width: 0; min-height: 44px; padding: 9px; white-space: normal; overflow-wrap: anywhere; text-align: center; }
+  .finance-desktop-register { display: none; }
+  .finance-mobile-list { display: grid; gap: 12px; padding: 12px; }
+  .cash-movement { min-width: 0; border: 1px solid var(--ea-line); border-radius: var(--ea-radius-control); background: var(--ea-surface); }
+  .cash-movement > summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 10px; padding: 14px; cursor: pointer; list-style: none; }
+  .cash-movement > summary::-webkit-details-marker { display: none; }
+  .cash-movement > summary:focus-visible { outline: 3px solid var(--ea-focus); outline-offset: 2px; }
+  .cash-movement-identity { display: grid; gap: 5px; min-width: 0; }
+  .cash-movement-identity strong, .cash-movement-identity span { overflow-wrap: anywhere; }
+  .cash-movement-identity small, .cash-movement-identity time { font-size: .75rem; color: var(--ea-muted); }
+  .cash-movement-value { font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; text-align: end; overflow-wrap: anywhere; }
+  .cash-movement-value small { display: block; font-size: .7rem; font-weight: 500; margin-top: 5px; }
+  .cash-movement > summary::after { content: 'Mostra dettagli ↓'; grid-column: 1 / -1; justify-self: end; color: var(--ea-info); font-size: .75rem; }
+  .cash-movement[open] > summary::after { content: 'Nascondi dettagli ↑'; }
+  .cash-movement-detail { padding: 0 14px 14px; border-top: 1px solid var(--ea-line); }
+  .cash-movement-detail dl { display: grid; gap: 10px; margin: 14px 0; }
+  .cash-movement-detail dl > div { min-width: 0; }
+  .cash-movement-detail dt { color: var(--ea-muted); font-size: .75rem; }
+  .cash-movement-detail dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+  .cash-movement-detail .register-actions { flex-wrap: wrap; gap: 12px; }
+  .page-heading > *, .section-heading > *, .pending-account-footer > * { min-width: 0; }
+  .page-heading, .section-heading, .pending-account-footer, .pending-account-owner { flex-wrap: wrap; gap: 12px; }
+  .page-heading .row-actions { flex-wrap: wrap; }
+  .btn { white-space: normal; overflow-wrap: anywhere; }
+}

@@ -6,12 +6,16 @@ use App\Events\WorkspaceUpdated;
 use App\Models\Order;
 use App\Models\User;
 use App\Notifications\OrderActivity;
+use App\OrderStatus;
 use App\UserRole;
 
 class NotifyOrderParticipants
 {
-    public function handle(Order $order, string $title, ?int $actorId, bool $message = false): void
+    public function handle(Order $order, string $title, ?int $actorId, bool $message = false, bool $requiresAdministration = false): void
     {
+        $requiresAdministration = $requiresAdministration || $order->rider_id === null || (! $message && in_array($order->status, [
+            OrderStatus::Received, OrderStatus::DeliveryAttempted, OrderStatus::DeliveryIssue, OrderStatus::Rescheduled, OrderStatus::Cancelled,
+        ], true));
         WorkspaceUpdated::dispatch($order->id, $message ? 'messages' : 'order');
         if ($order->customer_id && $order->customer_id !== $actorId) {
             $customer = User::whereKey($order->customer_id)->where('role', UserRole::Customer)->where('is_active', true)->where($message ? 'notify_messages' : 'notify_orders', true)->first();
@@ -21,8 +25,11 @@ class NotifyOrderParticipants
         if ($actorId !== null) {
             $recipients->where('id', '!=', $actorId);
         }
-        $recipients->where(function ($query) use ($order) {
-            $query->where('role', UserRole::Admin)->orWhere('id', $order->rider_id);
+        $recipients->where(function ($query) use ($order, $requiresAdministration): void {
+            $query->where('id', $order->rider_id);
+            if ($requiresAdministration) {
+                $query->orWhere('role', UserRole::Admin);
+            }
         });
         $recipients->each(function (User $user) use ($order, $title, $message) {
             if ($user->can('view', $order)) {

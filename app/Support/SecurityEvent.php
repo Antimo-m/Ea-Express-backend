@@ -10,9 +10,9 @@ class SecurityEvent
     public static function record(string $action, ?int $userId = null): void
     {
         $request = request();
-        Log::notice('security.'.$action, [
+        Log::channel('security')->notice('security.'.$action, [
             'user_id' => $userId,
-            'ip' => $request->ip(),
+            'ip' => AuthSecurityStore::key('ip', (string) $request->ip()),
             'route' => $request->route()?->getName() ?? $request->route()?->uri(),
             'request_id' => self::requestId(),
         ]);

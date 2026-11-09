@@ -1,4 +1,8 @@
 import { attachShippingQuote } from './shipping-quote';
+import './form-validation';
+import './form-requirements';
+import './tooltips';
+import '../css/functional-revision.css';
 import '../css/rider-day.css';
 import '../css/staff-auth-revision.css';
 import '../css/order-workspace-revision.css';

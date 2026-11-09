@@ -41,10 +41,10 @@
                         @forelse($orders as $order)
                             <a class="rider-delivery-card rider-delivery-card--{{ $order->status->tone() }}" href="{{ route('orders.show', ['order' => $order->slug, 'return_to' => request()->getRequestUri()]) }}" aria-label="Apri ordine di {{ $order->displayName() }} per {{ $order->recipient_name }}" data-rider-delivery="{{ $order->slug }}">
                                 <div class="rider-delivery-card-title"><h3>{{ $order->displayName() }}</h3><div><x-ui.status-badge :status="$order->status" /></div><x-ui.icon name="arrow-up-right" class="rider-delivery-open" /></div>
-                                <div class="rider-delivery-route">
-                                    <div><x-ui.icon name="shop" /><div><span>Ritiro</span><strong>{{ $order->pickup_address }} {{ $order->pickup_street_number }}</strong><small>{{ $order->pickup_postal_code }} {{ $order->pickup_city }}</small></div></div>
-                                    <div><x-ui.icon name="geo-alt" /><div><span>Consegna · {{ $order->recipient_name }}</span><strong>{{ $order->delivery_address }} {{ $order->delivery_street_number }}</strong><small>{{ $order->delivery_postal_code }} {{ $order->delivery_city }}@if($order->delivery_zone) · {{ $order->delivery_zone }}@endif</small></div></div>
-                                </div>
+                                <span class="shipment-card-reference">{{ $order->reference }}</span>
+                                <span class="shipment-card-party">Destinatario: {{ $order->recipient_name }}</span>
+                                <x-orders.route :order="$order" />
+                                <span class="shipment-card-assignment"><span>Rider: {{ $rider->name }}</span><time datetime="{{ $order->pickup_date->toDateString() }}">{{ $order->pickup_date->format('d/m/Y') }} · {{ substr($order->pickup_from, 0, 5) }}–{{ substr($order->pickup_to, 0, 5) }}</time></span>
                             </a>
                         @empty
                             <div class="rider-day-empty"><x-ui.icon name="box-seam" /><h3>Nessuna spedizione per questa selezione.</h3><p>Scegli un altro stato o una giornata diversa.</p></div>

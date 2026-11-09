@@ -72,3 +72,30 @@
   .archive-day-content, [data-history-day-content] { padding-inline: 12px; }
   .order-workspace-revision .history-order { padding: 16px; }
 }
+
+.shipment-route { display: grid; gap: 5px; min-width: 0; padding-left: 12px; border-left: 2px solid var(--ea-info); color: var(--ea-ink); }
+.shipment-route-stop { display: grid; gap: 2px; min-width: 0; font-size: .8125rem; line-height: 1.4; overflow-wrap: anywhere; }
+.shipment-route .shipment-route-stop > strong { font-size: .875rem; font-weight: 650; color: var(--ea-ink); }
+.shipment-route-stop > .data-label { margin: 0; font-size: .6875rem; }
+.shipment-route-arrow { color: var(--ea-info); font-size: .75rem; }
+.shipment-card-reference { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 0; min-width: 0; font-size: .75rem; font-weight: 600; overflow-wrap: anywhere; }
+.shipment-card-assignment { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 6px 14px; min-width: 0; color: var(--ea-muted); font-size: .75rem; overflow-wrap: anywhere; }
+.shipment-card-party { font-size: .8125rem; overflow-wrap: anywhere; }
+.dashboard-order-preview > .shipment-card-reference { display: flex; grid-column: 1 / -1; }
+.dashboard-order-parties small { color: var(--ea-muted); font-size: .75rem; }
+.dashboard-order-preview { gap: 12px 20px; }
+.operation-mini-card { display: grid; align-content: start; gap: 10px; min-width: 0; }
+.operation-mini-card .operation-recipient, .operation-mini-card .operation-destination { margin: 0; }
+.operation-mini-card .shipment-card-assignment { margin-top: 4px; }
+.operations-order > .shipment-route { margin-block: 12px; }
+.rider-delivery-card { gap: 10px; }
+.pickup-order-card > .pickup-order-reference { padding-inline: 20px; margin: 0; }
+.order-card .operation-facts strong, .pickup-order-card dd > strong { color: var(--ea-ink); }
+@media (min-width: 768px) {
+  .operation-mini-card .shipment-route, .rider-delivery-card .shipment-route { grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr); gap: 12px; }
+  .operation-mini-card .shipment-route-arrow, .rider-delivery-card .shipment-route-arrow { align-self: center; transform: rotate(-90deg); }
+}
+@media (max-width: 575px) {
+  .pickup-order-card > .pickup-order-reference { padding-inline: 16px; }
+  .shipment-card-assignment { flex-direction: column; }
+}

@@ -20,3 +20,5 @@ if (config('backup.enabled')) {
     Schedule::command($local ? 'database:backup-verify --local' : 'database:backup-verify')->weeklyOn(0, '04:00')->timezone('Europe/Rome')->withoutOverlapping(120);
     Schedule::command($local ? 'database:backup --check --local-only' : 'database:backup --check')->dailyAt('06:00')->timezone('Europe/Rome')->withoutOverlapping();
 }
+
+Schedule::command('auth-security:prune')->everyTenMinutes()->withoutOverlapping(10)->runInBackground();
