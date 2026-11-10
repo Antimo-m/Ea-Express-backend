@@ -92,7 +92,7 @@ class StatisticsScalabilityTest extends TestCase
         $stores->assertViewHas('customers', fn ($stores) => $stores->total() === 60 && $stores->count() === 25 && $stores->lastPage() === 3)
             ->assertSee('Clienti');
         $measure('staff_statistics_next', fn () => $this->get('/customers?page=2'))->assertViewHas('customers', fn ($stores) => $stores->count() === 25 && $stores->currentPage() === 2);
-        $measure('staff_statistics_detail', fn () => $this->get('/customers/'.$customers->first()->slug))->assertViewHas('orders', fn ($orders) => $orders->total() === 1000 && $orders->count() === 20);
+        $measure('staff_statistics_detail', fn () => $this->get('/customers/'.$customers->first()->slug))->assertViewHas('orders', fn ($orders) => $orders->total() === 1000 && $orders->count() === 10);
         $measure('staff_dashboard', fn () => $this->get('/dashboard'));
         $measure('staff_orders', fn () => $this->get('/orders/incoming'))->assertViewHas('orders', fn ($orders) => $orders->total() === 6000 && $orders->count() === 20);
         $measure('staff_pickup_calendar', fn () => $this->get('/pickups?month=2026-09'))

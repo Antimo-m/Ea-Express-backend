@@ -1,7 +1,7 @@
 <div class="pickup-account-body" data-pickup-orders data-pickup-orders-page="{{ $orders->currentPage() }}" data-pickup-orders-last-page="{{ $orders->lastPage() }}" data-pickup-orders-total="{{ $orders->total() }}" data-pickup-orders-parcels="{{ $accountSummary->parcel_count }}" data-pickup-account-slug="{{ $accountSlug }}" data-pickup-date="{{ $date->toDateString() }}" data-pickup-kind="{{ $kind }}">
     <p class="pickup-orders-caption">{{ $orders->firstItem() ?? 0 }}–{{ $orders->lastItem() ?? 0 }} di {{ $orders->total() }} ritiri · Pagina {{ $orders->currentPage() }} di {{ $orders->lastPage() }}</p>
-    <form method="get" action="{{ route('labels.index') }}" target="_blank" class="pickup-print-form">
-        <div class="pickup-print-actions"><button type="button" class="btn btn-outline-secondary" data-select-labels>Seleziona pagina / nessuno</button><x-ui.icon-button action="print-multiple" type="submit" label="Stampa etichette selezionate di questa pagina" text /></div>
+    <form method="get" action="{{ route('labels.index') }}" target="_blank" class="pickup-print-form" data-label-selection>
+        <div class="pickup-print-actions"><button type="button" class="btn btn-outline-secondary" data-select-labels>Seleziona pagina / nessuno</button><x-ui.icon-button action="print-multiple" type="submit" data-label-availability :aria-disabled="$orders->isEmpty() ? 'true' : 'false'" label="Stampa etichette selezionate di questa pagina" text /></div>
         <div class="pickup-day-orders">
         @forelse($orders as $order)
             <article class="surface pickup-order-card" data-operational-order="{{ $order->slug }}" data-order-state="{{ $order->status->value }}" aria-labelledby="pickup-order-{{ $order->slug }}">

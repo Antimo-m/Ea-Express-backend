@@ -212,6 +212,7 @@ Thumbs.db
 !/tests/functional-revision.browser.test.mjs
 !/tests/Feature/ShippingRatePostalRevisionTest.php
 !/tests/Feature/PickupFlowParityTest.php
+!/tests/Feature/DeliveryAddressRequiredTest.php
 !/tests/rates-booking.browser.test.mjs
 
 # Regressioni e configurazione riproducibili della sicurezza di autenticazione.
@@ -228,3 +229,28 @@ Thumbs.db
 /conversazioni/
 /transcripts/
 /chat-exports/
+
+# Regressioni riproducibili della revisione Bilancio e stampa etichette.
+!/tests/Feature/FinancialIntegrityRevisionTest.php
+!/tests/Feature/EmptyLabelsTest.php
+!/tests/Feature/ReceiptConcurrencyTest.php
+!/tests/finance-revision.browser.test.mjs
+
+# Regressioni della revisione account, dispositivi e operatività.
+!/tests/Feature/AccountSecurityRevisionTest.php
+!/tests/Feature/TrustedRiderDeviceTest.php
+!/tests/Feature/ProductionRevisionTest.php
+!/tests/Feature/AdminUniquenessConcurrencyTest.php
+!/tests/Feature/AccountRecoverySecurityTest.php
+!/tests/Feature/ProfileTest.php
+!/database/factories/RecipientIncidentFactory.php
+!/database/factories/RecipientRiskProfileFactory.php
+!/tests/production-revision.browser.test.mjs
+!/tests/rider-workspace.browser.test.mjs
+
+!/tests/Feature/GlobalSessionRevocationTest.php
+
+!/tests/Feature/SessionRevocationConcurrencyTest.php
+
+# Artefatti interni conservati soltanto in locale.
+/storage/app/reports/

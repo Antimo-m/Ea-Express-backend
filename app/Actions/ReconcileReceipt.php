@@ -18,7 +18,7 @@ class ReconcileReceipt
 {
     public function __construct(private RecordEconomicAudit $audit, private NotifyAccountingParticipants $notify, private OrderPrice $price) {}
 
-    /** @param array{version: int|string, resolution: string, note: string} $data */
+    /** @param array{version: int|string, resolution: string, note: string, entry_slug?: string} $data */
     public function handle(User $actor, Order $order, array $data): string
     {
         return DB::transaction(function () use ($actor, $order, $data): string {
@@ -26,6 +26,9 @@ class ReconcileReceipt
             $actor = User::lockForUpdate()->findOrFail($actor->id);
             abort_unless($actor->is_active && $actor->role === UserRole::Admin, 403);
             $order = Order::financialFor($actor)->lockForUpdate()->findOrFail($order->id);
+            if (in_array($data['resolution'], ['refund_paid', 'refund_unpaid'])) {
+                return $this->refund($actor, $order, $data);
+            }
             abort_unless($order->status === OrderStatus::Delivered && ! $order->receipt_voided_at && $order->version === (int) $data['version'], 409, 'Stato cambiato o storno ancora attivo. Verifica nuovamente lo storico.');
             $pending = PendingAccount::where('order_id', $order->id)->lockForUpdate()->first();
             abort_if($data['resolution'] !== 'links' && $pending && $pending->state !== 'cancelled', 409, 'Questa spedizione ha un sospeso attivo: verifica i suoi pagamenti prima di riconciliare lo stato dell’incasso.');
@@ -68,6 +71,39 @@ class ReconcileReceipt
 
             return $message;
         }, 3);
+    }
+
+    /** @param array{version: int|string, resolution: string, note: string, entry_slug: string} $data */
+    private function refund(User $actor, Order $order, array $data): string
+    {
+        abort_unless($order->version === (int) $data['version'], 409, 'Ordine aggiornato: ricarica lo storico.');
+        $entry = $order->payments()->where('slug', $data['entry_slug'])->where('kind', 'refund')->lockForUpdate()->firstOrFail();
+        abort_if($entry->audits()->where(fn ($q) => $q->whereIn('action', ['payment.refund_verified', 'payment.refund_disputed'])->orWhere('after->cash_confirmation', 'explicit_payment'))->exists(), 409, 'Rimborso già verificato.');
+        abort_unless($entry->cash_amount_cents < 0, 409, 'Importo storico non riconciliabile.');
+        $before = $order->only(['version']);
+        if ($data['resolution'] === 'refund_unpaid') {
+            $reversal = $entry->reversal()->lockForUpdate()->first();
+            abort_unless($order->receipt_voided_at && $reversal && ! $reversal->restored_at, 409, 'La rettifica richiede uno storno ancora attivo. Verifica i cicli successivi prima di compensare.');
+            $payments = $order->payments()->lockForUpdate()->get();
+            $cash = (int) $payments->sum(fn (PaymentEntry $payment): int => $payment->cash_amount_cents ?? $payment->amount_cents);
+            abort_unless((int) $payments->sum('amount_cents') === 0 && $cash >= 0 && $cash <= $order->price_cents && $entry->amount_cents === 0, 409, 'Movimenti non coerenti: verifica l’intero ciclo prima di compensare la cassa.');
+            abort_unless($cash - $entry->cash_amount_cents <= $order->price_cents, 409, 'La compensazione supererebbe il denaro ricevuto.');
+            $compensation = new PaymentEntry;
+            $compensation->forceFill(['order_id' => $order->id, 'user_id' => $actor->id, 'kind' => 'cash_reconciliation',
+                'amount_cents' => 0, 'ea_amount_cents' => 0, 'cash_amount_cents' => -$entry->cash_amount_cents,
+                'original_entry_id' => $entry->id, 'receipt_reversal_id' => $reversal->id,
+                'operation_key' => 'refund-disputed:'.$entry->slug, 'method' => $entry->method, 'note' => $data['note']])->save();
+            $this->audit->handle($actor, $compensation, 'payment.reconciled', null, $compensation->toArray());
+        }
+        $this->audit->handle($actor, $entry, $data['resolution'] === 'refund_paid' ? 'payment.refund_verified' : 'payment.refund_disputed', null, ['reason' => $data['note'], 'resolution' => $data['resolution']]);
+        $order->version++;
+        $order->save();
+        $this->audit->handle($actor, $order, 'receipt.reconciled', $before, ['version' => $order->version, 'resolution' => $data['resolution'], 'reason' => $data['note']]);
+
+        $message = 'Rimborso storico riconciliato con attestazione documentata. Importi originali conservati; eventuale compensazione registrata nel periodo aperto.';
+        $this->notify->handle($order, $message, $actor->id);
+
+        return $message;
     }
 
     /** @param Collection<int, PaymentEntry> $payments @return array<int, int> */

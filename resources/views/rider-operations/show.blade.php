@@ -18,14 +18,14 @@
         <p class="small text-danger" role="alert" data-rider-day-error hidden></p>
         <div data-rider-day-results>
             <section class="rider-day-pulse" aria-label="Avanzamento della giornata">
-                <div class="rider-day-progress-heading"><div><span class="eyebrow">IL PUNTO DELLA GIORNATA</span><h2><strong>{{ $counts['completed'] }}</strong><span> / {{ $counts['total'] }} consegne completate</span></h2></div><span class="rider-day-percent">{{ $counts['progress'] }}<small>%</small></span></div>
-                <progress max="100" value="{{ $counts['progress'] }}" aria-label="Consegne completate">{{ $counts['progress'] }}%</progress>
+                <div class="rider-day-progress-heading"><div><span class="eyebrow">IL PUNTO DELLA GIORNATA</span><h2><strong>{{ $counts['completed'] }}</strong><span> / {{ $counts['valid'] }} consegne completate</span></h2></div><span class="rider-day-percent">@if($counts['valid']){{ $counts['progress'] }}<small>%</small>@else<small>Nessuna consegna prevista</small>@endif</span></div>
+                @if($counts['valid'])<progress max="100" value="{{ $counts['progress'] }}" aria-label="Consegne completate">{{ $counts['progress'] }}%</progress>@endif
                 <dl class="rider-day-counts">
-                    <div><dt><span class="rider-day-dot todo"></span>Da effettuare</dt><dd>{{ $counts['todo'] }}</dd></div>
-                    <div><dt><span class="rider-day-dot active"></span>In corso</dt><dd>{{ $counts['active'] }}</dd></div>
-                    <div><dt><span class="rider-day-dot completed"></span>Completate</dt><dd>{{ $counts['completed'] }}</dd></div>
-                    <div><dt><span class="rider-day-dot issues"></span>Da verificare</dt><dd>{{ $counts['issues'] }}</dd></div>
-                    @if($counts['closed'])<div><dt>Chiuse senza consegna</dt><dd>{{ $counts['closed'] }}</dd></div>@endif
+                    <div><dt>Da effettuare</dt><dd>{{ $counts['todo'] }}</dd></div>
+                    <div><dt>In corso</dt><dd>{{ $counts['active'] }}</dd></div>
+                    <div><dt>Completate</dt><dd>{{ $counts['completed'] }}</dd></div>
+                    <div><dt>Da verificare</dt><dd>{{ $counts['issues'] }}</dd></div>
+                    <div><dt>Ordini annullati</dt><dd>{{ $counts['cancelled'] }}</dd></div>@if($counts['closed'] > $counts['cancelled'])<div><dt>Ordini rifiutati</dt><dd>{{ $counts['closed'] - $counts['cancelled'] }}</dd></div>@endif
                 </dl>
             </section>
             <div class="rider-day-layout">

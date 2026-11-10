@@ -70,6 +70,7 @@ class ShippingPhaseTest extends TestCase
         $this->get('/track/'.$order->tracking_token)->assertOk()->assertSee('SYNTH-001')->assertDontSee('Quota EA-Express');
         $this->get(route('labels.index', ['ids' => [$order->slug]]))->assertOk()->assertSee('Ricambi per automobile')->assertDontSee('Scrivi il contenuto');
         $this->postJson($url, ['version' => $order->fresh()->version, 'action' => 'reverse', 'note' => 'Storno di prova'])->assertOk();
+        $this->postJson(route('payments.store', $order), ['action' => 'refund', 'version' => $order->fresh()->version, 'note' => 'Restituzione effettiva verificata separatamente'])->assertOk();
         $this->assertSame(0, (int) PaymentEntry::sum('amount_cents'));
         $this->assertSame(0, (int) PaymentEntry::sum('ea_amount_cents'));
         $this->get('/reports')->assertOk()->assertViewHas('operatingNet', 0);
@@ -136,7 +137,7 @@ class ShippingPhaseTest extends TestCase
     {
         $this->actingAs(User::factory()->create(['role' => UserRole::Admin]))->get('/orders/create')->assertOk()
             ->assertSee('Punto di ritiro')->assertSee('Punto di consegna')->assertSee('Data e orario')
-            ->assertSee('Continua modifica')->assertSee('Conferma annullamento')->assertSee('Scrivi il contenuto')
+            ->assertSee('Continua modifica')->assertSee('Annulla compilazione')->assertSee('Scrivi il contenuto')
             ->assertDontSee('name="weight_kg"', false)->assertDontSee('name="max_dimension_cm"', false);
     }
 

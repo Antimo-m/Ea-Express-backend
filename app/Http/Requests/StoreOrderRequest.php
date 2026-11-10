@@ -36,7 +36,7 @@ class StoreOrderRequest extends FormRequest
             }
         }
 
-        if (! is_string($this->input('delivery_city')) || ($this->input('delivery_postal_code') !== null && ! is_string($this->input('delivery_postal_code')))) {
+        if (! is_string($this->input('delivery_city')) || ! $this->filled('delivery_postal_code') || ! is_string($this->input('delivery_postal_code'))) {
             return;
         }
         foreach (['delivery_zone', 'delivery_address', 'shipping_type', 'delivery_province', 'delivery_region'] as $field) {
@@ -81,7 +81,7 @@ class StoreOrderRequest extends FormRequest
 
     public function attributes(): array
     {
-        return ['pickup_street_number' => 'numero civico di ritiro', 'pickup_postal_code' => 'CAP di ritiro', 'delivery_street_number' => 'numero civico di consegna', 'delivery_postal_code' => 'CAP di consegna', 'package_type' => 'caratteristiche del pacco', 'package_description' => 'descrizione delle caratteristiche'];
+        return ['pickup_street_number' => 'numero civico di ritiro', 'pickup_postal_code' => 'CAP di ritiro', 'delivery_street_number' => 'numero civico di consegna', 'delivery_postal_code' => 'CAP di consegna', 'delivery_province' => 'provincia di consegna', 'delivery_region' => 'regione di consegna', 'package_type' => 'caratteristiche del pacco', 'package_description' => 'descrizione delle caratteristiche'];
     }
 
     public function after(): array
@@ -122,8 +122,8 @@ class StoreOrderRequest extends FormRequest
         return [...CustomerIdentity::rules(),
             'checkout_token' => ['nullable', 'string', 'max:30000'],
             'shipping_type' => ['sometimes', 'required', 'in:regional,external'],
-            'delivery_region' => ['required_if:shipping_type,external', 'nullable', 'string', 'max:100'],
-            'delivery_province' => ['required_if:shipping_type,external', 'nullable', 'string', 'max:100'],
+            'delivery_region' => ['required', 'string', 'max:100'],
+            'delivery_province' => ['required', 'string', 'max:100'],
             'weight_kg' => ['nullable', 'numeric', 'min:0.01', 'max:10000'],
             'max_dimension_cm' => ['nullable', 'numeric', 'min:1', 'max:500'],
             'delivery_zone' => ['nullable', 'string', 'max:100'],

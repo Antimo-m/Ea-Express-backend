@@ -16,6 +16,6 @@
         @if(in_array($status, [\App\OrderStatus::Cancelled, \App\OrderStatus::Rejected, \App\OrderStatus::DeliveryIssue, \App\OrderStatus::DeliveryAttempted], true))
             <x-ui.field :id="'note-'.$order->slug.'-'.$status->value" name="note" label="Motivo" :value="old('status') === $status->value ? old('note') : ''" maxlength="2000" required />
         @endif
-        <x-ui.icon-button type="submit" action="confirm" :label="$status->actionLabel()" :data-confirm="$critical ? $status->actionLabel() : null" :data-confirm-name="$order->displayName()" text />
+        <x-ui.icon-button type="submit" :action="$critical ? 'delete' : 'confirm'" :label="$status->actionLabel()" :data-confirm="$critical ? $status->actionLabel() : null" :data-confirm-name="$order->displayName()" text />
     </form>
 </x-ui.action-dialog>

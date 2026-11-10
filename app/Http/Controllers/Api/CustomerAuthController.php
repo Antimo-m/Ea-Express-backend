@@ -72,7 +72,8 @@ class CustomerAuthController extends Controller
     public function logout(Request $request): JsonResponse
     {
         Auth::guard('customer')->logout();
-        $request->session()->regenerate(true);
+        Auth::guard('web')->logoutCurrentDevice();
+        $request->session()->invalidate();
         $request->session()->regenerateToken();
 
         return response()->json(['message' => 'Disconnessione effettuata.', 'csrf_token' => csrf_token()]);

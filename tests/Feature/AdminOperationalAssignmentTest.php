@@ -59,10 +59,10 @@ class AdminOperationalAssignmentTest extends TestCase
         $this->assertNull($order->fresh()->gps_session_id);
     }
 
-    public function test_other_admin_customer_and_inactive_rider_cannot_be_assigned(): void
+    public function test_customer_and_inactive_rider_cannot_be_assigned(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $targets = [User::factory()->create(['role' => UserRole::Admin]), User::factory()->create(['role' => UserRole::Customer]), User::factory()->create(['is_active' => false])];
+        $targets = [User::factory()->create(['role' => UserRole::Customer]), User::factory()->create(['role' => UserRole::Customer]), User::factory()->create(['is_active' => false])];
         $order = Order::factory()->create(['status' => OrderStatus::Accepted]);
         $this->actingAs($admin);
         foreach ($targets as $target) {
@@ -73,10 +73,10 @@ class AdminOperationalAssignmentTest extends TestCase
         $this->assertDatabaseCount('economic_audits', 0);
     }
 
-    public function test_direct_acceptance_cannot_assign_a_different_admin(): void
+    public function test_direct_acceptance_cannot_assign_a_customer(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $other = User::factory()->create(['role' => UserRole::Admin]);
+        $other = User::factory()->create(['role' => UserRole::Customer]);
         $order = Order::factory()->create(['status' => OrderStatus::Received]);
         try {
             app(TransitionOrder::class)->handle($order, $admin, ['status' => 'accepted', 'rider_id' => $other->id, 'version' => 1]);
@@ -91,11 +91,10 @@ class AdminOperationalAssignmentTest extends TestCase
     public function test_admin_with_active_assignments_cannot_change_operational_role(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        User::factory()->create(['role' => UserRole::Admin]);
         Order::factory()->create(['status' => OrderStatus::Accepted, 'rider_id' => $admin->id]);
 
         $this->artisan('app:user-role', ['email' => $admin->email, 'role' => 'customer'])
-            ->expectsOutput('Riassegna le spedizioni attive prima di cambiare ruolo.')
+            ->expectsOutput('Non puoi rimuovere l’ultimo amministratore.')
             ->assertFailed();
         $this->assertSame(UserRole::Admin, $admin->fresh()->role);
     }

@@ -21,7 +21,7 @@ class DashboardController extends Controller
         $completed = (clone $base)->where('status', OrderStatus::Delivered)->whereBetween('delivered_at', [$now->copy()->startOfDay()->utc(), $now->copy()->endOfDay()->utc()]);
 
         $requests = $incoming->latest()->orderByDesc('id')->limit(3)->get();
-        $shipments = $active->orderBy('pickup_date')->orderBy('pickup_from')->orderBy('id')->limit(3)->get();
+        $shipments = $active->latest()->orderByDesc('id')->limit(3)->get();
         $recipientRisks = $request->user()->role === UserRole::Rider ? app(RecipientRisk::class)->forOrders($shipments) : [];
 
         return view($request->user()->role === UserRole::Rider ? 'dashboard.rider' : 'dashboard.index', [

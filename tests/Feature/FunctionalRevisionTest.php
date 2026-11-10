@@ -122,7 +122,7 @@ class FunctionalRevisionTest extends TestCase
         $order = Order::factory()->create(['rider_id' => $admin->id, 'status' => OrderStatus::Delivered, 'price_cents' => 1235, 'delivered_at' => now()]);
         FinancialMovement::factory()->create(['user_id' => $admin->id, 'kind' => 'cash', 'description' => 'Movimento con descrizione estesa per verificare la leggibilità su telefono', 'amount_cents' => 15235]);
         $this->actingAs($admin)->postJson(route('payments.store', $order), ['action' => 'receive', 'version' => 1])->assertOk();
-        $cash = $this->get('/balance?ledger=cash')->assertSee('finance-mobile-list')->assertSee('cash-movement-detail');
+        $cash = $this->get('/balance?ledger=cash')->assertSee('money-register')->assertSee('money-row-detail');
         $payments = $this->get('/balance')->assertSee($order->reference)->assertSee('data-cash-movement=', false);
         $orders = Order::factory()->count(3)->create(['rider_id' => $admin->id, 'store_name' => 'Mittente con nome commerciale esteso', 'recipient_name' => 'Destinatario con nome e cognome estesi', 'pickup_address' => 'Via dei Quartieri e delle Attività Commerciali', 'delivery_address' => 'Corso delle Spedizioni e del Centro Storico', 'price_cents' => 500]);
         $labels = $this->get('/labels?'.http_build_query(['ids' => $orders->pluck('slug')->all()]))->assertOk()->assertSee('label-total');

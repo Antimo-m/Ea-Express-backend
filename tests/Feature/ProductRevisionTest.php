@@ -19,7 +19,7 @@ class ProductRevisionTest extends TestCase
 
     private function payload(): array
     {
-        return ['store_name' => 'Ritiro dimostrativo', 'recipient_name' => 'Destinatario test', 'recipient_phone' => '0000000000', 'pickup_address' => 'Via Test', 'pickup_city' => 'Napoli', 'pickup_street_number' => '1', 'pickup_postal_code' => '80100', 'delivery_address' => 'Via Test', 'delivery_city' => 'Caserta', 'delivery_street_number' => '2', 'delivery_postal_code' => '81100', 'pickup_date' => '2026-09-20', 'pickup_from' => '16:00', 'pickup_to' => '17:00', 'parcel_count' => 2, 'category' => 'other', 'urgency' => 'standard', 'package_type' => 'standard', 'payment_method' => 'cash', 'parcel_value' => '50'];
+        return ['store_name' => 'Ritiro dimostrativo', 'recipient_name' => 'Destinatario test', 'recipient_phone' => '0000000000', 'pickup_address' => 'Via Test', 'pickup_city' => 'Napoli', 'pickup_street_number' => '1', 'pickup_postal_code' => '80100', 'delivery_address' => 'Via Test', 'delivery_city' => 'Caserta', 'delivery_street_number' => '2', 'delivery_postal_code' => '81100', 'delivery_province' => 'Caserta', 'delivery_region' => 'Campania', 'pickup_date' => '2026-09-20', 'pickup_from' => '16:00', 'pickup_to' => '17:00', 'parcel_count' => 2, 'category' => 'other', 'urgency' => 'standard', 'package_type' => 'standard', 'payment_method' => 'cash', 'parcel_value' => '50'];
     }
 
     public function test_customer_profiles_group_pickup_names_without_including_unassigned_orders(): void

@@ -15,7 +15,15 @@ export function confirmAction({ name, action = 'Elimina', description = '', clos
     const back = dialog.querySelector('.modal-back');
     if (back) back.hidden = closeOnly;
     const confirm = dialog.querySelector('[data-confirm-action]');
-    const label = `Conferma: ${action}`;
+    const destructive = /annull|elimina|rifiut|revoca|disattiv|disabil|storn|rimuov/iu.test(action);
+    confirm.classList.toggle('action-delete', destructive);
+    confirm.classList.toggle('action-confirm', !destructive);
+    confirm.classList.add('action-with-text');
+    confirm.replaceChildren();
+    const icon = document.createElement('i'); icon.className = destructive ? 'bi bi-trash' : 'bi bi-check-lg'; icon.setAttribute('aria-hidden', 'true');
+    const text = document.createElement('span'); text.textContent = action; confirm.append(icon, text);
+    if (destructive) confirm.parentElement.prepend(confirm); else confirm.parentElement.append(confirm);
+    const label = action;
     confirm.setAttribute('aria-label', label); confirm.title = label; confirm.dataset.tooltip = label;
     openDialog(dialog);
 }

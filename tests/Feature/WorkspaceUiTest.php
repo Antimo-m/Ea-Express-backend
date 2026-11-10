@@ -39,13 +39,17 @@ class WorkspaceUiTest extends TestCase
         $this->travelTo(now('Europe/Rome')->setDate(2026, 9, 22)->setTime(12, 0));
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $unpaid = Order::factory()->create(['status' => OrderStatus::Delivered, 'delivered_at' => now()->subDay(), 'store_name' => 'Incasso in attesa']);
-        Order::factory()->count(11)->create(['status' => OrderStatus::Delivered, 'delivered_at' => now(), 'paid_at' => now(), 'store_name' => 'Incasso completato']);
+        $recorded = Order::factory()->count(11)->create(['status' => OrderStatus::Delivered, 'delivered_at' => now(), 'store_name' => 'Incasso completato', 'price_cents' => 1000]);
+        $this->actingAs($admin);
+        foreach ($recorded as $receipt) {
+            $this->postJson(route('payments.store', $receipt), ['action' => 'receive', 'version' => 1])->assertOk();
+        }
 
-        $page = $this->actingAs($admin)->get('/balance?recorded_page=2');
+        $page = $this->actingAs($admin)->get('/balance?ledger=payments&movements_page=2');
 
         $page->assertViewHas('orders', fn ($orders) => $orders->total() === 1 && $orders->first()->id === $unpaid->id)
-            ->assertViewHas('recordedOrders', fn ($orders) => $orders->total() === 11 && $orders->currentPage() === 2 && $orders->count() === 1)
-            ->assertSeeInOrder(['Incassi da registrare', 'Incasso in attesa', 'Incassi già registrati', 'Incasso completato'])
+            ->assertViewHas('registerEntries', fn ($entries) => $entries->total() === 11 && $entries->currentPage() === 2 && $entries->count() === 1)
+            ->assertSeeInOrder(['Incassi da registrare', 'Incasso in attesa', 'Movimenti di cassa', 'Incasso completato'])
             ->assertDontSee('id="manual-details"', false);
     }
 

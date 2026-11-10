@@ -34,14 +34,49 @@ class Order extends Model
         return ['delay_reported_at' => 'datetime', 'pickup_point' => 'array', 'delivery_point' => 'array', 'assigned_at' => 'datetime', 'carrier_cost_cents' => 'integer', 'carrier_handed_at' => 'datetime', 'estimated_delivery_from' => 'date', 'estimated_delivery_to' => 'date', 'weight_kg' => 'decimal:2', 'max_dimension_cm' => 'decimal:2', 'pickup_reminded_on' => 'date', 'receipt_voided_at' => 'datetime', 'pricing_version' => 'integer', 'quoted_price_cents' => 'integer', 'rate_snapshot' => 'array', 'payment_proposed_at' => 'datetime', 'payment_confirmed_at' => 'datetime', 'packages' => 'array', 'conversation_expires_at' => 'datetime', 'status' => OrderStatus::class, 'pickup_date' => 'date', 'rejected_at' => 'datetime', 'tracking_started_at' => 'datetime', 'delivered_at' => 'datetime', 'paid_at' => 'datetime', 'estimated_at' => 'datetime', 'price_cents' => 'integer', 'parcel_value_cents' => 'integer', 'version' => 'integer'];
     }
 
-    /** @return array{state: string, label: string, paid_at: ?string} */
+    /** @return array{state: string, label: string, paid_at: ?string, amount_cents: int, remaining_cents: ?int} */
     public function receiptData(): array
     {
+        if (! array_key_exists('payments_count', $this->getAttributes())) {
+            $this->loadCount('payments')->loadSum('payments', 'amount_cents')
+                ->loadSum('payments as receipt_cash_cents', DB::raw(ReceiptLedger::CashExpression))
+                ->loadExists(['payments as refunded' => fn ($query) => $query->verifiedRefund()]);
+        }
+        $net = max(0, (int) $this->payments_sum_amount_cents);
+        $remaining = $this->price_cents === null ? null : max(0, $this->price_cents - $net);
+        $state = match (true) {
+            (bool) $this->refunded && (int) $this->receipt_cash_cents <= 0 && $net === 0 => 'refunded',
+            $this->receipt_voided_at !== null => 'voided',
+            $net > 0 && $remaining > 0 => 'partial',
+            $net > 0 => 'paid',
+            default => 'unrecorded',
+        };
+
         return [
-            'state' => $this->receipt_voided_at ? 'voided' : ($this->paid_at ? 'paid' : 'unrecorded'),
-            'label' => $this->receipt_voided_at ? 'Incasso stornato' : ($this->paid_at ? 'Pagato' : 'Da registrare'),
-            'paid_at' => $this->paid_at?->toIso8601String(),
+            'state' => $state,
+            'label' => match ($state) {
+                'refunded' => 'Incasso rimborsato', 'voided' => 'Incasso stornato', 'partial' => 'Incasso parziale',
+                'paid' => 'Incasso effettivo registrato', default => 'Incasso da registrare',
+            },
+            'paid_at' => $state === 'paid' ? $this->paid_at?->toIso8601String() : null,
+            'amount_cents' => in_array($state, ['voided', 'refunded'], true) ? 0 : $net,
+            'remaining_cents' => $remaining,
         ];
+    }
+
+    #[Scope]
+    protected function withReceiptStatus(Builder $query): void
+    {
+        $query->withCount('payments')->withSum('payments', 'amount_cents')
+            ->withSum('payments as receipt_cash_cents', DB::raw(ReceiptLedger::CashExpression))
+            ->withExists(['payments as refunded' => fn ($payments) => $payments->verifiedRefund()]);
+    }
+
+    public function priceTone(): string
+    {
+        return match ($this->price_state) {
+            'agreed' => 'green', 'rejected', 'cancelled' => 'danger', default => 'blue',
+        };
     }
 
     public function totalCents(): ?int
@@ -159,6 +194,8 @@ class Order extends Model
     protected function withReceiptLedger(Builder $query): void
     {
         $query->with(['pendingAccount', 'receiptReversals.payments'])
+            ->withMin(['payments as unverified_refund_at' => fn ($payments) => $payments->where('kind', 'refund')->whereDoesntHave('audits', fn ($audit) => $audit->where(fn ($q) => $q->whereIn('action', ['payment.refund_verified', 'payment.refund_disputed'])->orWhere('after->cash_confirmation', 'explicit_payment')))], 'created_at')
+            ->withExists(['payments as unverified_refund_exists' => fn ($payments) => $payments->where('kind', 'refund')->whereDoesntHave('audits', fn ($audit) => $audit->where(fn ($q) => $q->whereIn('action', ['payment.refund_verified', 'payment.refund_disputed'])->orWhere('after->cash_confirmation', 'explicit_payment')))])
             ->withExists(['payments as receipt_review_required' => fn ($payments) => $payments->where('amount_cents', '<', 0)->whereNull('original_entry_id')])
             ->withSum('payments', 'amount_cents')
             ->withSum('payments as payments_sum_cash_cents', DB::raw(ReceiptLedger::CashExpression));

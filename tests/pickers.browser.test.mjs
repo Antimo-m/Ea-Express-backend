@@ -98,7 +98,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 if (url.searchParams.get('q') === 'selezionata') {
                     if (financePageFailNext) { financePageFailNext = false; response.statusCode = 503; response.end('Temporaneamente non disponibile'); return; }
                     response.setHeader('Content-Type', 'text/html');
-                    response.end(markup(url.searchParams.get('cash_page') === '2' ? 'finance-manual-categories.html' : 'finance-manual-first.html')); return;
+                    response.end(markup(url.searchParams.get('movements_page') === '2' ? 'finance-manual-categories.html' : 'finance-manual-first.html')); return;
                 }
                 const view=url.searchParams.get('ledger') || 'payments';
                 response.setHeader('Content-Type','text/html');response.end(readFileSync(join(temporary,`finance-${view}.html`)).toString().replace(/https?:\/\/localhost(?::\d+)?/g,''));return;
@@ -846,7 +846,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             }
         });
         await scenario('forty consecutive receipts update only their regions and preserve filters page scroll and duplicate protection', async () => {
-            const metric = label => evaluate(`(()=>{const metric=${JSON.stringify(label)}==='Contanti'?document.querySelector('[aria-labelledby="cash-heading"] dd'):[...document.querySelectorAll('.finance-statement .metric-tile')].find(node=>node.querySelector('header span')?.textContent===${JSON.stringify(label)})?.querySelector('.metric-tile-value');return Math.round(Number(metric.textContent.replace(/[^0-9,-]/g,'').replace(',','.'))*100);})()`);
+            const metric = label => evaluate(`(()=>{const metric=${JSON.stringify(label)}==='Contanti'?document.querySelector('.liquidity-total > strong'):document.querySelector('.finance-economic .statement-lines > div:first-child dd');return Math.round(Number(metric.textContent.replace(/[^0-9,-]/g,'').replace(',','.'))*100);})()`);
             try {
             for (const width of [375,1440]) {
                 batchMode=true;batchStep=0;batchWrites=0;
@@ -866,7 +866,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                     assert.equal(await evaluate(`window.__batchDocument`),'unchanged');
                     assert.ok(await evaluate(`window.__batchFilter===document.querySelector('[data-filter-toolbar]')`),'filter controls retained');
                     assert.equal(await metric('Totale lordo'),(step+1)*100);
-                    assert.equal(await metric('Contanti'),3000);
+                    assert.equal(await metric('Contanti'),3000+(step+1)*100);
                     assert.equal(await evaluate(`Number(document.querySelector('#delivery-details .count-badge').textContent)`),42-step);
                     assert.equal(await evaluate(`new URLSearchParams(location.search).get('orders_page')`),String(batch.steps[step+1].page));
                     assert.equal(await evaluate(`new URLSearchParams(location.search).get('q')`),'Batch test');
@@ -992,19 +992,19 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
                 for(const page of ['finance-statement-customers.html','finance-manual-categories.html','finance-payment-categories.html','finance-reconciliation.html']) {
                     await navigate(page);
-                    assert.deepEqual(await evaluate(`[...document.querySelectorAll('.finance-statement-section > h3')].map(node=>node.textContent)`),['Risultato operativo','Sospesi','Contanti','Risultato finale']);
-                    assert.ok(await evaluate(`!!document.querySelector('.delivery-count-badge')`));
+                    assert.deepEqual(await evaluate(`[...document.querySelectorAll('.finance-overview h3')].map(node=>node.textContent)`),['Saldo dei movimenti registrati','Come sta andando l’attività','Ancora da regolare']);
+                    assert.ok(await evaluate(`!!document.querySelector('.finance-overview .count-pill')`));
                     if(page==='finance-statement-customers.html') {
-                        assert.equal(await evaluate(`document.querySelector('.delivery-count-badge').textContent`),'2');
-                        assert.ok(await evaluate(`document.querySelector('[aria-labelledby="cash-heading"] dd').textContent.includes('0,00')`));
+                        assert.equal(await evaluate(`document.querySelector('.finance-overview .count-pill').textContent`),'2 consegne');
+                        assert.ok(await evaluate(`document.querySelector('.liquidity-flows').textContent.includes('Da riconciliare')`));
                     }
                     if(page==='finance-manual-categories.html') {
-                        const sections=await evaluate(`[...document.querySelectorAll('[data-movement-category]')].map(node=>node.dataset.movementCategory)`);
-                        assert.ok(sections.includes('cash')&&sections.includes('income'));
+                        const sections=await evaluate(`[...document.querySelectorAll('[data-money-register]')].map(node=>node.dataset.moneyRegister)`);
+                        assert.deepEqual(sections,['cash']);
                         assert.equal(new Set(sections).size,sections.length);
                     }
                     if(page==='finance-payment-categories.html') {
-                        assert.ok(await evaluate(`['receipts','corrections','refunds'].every(key=>document.querySelector('[data-payment-category="'+key+'"]'))`));
+                        assert.ok(await evaluate(`document.querySelectorAll('[data-money-register="payments"] .money-row').length===1 && !document.querySelector('[data-payment-category]')`));
                     }
                     if(page==='finance-reconciliation.html') {
                         await evaluate(`document.querySelector('[data-dialog-open^="receipt-reconcile-"]').click()`);
@@ -1035,36 +1035,35 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 await send('Emulation.setDeviceMetricsOverride', { width, height: 1000, deviceScaleFactor: 1, mobile: width < 600 });
                 await navigate(initial);
                 const filters = await evaluate(`(()=>{const url=new URL(location.href);return ['ledger','period','q','customer_ids[0]'].map(name=>url.searchParams.get(name));})()`);
-                assert.ok(await evaluate(`document.querySelector('[data-movement-category="cash"] [aria-label="Pagina precedente"]').disabled`));
-                assert.equal(await evaluate(`document.querySelector('[data-movement-category="cash"] [aria-live]').textContent.trim()`), '1');
+                assert.ok(await evaluate(`document.querySelector('.finance-ledger [aria-label="Pagina precedente"]').disabled`));
+                assert.equal(await evaluate(`document.querySelector('.finance-ledger [aria-live]').textContent.trim()`), '1');
                 assert.equal(await evaluate(`document.querySelector('.finance-ledger .pagination-pages')`), null);
-                const padding = await evaluate(`parseFloat(getComputedStyle(document.querySelector('[data-movement-category="cash"] .register-subheading')).paddingLeft)`);
-                assert.equal(padding, width < 576 ? 16 : 20, `category heading padding at ${width}`);
+                assert.ok(await evaluate(`!!document.querySelector('.finance-ledger h2')`));
                 assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`));
-                await evaluate(`window.__financePaginationDocument='preserved';document.querySelector('[data-movement-category="cash"] [rel="next"]').focus()`);
+                await evaluate(`window.__financePaginationDocument='preserved';document.querySelector('.finance-ledger [rel="next"]').focus()`);
                 await key('Enter');
-                await waitFor(`document.querySelector('[data-movement-category="cash"] [data-pagination-page]').dataset.paginationPage==='2' && !document.querySelector('.finance-ledger[aria-busy]')`);
+                await waitFor(`document.querySelector('.finance-ledger [data-pagination-page]').dataset.paginationPage==='2' && !document.querySelector('.finance-ledger[aria-busy]')`);
                 assert.equal(await evaluate(`window.__financePaginationDocument`), 'preserved');
-                assert.equal(await evaluate(`document.querySelector('[data-movement-category="cash"] [aria-live]').textContent.trim()`), '2');
-                assert.equal(await evaluate(`document.querySelectorAll('[data-movement-category="cash"] tbody tr').length`), 3);
-                assert.ok(await evaluate(`document.querySelector('[data-movement-category="cash"] [aria-label="Pagina successiva"]').disabled`));
+                assert.equal(await evaluate(`document.querySelector('.finance-ledger [aria-live]').textContent.trim()`), '2');
+                assert.equal(await evaluate(`document.querySelectorAll('.finance-ledger .money-row').length`), 3);
+                assert.ok(await evaluate(`document.querySelector('.finance-ledger [aria-label="Pagina successiva"]').disabled`));
                 assert.deepEqual(await evaluate(`(()=>{const url=new URL(location.href);return ['ledger','period','q','customer_ids[0]'].map(name=>url.searchParams.get(name));})()`), filters);
                 await evaluate(`history.back()`);
-                await waitFor(`new URL(location.href).searchParams.get('cash_page')==='1' && document.querySelector('[data-movement-category="cash"] [data-pagination-page]').dataset.paginationPage==='1' && !document.querySelector('.finance-ledger[aria-busy]')`);
+                await waitFor(`new URL(location.href).searchParams.get('movements_page')==='1' && document.querySelector('.finance-ledger [data-pagination-page]').dataset.paginationPage==='1' && !document.querySelector('.finance-ledger[aria-busy]')`);
                 assert.equal(await evaluate(`window.__financePaginationDocument`), 'preserved');
                 await evaluate(`history.forward()`);
-                await waitFor(`new URL(location.href).searchParams.get('cash_page')==='2' && document.querySelector('[data-movement-category="cash"] [data-pagination-page]').dataset.paginationPage==='2' && !document.querySelector('.finance-ledger[aria-busy]')`);
+                await waitFor(`new URL(location.href).searchParams.get('movements_page')==='2' && document.querySelector('.finance-ledger [data-pagination-page]').dataset.paginationPage==='2' && !document.querySelector('.finance-ledger[aria-busy]')`);
                 assert.equal(await evaluate(`window.__financePaginationDocument`), 'preserved');
-                await evaluate(`document.querySelector('[data-movement-category="cash"] [rel="prev"]').click()`);
-                await waitFor(`document.querySelector('[data-movement-category="cash"] [data-pagination-page]').dataset.paginationPage==='1' && !document.querySelector('.finance-ledger[aria-busy]')`);
+                await evaluate(`document.querySelector('.finance-ledger [rel="prev"]').click()`);
+                await waitFor(`document.querySelector('.finance-ledger [data-pagination-page]').dataset.paginationPage==='1' && !document.querySelector('.finance-ledger[aria-busy]')`);
             }
             financePageFailNext = true;
-            await evaluate(`document.querySelector('[data-movement-category="cash"] [rel="next"]').click()`);
+            await evaluate(`document.querySelector('.finance-ledger [rel="next"]').click()`);
             await waitFor(`!!document.querySelector('[data-workspace-feedback].alert-warning') && !document.querySelector('.finance-ledger[aria-busy]')`);
-            assert.equal(await evaluate(`document.querySelector('[data-movement-category="cash"] [data-pagination-page]').dataset.paginationPage`), '1');
-            assert.equal(await evaluate(`new URL(location.href).searchParams.get('cash_page')`), '1');
+            assert.equal(await evaluate(`document.querySelector('.finance-ledger [data-pagination-page]').dataset.paginationPage`), '1');
+            assert.equal(await evaluate(`new URL(location.href).searchParams.get('movements_page')`), '1');
             await evaluate(`document.querySelector('[data-workspace-feedback] button').click()`);
-            await waitFor(`document.querySelector('[data-movement-category="cash"] [data-pagination-page]').dataset.paginationPage==='2' && !document.querySelector('.finance-ledger[aria-busy]')`);
+            await waitFor(`document.querySelector('.finance-ledger [data-pagination-page]').dataset.paginationPage==='2' && !document.querySelector('.finance-ledger[aria-busy]')`);
             assert.equal(await evaluate(`window.__financePaginationDocument`), 'preserved');
         });
         await scenario('staff 404 centers on every requested width, counts down, cleans timers and redirects to its own home', async () => {
@@ -1094,7 +1093,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
                 await navigate('balance?ledger=payments&from=2026-10-01&to=2026-10-18');
                 assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`),`balance overflow ${width}`);
-                assert.equal(await evaluate(`document.querySelectorAll('.finance-statement .metric-tile').length`),4);
+                assert.equal(await evaluate(`document.querySelectorAll('.finance-overview h3').length`),3);
                 assert.ok(await evaluate(`getComputedStyle(document.body).fontFamily.includes('Source Sans 3')`));
                 await assertButtonShapes(`balance controls ${width}`);
                 await evaluate(`document.querySelector('.row-actions-menu summary').click()`);
@@ -1148,12 +1147,12 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             assert.ok(await evaluate(`document.querySelector('dialog[open] [name="note"]').getClientRects().length>0`));
             await key('Escape');
             assert.ok(await evaluate(`document.activeElement.matches('.row-actions-menu summary')`));
-            for(const view of ['expenses','cash','recorded','reversed','pending']) {
+            for(const view of ['expenses','cash','payments','reversed','pending']) {
                 await navigate('balance?ledger='+view);
                 assert.equal(await evaluate(`document.querySelector('.ledger-navigation [aria-current="page"]').href.includes('ledger=${view}')`),true);
                 assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`));
             }
-            assert.ok(await evaluate(`document.querySelector('#cash-details table caption').textContent.includes('Sospesi nel periodo')`));
+            assert.ok(await evaluate(`document.querySelector('#cash-details table caption').textContent.includes('Situazione sospesi alla data di riferimento')`));
         });
         await scenario('pickup calendar keeps counts and lazy account pages at all sizes without document reloads', async () => {
             for(const width of [320,375,768,1024,1440]) {

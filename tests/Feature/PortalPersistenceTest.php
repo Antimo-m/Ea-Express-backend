@@ -21,7 +21,7 @@ class PortalPersistenceTest extends TestCase
 
     private function booking(): array
     {
-        return [...$this->pickup(), 'store_name' => 'Cliente', 'parcel_value' => '0', 'recipient_name' => 'Destinatario', 'recipient_phone' => '+390000000000', 'delivery_address' => 'Via Milano', 'delivery_street_number' => '5', 'delivery_postal_code' => '81100', 'delivery_city' => 'Caserta', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'category' => 'documents', 'urgency' => 'standard', 'package_type' => 'standard'];
+        return [...$this->pickup(), 'store_name' => 'Cliente', 'parcel_value' => '0', 'recipient_name' => 'Destinatario', 'recipient_phone' => '+390000000000', 'delivery_address' => 'Via Milano', 'delivery_street_number' => '5', 'delivery_postal_code' => '81100', 'delivery_province' => 'Caserta', 'delivery_region' => 'Campania', 'delivery_city' => 'Caserta', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'category' => 'documents', 'urgency' => 'standard', 'package_type' => 'standard'];
     }
 
     public function test_saved_pickup_contains_only_pickup_fields_and_equivalent_retries_are_idempotent(): void

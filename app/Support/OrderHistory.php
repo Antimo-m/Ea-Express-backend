@@ -24,14 +24,16 @@ class OrderHistory
         $hour = $query->getConnection()->getDriverName() === 'sqlite'
             ? "strftime('%Y-%m-%d %H:00:00', created_at)"
             : "DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00')";
-        $hours = (clone $query)->reorder()->toBase()->selectRaw("{$hour} AS utc_hour, COUNT(*) AS total")
+        $hours = (clone $query)->reorder()->toBase()->selectRaw("{$hour} AS utc_hour, COUNT(*) AS total, SUM(CASE WHEN parcel_count > 0 THEN 1 ELSE 0 END) AS printable")
             ->groupByRaw($hour)->get();
         $totals = [];
+        $printable = [];
         foreach ($hours as $row) {
             $date = Carbon::parse($row->utc_hour, 'UTC')->timezone('Europe/Rome')->toDateString();
             $totals[$date] = ($totals[$date] ?? 0) + (int) $row->total;
+            $printable[$date] = ($printable[$date] ?? 0) + (int) $row->printable;
         }
-        $days = collect($totals)->sortKeysDesc()->map(fn (int $total, string $date): array => ['date' => $date, 'total' => $total])->values();
+        $days = collect($totals)->sortKeysDesc()->map(fn (int $total, string $date): array => ['date' => $date, 'total' => $total, 'printable' => $printable[$date]])->values();
         $page = (int) ($filters['page'] ?? 1);
         if (! isset($filters['page']) && isset($filters['day'])) {
             $index = $days->search(fn (array $day): bool => $day['date'] === $filters['day']);
@@ -53,6 +55,6 @@ class OrderHistory
         $orders->appends([...$request->except('day_page'), 'day' => $selectedDate, 'page' => $page])
             ->fragment('archive-day-'.$selectedDate);
 
-        return ['orders' => $orders, 'archiveDays' => $archiveDays, 'archiveTotal' => (int) $days->sum('total'), 'selectedDate' => $selectedDate];
+        return ['orders' => $orders, 'archiveDays' => $archiveDays, 'archiveTotal' => (int) $days->sum('total'), 'archivePrintableTotal' => (int) $days->sum('printable'), 'selectedDate' => $selectedDate];
     }
 }

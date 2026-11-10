@@ -20,7 +20,7 @@ class OrderWorkflowTest extends TestCase
         $data = Order::factory()->make()->only(['store_name', 'recipient_name', 'recipient_phone', 'pickup_address', 'pickup_city', 'delivery_address', 'delivery_city', 'pickup_date', 'pickup_from', 'pickup_to', 'parcel_count', 'category', 'urgency']);
         $data['parcel_value'] = '50';
         $data['pickup_date'] = now()->addDay()->toDateString();
-        $data += ['payment_method' => 'cash', 'pickup_street_number' => '10', 'pickup_postal_code' => '80100', 'delivery_street_number' => '20', 'delivery_postal_code' => '81100', 'package_type' => 'standard', 'status' => 'delivered', 'price_cents' => 1, 'rider_id' => 999, 'tracking_token' => 'guess'];
+        $data += ['payment_method' => 'cash', 'pickup_street_number' => '10', 'pickup_postal_code' => '80100', 'delivery_street_number' => '20', 'delivery_postal_code' => '81100', 'delivery_province' => 'Caserta', 'delivery_region' => 'Campania', 'package_type' => 'standard', 'status' => 'delivered', 'price_cents' => 1, 'rider_id' => 999, 'tracking_token' => 'guess'];
         ShippingRate::factory()->create(['city' => 'Caserta', 'city_key' => 'caserta']);
         $this->actingAs($rider);
         $response = $this->post('/orders', $this->staffCheckoutData($data));
@@ -131,7 +131,7 @@ class OrderWorkflowTest extends TestCase
     {
         $user = User::factory()->create();
         Order::factory()->create(['created_by' => $user->id]);
-        $this->actingAs($user)->delete('/profile', ['password' => 'password'])->assertSessionHasErrorsIn('userDeletion', 'password');
+        $this->actingAs($user)->delete('/profile', ['password' => 'password'])->assertForbidden();
         $this->assertModelExists($user);
     }
 

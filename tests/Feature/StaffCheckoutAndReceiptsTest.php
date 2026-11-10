@@ -7,6 +7,7 @@ use App\Models\FinancialMovement;
 use App\Models\Order;
 use App\Models\PaymentEntry;
 use App\Models\PendingAccount;
+use App\Models\PendingSettlement;
 use App\Models\ShippingRate;
 use App\Models\User;
 use App\OrderStatus;
@@ -22,7 +23,7 @@ class StaffCheckoutAndReceiptsTest extends TestCase
 
     private function payload(): array
     {
-        return ['store_name' => 'Mittente', 'sender_type' => 'private', 'recipient_name' => 'Destinatario', 'recipient_phone' => '+390000000000', 'pickup_address' => 'Via Roma', 'pickup_street_number' => '1', 'pickup_postal_code' => '81031', 'pickup_city' => 'Aversa', 'delivery_address' => 'Via Roma', 'delivery_street_number' => '2', 'delivery_postal_code' => '81031', 'delivery_city' => 'Aversa', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'parcel_value' => '50', 'category' => 'documents', 'package_type' => 'standard', 'urgency' => 'standard'];
+        return ['store_name' => 'Mittente', 'sender_type' => 'private', 'recipient_name' => 'Destinatario', 'recipient_phone' => '+390000000000', 'pickup_address' => 'Via Roma', 'pickup_street_number' => '1', 'pickup_postal_code' => '81031', 'pickup_city' => 'Aversa', 'delivery_address' => 'Via Roma', 'delivery_street_number' => '2', 'delivery_postal_code' => '81031', 'delivery_province' => 'Caserta', 'delivery_region' => 'Campania', 'delivery_city' => 'Aversa', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'parcel_value' => '50', 'category' => 'documents', 'package_type' => 'standard', 'urgency' => 'standard'];
     }
 
     public function test_staff_checkout_creates_only_on_confirmation_and_preserves_data_when_editing(): void
@@ -119,10 +120,10 @@ class StaffCheckoutAndReceiptsTest extends TestCase
         $entry = new PaymentEntry;
         $entry->forceFill(['order_id' => $order->id, 'user_id' => $admin->id, 'amount_cents' => 1000, 'ea_amount_cents' => 200, 'method' => 'cash', 'note' => 'Incasso storico'])->save();
         Expense::factory()->create(['user_id' => $admin->id, 'amount_cents' => 300, 'spent_on' => now()]);
-        PendingAccount::factory()->create(['direction' => 'incoming', 'amount_cents' => 500, 'settled_cents' => 100, 'state' => 'partially_paid', 'occurred_on' => now()]);
+        PendingAccount::factory()->has(PendingSettlement::factory()->state(['amount_cents' => 100]), 'settlements')->create(['direction' => 'incoming', 'amount_cents' => 500, 'settled_cents' => 100, 'state' => 'partially_paid', 'occurred_on' => now()]);
         PendingAccount::factory()->create(['direction' => 'outgoing', 'amount_cents' => 200, 'settled_cents' => 0, 'occurred_on' => now()]);
         $this->actingAs($admin)->postJson('/movements', ['kind' => 'cash', 'amount' => '2', 'submission_key' => (string) Str::uuid()])->assertCreated();
-        $this->get('/balance')->assertOk()->assertViewHas('grossIncome', 1000)->assertViewHas('totalExpenses', 300)->assertViewHas('operatingNet', 700)->assertViewHas('pendingIncoming', 400)->assertViewHas('pendingOutgoing', 200)->assertViewHas('pendingImpact', 200)->assertViewHas('cashAdditions', 200)->assertViewHas('cashBalance', 900);
+        $this->get('/balance')->assertOk()->assertViewHas('grossIncome', 1100)->assertViewHas('totalExpenses', 300)->assertViewHas('operatingNet', 800)->assertViewHas('pendingIncoming', 400)->assertViewHas('pendingOutgoing', 200)->assertViewHas('pendingImpact', 200)->assertViewHas('cashAdditions', 200)->assertViewHas('cashBalance', 1000);
     }
 
     public function test_cash_entries_are_separate_editable_voidable_and_not_counted_twice(): void

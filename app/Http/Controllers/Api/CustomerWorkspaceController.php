@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\OrderStatus;
 use App\Rules\AllowedPortalText;
 use App\Rules\SafePasswordLength;
+use App\Support\AccountSessionRevocation;
 use App\Support\CustomerIdentity;
 use App\Support\NotificationInbox;
 use App\Support\PasswordPolicy;
@@ -32,7 +33,7 @@ class CustomerWorkspaceController extends Controller
             'delivered' => (clone $base)->where('status', OrderStatus::Delivered)->count(),
             'attention' => (clone $base)->whereIn('status', ['delivery_issue', 'delivery_attempted', 'rejected'])->count(),
             'unread' => $request->user()->unreadNotifications()->count(),
-        ], 'live_order' => ($liveOrder = (clone $active)->withDisplayIdentity()->with('rider')->whereNotNull('rider_id')->latest('updated_at')->orderByDesc('id')->first()) ? new CustomerOrderResource($liveOrder) : null, 'recent' => CustomerOrderResource::collection((clone $base)->withDisplayIdentity()->with('rider')->latest()->orderByDesc('id')->limit(5)->get()), 'next_pickups' => CustomerOrderResource::collection((clone $active)->withDisplayIdentity()->with('rider')->whereDoesntHave('events', fn ($q) => $q->where('status', OrderStatus::PickedUp))->orderBy('pickup_date')->orderBy('pickup_from')->orderBy('id')->limit(3)->get())]);
+        ], 'live_order' => ($liveOrder = (clone $active)->withDisplayIdentity()->withReceiptStatus()->with('rider')->whereNotNull('rider_id')->latest('updated_at')->orderByDesc('id')->first()) ? new CustomerOrderResource($liveOrder) : null, 'recent' => CustomerOrderResource::collection((clone $base)->withDisplayIdentity()->withReceiptStatus()->with('rider')->latest()->orderByDesc('id')->limit(3)->get()), 'next_pickups' => CustomerOrderResource::collection((clone $active)->withDisplayIdentity()->withReceiptStatus()->with('rider')->whereDoesntHave('events', fn ($q) => $q->where('status', OrderStatus::PickedUp))->orderBy('pickup_date')->orderBy('pickup_from')->orderBy('id')->limit(3)->get())]);
     }
 
     public function notifications(Request $request): JsonResponse
@@ -82,7 +83,7 @@ class CustomerWorkspaceController extends Controller
         $data = $request->validate([...$rules, 'current_password' => [Rule::excludeIf($request->input('email') === $request->user()->email), 'bail', 'required', new SafePasswordLength, 'current_password:customer'], 'name' => ['required', 'string', 'max:150', Rule::when(($request->input('sender_type') ?? $request->user()->sender_type) !== 'private', [new AllowedPortalText])], 'email' => ['required', 'email', 'lowercase', 'max:255', Rule::unique('users')->ignore($request->user()->id)]]);
         $profile = CustomerIdentity::normalize(Arr::except($data, ['current_password']), $request->user()->sender_type);
         if ($update->handle($request->user(), $profile, $data['current_password'] ?? null)) {
-            $request->session()->regenerate();
+            app(AccountSessionRevocation::class)->renewCurrent($request, $request->user(), 'customer');
         }
 
         return response()->json(['message' => 'Profilo aggiornato.']);
@@ -103,8 +104,7 @@ class CustomerWorkspaceController extends Controller
     {
         $data = $request->validate(['current_password' => ['bail', 'required', 'string', new SafePasswordLength, 'current_password:customer'], 'password' => [...PasswordPolicy::rules(), 'confirmed']]);
         app(ChangePassword::class)->handle($request->user(), $data['current_password'], $data['password']);
-        $request->session()->put('password_hash_customer', $request->user()->password);
-        $request->session()->regenerate();
+        app(AccountSessionRevocation::class)->renewCurrent($request, $request->user(), 'customer');
 
         return response()->json(['message' => 'Password aggiornata.']);
     }

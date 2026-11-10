@@ -8,6 +8,7 @@ use App\Http\Requests\Auth\LoginRequest;
 use App\Support\IntendedDestination;
 use App\Support\SecurityEvent;
 use App\Support\StaffAuthentication;
+use App\Support\TrustedRiderDevices;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -40,6 +41,13 @@ class AuthenticatedSessionController extends Controller
         $authentication->begin($request, $request->user(), $request->boolean('remember'));
         $request->session()->put('password_hash_web', $request->user()->password);
 
+        if (app(TrustedRiderDevices::class)->consume($request, $request->user())) {
+            $authentication->factorVerified($request, $request->user());
+            $authentication->complete($request, $request->user());
+
+            return redirect(IntendedDestination::take($request));
+        }
+
         if ($authentication->requiresVerification($request->user())) {
             try {
                 app(SendEmailOtp::class)->handle($request->user());
@@ -61,6 +69,7 @@ class AuthenticatedSessionController extends Controller
         SecurityEvent::record('logout', $request->user()?->id);
         app(StaffAuthentication::class)->invalidateChallenge($request);
         Auth::guard('web')->logout();
+        Auth::guard('customer')->logoutCurrentDevice();
 
         $request->session()->invalidate();
 

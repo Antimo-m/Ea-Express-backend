@@ -25,22 +25,22 @@ class FinancialStatementTest extends TestCase
         FinancialMovement::factory()->count(13)->create(['user_id' => $admin->id, 'customer_id' => $customer->id, 'kind' => 'cash', 'description' => 'Cassa selezionata', 'amount_cents' => 100]);
         FinancialMovement::factory()->count(2)->create(['user_id' => $admin->id, 'customer_id' => $customer->id, 'kind' => 'income', 'description' => 'Entrata selezionata']);
         FinancialMovement::factory()->create(['user_id' => $admin->id, 'kind' => 'cash', 'description' => 'Voce di altro cliente']);
-        $query = http_build_query(['ledger' => 'cash', 'period' => 'today', 'q' => 'selezionata', 'customer_ids' => [$customer->slug], 'cash_page' => 2]);
+        $query = http_build_query(['ledger' => 'cash', 'period' => 'today', 'q' => 'selezionata', 'customer_ids' => [$customer->slug], 'movements_page' => 2]);
 
         $response = $this->actingAs($admin)->get('/balance?'.$query);
 
-        $response->assertOk()->assertViewHas('manualSections', fn ($sections): bool => $sections['cash']['entries']->total() === 13
-            && $sections['cash']['entries']->currentPage() === 2 && $sections['cash']['entries']->count() === 3
-            && $sections['cash']['entries']->every(fn ($entry): bool => $entry->kind === 'cash')
-            && $sections['income']['entries']->total() === 2 && $sections['income']['entries']->currentPage() === 1
-            && $sections['income']['entries']->every(fn ($entry): bool => $entry->kind === 'income'))
-            ->assertSee('data-movement-category="cash"', false)->assertSee('data-movement-category="income"', false)
+        $response->assertOk()->assertViewHas('registerEntries', fn ($entries): bool => $entries->total() === 13
+            && $entries->currentPage() === 2 && $entries->count() === 3
+            && $entries->every(fn ($entry): bool => $entry['model']->kind === 'cash'))
+            ->assertSee('data-money-register="cash"', false)
             ->assertSee('customer_ids%5B0%5D='.$customer->slug, false)->assertSee('q=selezionata', false)
             ->assertDontSee('Voce di altro cliente')->assertDontSee('class="pagination-pages"', false)
             ->assertSee('aria-label="Pagina 2">2</span>', false);
+        $this->get('/balance?'.http_build_query(['ledger' => 'payments', 'q' => 'selezionata', 'customer_ids' => [$customer->slug]]))
+            ->assertViewHas('registerEntries', fn ($entries): bool => $entries->total() === 2 && $entries->every(fn ($entry): bool => $entry['model']->kind === 'income'));
         if ($directory = getenv('EA_UI_FIXTURE_DIR')) {
             file_put_contents($directory.'/finance-manual-categories.html', $response->getContent());
-            $firstQuery = http_build_query(['ledger' => 'cash', 'period' => 'today', 'q' => 'selezionata', 'customer_ids' => [$customer->slug], 'cash_page' => 1]);
+            $firstQuery = http_build_query(['ledger' => 'cash', 'period' => 'today', 'q' => 'selezionata', 'customer_ids' => [$customer->slug], 'movements_page' => 1]);
             $firstPage = $this->get('/balance?'.$firstQuery)->assertOk();
             file_put_contents($directory.'/finance-manual-first.html', $firstPage->getContent());
             file_put_contents($directory.'/finance-pagination.json', json_encode(['initial' => 'balance?'.$firstQuery], JSON_THROW_ON_ERROR));
@@ -53,18 +53,18 @@ class FinancialStatementTest extends TestCase
         $order = Order::factory()->create(['status' => OrderStatus::Delivered, 'delivered_at' => now(), 'price_cents' => 1000]);
         $this->actingAs($admin)->postJson(route('payments.store', $order), ['action' => 'receive', 'version' => 1])->assertOk();
         $this->postJson(route('payments.store', $order), ['action' => 'reverse', 'version' => 2, 'note' => 'Rettifica verificata'])->assertOk();
-        $this->postJson(route('payments.store', $order), ['action' => 'refund', 'version' => 3, 'note' => 'Rimborso già incluso nello storno'])->assertConflict();
-        $this->postJson(route('payments.store', $order), ['action' => 'restore', 'version' => 3, 'note' => 'Ripristino verificato'])->assertOk();
+        $this->postJson(route('payments.store', $order), ['action' => 'refund', 'version' => 3, 'note' => 'Rimborso realmente effettuato dopo lo storno'])->assertOk();
+        $this->postJson(route('payments.store', $order), ['action' => 'restore', 'version' => 4, 'note' => 'Ripristino verificato'])->assertOk();
 
         $response = $this->get('/balance');
 
-        $response->assertOk()->assertViewHas('paymentSections', fn ($sections): bool => $sections['receipts']['entries']->total() === 1
-            && $sections['corrections']['entries']->total() === 2 && $sections['refunds']['entries']->total() === 1
-            && $sections['other']['entries']->total() === 0)
-            ->assertSee('data-payment-category="receipts"', false)->assertSee('data-payment-category="corrections"', false)
-            ->assertSee('data-payment-category="refunds"', false)->assertViewHas('cashMovementBalance', 0);
-        $sections = $response->viewData('paymentSections');
-        $slugs = collect($sections)->flatMap(fn ($section) => $section['entries']->pluck('slug'));
+        $response->assertViewHas('registerEntries', fn ($entries): bool => $entries->total() === 1 && $entries->sole()['model']->kind === 'receipt')
+            ->assertSee('data-money-register="payments"', false)->assertViewHas('cashMovementBalance', 0);
+        $slugs = $response->viewData('registerEntries')->pluck('slug');
+        foreach (['history' => 2, 'refunds' => 1] as $category => $count) {
+            $page = $this->get('/balance?ledger='.$category)->assertViewHas('registerEntries', fn ($entries): bool => $entries->total() === $count);
+            $slugs = $slugs->merge($page->viewData('registerEntries')->pluck('slug'));
+        }
         $this->assertSame(4, $slugs->unique()->count());
         if ($directory = getenv('EA_UI_FIXTURE_DIR')) {
             file_put_contents($directory.'/finance-payment-categories.html', $response->getContent());
@@ -87,9 +87,9 @@ class FinancialStatementTest extends TestCase
         FinancialMovement::factory()->create(['user_id' => $admin->id, 'kind' => 'cash', 'amount_cents' => 8000, 'occurred_on' => '2026-10-31']);
 
         $this->get('/balance?period=today')->assertViewHas('cashMovementBalance', 3000)
-            ->assertViewHas('totalExpenses', 400)->assertViewHas('operatingResult', 1100)->assertViewHas('finalNet', 4100)
-            ->assertSee('Contanti disponibili')->assertDontSee('Saldo movimenti Contanti')
-            ->assertSeeTextInOrder(['Risultato operativo', 'Sospesi', 'Contanti', 'Risultato finale']);
+            ->assertViewHas('totalExpenses', 400)->assertViewHas('operatingResult', 1100)->assertViewHas('finalNet', 1100)->assertViewHas('cashBalance', 4100)
+            ->assertSee('Saldo dei movimenti registrati')->assertDontSee('Contanti disponibili')
+            ->assertSeeTextInOrder(['Saldo dei movimenti registrati', 'Risultato operativo', 'Ancora da regolare']);
     }
 
     public function test_reversals_adjust_final_result_without_becoming_expenses_or_delivery_counts(): void
@@ -104,7 +104,7 @@ class FinancialStatementTest extends TestCase
             ->assertViewHas('deliveredCount', 1)->assertViewHas('completedCount', 0)
             ->assertSee('aria-label="1 consegne effettuate nel periodo"', false);
 
-        $this->postJson(route('payments.store', $order), ['action' => 'refund', 'version' => 3, 'note' => 'Denaro già restituito'])->assertConflict();
+        $this->postJson(route('payments.store', $order), ['action' => 'refund', 'version' => 3, 'note' => 'Denaro restituito con conferma separata'])->assertOk();
         $this->get('/balance')->assertViewHas('finalNet', 0)->assertViewHas('totalExpenses', 0)->assertViewHas('cashMovementBalance', 0)->assertViewHas('deliveredCount', 1);
     }
 
@@ -114,14 +114,14 @@ class FinancialStatementTest extends TestCase
         $customer = User::factory()->create(['role' => UserRole::Customer]);
         $incoming = PendingAccount::factory()->create(['created_by' => $admin->id, 'customer_id' => $customer->id, 'direction' => 'incoming', 'amount_cents' => 1000]);
         $outgoing = PendingAccount::factory()->create(['created_by' => $admin->id, 'customer_id' => $customer->id, 'direction' => 'outgoing', 'amount_cents' => 400]);
-        $this->actingAs($admin)->get('/balance')->assertViewHas('pendingImpact', 600)->assertViewHas('finalNet', 600);
+        $this->actingAs($admin)->get('/balance')->assertViewHas('pendingImpact', 600)->assertViewHas('finalNet', 0)->assertViewHas('cashBalance', 0);
 
         $this->postJson(route('pending.settle', $incoming), ['version' => 1, 'amount' => '2', 'method' => 'cash', 'submission_key' => (string) Str::uuid()])->assertOk();
         $this->postJson(route('pending.settle', $outgoing), ['version' => 1, 'amount' => '1', 'method' => 'cash', 'submission_key' => (string) Str::uuid()])->assertOk();
 
         $this->get('/balance')->assertViewHas('pendingIncoming', 800)->assertViewHas('pendingOutgoing', 300)
             ->assertViewHas('pendingImpact', 500)->assertViewHas('grossIncome', 200)->assertViewHas('totalExpenses', 100)
-            ->assertViewHas('finalNet', 600)->assertViewHas('cashMovementBalance', 0);
+            ->assertViewHas('finalNet', 100)->assertViewHas('cashBalance', 100)->assertViewHas('cashMovementBalance', 0);
     }
 
     public function test_customer_and_period_filters_scope_all_totals_and_delivery_badge(): void

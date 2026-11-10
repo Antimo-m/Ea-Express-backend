@@ -98,17 +98,17 @@ test('Revisione funzionale: mobile, cassa touch, validazione contestuale e stamp
             }
             await navigate('revision-finance-cash.html');
             if (width < 768) {
-                await click('.finance-mobile-list .cash-movement > summary');
-                assert.ok(await evaluate('return !!document.querySelector(".finance-mobile-list .cash-movement[open] .cash-movement-detail").getClientRects().length;'));
+                await click('.money-row > summary');
+                assert.ok(await evaluate('return !!document.querySelector(".money-row[open] .money-row-detail").getClientRects().length;'));
                 if (process.env.EA_REVISION_SCREENSHOTS) writeFileSync(join(process.env.EA_REVISION_SCREENSHOTS, 'cash-detail-' + width + '.png'), Buffer.from((await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })).data, 'base64'));
-                await click('.finance-mobile-list [data-dialog-open^="cash-edit-"]');
+                await click('.money-register [data-dialog-open^="cash-edit-"]');
                 await waitFor('document.querySelector("dialog[open] input[name=amount]")');
                 await checkBounds('modifica movimento @' + width);
                 await click('dialog[open] [data-dialog-close]');
-                await click('.finance-mobile-list form[data-confirm] button');
+                await click('.money-register form[data-confirm] button');
                 await waitFor('document.querySelector("#action-confirmation[open]")');
                 const actions = await evaluate('const back=document.querySelector("#action-confirmation .modal-back").getBoundingClientRect(),confirm=document.querySelector("#action-confirmation [data-confirm-action]").getBoundingClientRect();return {back:back.x,confirm:confirm.x};');
-                assert.ok(actions.back < actions.confirm);
+                assert.ok(actions.confirm < actions.back);
                 await click('#action-confirmation [data-dialog-close]');
             }
             await click('[data-dialog-open="balance-add"]');

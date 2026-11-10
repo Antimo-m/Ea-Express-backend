@@ -120,6 +120,6 @@ class CustomerTextPolicyTest extends TestCase
     /** @return array<string, mixed> */
     private function orderData(): array
     {
-        return ['parcel_value' => '50', 'pickup_street_number' => '10', 'pickup_postal_code' => '80100', 'delivery_street_number' => '20', 'delivery_postal_code' => '81100', 'package_type' => 'standard', 'recipient_name' => 'Mario Rossi', 'recipient_phone' => '+390000000000', 'pickup_address' => 'Via Roma', 'pickup_city' => 'Napoli', 'delivery_address' => 'Via Milano', 'delivery_city' => 'Caserta', 'pickup_date' => now('Europe/Rome')->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'category' => 'custom', 'content_description' => 'Ricambi per automobile', 'urgency' => 'standard'];
+        return ['parcel_value' => '50', 'pickup_street_number' => '10', 'pickup_postal_code' => '80100', 'delivery_street_number' => '20', 'delivery_postal_code' => '81100', 'delivery_province' => 'Caserta', 'delivery_region' => 'Campania', 'package_type' => 'standard', 'recipient_name' => 'Mario Rossi', 'recipient_phone' => '+390000000000', 'pickup_address' => 'Via Roma', 'pickup_city' => 'Napoli', 'delivery_address' => 'Via Milano', 'delivery_city' => 'Caserta', 'pickup_date' => now('Europe/Rome')->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'category' => 'custom', 'content_description' => 'Ricambi per automobile', 'urgency' => 'standard'];
     }
 }

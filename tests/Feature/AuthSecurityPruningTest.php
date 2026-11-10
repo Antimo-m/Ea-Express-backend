@@ -39,7 +39,7 @@ class AuthSecurityPruningTest extends TestCase
         DB::table('cache')->insert(['key' => $key, 'value' => 'i:1;', 'expiration' => now()->subSecond()->timestamp]);
         $renewed = false;
         DB::listen(function ($query) use ($key, &$renewed): void {
-            if (! $renewed && str_starts_with($query->sql, 'select') && str_contains($query->sql, '"cache"')) {
+            if (! $renewed && str_starts_with($query->sql, 'select') && str_contains($query->sql, DB::connection()->getQueryGrammar()->wrapTable('cache'))) {
                 $renewed = true;
                 DB::table('cache')->where('key', $key)->update(['expiration' => now()->addMinute()->timestamp]);
             }

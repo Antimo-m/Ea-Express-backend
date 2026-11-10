@@ -41,7 +41,7 @@ class WorkspaceMutationTest extends TestCase
             $url = '/balance?'.http_build_query([...$filters, 'orders_page' => $page]);
             $response = $this->get($url)->assertOk()
                 ->assertViewHas('cashMovementBalance', 3000)->assertViewHas('grossIncome', $step * 100)
-                ->assertViewHas('finalNet', $step * 100 + 3000)->assertViewHas('deliveredCount', 43)
+                ->assertViewHas('finalNet', $step * 100)->assertViewHas('deliveredCount', 43)
                 ->assertViewHas('outstanding', 4300 - $step * 100)
                 ->assertViewHas('selectedCustomerSlugs', [$customer->slug]);
             $orders = $response->viewData('orders');

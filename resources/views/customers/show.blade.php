@@ -1,13 +1,14 @@
 <x-app-layout :title="$customer->name">
     <nav class="page-back"><a href="{{ route('customers.index') }}">← Clienti</a></nav>
     <header class="page-heading"><div><span class="eyebrow">PROFILO CLIENTE</span><h1>{{ $customer->name }}</h1><p>{{ ['business'=>'Attività commerciale','private'=>'Privato','online_shop'=>'Shop online'][$customer->sender_type] ?? 'Cliente' }} · {{ $customer->is_active ? 'Account attivo' : 'Account disabilitato' }}</p></div></header>
+    @can('update', $customer)<form method="post" action="{{ route('users.update', $customer) }}" class="account-state-actions">@csrf @method('patch')<x-ui.icon-button type="submit" :action="$customer->is_active ? 'delete' : 'edit'" :label="$customer->is_active ? 'Disattiva account cliente' : 'Riattiva account cliente'" name="action" :value="$customer->is_active ? 'deactivate' : 'activate'" :data-confirm="$customer->is_active ? 'Disattiva account cliente' : null" :data-confirm-name="$customer->name" text /></form>@endcan
     <section class="surface customer-identity" aria-label="Identità e contatti">
         <div><span class="data-label">Email</span><a href="mailto:{{ $customer->email }}">{{ $customer->email }}</a></div>
         <div><span class="data-label">Telefono</span>{{ $customer->phone ?: 'Non indicato' }}</div>
         <div><span class="data-label">Attività</span>{{ $customer->business_type ?: 'Non indicata' }}<small>{{ $customer->business_description }}</small></div>
         <div><span class="data-label">Cliente dal</span>{{ $customer->created_at->timezone('Europe/Rome')->format('d/m/Y') }}</div>
     </section>
-    <x-ui.filters :reset="route('customers.show', $customer)" layout="analysis">
+    <x-ui.filters :reset="route('customers.show', $customer)" label="Search" layout="analysis">
         <x-slot:period><x-ui.filter-period route="customers.show" :period="$period" /></x-slot:period>
         <x-ui.filter-select name="status" label="Stato" :options="[''=>'Tutti', ...collect(\App\OrderStatus::cases())->mapWithKeys(fn($state)=>[$state->value=>$state->label()])->all()]" />
         @if(request()->filled('tariff'))<input type="hidden" name="tariff" value="{{ request('tariff') }}">@endif

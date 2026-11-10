@@ -146,8 +146,6 @@ const quoteBox = document.querySelector('[data-shipping-quote]');
 if (quoteBox) {
     const form = quoteBox.closest('form');
     attachShippingQuote(quoteBox);
-    const updateService = () => {for (const name of ['delivery_province','delivery_region']) form.elements[name].required = form.elements.shipping_type.value === 'external';};
-    form.elements.shipping_type.addEventListener('change', updateService); updateService();
     const type = form.elements.package_type; const description = form.elements.package_description;
     const updatePackage = () => {
         const custom = type.value === 'other';
@@ -237,3 +235,7 @@ accountChoice?.addEventListener('change', () => {
 import './finance-workspace';
 import './directories';
 import './not-found';
+
+import "./label-availability";
+
+import "../css/finance.css";

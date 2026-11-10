@@ -4,6 +4,7 @@ namespace Tests;
 
 use App\Models\User;
 use App\StaffAuthenticationState;
+use App\Support\AccountSessionRevocation;
 use App\Support\StaffAuthentication;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
@@ -24,6 +25,9 @@ abstract class TestCase extends BaseTestCase
     {
         parent::actingAs($user, $guard);
         $this->withSession(['password_hash_'.($guard ?? config('auth.defaults.guard')) => $user->getAuthPassword()]);
+        request()->setLaravelSession(app('session.store'));
+        app(AccountSessionRevocation::class)->authorize(request(), $user, $guard ?? config('auth.defaults.guard'));
+        app('session.store')->save();
 
         if (($guard ?? config('auth.defaults.guard')) === 'web' && $user instanceof User && $user->isStaff()) {
             request()->setLaravelSession(app('session.store'));

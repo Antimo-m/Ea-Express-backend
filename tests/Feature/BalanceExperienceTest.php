@@ -50,7 +50,7 @@ class BalanceExperienceTest extends TestCase
         Order::factory()->count(11)->create(['created_by' => $admin->id, 'customer_id' => $customer->id, 'status' => OrderStatus::Delivered, 'delivered_at' => now(), 'paid_at' => now()]);
         $this->actingAs($admin)->get('/balance?ledger=recorded&recorded_page=2&customer_id='.$customer->slug)->assertOk()
             ->assertViewHas('recordedOrders', fn ($rows): bool => $rows->currentPage() === 2 && $rows->count() === 1)
-            ->assertSee('ledger=recorded', false)->assertSee('recorded_page=1', false)->assertSee('customer_id='.$customer->slug, false);
+            ->assertSee('ledger=payments', false)->assertViewHas('ledger', 'payments')->assertSee('customer_id='.$customer->slug, false);
         $movement = FinancialMovement::factory()->create(['user_id' => $admin->id, 'kind' => 'cash', 'amount_cents' => 1500, 'voided_at' => now()]);
         $this->get('/balance?ledger=cash')->assertOk()->assertSee('Annullata')
             ->assertSee(route('audits.index', ['type' => 'financial_movements', 'slug' => $movement->slug]));
@@ -101,11 +101,14 @@ class BalanceExperienceTest extends TestCase
                 $this->postJson(route('payments.store', $order), ['action' => 'receive', 'version' => 1])->assertOk();
             }
             $this->postJson(route('payments.store', $order), ['action' => 'reverse', 'version' => $order->fresh()->version, 'note' => 'Rettifica dimostrativa verificata'])->assertOk();
+            if ((int) $order->payments()->sum('cash_amount_cents') > 0) {
+                $this->postJson(route('payments.store', $order), ['action' => 'refund', 'version' => $order->fresh()->version, 'note' => 'Restituzione effettiva verificata separatamente'])->assertOk();
+            }
             if ($index === 2) {
                 $this->postJson(route('payments.store', $order), ['action' => 'restore', 'version' => $order->fresh()->version, 'note' => 'Ripristino dimostrativo'])->assertOk();
             }
         }
-        $response = $this->get('/balance?ledger=reversed')->assertOk()->assertSee('Con rettifica contabile')->assertSee('Senza effetto sul netto')->assertSee('Ripristinato il');
+        $response = $this->get('/balance?ledger=reversed')->assertOk()->assertSee('Con rettifica contabile')->assertSee('Senza effetto sul netto')->assertDontSee('Storno ripristinato');
         if ($directory = getenv('EA_UI_FIXTURE_DIR')) {
             file_put_contents($directory.'/finance-reversals-flow.html', $response->getContent());
         }

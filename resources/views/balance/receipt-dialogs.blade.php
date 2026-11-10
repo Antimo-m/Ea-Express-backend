@@ -1,5 +1,5 @@
 @once('balance-receipt-dialogs-'.$order->slug)
-@if(auth()->user()->role === \App\UserRole::Admin)
+@if(auth()->user()->role === \App\UserRole::Admin && ! $order->unverified_refund_exists)
     @php($activeReversal = $order->receiptReversals->whereNull('restored_at')->last())
     @if($order->receipt_review_required || ($order->paid_at && (int) $order->payments_sum_cash_cents !== $order->price_cents) || ($order->receipt_voided_at && ! $activeReversal))
         @unless($order->receipt_voided_at)
@@ -15,7 +15,7 @@
                         <p>Il saldo è già completo. Verranno collegati soltanto gli storni storici che corrispondono in modo univoco agli incassi precedenti, senza modificare alcun saldo.</p>
                     @else
                         <input type="hidden" name="resolution" value="refunded">
-                        <p>Lo storno attesta che il denaro è stato restituito. Il ripristino mancante viene compensato nel periodo aperto e resta da ricevere soltanto un eventuale nuovo pagamento reale.</p>
+                        <p>Conferma soltanto se hai verificato la prova del rimborso storico. Lo storno, da solo, non dimostra la restituzione. Il ripristino mancante viene tracciato nel periodo aperto senza creare denaro.</p>
                     @endif
                     <x-ui.field name="note" :id="'reconcile-reason-'.$order->slug" label="Documenti verificati e motivo della riconciliazione" maxlength="500" required />
                     <label class="form-check"><input class="form-check-input" type="checkbox" name="confirmed" value="1" required><span class="form-check-label">Ho verificato lo storico e la situazione effettiva del denaro.</span></label>
@@ -34,10 +34,16 @@
                 </form>
             </x-ui.modal>
         @endunless
+        @if($order->receipt_voided_at && (int) $order->payments_sum_cash_cents > 0)
+        <x-ui.modal :id="'receipt-refund-'.$order->slug" title="Conferma rimborso pagato" :description="$order->reference">
+            <p>Registra soltanto denaro effettivamente restituito: {{ \App\Support\Money::format((int) $order->payments_sum_cash_cents) }}. Se il rimborso è già presente nello storico, non registrarlo nuovamente.</p>
+            <form method="post" action="{{ route('payments.store', $order) }}" data-financial-form class="form-stack">@csrf<input type="hidden" name="action" value="refund"><input type="hidden" name="version" value="{{ $order->version }}"><x-ui.field name="note" :id="'refund-reason-'.$order->slug" label="Prova del pagamento e motivo" maxlength="500" required /><x-ui.icon-button type="submit" action="confirm" label="Conferma rimborso pagato" text /></form>
+        </x-ui.modal>
+        @endif
         <x-ui.modal :id="'receipt-state-'.$order->slug" :title="$order->receipt_voided_at ? 'Ripristina incasso' : 'Storna incasso'" :description="$order->reference">
             <form method="post" action="{{ route('payments.store', $order) }}" data-financial-form class="form-stack">
                 @csrf<input type="hidden" name="version" value="{{ $order->version }}"><input type="hidden" name="action" value="{{ $order->receipt_voided_at ? 'restore' : 'reverse' }}">
-                <p>{{ $order->receipt_voided_at ? 'Il ripristino rimuove lo storno attivo e riporta l’incasso Da registrare. Il totale lordo resta invariato fino alla nuova registrazione del pagamento.' : (($order->paid_at || (int) $order->payments_sum_amount_cents > 0) ? 'Conferma lo storno soltanto dopo aver restituito il denaro al cliente. La stessa operazione rettifica l’incasso e registra il rimborso già effettuato, senza una seconda conferma.' : 'Nessuna uscita di cassa verrà registrata: l’incasso non è stato ricevuto.') }}</p>
+                <p>{{ $order->receipt_voided_at ? 'Il ripristino rimuove lo storno attivo e riporta l’incasso Da registrare. Il totale lordo resta invariato fino alla nuova registrazione del pagamento.' : (($order->paid_at || (int) $order->payments_sum_amount_cents > 0) ? 'Lo storno rettifica il risultato economico. Il denaro resta in cassa e diventa un rimborso da effettuare: registralo separatamente soltanto dopo averlo restituito.' : 'Nessuna uscita di cassa verrà registrata: l’incasso non è stato ricevuto.') }}</p>
                 @unless($order->receipt_voided_at)<p class="register-note">Rettifica contabile: {{ \App\Support\Money::format((int) $order->payments_sum_amount_cents) }}. Il residuo non incassato viene annullato.</p>@endunless
                 <x-ui.field name="note" :id="'receipt-reason-'.$order->slug" :label="$order->receipt_voided_at ? 'Motivo del ripristino' : 'Motivo dello storno'" maxlength="500" required />
                 <x-ui.icon-button type="submit" :action="$order->receipt_voided_at ? 'restore' : 'delete'" :label="$order->receipt_voided_at ? 'Ripristina incasso' : 'Conferma storno'" text />

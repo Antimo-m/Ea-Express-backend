@@ -19,6 +19,6 @@ class UserPolicy
 
     public function update(User $user, User $target): bool
     {
-        return $this->viewAny($user) && $target->role === UserRole::Rider;
+        return $this->viewAny($user) && in_array($target->role, [UserRole::Rider, UserRole::Customer], true);
     }
 }

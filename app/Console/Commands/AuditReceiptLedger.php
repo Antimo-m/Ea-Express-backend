@@ -23,12 +23,15 @@ class AuditReceiptLedger extends Command
         }
         $issues = 0;
         Order::query()->when($slug, fn ($q) => $q->where('slug', $slug))->where(fn ($q) => $q->whereHas('payments')->orWhereNotNull('receipt_voided_at')->orWhereNotNull('paid_at'))
-            ->with(['payments' => fn ($q) => $q->orderBy('created_at')->orderBy('id')])->chunkById(200, function ($orders) use (&$issues): void {
+            ->with(['payments.audits', 'payments' => fn ($q) => $q->orderBy('created_at')->orderBy('id')])->chunkById(200, function ($orders) use (&$issues): void {
                 foreach ($orders as $order) {
                     $entries = $order->payments;
                     $net = (int) $entries->sum('amount_cents');
                     $cash = (int) $entries->sum(fn ($entry) => $entry->cash_amount_cents ?? $entry->amount_cents);
                     $codes = [];
+                    if ($entries->contains(fn ($entry) => $entry->kind === 'refund' && ! $entry->audits->contains(fn ($audit) => in_array($audit->action, ['payment.refund_verified', 'payment.refund_disputed']) || ($audit->after['cash_confirmation'] ?? null) === 'explicit_payment'))) {
+                        $codes[] = 'unverified_refund: rimborso storico privo di attestazione separata; verificare la prova del pagamento prima di considerarlo eseguito';
+                    }
                     if ($entries->contains(fn ($entry) => $entry->kind === 'restoration' && $entry->amount_cents > 0)) {
                         $codes[] = 'legacy_restoration: ripristino storico con ricavo positivo; verificare incassi successivi e registrare soltanto eventuali compensazioni approvate nel periodo aperto';
                     }

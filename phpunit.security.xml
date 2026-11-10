@@ -5,7 +5,7 @@
          colors="true"
 >
     <testsuites>
-        <testsuite name="AikidoSecurity">
+        <testsuite name="CoreChecks">
             <file>tests/Feature/PaymentIntegrityTest.php</file>
             <file>tests/Feature/PaymentConcurrencyTest.php</file>
             <file>tests/Feature/ShippingQuoteSecurityTest.php</file>

@@ -11,7 +11,7 @@ class EconomicAuditPresenter
 {
     private const Fields = [
         'rider_id' => 'Rider', 'assigned_by' => 'Assegnato da', 'assigned_at' => 'Assegnato il', 'email_verified_at' => 'Email verificata il', 'name' => 'Nome', 'email' => 'Email', 'role' => 'Ruolo',
-        'cash_amount_cents' => 'Movimento effettivo di denaro', 'original_amount_cents' => 'Importo originale', 'collected_cents' => 'Incassato', 'corrected_cents' => 'Rettificato', 'restore_reason' => 'Motivo del ripristino', 'restored_at' => 'Ripristinato il',
+        'cash_confirmation' => 'Attestazione del pagamento', 'cash_amount_cents' => 'Movimento effettivo di denaro', 'original_amount_cents' => 'Importo originale', 'collected_cents' => 'Incassato', 'corrected_cents' => 'Rettificato', 'restore_reason' => 'Motivo del ripristino', 'restored_at' => 'Ripristinato il',
         'carrier_cost_cents' => 'Costo vettore', 'ea_amount_cents' => 'Quota EA-Express', 'amount_cents' => 'Importo', 'settled_cents' => 'Totale saldato', 'price_cents' => 'Tariffa',
         'previous_price_cents' => 'Tariffa precedente', 'quoted_price_cents' => 'Tariffa iniziale', 'parcel_value_cents' => 'Valore merce',
         'description' => 'Causale', 'subject' => 'Soggetto', 'notes' => 'Note', 'note' => 'Nota',
@@ -51,6 +51,7 @@ class EconomicAuditPresenter
             'rider.created' => 'Account Rider creato', 'rider.email_verified' => 'Email Rider verificata', 'rider.assigned' => 'Rider assegnato',
             'expense.created' => 'Spesa registrata', 'expense.updated', 'expense.corrected' => 'Spesa corretta', 'expense.voided' => 'Spesa annullata',
             'payment.restored' => 'Storno compensato senza nuovo incasso', 'payment.refunded', 'receipt.refund' => 'Rimborso pagato', 'receipt.reversal_created' => 'Storno tracciato', 'receipt.reversal_restored' => 'Storno compensato',
+            'payment.refund_verified' => 'Rimborso storico verificato come pagato', 'payment.refund_disputed' => 'Rimborso storico non pagato, compensato nel periodo aperto',
             'payment.received' => 'Incasso registrato', 'payment.reversed' => 'Movimento di storno registrato', 'payment.corrected' => 'Importo dell’incasso corretto', 'payment.reconciled' => 'Movimento storico riconciliato', 'receipt.reconciled' => 'Incasso riconciliato senza duplicazioni',
             'receipt.receive' => 'Incasso confermato', 'receipt.reverse' => 'Incasso spostato negli storni', 'receipt.restore' => 'Incasso ripristinato', 'receipt.corrected' => 'Saldo della spedizione aggiornato', 'receipt.backfilled' => 'Storno storico riconosciuto',
             'settlement.created' => 'Pagamento del sospeso registrato', 'settlement.corrected' => 'Pagamento del sospeso corretto',
@@ -95,8 +96,11 @@ class EconomicAuditPresenter
         if ($field === 'kind') {
             return FinancialMovement::Kinds[$value] ?? ['restoration' => 'Ripristino contabile', 'reversal' => 'Storno contabile', 'cash_reconciliation' => 'Riconciliazione della cassa storica'][$value] ?? (string) $value;
         }
+        if ($field === 'cash_confirmation') {
+            return $value === 'explicit_payment' ? 'Pagamento effettivo confermato separatamente dallo storno' : (string) $value;
+        }
         if ($field === 'resolution') {
-            return ['retained' => 'Denaro originale ancora trattenuto', 'refunded' => 'Denaro originale già restituito', 'links' => 'Collegamenti storici verificati', 'partial' => 'Incasso parziale verificato'][$value] ?? (string) $value;
+            return ['refund_paid' => 'Rimborso pagato, documentazione verificata', 'refund_unpaid' => 'Rimborso non eseguito, compensazione registrata', 'retained' => 'Denaro originale ancora trattenuto', 'refunded' => 'Denaro originale già restituito', 'links' => 'Collegamenti storici verificati', 'partial' => 'Incasso parziale verificato'][$value] ?? (string) $value;
         }
         if ($field === 'direction') {
             return $value === 'incoming' ? 'Entrata' : 'Uscita';

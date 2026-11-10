@@ -20,7 +20,7 @@ class CustomerPickupScheduleTest extends TestCase
     private function payload(): array
     {
         return ['parcel_value' => '0', 'payment_method' => 'cash', 'pickup_street_number' => '1', 'pickup_postal_code' => '80100',
-            'delivery_street_number' => '2', 'delivery_postal_code' => '81100', 'package_type' => 'standard',
+            'delivery_street_number' => '2', 'delivery_postal_code' => '81100', 'delivery_province' => 'Caserta', 'delivery_region' => 'Campania', 'package_type' => 'standard',
             'recipient_name' => 'Destinatario sintetico', 'recipient_phone' => '+390000000000', 'pickup_address' => 'Via Prova',
             'pickup_city' => 'Napoli', 'delivery_address' => 'Via Test', 'delivery_city' => 'Caserta', 'pickup_date' => '2026-11-04',
             'pickup_from' => '10:37', 'pickup_to' => '12:00', 'parcel_count' => 1, 'category' => 'clothing', 'urgency' => 'standard'];

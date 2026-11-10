@@ -67,7 +67,7 @@ class MessagingTest extends TestCase
     {
         $rider = User::factory()->create();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $muted = User::factory()->create(['role' => UserRole::Admin, 'notify_messages' => false]);
+        $muted = User::factory()->create(['role' => UserRole::Rider, 'notify_messages' => false]);
         $order = Order::factory()->create(['rider_id' => $admin->id, 'status' => OrderStatus::Accepted, 'conversation_token' => Str::random(64), 'conversation_expires_at' => now()->addDay()]);
         $this->actingAs($admin)->post(route('messages.store', $order), ['body' => 'Aggiornamento'])->assertSessionHasNoErrors();
         $this->assertSame(0, $admin->unreadNotifications()->count());

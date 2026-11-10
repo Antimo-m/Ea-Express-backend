@@ -120,6 +120,90 @@ class AuthSecurityTest extends TestCase
         }
     }
 
+    private function useDefaultDummyPasswordHash(): void
+    {
+        $environmentHash = $_ENV['AUTH_DUMMY_PASSWORD_HASH'] ?? null;
+        $serverHash = $_SERVER['AUTH_DUMMY_PASSWORD_HASH'] ?? null;
+        $processHash = getenv('AUTH_DUMMY_PASSWORD_HASH');
+        unset($_ENV['AUTH_DUMMY_PASSWORD_HASH'], $_SERVER['AUTH_DUMMY_PASSWORD_HASH']);
+        putenv('AUTH_DUMMY_PASSWORD_HASH');
+
+        try {
+            $configuration = require config_path('auth_security.php');
+        } finally {
+            if ($environmentHash !== null) {
+                $_ENV['AUTH_DUMMY_PASSWORD_HASH'] = $environmentHash;
+            }
+            if ($serverHash !== null) {
+                $_SERVER['AUTH_DUMMY_PASSWORD_HASH'] = $serverHash;
+            }
+            if ($processHash !== false) {
+                putenv('AUTH_DUMMY_PASSWORD_HASH='.$processHash);
+            }
+        }
+
+        config(['auth_security.dummy_password_hash' => $configuration['dummy_password_hash']]);
+    }
+
+    public function test_default_password_hash_allows_generic_rejection_of_missing_and_inactive_accounts(): void
+    {
+        $this->useDefaultDummyPasswordHash();
+        $user = User::factory()->create(['role' => UserRole::Admin, 'is_active' => false]);
+
+        $this->post('/login', ['email' => $user->email, 'password' => 'password'])
+            ->assertSessionHasErrors(['email' => AuthProtection::INVALID_CREDENTIALS]);
+        $this->assertGuest();
+
+        $this->wrong()->assertUnprocessable()->assertJsonValidationErrors(['email' => AuthProtection::INVALID_CREDENTIALS]);
+        $this->assertGuest();
+    }
+
+    /** @return array<string, array{0: string, 1: string}> */
+    public static function invalidLoginCredentials(): array
+    {
+        return [
+            'email typo with correct password' => ['acount@example.test', 'password'],
+            'correct email with wrong password' => ['account@example.test', 'incorrect-password'],
+            'both credentials wrong' => ['acount@example.test', 'incorrect-password'],
+        ];
+    }
+
+    #[DataProvider('invalidLoginCredentials')]
+    public function test_invalid_rider_credentials_display_an_error_on_the_login_page(string $email, string $password): void
+    {
+        $this->useDefaultDummyPasswordHash();
+        User::factory()->create(['email' => 'account@example.test', 'role' => UserRole::Rider]);
+        Notification::fake();
+
+        $this->from('/login')->post('/login', ['email' => $email, 'password' => $password])
+            ->assertRedirect('/login')
+            ->assertSessionHasErrors(['email' => AuthProtection::INVALID_CREDENTIALS])
+            ->assertSessionMissing('_old_input.password');
+
+        $this->get('/login')
+            ->assertOk()
+            ->assertSee(AuthProtection::INVALID_CREDENTIALS)
+            ->assertSee('id="email-error"', escape: false)
+            ->assertSee('value="'.$email.'"', escape: false);
+        $this->assertGuest();
+        Notification::assertNothingSent();
+    }
+
+    #[DataProvider('invalidLoginCredentials')]
+    public function test_invalid_customer_credentials_return_a_422_validation_error(string $email, string $password): void
+    {
+        $this->useDefaultDummyPasswordHash();
+        User::factory()->create(['email' => 'account@example.test', 'role' => UserRole::Customer]);
+        Notification::fake();
+
+        $this->postJson('/api/v1/customer/auth/login', ['email' => $email, 'password' => $password])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['email' => AuthProtection::INVALID_CREDENTIALS]);
+
+        $this->assertGuest('customer');
+        Notification::assertNothingSent();
+    }
+
     public function test_counter_store_failure_returns_503_without_authenticating(): void
     {
         $user = User::factory()->create();
@@ -269,12 +353,16 @@ class AuthSecurityTest extends TestCase
     {
         Notification::fake();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $disabled = User::factory()->create(['role' => UserRole::Admin, 'is_active' => false]);
+        $disabled = User::factory()->create(['is_active' => false]);
         $rider = User::factory()->create();
         $customer = User::factory()->create(['role' => UserRole::Customer]);
         (new SendAuthSecurityAlert('account_targeted', 'request-correlation'))->handle();
         Notification::assertSentTo($admin, AuthenticationAlert::class);
         Notification::assertNotSentTo([$disabled, $rider, $customer], AuthenticationAlert::class);
+        $admin->forceFill(['is_active' => false])->saveQuietly();
+        Notification::fake();
+        (new SendAuthSecurityAlert('account_targeted', 'disabled-admin'))->handle();
+        Notification::assertNothingSent();
         $notification = new AuthenticationAlert('account_targeted', 'request-correlation');
         $this->assertSame([], $notification->via($rider));
         $this->assertStringNotContainsString($rider->email, $notification->toMail($admin)->render());

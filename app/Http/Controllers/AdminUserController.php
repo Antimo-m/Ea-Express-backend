@@ -12,7 +12,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -58,27 +57,26 @@ class AdminUserController extends Controller
     public function update(Request $request, User $user): RedirectResponse
     {
         Gate::authorize('update', $user);
-        $data = $request->validate(['action' => ['required', Rule::in(['activate', 'deactivate', 'reset-email'])]]);
-        DB::transaction(function () use ($user, $data) {
+        $data = $request->validate(['action' => ['required', Rule::in(['activate', 'deactivate', 'reset-email', 'revoke-devices'])]]);
+        DB::transaction(function () use ($user, $data, $request) {
             $target = User::query()->lockForUpdate()->findOrFail($user->id);
             Gate::authorize('update', $target);
             if ($data['action'] === 'deactivate' && Order::where('rider_id', $target->id)->whereNotIn('status', OrderStatus::closed())->exists()) {
                 throw ValidationException::withMessages(['action' => 'Il rider ha spedizioni attive: completale prima di disabilitare l’account.']);
             }
+            $before = $target->only(['is_active', 'email_verified_at']);
             if ($data['action'] === 'reset-email') {
                 $target->email_verified_at = null;
                 $target->email_otp_hash = null;
                 $target->email_otp_expires_at = null;
-            } else {
+            } elseif ($data['action'] !== 'revoke-devices') {
                 $target->is_active = $data['action'] === 'activate';
             }
-            $target->remember_token = Str::random(60);
-            $target->save();
-            if (config('session.driver') === 'database') {
-                DB::table(config('session.table'))->where('user_id', $target->id)->delete();
-            }
+            $target->saveRevokingSessions();
+            app(RecordEconomicAudit::class)->handle($request->user(), $target, 'user.'.$data['action'], $before, $target->only(['is_active', 'email_verified_at']));
+
         }, 3);
 
-        return back()->with('status', 'Profilo aggiornato. Le sessioni precedenti del rider sono state revocate.');
+        return back()->with('status', 'Profilo aggiornato. I dispositivi e le sessioni precedenti dell’account sono stati revocati.');
     }
 }

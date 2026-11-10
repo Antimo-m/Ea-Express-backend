@@ -34,6 +34,7 @@ class ManageReceipt
                 throw ValidationException::withMessages(['action' => 'Operazione non disponibile. Ricarica il bilancio per controllare lo stato dell’incasso.']);
             }
             $payments = $order->payments()->lockForUpdate()->orderBy('id')->get();
+            abort_if($order->payments()->where('kind', 'refund')->whereDoesntHave('audits', fn ($audit) => $audit->where(fn ($q) => $q->whereIn('action', ['payment.refund_verified', 'payment.refund_disputed'])->orWhere('after->cash_confirmation', 'explicit_payment')))->exists(), 409, 'Rimborso storico senza attestazione separata: riconcilia la situazione effettiva del denaro prima di proseguire.');
             abort_if($payments->contains(fn ($entry) => $entry->amount_cents < 0 && ! $entry->original_entry_id), 409, 'Storni storici senza collegamento: occorre riconciliare i movimenti prima di operare.');
             $net = (int) $payments->sum('amount_cents');
             $cash = (int) $payments->sum(fn ($entry) => $entry->cash_amount_cents ?? $entry->amount_cents);
@@ -53,7 +54,7 @@ class ManageReceipt
                 abort_if($net > 0 && ! $payments->contains('kind', 'refund') && ! $verifiedResidual, 409, 'Movimenti già presenti: verifica il residuo nei Sospesi.');
                 $economic = $order->price_cents - $net;
                 $refundedReversal = $order->receiptReversals()->whereNotNull('restored_at')->whereHas('payments', fn ($q) => $q->where('kind', 'refund'))->latest('id')->first();
-                $this->entry($actor, $order, $economic === 0 ? 'recollection' : 'receipt', $economic, $economic, $amount, '', 'receive:'.$order->slug.':'.$order->version, $refundedReversal);
+                $this->entry($actor, $order, $economic === 0 ? 'recollection' : 'receipt', $economic, $economic, $amount, '', 'receive:'.$order->slug.':'.$order->version, $refundedReversal, $refundedReversal?->payments()->where('kind', 'refund')->latest('id')->first());
                 $order->paid_at = now();
                 $order->paid_by = $actor->id;
                 $message = $refundedReversal ? 'Nuovo incasso effettivo registrato dopo il rimborso, senza duplicare il ricavo.' : 'Movimento registrato nel bilancio.';
@@ -84,10 +85,6 @@ class ManageReceipt
                     $corrected += $remaining;
                 }
                 abort_unless($corrected === $net, 409, 'Collegamenti contabili non coerenti: nessuna rettifica applicata.');
-                $refunded = min($cash, $net);
-                if ($refunded > 0) {
-                    $this->entry($actor, $order, 'refund', 0, 0, -$refunded, $reason, 'refund:'.$reversal->slug, $reversal);
-                }
                 if ($pending && $pending->state !== 'cancelled') {
                     $this->pendingState($actor, $pending, 'cancelled', $reason);
                 }
@@ -96,7 +93,7 @@ class ManageReceipt
                 $order->receipt_void_reason = $reason;
                 $order->paid_at = null;
                 $order->paid_by = null;
-                $message = $refunded > 0 ? 'Storno e restituzione del denaro registrati insieme. Nessun altro rimborso da confermare.' : 'Incasso annullato senza effetti sul netto e senza movimenti di cassa.';
+                $message = $cash > 0 ? 'Storno contabile registrato. Il denaro resta in cassa: conferma separatamente il rimborso soltanto quando pagato.' : 'Storno registrato senza movimenti di cassa.';
                 $this->audit->handle($actor, $reversal, 'receipt.reversal_created', null, $reversal->toArray());
             } else {
                 $reversal = ReceiptReversal::where('order_id', $order->id)->whereNull('restored_at')->lockForUpdate()->first();
@@ -104,10 +101,12 @@ class ManageReceipt
                 $negative = $payments->where('receipt_reversal_id', $reversal->id)->where('kind', 'reversal');
                 abort_unless(-$negative->sum('amount_cents') === $reversal->corrected_cents, 409, 'Rettifica non coerente con i movimenti collegati.');
                 if ($action === 'refund') {
-                    abort_if($payments->where('receipt_reversal_id', $reversal->id)->contains('kind', 'refund'), 409, 'Rimborso già registrato.');
-                    $amount = min($cash, $reversal->corrected_cents);
+                    abort_unless($reversal->collected_cents > 0, 422, 'Nessun incasso effettivo da rimborsare.');
+                    $paidRefund = -(int) $payments->where('receipt_reversal_id', $reversal->id)->whereIn('kind', ['refund', 'cash_reconciliation'])->sum('cash_amount_cents');
+                    abort_if($paidRefund >= $reversal->collected_cents, 409, 'Rimborso già registrato.');
+                    $amount = min($cash, $reversal->collected_cents - $paidRefund);
                     abort_unless($amount > 0, 422, 'Nessun incasso effettivo da rimborsare.');
-                    $this->entry($actor, $order, 'refund', 0, 0, -$amount, $reason, 'refund:'.$reversal->slug, $reversal);
+                    $this->entry($actor, $order, 'refund', 0, 0, -$amount, $reason, 'refund:'.$reversal->slug.':'.$order->version, $reversal);
                     $message = 'Rimborso pagato registrato nella cassa. Il netto contabile non viene sottratto una seconda volta.';
                 } else {
                     $this->price->assertApproved($order);
@@ -155,7 +154,7 @@ class ManageReceipt
         $entry->save();
         $this->audit->handle($actor, $entry, match ($kind) {
             'reversal' => 'payment.reversed', 'restoration' => 'payment.restored', 'refund' => 'payment.refunded', default => 'payment.received'
-        }, null, $entry->toArray());
+        }, null, [...$entry->toArray(), ...($kind === 'refund' ? ['cash_confirmation' => 'explicit_payment'] : [])]);
 
         return $entry;
     }

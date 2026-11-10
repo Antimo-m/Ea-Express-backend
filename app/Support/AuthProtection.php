@@ -39,6 +39,7 @@ class AuthProtection
             $nextAttemptAt = max($state['next_attempt_at'] ?? 0, $suspendedUntil);
             $trustedDevice = $guard === 'web' && app(StaffDeviceProof::class)->allows($request, $email);
             $deviceBypass = $trustedDevice && $nextAttemptAt > $now;
+            $request->attributes->set('auth_device_recovery', $deviceBypass || $suspendedUntil > 0);
             if ($deviceBypass) {
                 $this->store->consume(AuthSecurityStore::key('device:attempt', $request->cookie(config('auth_security.device.cookie'))), config('auth_security.device.attempts'), config('auth_security.device.window_seconds'));
                 SecurityEvent::record('targeted_account_recovery_attempt');
@@ -62,6 +63,7 @@ class AuthProtection
                 if (Auth::guard($guard)->getLastAttempted() === null) {
                     $this->monitor->activity('missing_accounts', (string) $request->ip());
                 }
+                $request->attributes->set('auth_device_recovery', $deviceBypass || $suspendedUntil > 0);
                 if ($deviceBypass) {
                     $this->monitor->activity('failures');
                     throw ValidationException::withMessages(['email' => self::INVALID_CREDENTIALS]);

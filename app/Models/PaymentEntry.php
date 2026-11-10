@@ -3,8 +3,11 @@
 namespace App\Models;
 
 use App\Support\HasPublicSlug;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PaymentEntry extends Model
 {
@@ -13,6 +16,17 @@ class PaymentEntry extends Model
     protected function casts(): array
     {
         return ['ea_amount_cents' => 'integer', 'amount_cents' => 'integer', 'cash_amount_cents' => 'integer'];
+    }
+
+    public function audits(): HasMany
+    {
+        return $this->hasMany(EconomicAudit::class, 'entity_id')->where('entity_type', 'payment_entries');
+    }
+
+    #[Scope]
+    protected function verifiedRefund(Builder $query): void
+    {
+        $query->where('kind', 'refund')->whereHas('audits', fn ($audit) => $audit->whereIn('action', ['payment.refund_verified'])->orWhere('after->cash_confirmation', 'explicit_payment'));
     }
 
     public function originalEntry(): BelongsTo
@@ -33,7 +47,7 @@ class PaymentEntry extends Model
             'refund' => 'Rimborso pagato',
             'recollection' => 'Nuovo incasso dopo rimborso',
             'cash_reconciliation' => 'Riconciliazione della cassa storica',
-            default => $this->amount_cents < 0 ? 'Storno storico · da verificare' : 'Incasso',
+            default => $this->amount_cents < 0 ? 'Storno storico · da verificare' : ($this->receipt_reversal_id ? 'Nuovo incasso dopo rimborso' : 'Incasso'),
         };
     }
 

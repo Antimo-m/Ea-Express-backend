@@ -140,6 +140,6 @@ class LaunchReadinessTest extends TestCase
     /** @return array<string, mixed> */
     private function booking(): array
     {
-        return ['parcel_value' => '20', 'recipient_name' => 'Destinatario', 'recipient_phone' => '+390000000000', 'pickup_address' => 'Via Roma', 'pickup_city' => 'Napoli', 'pickup_street_number' => '10', 'pickup_postal_code' => '80121', 'delivery_address' => 'Via Milano', 'delivery_city' => 'Caserta', 'delivery_street_number' => '20', 'delivery_postal_code' => '81100', 'pickup_date' => now('Europe/Rome')->addDays(2)->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'category' => 'documents', 'urgency' => 'standard', 'package_type' => 'standard'];
+        return ['parcel_value' => '20', 'recipient_name' => 'Destinatario', 'recipient_phone' => '+390000000000', 'pickup_address' => 'Via Roma', 'pickup_city' => 'Napoli', 'pickup_street_number' => '10', 'pickup_postal_code' => '80121', 'delivery_address' => 'Via Milano', 'delivery_city' => 'Caserta', 'delivery_street_number' => '20', 'delivery_postal_code' => '81100', 'delivery_province' => 'Caserta', 'delivery_region' => 'Campania', 'pickup_date' => now('Europe/Rome')->addDays(2)->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'category' => 'documents', 'urgency' => 'standard', 'package_type' => 'standard'];
     }
 }

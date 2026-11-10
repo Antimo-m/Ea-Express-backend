@@ -7,5 +7,5 @@ return [
     'contact_email' => env('PRIVACY_CONTACT_EMAIL'),
     'privacy_url' => env('PRIVACY_POLICY_URL'),
     'reviewed' => (bool) env('PRIVACY_LEGAL_REVIEWED', false),
-    'remember_minutes' => (int) env('CUSTOMER_REMEMBER_MINUTES', 576000),
+    'remember_minutes' => (int) env('CUSTOMER_REMEMBER_MINUTES', 43200),
 ];

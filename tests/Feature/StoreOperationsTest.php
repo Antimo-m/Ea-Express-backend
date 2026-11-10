@@ -49,7 +49,7 @@ class StoreOperationsTest extends TestCase
         $this->get('/labels?'.http_build_query(['ids' => $orders->pluck('slug')->all()]))->assertOk()->assertSee($orders[0]->reference)->assertSee($orders[1]->reference)->assertSee('FRAGILE')->assertSee('81100')->assertDontSee('nav-item-link');
         $this->get('/labels?ids[]='.$third->slug)->assertOk()->assertSee($third->reference)->assertDontSee($orders[0]->reference);
         $this->get('/labels?'.http_build_query(['ids' => [$third->slug, $hidden->slug]]))->assertNotFound();
-        $this->get('/labels')->assertSessionHasErrors('ids');
+        $this->get('/labels')->assertRedirect(route('orders.in-progress'))->assertSessionHas('status', 'Al momento non ci sono ordini da stampare');
         $this->actingAs($a, 'customer')->get('/labels?ids[]='.$third->slug)->assertForbidden();
     }
 }

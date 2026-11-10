@@ -60,11 +60,12 @@ class PaymentIntegrityTest extends TestCase
         $this->assertNotNull($order->fresh()->paid_at);
         $this->assertSame($admin->id, $order->fresh()->paid_by);
         $this->postJson($path, ['action' => 'reverse', 'version' => 2, 'note' => 'Rettifica'])->assertOk();
+        $this->postJson(route('payments.store', $order), ['action' => 'refund', 'version' => $order->fresh()->version, 'note' => 'Restituzione effettiva verificata separatamente'])->assertOk();
         $this->assertNull($order->fresh()->paid_at);
         $this->assertSame(0, (int) PaymentEntry::sum('amount_cents'));
-        $this->postJson($path, ['action' => 'restore', 'version' => 3, 'note' => 'Nuova registrazione'])->assertOk();
+        $this->postJson($path, ['action' => 'restore', 'version' => $order->fresh()->version, 'note' => 'Nuova registrazione'])->assertOk();
         $this->assertNull($order->fresh()->paid_at);
-        $this->postJson($path, ['action' => 'receive', 'version' => 4, 'received_amount' => '10'])->assertOk();
+        $this->postJson($path, ['action' => 'receive', 'version' => $order->fresh()->version, 'received_amount' => '10'])->assertOk();
         $this->assertDatabaseCount('payment_entries', 5);
         $original = PaymentEntry::oldest('id')->first();
         $negative = PaymentEntry::where('kind', 'reversal')->sole();
@@ -99,6 +100,7 @@ class PaymentIntegrityTest extends TestCase
             ->assertViewHas('receiptEconomics', ['gross' => 1000, 'retained' => 600, 'carrier' => 400, 'unallocated' => 1]);
 
         $this->postJson(route('payments.store', $order), ['action' => 'reverse', 'version' => 1, 'note' => 'Rimborso degli incassi storici'])->assertOk();
+        $this->postJson(route('payments.store', $order), ['action' => 'refund', 'version' => $order->fresh()->version, 'note' => 'Restituzione effettiva verificata separatamente'])->assertOk();
 
         $this->get('/balance')->assertViewHas('cash', 0)->assertViewHas('reversalTotal', 1000)
             ->assertViewHas('receiptEconomics', ['gross' => 0, 'retained' => 0, 'carrier' => 0, 'unallocated' => 1]);
@@ -143,20 +145,20 @@ class PaymentIntegrityTest extends TestCase
         Mail::fake();
         Event::fake([WorkspaceUpdated::class]);
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $colleague = User::factory()->create(['role' => UserRole::Admin]);
+        $colleague = User::factory()->create(['role' => UserRole::Rider]);
         $customer = User::factory()->create(['role' => UserRole::Customer]);
         $rider = User::factory()->create(['role' => UserRole::Rider]);
         $order = $this->order(['customer_id' => $customer->id, 'rider_id' => $rider->id]);
         $this->actingAs($admin);
-        foreach (['receive', 'reverse', 'restore'] as $index => $action) {
+        foreach (['receive', 'reverse', 'refund', 'restore'] as $index => $action) {
             $this->postJson(route('payments.store', $order), ['action' => $action, 'version' => $index + 1, ...($action === 'receive' ? ['received_amount' => '10'] : ['note' => 'Variazione verificata'])])->assertOk();
         }
         Mail::assertNothingOutgoing();
         $this->assertSame(0, $customer->notifications()->count());
         $this->assertSame(0, $rider->notifications()->count());
-        $this->assertSame(3, $colleague->notifications()->count());
+        $this->assertSame(0, $colleague->notifications()->count());
         $this->assertDatabaseCount('order_mail_deliveries', 0);
-        Event::assertDispatchedTimes(WorkspaceUpdated::class, 3);
+        Event::assertDispatchedTimes(WorkspaceUpdated::class, 4);
     }
 
     public function test_a_zero_price_cannot_create_a_zero_value_regional_receipt(): void

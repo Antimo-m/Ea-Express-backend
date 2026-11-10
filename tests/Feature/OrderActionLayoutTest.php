@@ -76,7 +76,7 @@ class OrderActionLayoutTest extends TestCase
 
         $page = $this->actingAs($rider)->get(route('orders.history', ['q' => 'Archivio', 'status' => 'delivered']));
         $page->assertOk()->assertViewHas('orders', fn ($orders) => $orders->total() === 22 && $orders->count() === 20)
-            ->assertSee('archive-day-heading', false)->assertSee('Stampa etichette della pagina')->assertDontSee($hidden->reference);
+            ->assertSee('archive-day-heading', false)->assertSee('data-history-print-start', false)->assertDontSee($hidden->reference);
         $this->get(route('orders.history', ['q' => 'Archivio', 'status' => 'delivered', 'day_page' => 2]))->assertOk()
             ->assertViewHas('orders', fn ($orders) => $orders->total() === 22 && $orders->count() === 2);
     }

@@ -25,6 +25,7 @@ class FinancialReportingTest extends TestCase
         $this->post(route('payments.store', $order), ['action' => 'receive', 'method' => 'cash', 'version' => 1, 'note' => 'Duplicato'])->assertSessionHasErrors('action');
         $this->assertDatabaseCount('payment_entries', 1);
         $this->post(route('payments.store', $order), ['action' => 'reverse', 'version' => 2, 'note' => 'Registrazione errata'])->assertSessionHasNoErrors();
+        $this->postJson(route('payments.store', $order), ['action' => 'refund', 'version' => $order->fresh()->version, 'note' => 'Restituzione effettiva verificata separatamente'])->assertOk();
         $this->assertNull($order->fresh()->paid_at);
         $this->assertDatabaseCount('payment_entries', 3);
         $this->assertSame(0, (int) PaymentEntry::sum('amount_cents'));

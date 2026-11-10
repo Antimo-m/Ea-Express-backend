@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Auth;
 use App\Actions\ChangePassword;
 use App\Http\Controllers\Controller;
 use App\Rules\SafePasswordLength;
+use App\Support\AccountSessionRevocation;
 use App\Support\PasswordPolicy;
-use App\Support\StaffAuthentication;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rules\Password;
@@ -24,10 +24,7 @@ class PasswordController extends Controller
         ]);
 
         app(ChangePassword::class)->handle($request->user(), $validated['current_password'], $validated['password']);
-        $request->session()->put('password_hash_web', $request->user()->password);
-        $request->session()->regenerate(true);
-        $request->session()->put('staff_authentication.binding', app(StaffAuthentication::class)->binding($request));
-        $request->session()->put('staff_authentication.credentials', app(StaffAuthentication::class)->credentialProof($request->user()));
+        app(AccountSessionRevocation::class)->renewCurrent($request, $request->user(), 'web');
 
         return back()->with('status', 'password-updated');
     }

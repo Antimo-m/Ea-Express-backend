@@ -3,6 +3,6 @@
     <div class="profile-grid" data-workspace-region="profile">
         <section class="surface p-4">@include('profile.partials.update-profile-information-form')</section>
         <section class="surface p-4">@include('profile.partials.update-password-form')</section>
-        <details class="surface p-4 profile-danger" @if($errors->userDeletion->isNotEmpty()) open @endif><summary>Gestione e chiusura account</summary><div class="mt-4">@include('profile.partials.delete-user-form')</div></details>
+        <section class="surface p-4"><h2 class="h5">Gestione e chiusura account</h2><p>Per disattivare l’account o gestire una richiesta relativa ai tuoi dati personali, contatta l’Admin. Lo storico operativo e contabile viene conservato.</p></section>
     </div>
 </x-app-layout>

@@ -29,6 +29,9 @@ class FinancialIntegrityTest extends TestCase
         $change = fn (string $action) => $this->postJson(route('payments.store', $order), ['action' => $action, 'version' => $order->fresh()->version, 'method' => 'cash', 'note' => 'Motivo della variazione']);
 
         $change('reverse')->assertOk();
+        if ((int) $order->payments()->sum('cash_amount_cents') > 0) {
+            $change('refund')->assertOk();
+        }
 
         $this->assertNotNull($order->fresh()->receipt_voided_at);
         $this->assertDatabaseCount('payment_entries', 0);
@@ -40,6 +43,9 @@ class FinancialIntegrityTest extends TestCase
         $change('receive')->assertOk();
         $this->get('/balance')->assertViewHas('cash', 20000)->assertViewHas('recordedOrders', fn ($rows) => $rows->total() === 1);
         $change('reverse')->assertOk();
+        if ((int) $order->payments()->sum('cash_amount_cents') > 0) {
+            $change('refund')->assertOk();
+        }
         $this->get('/balance')->assertViewHas('cash', 0)->assertViewHas('operatingNet', 0)->assertViewHas('outstanding', 0)->assertViewHas('reversalEntries', fn ($rows) => $rows->whereNull('restored_at')->count() === 1);
         $this->assertSame(-20000, PaymentEntry::where('kind', 'reversal')->latest('id')->first()->amount_cents);
         $change('reverse')->assertUnprocessable();
@@ -145,6 +151,7 @@ class FinancialIntegrityTest extends TestCase
         $order = Order::factory()->create(['rider_id' => $admin->id, 'status' => OrderStatus::Delivered, 'delivered_at' => now(), 'price_cents' => 1000]);
         $this->actingAs($admin)->postJson(route('payments.store', $order), ['action' => 'receive', 'version' => 1, 'method' => 'cash'])->assertOk();
         $this->postJson(route('payments.store', $order), ['action' => 'reverse', 'version' => 2, 'note' => 'Storno storico'])->assertOk();
+        $this->postJson(route('payments.store', $order), ['action' => 'refund', 'version' => 3, 'note' => 'Rimborso verificato'])->assertOk();
         $order->refresh()->forceFill(['receipt_voided_at' => null, 'receipt_voided_by' => null, 'receipt_void_reason' => null])->save();
         $migration = require database_path('migrations/2026_09_22_133512_backfill_reversed_receipt_states.php');
 

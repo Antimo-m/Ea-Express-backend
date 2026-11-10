@@ -76,7 +76,9 @@ class FinancialMovementController extends Controller
             if ($entry && ! $movement) {
                 $candidate = new FinancialMovement($attributes);
                 $candidate->amount_cents = $cents;
-                abort_unless($entry->user_id === $request->user()->id && collect(array_keys($attributes))->every(fn ($key) => (string) $entry->getRawOriginal($key) === (string) $candidate->getAttributes()[$key]) && $entry->amount_cents === $cents, 409, 'Invio già registrato con dati diversi.');
+                abort_unless($entry->user_id === $request->user()->id && collect(array_keys($attributes))->every(fn ($key) => $key === 'occurred_on'
+                    ? $entry->occurred_on->toDateString() === $candidate->occurred_on->toDateString()
+                    : (string) $entry->getRawOriginal($key) === (string) $candidate->getAttributes()[$key]) && $entry->amount_cents === $cents, 409, 'Invio già registrato con dati diversi.');
 
                 return $entry;
             }

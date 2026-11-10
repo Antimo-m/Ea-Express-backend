@@ -67,6 +67,7 @@ document.addEventListener('toggle', event => {
 }, true);
 
 document.addEventListener('click', event => {
+    if (event.target.closest('.history-print-choice')) { event.stopPropagation(); return; }
     const summary = event.target.closest('.order-archive .archive-day-heading');
     if (summary) {
         summary.closest('[data-order-history-day]').dataset.historyUserToggle = 'true';
@@ -80,4 +81,60 @@ document.addEventListener('click', event => {
 
 window.addEventListener('popstate', () => {
     if (document.querySelector('.order-archive')) loadHistory(new URL(location.href), null, { push: false });
+});
+
+
+let labelSelection;
+function resetLabelSelection() {
+    labelSelection = null;
+    document.querySelectorAll('[name="history-label-choice"]').forEach(control => { control.checked = false; });
+    const toolbar = document.querySelector('[data-history-print-toolbar]');
+    if (!toolbar) return;
+    toolbar.querySelector('[data-history-print-status]').textContent = 'Nessuna etichetta selezionata';
+    toolbar.querySelector('[data-history-print-confirm]').setAttribute('aria-disabled', 'true');
+}
+document.addEventListener('click', event => {
+    const archive = event.target.closest('.order-archive');
+    if (!archive) return;
+    const toolbar = archive.querySelector('[data-history-print-toolbar]');
+    if (!toolbar) return;
+    if (event.target.closest('[data-history-print-start]')) {
+        if (event.target.closest('[aria-disabled="true"]')) {
+            toolbar.querySelector('[data-label-status]').textContent = 'Al momento non ci sono ordini da stampare';
+            return;
+        }
+        resetLabelSelection(); archive.dataset.historyPrinting = 'true';
+        toolbar.querySelector('.history-print-start').hidden = true;
+        toolbar.querySelector('.history-print-controls').hidden = false;
+        toolbar.querySelector('[data-history-print-cancel]').focus();
+    }
+    if (event.target.closest('[data-history-print-cancel]')) {
+        resetLabelSelection(); delete archive.dataset.historyPrinting;
+        toolbar.querySelector('.history-print-start').hidden = false;
+        toolbar.querySelector('.history-print-controls').hidden = true;
+        toolbar.querySelector('[data-history-print-start]').focus();
+    }
+    if (event.target.closest('[data-history-print-confirm]')) {
+        if (!labelSelection) {
+            toolbar.querySelector('[data-history-print-status]').textContent = 'Al momento non ci sono ordini da stampare';
+            return;
+        }
+        const url = new URL(toolbar.dataset.labelUrl, location.origin);
+        if (labelSelection.day) {
+            const current = new URL(location.href);
+            for (const key of ['q','zone','status','customer_id','rider_id','shipping_type','urgency','sender_type','from','to']) if (current.searchParams.has(key)) url.searchParams.set(key, current.searchParams.get(key));
+            url.searchParams.set('scope', 'history'); url.searchParams.set('day', labelSelection.day);
+        } else url.searchParams.append('ids[]', labelSelection.slug);
+        window.open(url, '_blank', 'noopener');
+    }
+});
+document.addEventListener('change', event => {
+    const control = event.target.closest('[name="history-label-choice"]');
+    if (!control) return;
+    const toolbar = document.querySelector('[data-history-print-toolbar]');
+    if (!toolbar) return;
+    labelSelection = control.dataset.historyLabelDay ? {day: control.dataset.historyLabelDay} : {slug: control.dataset.historyLabelSingle};
+    toolbar.querySelector('[data-history-print-status]').textContent = labelSelection.day
+        ? `${control.dataset.labelCount} etichette · giornata ${labelSelection.day}` : `1 etichetta · ${control.dataset.labelReference}`;
+    toolbar.querySelector('[data-history-print-confirm]').setAttribute('aria-disabled', 'false');
 });

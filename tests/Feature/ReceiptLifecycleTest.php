@@ -31,12 +31,15 @@ class ReceiptLifecycleTest extends TestCase
         $this->postJson($path, ['action' => 'receive', 'version' => 2])->assertUnprocessable();
 
         $this->postJson($path, ['action' => 'reverse', 'version' => 2, 'note' => 'Storno documentato di venti euro'])->assertOk();
+        if ((int) $order->payments()->sum('cash_amount_cents') > 0) {
+            $this->postJson(route('payments.store', $order), ['action' => 'refund', 'version' => $order->fresh()->version, 'note' => 'Restituzione effettiva verificata separatamente'])->assertOk();
+        }
         $reversal = ReceiptReversal::sole();
         $this->get('/balance')->assertViewHas('grossIncome', 0)->assertViewHas('operatingResult', 0)
             ->assertViewHas('finalNet', 0)->assertViewHas('reversalTotal', 2000)->assertViewHas('cash', 0);
         $this->postJson($path, ['action' => 'reverse', 'version' => 3, 'note' => 'Invio ripetuto'])->assertUnprocessable();
 
-        $this->postJson($path, ['action' => 'restore', 'version' => 3, 'note' => 'Riapertura senza nuovo pagamento'])->assertOk();
+        $this->postJson($path, ['action' => 'restore', 'version' => $order->fresh()->version, 'note' => 'Riapertura senza nuovo pagamento'])->assertOk();
         $this->assertNull($order->fresh()->paid_at);
         $this->assertNull($order->fresh()->receipt_voided_at);
         $this->assertNotNull($reversal->fresh()->restored_at);
@@ -47,14 +50,14 @@ class ReceiptLifecycleTest extends TestCase
             ->assertSee('Registra incasso');
         $this->postJson($path, ['action' => 'restore', 'version' => 4, 'note' => 'Invio ripetuto'])->assertUnprocessable();
 
-        $this->postJson($path, ['action' => 'receive', 'version' => 4])->assertOk();
+        $this->postJson($path, ['action' => 'receive', 'version' => $order->fresh()->version])->assertOk();
         $this->get('/balance')->assertViewHas('grossIncome', 2000)->assertViewHas('operatingResult', 2000)
             ->assertViewHas('finalNet', 2000)->assertViewHas('reversalTotal', 0)->assertViewHas('cash', 2000);
         $this->assertDatabaseCount('orders', 1);
         $this->assertDatabaseCount('receipt_reversals', 1);
         $this->assertDatabaseCount('payment_entries', 5);
         $this->assertSame($originalAttributes, $original->fresh()->getAttributes());
-        $this->assertSame(['receipt.receive', 'receipt.reverse', 'receipt.restore', 'receipt.receive'], EconomicAudit::where('entity_type', 'orders')->where('entity_id', $order->id)->orderBy('id')->pluck('action')->all());
+        $this->assertSame(['receipt.receive', 'receipt.reverse', 'receipt.refund', 'receipt.restore', 'receipt.receive'], EconomicAudit::where('entity_type', 'orders')->where('entity_id', $order->id)->orderBy('id')->pluck('action')->all());
     }
 
     public function test_active_reversal_survives_a_month_boundary_and_remains_scoped_to_the_customer(): void
@@ -68,6 +71,9 @@ class ReceiptLifecycleTest extends TestCase
         foreach ([$order, $otherOrder] as $receipt) {
             $this->postJson(route('payments.store', $receipt), ['action' => 'receive', 'version' => 1])->assertOk();
             $this->postJson(route('payments.store', $receipt), ['action' => 'reverse', 'version' => 2, 'note' => 'Storno ancora attivo'])->assertOk();
+            if ((int) $receipt->payments()->sum('cash_amount_cents') > 0) {
+                $this->postJson(route('payments.store', $receipt), ['action' => 'refund', 'version' => $receipt->fresh()->version, 'note' => 'Restituzione effettiva verificata separatamente'])->assertOk();
+            }
         }
 
         $this->travelTo(now('Europe/Rome')->setDate(2026, 11, 5)->setTime(12, 0));
@@ -76,7 +82,7 @@ class ReceiptLifecycleTest extends TestCase
         $this->get('/balance?month=2026-11')->assertViewHas('reversalTotal', 11000);
         $this->get('/balance?month=2026-09')->assertViewHas('reversalTotal', 0);
 
-        $this->postJson(route('payments.store', $order), ['action' => 'restore', 'version' => 3, 'note' => 'Ripristino nel mese successivo'])->assertOk();
+        $this->postJson(route('payments.store', $order), ['action' => 'restore', 'version' => $order->fresh()->version, 'note' => 'Ripristino nel mese successivo'])->assertOk();
         $this->get('/balance?month=2026-11&customer_ids[]='.$customer->slug)->assertViewHas('grossIncome', 0)
             ->assertViewHas('finalNet', 0)->assertViewHas('reversalTotal', 0);
         $this->get('/balance?month=2026-11')->assertViewHas('reversalTotal', 9000);
@@ -92,8 +98,11 @@ class ReceiptLifecycleTest extends TestCase
         $this->actingAs($admin)->postJson($path, ['action' => 'receive', 'version' => 1])->assertOk();
         $this->travelTo(now('Europe/Rome')->setDate(2026, 10, 15)->setTime(12, 0));
         $this->postJson($path, ['action' => 'reverse', 'version' => 2, 'note' => 'Storno a ottobre'])->assertOk();
+        if ((int) $order->payments()->sum('cash_amount_cents') > 0) {
+            $this->postJson(route('payments.store', $order), ['action' => 'refund', 'version' => $order->fresh()->version, 'note' => 'Restituzione effettiva verificata separatamente'])->assertOk();
+        }
         $this->travelTo(now('Europe/Rome')->setDate(2026, 11, 5)->setTime(12, 0));
-        $this->postJson($path, ['action' => 'restore', 'version' => 3, 'note' => 'Ripristino a novembre'])->assertOk();
+        $this->postJson($path, ['action' => 'restore', 'version' => $order->fresh()->version, 'note' => 'Ripristino a novembre'])->assertOk();
 
         $this->get('/balance?year=2026')->assertViewHas('grossIncome', 0)->assertViewHas('finalNet', 0)->assertViewHas('reversalTotal', 0);
         $this->get('/balance?month=2026-09')->assertViewHas('grossIncome', 2000)->assertViewHas('finalNet', 2000);
@@ -101,7 +110,7 @@ class ReceiptLifecycleTest extends TestCase
         $this->get('/balance?month=2026-11')->assertViewHas('grossIncome', 0)->assertViewHas('finalNet', 0);
 
         $this->travelTo(now('Europe/Rome')->setDate(2026, 12, 5)->setTime(12, 0));
-        $this->postJson($path, ['action' => 'receive', 'version' => 4])->assertOk();
+        $this->postJson($path, ['action' => 'receive', 'version' => $order->fresh()->version])->assertOk();
         $this->get('/balance?month=2026-12')->assertViewHas('grossIncome', 2000)->assertViewHas('finalNet', 2000)->assertViewHas('reversalTotal', 0);
         $this->get('/balance?year=2026')->assertViewHas('grossIncome', 2000)->assertViewHas('finalNet', 2000);
         $this->assertDatabaseCount('orders', 1);
@@ -114,7 +123,7 @@ class ReceiptLifecycleTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $order = Order::factory()->create(['status' => OrderStatus::Delivered, 'delivered_at' => now(), 'price_cents' => 2000]);
         $this->actingAs($admin);
-        foreach (['receive', 'reverse', 'restore', 'receive', 'reverse'] as $index => $action) {
+        foreach (['receive', 'reverse', 'refund', 'restore', 'receive', 'reverse', 'refund'] as $index => $action) {
             $this->postJson(route('payments.store', $order), ['action' => $action, 'version' => $index + 1, 'note' => 'Ciclo contabile verificato'])->assertOk();
         }
 

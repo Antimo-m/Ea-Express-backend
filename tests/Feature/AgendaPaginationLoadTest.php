@@ -117,10 +117,11 @@ class AgendaPaginationLoadTest extends TestCase
                 }
             }
             $results['concurrent_reads'] = $this->assertReadSnapshots($source);
-            $this->artisan('migrate:rollback', ['--database' => 'agenda_load', '--step' => 1, '--force' => true])->assertSuccessful();
+            $indexMigration = 'database/migrations/2026_11_07_120407_add_pickup_agenda_pagination_indexes.php';
+            $this->artisan('migrate:rollback', ['--database' => 'agenda_load', '--path' => $indexMigration, '--force' => true])->assertSuccessful();
             $this->assertNotContains('orders_pickup_account_chronology_index', array_column(DB::select('SHOW INDEX FROM orders'), 'Key_name'));
             $this->assertNotContains('order_events_order_status_index', array_column(DB::select('SHOW INDEX FROM order_events'), 'Key_name'));
-            $this->artisan('migrate', ['--database' => 'agenda_load', '--force' => true])->assertSuccessful();
+            $this->artisan('migrate', ['--database' => 'agenda_load', '--path' => $indexMigration, '--force' => true])->assertSuccessful();
             $this->assertContains('orders_pickup_account_chronology_index', array_column(DB::select('SHOW INDEX FROM orders'), 'Key_name'));
             $this->assertContains('order_events_order_status_index', array_column(DB::select('SHOW INDEX FROM order_events'), 'Key_name'));
             $results['metadata']['index_migration_down_up_passed'] = true;

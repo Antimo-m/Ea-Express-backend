@@ -146,6 +146,15 @@ test('Listini e ritiro: CAP inline, orari e contenuto nei viewport richiesti', {
 
                 await navigate('/orders/create');
                 await waitFor('document.querySelector("[name=pickup_from]").value === "13:11"');
+                for (const service of ['external', 'regional']) {
+                    await evaluate(`const select=document.querySelector('[name="shipping_type"]');select.value=${JSON.stringify(service)};select.dispatchEvent(new Event('change',{bubbles:true}));`);
+                    const required = await evaluate('return ["delivery_postal_code","delivery_province","delivery_region"].map(name=>document.querySelector(`[name="${name}"]`).required);');
+                    assert.deepEqual(required, [true, true, true]);
+                }
+                await evaluate('document.querySelector(".staff-booking-form").requestSubmit();');
+                for (const name of ['delivery_postal_code', 'delivery_province', 'delivery_region']) {
+                    assert.match(await evaluate(`return document.querySelector('[name="${name}"]').closest('.field').textContent;`), /Questo campo è obbligatorio/);
+                }
                 assert.equal(await evaluate('return document.querySelector("[name=pickup_to]").value;'), '14:11');
                 await fill('content_description', 'Documenti', '.staff-booking-form');
                 assert.equal(await evaluate('return document.querySelector("[name=category]").value;'), 'documents');

@@ -1,6 +1,8 @@
 @if(auth()->user()->role === \App\UserRole::Admin)
     @php($activeReversal = $order->receiptReversals->whereNull('restored_at')->last())
-    @if($order->receipt_review_required || ($order->paid_at && (int) $order->payments_sum_cash_cents !== $order->price_cents) || ($order->receipt_voided_at && ! $activeReversal))
+    @if($order->unverified_refund_exists)
+        <span class="status-pill tone-orange">Rimborso storico da riconciliare</span><a class="btn btn-outline-secondary btn-sm" href="{{ route('balance.index', ['ledger' => 'history', 'q' => $order->reference, 'period' => 'year', 'year' => \Illuminate\Support\Carbon::parse($order->unverified_refund_at, 'UTC')->timezone('Europe/Rome')->year]) }}">Verifica rimborso storico</a>
+    @elseif($order->receipt_review_required || ($order->paid_at && (int) $order->payments_sum_cash_cents !== $order->price_cents) || ($order->receipt_voided_at && ! $activeReversal))
         <span class="status-pill tone-orange">Storico da riconciliare</span>
         <a class="btn btn-outline-secondary btn-sm" href="{{ route('audits.index', ['type' => 'orders', 'slug' => $order->slug]) }}">Verifica movimenti</a>
         @unless($order->receipt_voided_at)
@@ -13,6 +15,7 @@
         @unless($order->paid_at || $order->receipt_voided_at || ($order->pendingAccount && $order->pendingAccount->state !== 'cancelled'))
             <x-ui.icon-button action="receive" label="Registra incasso" :data-dialog-open="'receipt-'.$order->slug" :aria-controls="'receipt-'.$order->slug" aria-haspopup="dialog" text />
         @endunless
+        @if($order->receipt_voided_at && (int) $order->payments_sum_cash_cents > 0)<x-ui.icon-button action="receive" label="Registra rimborso pagato" :data-dialog-open="'receipt-refund-'.$order->slug" :aria-controls="'receipt-refund-'.$order->slug" aria-haspopup="dialog" text />@endif
         <details class="row-actions-menu"><summary class="icon-button" aria-label="Altre operazioni per {{ $order->reference }}" title="Altre operazioni"><x-ui.icon name="three-dots" /></summary><div class="row-actions-popover">
             <x-ui.icon-button :action="$order->receipt_voided_at ? 'restore' : 'delete'" :label="$order->receipt_voided_at ? 'Ripristina incasso' : 'Storna incasso'" :data-dialog-open="'receipt-state-'.$order->slug" :aria-controls="'receipt-state-'.$order->slug" aria-haspopup="dialog" text />
             <a class="btn btn-outline-secondary btn-sm" href="{{ route('audits.index', ['type' => 'orders', 'slug' => $order->slug]) }}">Storico dell’incasso</a>

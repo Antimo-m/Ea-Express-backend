@@ -2,11 +2,13 @@
 
 namespace App\Providers;
 
+use App\Support\AccountSessionRevocation;
 use App\Support\AuthUserProvider;
 use App\Support\NotificationInbox;
 use App\Support\PostalCodeResolver;
 use App\Support\SecurityEvent;
 use Illuminate\Auth\Events\Failed;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Request;
@@ -27,6 +29,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Auth::provider('auth-security', fn (Application $app, array $config): AuthUserProvider => new AuthUserProvider($app['hash'], $config['model']));
+        Event::listen(Login::class, function (Login $event): void {
+            app(AccountSessionRevocation::class)->authorize(request(), $event->user, $event->guard);
+        });
         Paginator::useBootstrapFive();
         Event::listen(Failed::class, function (Failed $event): void {
             SecurityEvent::record('login_failed', $event->user?->getAuthIdentifier());

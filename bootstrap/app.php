@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureAccountSessionVersion;
 use App\Http\Middleware\EnsureActiveAccount;
 use App\Http\Middleware\EnsureStaffAuthentication;
 use App\Http\Middleware\LimitRequestInput;
@@ -27,7 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->replace(TrustProxies::class, TrustAuthenticationProxies::class);
         $middleware->prepend([LimitRequestInput::class, SecurityHeaders::class]);
         $middleware->trimStrings(except: ['price', 'parcel_value', 'carrier_cost', 'amount']);
-        $middleware->web(append: [EnsureActiveAccount::class, EnsureStaffAuthentication::class], replace: [StartSession::class => PreservePageNavigation::class]);
+        $middleware->web(append: [EnsureAccountSessionVersion::class, EnsureActiveAccount::class, EnsureStaffAuthentication::class], replace: [StartSession::class => PreservePageNavigation::class]);
         $middleware->prependToPriorityList(AuthenticatesRequests::class, EnsureStaffAuthentication::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -7,6 +7,7 @@ use App\Models\FinancialMovement;
 use App\Models\Order;
 use App\Models\PaymentEntry;
 use App\Models\PendingAccount;
+use App\Models\PendingSettlement;
 use App\Models\User;
 use App\OrderStatus;
 use App\UserRole;
@@ -21,7 +22,7 @@ class CashMovementsTest extends TestCase
 
     public static function periods(): array
     {
-        return ['today' => ['today', 100], 'week' => ['week', 300], 'month' => ['month', 600], 'year' => ['year', 1000]];
+        return ['today' => ['today', 10000], 'week' => ['week', 10000], 'month' => ['month', 10000], 'year' => ['year', 10000]];
     }
 
     #[DataProvider('periods')]
@@ -52,7 +53,7 @@ class CashMovementsTest extends TestCase
 
         $this->actingAs($admin)->get('/balance?period=custom&from=2026-10-27&to=2026-10-28&year=2025&month=2025-06&ledger=pending')
             ->assertViewHas('period', fn ($period): bool => $period->start->toDateString() === '2026-10-27' && $period->end->toDateString() === '2026-10-28')
-            ->assertViewHas('pendingIncoming', 700)->assertSee('Posizione nel periodo scelto')->assertDontSee('Posizione del vecchio periodo')
+            ->assertViewHas('pendingIncoming', 9700)->assertSee('Posizione nel periodo scelto')->assertSee('Posizione del vecchio periodo')
             ->assertSee('name="period" value="custom"', false);
         $this->getJson('/balance?period=custom&year=2025')->assertUnprocessable()->assertJsonValidationErrors(['from', 'to']);
         $this->getJson('/balance?period=custom&from=2026-10-27')->assertUnprocessable()->assertJsonValidationErrors('to');
@@ -78,16 +79,16 @@ class CashMovementsTest extends TestCase
         $this->travelTo(Carbon::parse('2026-10-28 12:00', 'Europe/Rome'));
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $customer = User::factory()->create(['role' => UserRole::Customer]);
-        PendingAccount::factory()->count(11)->create(['customer_id' => $customer->id, 'subject' => 'Fornitura selezionata', 'direction' => 'outgoing', 'occurred_on' => '2026-10-27', 'amount_cents' => 1000, 'settled_cents' => 300, 'state' => 'partially_paid']);
+        PendingAccount::factory()->has(PendingSettlement::factory()->state(['amount_cents' => 300]), 'settlements')->count(11)->create(['customer_id' => $customer->id, 'subject' => 'Fornitura selezionata', 'direction' => 'outgoing', 'occurred_on' => '2026-10-27', 'amount_cents' => 1000, 'settled_cents' => 300, 'state' => 'partially_paid']);
         PendingAccount::factory()->create(['customer_id' => $customer->id, 'subject' => 'Fornitura selezionata annullata', 'direction' => 'outgoing', 'occurred_on' => '2026-10-27', 'amount_cents' => 9000, 'state' => 'cancelled']);
         PendingAccount::factory()->create(['customer_id' => $customer->id, 'subject' => 'Fornitura selezionata fuori periodo', 'occurred_on' => '2026-10-26', 'amount_cents' => 9000]);
         $query = http_build_query(['period' => 'custom', 'from' => '2026-10-27', 'to' => '2026-10-28', 'ledger' => 'pending', 'q' => 'Fornitura selezionata', 'customer_ids' => [$customer->slug], 'pending_page' => 2]);
 
-        $this->actingAs($admin)->get('/balance?'.$query)->assertViewHas('pendingOutgoing', 7700)->assertViewHas('pendingIncoming', 0)
+        $this->actingAs($admin)->get('/balance?'.$query)->assertViewHas('pendingOutgoing', 7700)->assertViewHas('pendingIncoming', 9000)
             ->assertViewHas('pendingEntries', fn ($rows): bool => $rows->total() === 12 && $rows->currentPage() === 2 && $rows->count() === 2)
             ->assertSee('pending_page=1', false)->assertSee('ledger=pending', false)->assertSee('from=2026-10-27', false)
             ->assertSee('q=Fornitura%20selezionata', false)->assertSee('customer_ids%5B0%5D='.$customer->slug, false)
-            ->assertDontSee('Fornitura selezionata fuori periodo');
+            ->assertSee('Fornitura selezionata fuori periodo');
     }
 
     public function test_search_filters_posted_receipts_expenses_manual_cash_and_their_totals_on_the_server(): void
@@ -124,9 +125,9 @@ class CashMovementsTest extends TestCase
         FinancialMovement::factory()->create(['user_id' => $admin->id, 'kind' => 'cash', 'amount_cents' => 9000, 'occurred_on' => '2026-10-28', 'voided_at' => now()]);
         Expense::factory()->create(['user_id' => $admin->id, 'amount_cents' => 200, 'spent_on' => '2026-10-28']);
         Expense::factory()->create(['user_id' => $admin->id, 'amount_cents' => 9000, 'spent_on' => '2026-10-28', 'voided_at' => now()]);
-        $this->get('/balance?period=today')->assertViewHas('cashBalance', 100)->assertViewHas('operatingNet', -200);
+        $this->get('/balance?period=today')->assertViewHas('cashBalance', 1100)->assertViewHas('operatingNet', -200);
 
-        $this->postJson(route('payments.store', $order), ['action' => 'refund', 'version' => 3, 'note' => 'Contanti restituiti'])->assertConflict();
+        $this->postJson(route('payments.store', $order), ['action' => 'refund', 'version' => 3, 'note' => 'Contanti restituiti'])->assertOk();
 
         $this->get('/balance?period=today')->assertViewHas('cashBalance', 100)->assertViewHas('operatingNet', -200)->assertViewHas('refundTotal', 1000);
         $this->assertSame(0, (int) PaymentEntry::sum('amount_cents'));

@@ -3,8 +3,10 @@
 namespace App\Actions;
 
 use App\Models\User;
+use App\Support\AccountSessionRevocation;
 use App\Support\SecurityEvent;
 use App\Support\StaffAuthentication;
+use App\UserRole;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -18,6 +20,7 @@ class UpdateProfile
         $emailChanged = DB::transaction(function () use ($user, $data, $currentPassword): bool {
             $locked = User::lockForUpdate()->findOrFail($user->id);
             abort_unless($locked->is_active && $locked->role === $user->role, 403);
+            app(AccountSessionRevocation::class)->assertCurrent(request(), $locked, $locked->role === UserRole::Customer ? 'customer' : 'web');
             app(StaffAuthentication::class)->assertComplete($locked);
             $locked->fill(Arr::only($data, ['name', 'email', 'sender_type', 'business_type', 'business_description']));
             $emailChanged = $locked->isDirty('email');

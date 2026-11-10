@@ -1,0 +1,88 @@
+.finance-overview { display: grid; gap: 20px; padding: 24px; border: 1px solid var(--ea-line); border-radius: 24px; background: var(--ea-surface); min-width: 0; }
+.finance-overview .section-heading { margin: 0; gap: 12px; }
+.finance-overview h2 { font-size: 1.4rem; margin: 6px 0; }
+.finance-overview h3 { font-size: 1.05rem; margin: 6px 0 16px; }
+.finance-overview .section-heading p { margin: 0; color: var(--ea-muted); font-size: .85rem; }
+.finance-liquidity { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; padding: 24px; background: color-mix(in srgb, var(--ea-info) 6%, var(--ea-surface)); border: 1px solid var(--ea-line); border-radius: 20px; }
+.liquidity-total > strong { display: block; font-size: clamp(1.8rem, 4vw, 2.8rem); font-variant-numeric: tabular-nums; letter-spacing: -.04em; overflow-wrap: anywhere; }
+.liquidity-total p { color: var(--ea-muted); margin: 8px 0 0; font-size: .85rem; }
+.liquidity-flows { display: grid; gap: 12px; margin: 0; align-content: center; }
+.liquidity-flows > div { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.liquidity-flows dt { font-weight: 500; color: var(--ea-muted); font-size: .875rem; }
+.liquidity-flows dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.finance-overview-secondary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.finance-economic, .finance-positions { min-width: 0; }
+.finance-positions { border-left: 1px solid var(--ea-line); padding-left: 24px; }
+.finance-overview .statement-lines { margin: 0; }
+.finance-overview .statement-lines > div { padding-block: 10px; gap: 12px; }
+.finance-overview .statement-lines dt { font-size: .875rem; }
+.finance-overview .statement-lines dd { font-size: 1rem; margin: 0; font-variant-numeric: tabular-nums; }
+.balance-result { border-top: 1px solid var(--ea-line); font-weight: 700; }
+.balance-explanation { grid-column: 1 / -1; font-size: .8125rem; color: var(--ea-muted); }
+.balance-explanation summary { cursor: pointer; padding: 8px 0; min-height: 44px; align-content: center; }
+.balance-explanation p { max-width: 90ch; margin: 8px 0; }
+.balance-unverified { color: var(--ea-warning, #a04b13); font-size: .8125rem; }
+.ledger-mobile-category { display: none; }
+.money-register { min-width: 0; }
+.money-register-heading, .money-row > summary { display: grid; grid-template-columns: 90px minmax(0, 1.6fr) minmax(0, 1fr) minmax(90px, .6fr) 90px 44px; gap: 16px; align-items: center; padding: 16px 20px; }
+.money-register-heading { font-size: .75rem; color: var(--ea-muted); border-bottom: 1px solid var(--ea-line); }
+.money-row { min-width: 0; border-bottom: 1px solid var(--ea-line); }
+.money-row:last-child { border-bottom: 0; }
+.money-row > summary { cursor: pointer; list-style: none; min-height: 76px; }
+.money-row > summary::-webkit-details-marker { display: none; }
+.money-row > summary:hover, .money-row[open] > summary { background: color-mix(in srgb, var(--ea-info) 5%, var(--ea-surface)); }
+.money-row > summary:focus-visible { outline: 2px solid var(--ea-info); outline-offset: -3px; }
+.money-row time, .money-row-state { font-size: .8125rem; color: var(--ea-muted); }
+.money-row-cause { display: grid; gap: 4px; min-width: 0; font-size: .8125rem; overflow-wrap: anywhere; }
+.money-row-cause strong { font-size: .875rem; }
+.money-row-party { font-size: .8125rem; overflow-wrap: anywhere; min-width: 0; }
+.money-row-amount { font-variant-numeric: tabular-nums; white-space: nowrap; font-size: .9375rem; }
+.money-row-expand { text-align: center; font-size: 1.2rem; }
+.money-row[open] .money-row-expand { transform: rotate(180deg); }
+.money-row-detail { padding: 20px; border-top: 1px solid var(--ea-line); }
+.money-row-detail dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; margin: 0 0 20px; }
+.money-row-detail dt { color: var(--ea-muted); font-weight: 500; font-size: .75rem; margin-bottom: 5px; }
+.money-row-detail dd { margin: 0; font-size: .875rem; overflow-wrap: anywhere; }
+.money-detail-wide { grid-column: 1 / -1; }
+.money-row-detail .register-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.money-row-detail .register-actions a { white-space: normal; min-height: 44px; }
+.pending-snapshot-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding: 16px; }
+.pending-snapshot-filters label { flex: 1 1 180px; min-width: 0; font-size: .8125rem; }
+.pending-snapshot-filters select { margin-top: 6px; width: 100%; }
+@media (max-width: 991px) {
+  .money-register-heading, .money-row > summary { grid-template-columns: 80px minmax(0, 1.5fr) minmax(0, 1fr) 100px 30px; gap: 10px; }
+  .money-register-heading > :nth-child(5), .money-row > summary > .money-row-state { display: none; }
+}
+@media (max-width: 767px) {
+  .finance-overview { padding: 16px; gap: 16px; border-radius: 18px; }
+  .finance-overview .section-heading { align-items: start; flex-wrap: wrap; }
+  .finance-liquidity { grid-template-columns: minmax(0, 1fr); padding: 16px; gap: 16px; border-radius: 16px; }
+  .finance-overview-secondary { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .finance-positions { border-left: 0; border-top: 1px solid var(--ea-line); padding: 20px 0 0; }
+  .finance-workspace .ledger-desktop-categories { display: none; }
+  .ledger-mobile-category { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-bottom: 16px; }
+  .ledger-mobile-category label { grid-column: 1 / -1; font-size: .8125rem; }
+  .ledger-mobile-category select { min-width: 0; min-height: 44px; }
+  .money-register-heading { display: none; }
+  .money-row > summary { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'cause amount' 'party state' 'date expand'; gap: 6px 10px; padding: 16px; }
+  .money-row time { grid-area: date; }
+  .money-row-cause { grid-area: cause; }
+  .money-row-party { grid-area: party; font-size: .75rem; }
+  .money-row-amount { grid-area: amount; text-align: right; align-self: start; }
+  .money-row > summary > .money-row-state { display: block; grid-area: state; text-align: right; font-size: .75rem; }
+  .money-row-expand { grid-area: expand; text-align: right; }
+  .money-row-detail { padding: 16px; }
+  .money-row-detail dl { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .money-row-detail .register-actions { align-items: start; }
+  .pending-snapshot-filters label { flex-basis: 100%; }
+}
+@media (max-width: 359px) {
+  .money-row > summary { padding: 12px; gap: 8px; }
+  .money-row-amount { font-size: .875rem; }
+  .finance-overview { padding: 12px; }
+  .finance-liquidity { padding: 12px; }
+  .liquidity-flows > div { flex-wrap: wrap; gap: 4px 12px; }
+}
+[data-label-availability][aria-disabled="true"] { opacity: .48; cursor: default; }
+.label-availability-message { display: block; flex-basis: 100%; font-size: .8125rem; color: var(--ea-muted); overflow-wrap: anywhere; }
+.icon-button[data-label-availability][aria-disabled="true"] { pointer-events: auto; cursor: default; }

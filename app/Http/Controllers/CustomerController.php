@@ -58,7 +58,7 @@ class CustomerController extends Controller
         $receipts = app(ShippingEconomics::class)->receipts(PaymentEntry::whereIn('order_id', (clone $allOrders)->select('orders.id'))->whereBetween('created_at', $period->utcRange()));
         $receivedCents = $receipts['retained'];
         $pendingCents = (int) $customer->pendingAccounts()->where('direction', 'incoming')->whereIn('state', ['open', 'partially_paid'])->selectRaw('COALESCE(SUM(amount_cents - settled_cents),0) AS outstanding')->value('outstanding');
-        $orders = $query->withDisplayIdentity()->with('rider:id,slug,name')->when(isset($filters['tariff']), fn ($query) => $query->where('price_cents', $filters['tariff']))->latest()->orderByDesc('id')->paginate(20)->withQueryString();
+        $orders = $query->withDisplayIdentity()->with('rider:id,slug,name')->when(isset($filters['tariff']), fn ($query) => $query->where('price_cents', $filters['tariff']))->latest()->orderByDesc('id')->paginate(10)->withQueryString();
 
         return view('customers.show', compact('customer', 'period', 'previousPeriod', 'summary', 'comparison', 'lifetime', 'averageCents', 'receivedCents', 'receipts', 'pendingCents', 'trend', 'orders'));
     }

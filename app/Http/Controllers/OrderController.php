@@ -52,7 +52,7 @@ class OrderController extends Controller
             return view('orders.history-day', $data);
         }
 
-        return view('orders.index', [...$data, 'customers' => User::where('role', UserRole::Customer)->whereIn('id', $selection->query($request, $section, false)->select('customer_id'))->orderBy('name')->get(['id', 'slug', 'name', 'email']), 'riders' => User::whereIn('id', $selection->query($request, $section, false)->select('rider_id'))->orderBy('name')->get(['id', 'slug', 'name', 'email']), 'currentCount' => $selection->query($request, 'orders.in-progress', false)->count()]);
+        return view('orders.index', [...$data, 'customers' => User::where('role', UserRole::Customer)->whereIn('id', $selection->query($request, $section, false)->select('customer_id'))->orderBy('name')->get(['id', 'slug', 'name', 'email']), 'riders' => User::whereIn('id', $selection->query($request, $section, false)->select('rider_id'))->orderBy('name')->get(['id', 'slug', 'name', 'email']), 'printableCount' => $selection->query($request, 'orders.in-progress')->where('parcel_count', '>', 0)->count(), 'currentCount' => $selection->query($request, 'orders.in-progress', false)->count()]);
     }
 
     public function create(): View

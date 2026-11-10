@@ -55,7 +55,9 @@ class RiderOperations
             $counts[$state] = array_sum(array_map(fn (OrderStatus $status): int => (int) ($statuses[$status->value] ?? 0), $values));
         }
         $counts['issues'] = $this->filterDailyState(clone $query, 'issues')->count();
-        $counts['progress'] = $counts['total'] ? (int) round($counts['completed'] / $counts['total'] * 100) : 0;
+        $counts['valid'] = $counts['total'] - $counts['closed'];
+        $counts['cancelled'] = (int) ($statuses[OrderStatus::Cancelled->value] ?? 0);
+        $counts['progress'] = $counts['valid'] ? (int) round($counts['completed'] / $counts['valid'] * 100) : 0;
 
         return $counts;
     }
@@ -130,7 +132,7 @@ class RiderOperations
     {
         return $query->select(['id', 'slug', 'rider_id', 'status', 'delivery_zone', 'delivery_city', 'price_cents'])
             ->withSum('payments as cash_cents', DB::raw(ReceiptLedger::CashExpression))->withSum('payments as retained_cents', DB::raw('COALESCE(ea_amount_cents, amount_cents)'))
-            ->with(['rider:id,slug,name', 'deliveryEvent']);
+            ->with(['rider:id,slug,name,is_active', 'deliveryEvent']);
     }
 
     /** @return array<string, int> */
@@ -164,7 +166,7 @@ class RiderOperations
         $group['expected_cents'] += (int) $order->price_cents;
         $group['missing_prices'] += (int) ($order->price_cents === null);
         if ($rider) {
-            $group['riders'][$rider->slug] = ['slug' => $rider->slug, 'name' => $rider->name, 'url' => route('rider-operations.show', ['rider' => $rider->slug, ...$periodParameters])];
+            $group['riders'][$rider->slug] = ['slug' => $rider->slug, 'name' => $rider->name.($rider->is_active ? '' : ' (inattivo)'), 'url' => route('rider-operations.show', ['rider' => $rider->slug, ...$periodParameters])];
         }
         $zone = $this->zone($order);
         $group['zones'][$zone] = ($group['zones'][$zone] ?? 0) + 1;

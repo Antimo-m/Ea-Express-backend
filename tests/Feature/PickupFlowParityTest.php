@@ -19,7 +19,7 @@ class PickupFlowParityTest extends TestCase
     /** @return array<string, mixed> */
     private function payload(array $overrides = []): array
     {
-        return [...['store_name' => 'Mittente di prova', 'sender_type' => 'private', 'recipient_name' => 'Destinatario di prova', 'recipient_phone' => '+390000000000', 'pickup_address' => 'Via Roma', 'pickup_street_number' => '1', 'pickup_postal_code' => '81031', 'pickup_city' => 'Aversa', 'delivery_address' => 'Via Napoli', 'delivery_street_number' => '24', 'delivery_postal_code' => '81031', 'delivery_city' => 'Aversa', 'pickup_date' => '2026-11-10', 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 2, 'parcel_value' => '12,34', 'category' => 'custom', 'content_description' => 'Ricambi per automobile', 'package_type' => 'fragile', 'urgency' => 'urgent'], ...$overrides];
+        return [...['store_name' => 'Mittente di prova', 'sender_type' => 'private', 'recipient_name' => 'Destinatario di prova', 'recipient_phone' => '+390000000000', 'pickup_address' => 'Via Roma', 'pickup_street_number' => '1', 'pickup_postal_code' => '81031', 'pickup_city' => 'Aversa', 'delivery_address' => 'Via Napoli', 'delivery_street_number' => '24', 'delivery_postal_code' => '81031', 'delivery_province' => 'Caserta', 'delivery_region' => 'Campania', 'delivery_city' => 'Aversa', 'pickup_date' => '2026-11-10', 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 2, 'parcel_value' => '12,34', 'category' => 'custom', 'content_description' => 'Ricambi per automobile', 'package_type' => 'fragile', 'urgency' => 'urgent'], ...$overrides];
     }
 
     /** @return array<string, array{string, array<string, mixed>}> */

@@ -92,8 +92,8 @@ test('Rider workspace: ranges, status sorting, stable state and mobile controls'
                 assert.equal(layout.controls.every(node => node.x >= 0 && node.right <= width + 1 && node.height >= 40), true, `${width}: touch controls within screen`);
                 assert.equal(layout.overflow, false, `${width}: no horizontal document overflow`);
                 await navigate('/settings/users/create');
-                const actions = await evaluate(`(() => {const row=document.querySelector('.rider-create-actions'),buttons=[...row.querySelectorAll('a,button')];return {texts:buttons.map(node=>node.textContent.trim()),icons:row.querySelectorAll('i').length,center:Math.abs((row.getBoundingClientRect().left+row.getBoundingClientRect().right)/2-(buttons[0].getBoundingClientRect().left+buttons[1].getBoundingClientRect().right)/2),overflow:document.documentElement.scrollWidth>innerWidth+1};})()`);
-                assert.deepEqual(actions.texts, ['Annulla', 'Aggiungi']); assert.equal(actions.icons, 0); assert.ok(actions.center < 3); assert.equal(actions.overflow, false);
+                const actions = await evaluate(`(() => {const row=document.querySelector('.rider-create-actions'),buttons=[...row.querySelectorAll('a,button')];return {texts:buttons.map(node=>node.textContent.trim()),icons:row.querySelectorAll('i').length,left:Math.abs(row.getBoundingClientRect().left-buttons[0].getBoundingClientRect().left),right:Math.abs(row.getBoundingClientRect().right-buttons[1].getBoundingClientRect().right),overflow:document.documentElement.scrollWidth>innerWidth+1};})()`);
+                assert.deepEqual(actions.texts, ['Annulla', 'Aggiungi']); assert.equal(actions.icons, 0); assert.ok(actions.left < 3 && actions.right < 3); assert.equal(actions.overflow, false);
             }
         });
 

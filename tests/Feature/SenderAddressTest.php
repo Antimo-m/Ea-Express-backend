@@ -26,7 +26,7 @@ class SenderAddressTest extends TestCase
         $this->putJson('/api/v1/customer/sender-address', $this->address())->assertOk()->assertJsonPath('data.version', 1)->assertJsonMissingPath('data.customer_id');
         $saved = $this->getJson('/api/v1/customer/sender-address')->assertOk()->json('data');
         ShippingRate::factory()->create(['city' => 'Caserta', 'city_key' => 'caserta']);
-        $payload = [...$saved, 'parcel_value' => '0', 'recipient_name' => 'Cliente finale', 'recipient_phone' => '+390000000000', 'delivery_address' => 'Via Milano', 'delivery_street_number' => '25', 'delivery_postal_code' => '81100', 'delivery_city' => 'Caserta', 'package_type' => 'standard', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'category' => 'clothing', 'urgency' => 'standard'];
+        $payload = [...$saved, 'parcel_value' => '0', 'recipient_name' => 'Cliente finale', 'recipient_phone' => '+390000000000', 'delivery_address' => 'Via Milano', 'delivery_street_number' => '25', 'delivery_postal_code' => '81100', 'delivery_province' => 'Caserta', 'delivery_region' => 'Campania', 'delivery_city' => 'Caserta', 'package_type' => 'standard', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'category' => 'clothing', 'urgency' => 'standard'];
         $this->postJson('/api/v1/customer/orders', $this->checkoutData($payload))->assertCreated()->assertJsonPath('data.pickup_street_number', '10');
         $order = Order::sole();
         $this->putJson('/api/v1/customer/sender-address', [...$this->address(), 'version' => 1, 'pickup_street_number' => '20'])->assertOk()->assertJsonPath('data.pickup_street_number', '20');

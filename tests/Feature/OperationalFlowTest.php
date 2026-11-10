@@ -64,7 +64,7 @@ class OperationalFlowTest extends TestCase
 
     private function bookingData(): array
     {
-        return ['store_name' => 'Mittente prova', 'recipient_name' => 'Destinatario prova', 'recipient_phone' => '+390000000000', 'pickup_address' => 'Via Roma', 'pickup_street_number' => '10', 'pickup_postal_code' => '80121', 'pickup_city' => 'Napoli', 'delivery_address' => 'Via Roma', 'delivery_street_number' => '20', 'delivery_postal_code' => '81100', 'delivery_city' => 'Caserta', 'pickup_date' => now('Europe/Rome')->addDays(2)->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'parcel_value' => '25.00', 'package_type' => 'standard', 'category' => 'clothing', 'urgency' => 'standard'];
+        return ['store_name' => 'Mittente prova', 'recipient_name' => 'Destinatario prova', 'recipient_phone' => '+390000000000', 'pickup_address' => 'Via Roma', 'pickup_street_number' => '10', 'pickup_postal_code' => '80121', 'pickup_city' => 'Napoli', 'delivery_address' => 'Via Roma', 'delivery_street_number' => '20', 'delivery_postal_code' => '81100', 'delivery_province' => 'Caserta', 'delivery_region' => 'Campania', 'delivery_city' => 'Caserta', 'pickup_date' => now('Europe/Rome')->addDays(2)->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'parcel_value' => '25.00', 'package_type' => 'standard', 'category' => 'clothing', 'urgency' => 'standard'];
     }
 
     #[DataProvider('senderTypes')]
@@ -171,8 +171,9 @@ class OperationalFlowTest extends TestCase
         $tables = DB::select("SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'");
         foreach ($tables as $table) {
             $target->exec($table->sql);
+            $writableColumns = array_column(DB::select('PRAGMA table_info("'.$table->name.'")'), 'name');
             foreach (DB::table($table->name)->get() as $row) {
-                $values = (array) $row;
+                $values = array_intersect_key((array) $row, array_flip($writableColumns));
                 $columns = implode(',', array_map(fn ($name) => '"'.$name.'"', array_keys($values)));
                 $statement = $target->prepare('INSERT INTO "'.$table->name.'" ('.$columns.') VALUES ('.implode(',', array_fill(0, count($values), '?')).')');
                 $statement->execute(array_values($values));

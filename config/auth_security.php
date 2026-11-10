@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'dummy_password_hash' => env('AUTH_DUMMY_PASSWORD_HASH', '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi'),
+    'dummy_password_hash' => env('AUTH_DUMMY_PASSWORD_HASH', '$2y$12$tkiFFStlfJLsDor59CsTNOd9KgcAXNhSZafi5X7/H3jLT/7yq36Y2'),
     'store' => env('AUTH_SECURITY_STORE', env('CACHE_STORE', 'database')),
     'lock_seconds' => (int) env('AUTH_SECURITY_LOCK_SECONDS', 30),
     'account' => [
@@ -23,6 +23,11 @@ return [
         'ttl_seconds' => (int) env('AUTH_STAFF_DEVICE_TTL_SECONDS', 604800),
         'attempts' => (int) env('AUTH_STAFF_DEVICE_ATTEMPTS', 3),
         'window_seconds' => (int) env('AUTH_STAFF_DEVICE_WINDOW_SECONDS', 900),
+    ],
+    'trusted_rider' => [
+        'enabled' => (bool) env('AUTH_TRUSTED_RIDER_ENABLED', true),
+        'cookie' => 'ea_trusted_rider',
+        'ttl_seconds' => (int) env('AUTH_TRUSTED_RIDER_TTL_SECONDS', 2592000),
     ],
     'otp' => [
         'mailer' => env('AUTH_OTP_MAILER', env('MAIL_MAILER', 'smtp')),

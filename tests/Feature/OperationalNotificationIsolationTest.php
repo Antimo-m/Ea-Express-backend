@@ -65,7 +65,7 @@ class OperationalNotificationIsolationTest extends TestCase
     public function test_an_admin_assigned_to_an_order_receives_personal_operational_notifications(): void
     {
         $assignedAdmin = User::factory()->create(['role' => UserRole::Admin]);
-        $supervisor = User::factory()->create(['role' => UserRole::Admin]);
+        $supervisor = User::factory()->create(['role' => UserRole::Rider]);
         $customer = User::factory()->create(['role' => UserRole::Customer]);
         $order = Order::factory()->create(['customer_id' => $customer->id, 'rider_id' => $assignedAdmin->id, 'status' => OrderStatus::Accepted]);
 

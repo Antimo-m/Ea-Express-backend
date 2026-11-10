@@ -220,7 +220,7 @@ function renderSelect(control, content, commit, reposition) {
             if (event.key === 'Enter') { event.preventDefault(); if (freeText) commit(search.value); else list.querySelector('[role="option"]:not(:disabled)')?.click(); }
         });
         content.prepend(search);
-        if (freeText) content.insertBefore(createConfirmButton('Conferma testo', () => commit(search.value)), list);
+        if (freeText) content.append(createConfirmButton('Conferma testo', () => commit(search.value)));
     }
     content.append(list); draw();
     return () => draw();

@@ -21,7 +21,7 @@ class StaffAuthentication
 
     public function credentialProof(User $user): string
     {
-        return hash_hmac('sha256', implode('|', [$user->id, $user->password, $user->email, $user->role->value, (int) $user->is_active]), (string) config('app.key'));
+        return hash_hmac('sha256', implode('|', [$user->id, $user->password, $user->email, $user->role->value, (int) $user->is_active, (int) $user->auth_version]), (string) config('app.key'));
     }
 
     public function state(Request $request, ?User $user): StaffAuthenticationState
@@ -92,6 +92,7 @@ class StaffAuthentication
         $request->session()->put('password_hash_web', $user->password);
         $request->session()->forget(['staff_authentication.started_at', 'staff_authentication.remember']);
         app(StaffDeviceProof::class)->issue($user);
+        app(TrustedRiderDevices::class)->issue($request, $user);
     }
 
     public function invalidateChallenge(Request $request): void

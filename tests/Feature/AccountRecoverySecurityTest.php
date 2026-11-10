@@ -113,13 +113,14 @@ class AccountRecoverySecurityTest extends TestCase
         $this->assertDatabaseHas('sessions', ['id' => 'session-'.$other->id]);
     }
 
-    public function test_deleted_accounts_cannot_leave_recovery_tokens_for_reused_addresses(): void
+    public function test_admin_deactivation_removes_account_recovery_tokens(): void
     {
         $user = User::factory()->create();
         Password::broker('users')->createToken($user);
         $email = $user->email;
 
-        $this->actingAs($user)->delete('/profile', ['password' => 'password'])->assertRedirect('/');
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $this->actingAs($admin)->patch(route('users.update', $user), ['action' => 'deactivate'])->assertRedirect();
 
         $this->assertDatabaseMissing('password_reset_tokens', ['email' => $email]);
     }

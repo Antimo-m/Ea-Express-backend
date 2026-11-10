@@ -19,7 +19,8 @@ class PaymentController extends Controller
         $data = $request->validate([
             'received_amount' => [$request->input('action') === 'receive' && $order->shipping_type === 'external' ? 'required' : 'prohibited', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'],
             'action' => ['required', 'in:receive,reverse,restore,refund,reconcile'],
-            'resolution' => ['exclude_unless:action,reconcile', 'required', 'in:links,refunded,partial'],
+            'resolution' => ['exclude_unless:action,reconcile', 'required', 'in:links,refunded,partial,refund_paid,refund_unpaid'],
+            'entry_slug' => ['required_if:resolution,refund_paid,refund_unpaid', 'nullable', 'uuid'],
             'confirmed' => ['exclude_unless:action,reconcile', 'accepted'],
             'note' => ['exclude_if:action,receive', 'required', 'string', 'max:500'],
             'version' => ['required', 'integer', 'min:1'],

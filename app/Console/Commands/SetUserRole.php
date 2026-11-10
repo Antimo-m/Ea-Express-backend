@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Actions\RecordEconomicAudit;
 use App\Models\Order;
 use App\Models\User;
 use App\OrderStatus;
@@ -42,8 +43,15 @@ class SetUserRole extends Command
 
                 return self::FAILURE;
             }
+            if ($role === UserRole::Admin && $users->contains(fn (User $existing): bool => $existing->role === UserRole::Admin && $existing->id !== $user->id)) {
+                $this->error('Esiste già un account Admin. Usa app:transfer-admin per trasferire l’amministrazione.');
+
+                return self::FAILURE;
+            }
+            $before = $user->only(['role']);
             $user->role = $role;
             $user->save();
+            app(RecordEconomicAudit::class)->handle(null, $user, 'user.role_changed', $before, $user->only(['role']));
             $this->info('Ruolo aggiornato: '.$role->label());
 
             return self::SUCCESS;

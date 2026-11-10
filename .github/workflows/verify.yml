@@ -1,0 +1,112 @@
+name: Verify backend
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: PHP 8.5 / ${{ matrix.database }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - database: sqlite
+            database_name: ':memory:'
+            concurrency_mysql: '0'
+          - database: mysql
+            database_name: ea_launch_test_0000000000000001
+            concurrency_mysql: '1'
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: ea_launch_test_0000000000000001
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+      redis:
+        image: redis:8.2
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s --health-timeout=3s --health-retries=10
+    env:
+      APP_ENV: testing
+      APP_DEBUG: 'false'
+      APP_URL: http://localhost
+      APP_LOCALE: it
+      APP_FALLBACK_LOCALE: en
+      APP_FAKER_LOCALE: it_IT
+      DB_CONNECTION: ${{ matrix.database }}
+      DB_DATABASE: ${{ matrix.database_name }}
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_USERNAME: root
+      DB_PASSWORD: ''
+      SESSION_DRIVER: array
+      CACHE_STORE: array
+      MAIL_MAILER: array
+      QUEUE_CONNECTION: sync
+      BCRYPT_ROUNDS: '4'
+      EA_TEST_MYSQL: ${{ matrix.concurrency_mysql }}
+      EA_TEST_REDIS: '1'
+      EA_TEST_REDIS_PORT: '6379'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, pdo_mysql, pdo_sqlite, redis, sodium, pcntl
+          coverage: none
+          tools: composer:v2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: cp .env.example .env
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: php artisan key:generate --no-interaction
+      - run: composer validate --strict
+      - run: composer audit
+      - run: npm ci --ignore-scripts
+      - run: npm audit
+      - run: npm run build
+      - run: php -d memory_limit=768M vendor/bin/phpunit
+      - name: Lockfiles unchanged
+        run: git diff --exit-code -- composer.lock package-lock.json
+
+  secrets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan history with verified Gitleaks binary
+        shell: bash
+        run: |
+          curl --fail --location --silent --show-error \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            --output "$RUNNER_TEMP/gitleaks.tar.gz"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git . --log-opts=--all --redact=100 --no-banner

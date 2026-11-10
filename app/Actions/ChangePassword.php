@@ -3,8 +3,10 @@
 namespace App\Actions;
 
 use App\Models\User;
+use App\Support\AccountSessionRevocation;
 use App\Support\SecurityEvent;
 use App\Support\StaffAuthentication;
+use App\UserRole;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -16,6 +18,7 @@ class ChangePassword
         DB::transaction(function () use ($user, $currentPassword, $password): void {
             $locked = User::lockForUpdate()->findOrFail($user->id);
             abort_unless($locked->is_active, 403);
+            app(AccountSessionRevocation::class)->assertCurrent(request(), $locked, $locked->role === UserRole::Customer ? 'customer' : 'web');
             app(StaffAuthentication::class)->assertComplete($locked);
             if (! Hash::check($currentPassword, $locked->password)) {
                 throw ValidationException::withMessages(['current_password' => __('auth.password')]);

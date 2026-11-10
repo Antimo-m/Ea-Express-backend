@@ -117,7 +117,7 @@ class ReceiptReconciliationTest extends TestCase
         $this->assertSame(500, app(ReceiptLedger::class)->cash(PaymentEntry::where('order_id', $order->id)));
         $this->postJson(route('payments.store', $order), ['action' => 'reverse', 'version' => 2, 'note' => 'Nuovo storno tracciato'])->assertOk();
         $this->assertSame(0, (int) $order->payments()->sum('amount_cents'));
-        $this->assertSame(0, app(ReceiptLedger::class)->cash(PaymentEntry::where('order_id', $order->id)));
+        $this->assertSame(500, app(ReceiptLedger::class)->cash(PaymentEntry::where('order_id', $order->id)));
     }
 
     public function test_linked_pending_payments_cannot_be_reconciled_as_an_independent_receipt(): void

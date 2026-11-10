@@ -18,7 +18,7 @@ class RiderAssignmentTest extends TestCase
     public function test_admin_can_select_self_or_an_active_rider_and_assignment_is_audited(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $otherAdmin = User::factory()->create(['role' => UserRole::Admin]);
+        $otherAdmin = User::factory()->create(['role' => UserRole::Rider]);
         $rider = User::factory()->create();
         $customer = User::factory()->create(['role' => UserRole::Customer]);
         $disabled = User::factory()->create(['is_active' => false]);

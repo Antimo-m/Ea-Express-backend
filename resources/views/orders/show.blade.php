@@ -7,7 +7,7 @@
     <nav class="page-back" aria-label="Navigazione pagina"><x-ui.icon-button action="back" :href="$operationsReturn ?: route($returnRoute)" label="Torna indietro" text /></nav>
     <header class="page-heading order-detail-heading">
         <div><span class="eyebrow text-break">Ordine: {{ $order->reference }}</span><h1>{{ $order->displayName() }}</h1><p>{{ $order->sender_type === 'private' ? 'Privato' : ($order->sender_type === 'online_shop' ? 'Shop online' : ($order->business_type ?: 'Attività commerciale')) }} · {{ $order->pickup_city }} → {{ $order->delivery_city }}</p></div>
-        <div class="row-actions"><x-ui.status-badge :status="$order->status" />@if($order->receipt_voided_at)<span class="status-pill tone-danger">Incasso stornato</span>@endif<x-ui.icon-button action="message" :href="route('messages.show', $order)" label="Apri messaggi del cliente" /><x-ui.icon-button action="print" href="{{ route('labels.index', ['ids' => [$order->slug]]) }}" label="Stampa etichetta" target="_blank" rel="noopener" /></div>
+        <div class="row-actions"><x-ui.status-badge :status="$order->status" />@if($order->receipt_voided_at)<span class="status-pill tone-danger">Incasso stornato</span>@endif<x-ui.icon-button action="message" :href="route('messages.show', $order)" label="Apri messaggi del cliente" /><x-ui.icon-button action="print" data-label-availability :aria-disabled="$order->parcel_count > 0 ? 'false' : 'true'" href="{{ route('labels.index', ['ids' => [$order->slug]]) }}" label="Stampa etichetta" target="_blank" rel="noopener" /></div>
     </header>
     <div class="order-workflow">
         @can('update', $order)
@@ -40,11 +40,10 @@
                     <div><dt>Contenuto</dt><dd>{{ \App\Support\OrderContent::label($order->category, $order->content_description) }}</dd></div>
                     <div><dt>Tipo pacco</dt><dd>{{ $order->package_type === 'fragile' ? 'FRAGILE' : ($order->package_type === 'other' ? $order->package_description : 'Pacco standard') }}</dd></div>
                     <div><dt>Priorità</dt><dd>{{ $order->urgency === 'urgent' ? 'Urgente' : 'Standard' }}</dd></div>
-                    <div><dt>Tracking vettore</dt><dd>{{ $order->carrier_tracking ?: 'Non indicato' }}</dd></div>
                     <div><dt>Tariffa prevista</dt><dd>{{ \App\Support\Money::format($order->price_cents) }}</dd></div>
                     <div><dt>Valore merce dichiarato</dt><dd>{{ $order->parcel_value_cents === null ? 'Non dichiarato' : \App\Support\Money::format($order->parcel_value_cents) }}</dd></div>
                     <div><dt>Rider</dt><dd>{{ $order->rider?->name ?: 'Da assegnare' }}</dd></div>
-                    @if(auth()->user()->role === \App\UserRole::Admin)<div><dt>Incasso effettivo registrato</dt><dd>{{ \App\Support\Money::format((int) $order->payments_sum_amount_cents) }}</dd></div>@endif
+                    @if(auth()->user()->role === \App\UserRole::Admin)<div><dt>{{ $receipt['label'] }}</dt><dd>{{ \App\Support\Money::format($receipt['amount_cents']) }}@if($receipt['state'] === 'partial')<small>Residuo: {{ \App\Support\Money::format($receipt['remaining_cents']) }}</small>@endif</dd></div>@endif
                 </dl>
                 @if($order->packages)<details class="order-package-details"><summary>Peso e dimensioni · {{ count($order->packages) }} {{ count($order->packages) === 1 ? 'pacco' : 'pacchi' }}</summary><div class="package-summary">@foreach($order->packages as $package)<p><strong>Pacco {{ $loop->iteration }}</strong> · {{ $package['weight_kg'] }} kg · {{ $package['length_cm'] }} × {{ $package['width_cm'] }} × {{ $package['height_cm'] }} cm</p>@endforeach</div></details>@endif
                 @if($order->notes)<div class="operational-note internal"><strong>Note interne · solo operatori</strong><p>{{ $order->notes }}</p></div>@endif

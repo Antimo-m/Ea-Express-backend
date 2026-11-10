@@ -46,3 +46,40 @@
   .page-heading .row-actions { flex-wrap: wrap; }
   .btn { white-space: normal; overflow-wrap: anywhere; }
 }
+
+.ea-app .action-pair, .ea-app .order-form-actions, .ea-app .checkout-actions, .ea-app .rider-create-actions, .ea-app .ea-modal .modal-actions { display: flex; flex-flow: row wrap; align-items: center; justify-content: flex-end; gap: 12px; width: 100%; }
+.ea-app .action-pair > .action-delete, .ea-app .action-pair > .btn-danger, .ea-app .action-pair > .btn-outline-danger, .ea-app .order-form-actions > .btn-outline-danger { order: -1; margin-inline-end: auto; }
+.ea-app .action-pair > .button-back, .ea-app .checkout-actions > form:first-child, .ea-app .rider-create-actions > .button-back { margin-inline-end: auto; }
+.ea-app .action-pair > .action-confirm, .ea-app .action-pair > .btn-success { order: 1; }
+.ea-app .ea-modal .modal-actions > .modal-back { margin-inline-end: auto; }
+.ea-app .ea-modal .modal-actions:has(.action-delete) > .modal-back { margin-inline: auto 0; }
+.ea-app .ea-modal .modal-actions > .action-delete { order: -1; color: var(--ea-on-color); background: var(--ea-danger); border-color: var(--ea-danger); }
+.ea-app .page-heading > .row-actions, .ea-app .dashboard-heading > .row-actions { margin-inline-start: auto; justify-content: flex-end; }
+.ea-app .order-detail-heading > .row-actions { width: 100%; justify-content: flex-end; }
+.ea-app .dashboard-cta .row-actions, .ea-app .dashboard-cta .actions, .ea-app .empty-state:has(.action-add) { justify-content: flex-end; }
+.ea-app .empty-state > .action-add { margin-inline-start: auto; }
+.ea-picker-popup .picker-content > .action-confirm { display: flex; width: max-content; margin-inline-start: auto; margin-top: 12px; }
+.ea-app .operations-period-filter .filter-actions { align-self: start; }
+.ea-app .operations-period-filter .filter-primary { min-width: 0; }
+.explorer-rider-summary { display: block; margin-top: 8px; color: var(--ea-muted); font-size: .8rem; overflow-wrap: anywhere; }
+.history-print-toolbar { padding: 16px; margin-bottom: 16px; }
+.history-print-toolbar .history-print-start { display: flex; justify-content: flex-end; }
+.history-print-toolbar [data-label-status]:empty { display: none; }
+.history-print-choice { display: none; }
+.order-archive[data-history-printing="true"] .history-print-choice { display: inline-flex; gap: 8px; align-items: center; min-height: 44px; cursor: pointer; font-size: .8rem; overflow-wrap: anywhere; }
+.order-archive[data-history-printing="true"] .history-print-choice input { flex: 0 0 auto; width: 18px; height: 18px; }
+.order-archive[data-history-printing="true"] .archive-day-heading { flex-wrap: wrap; }
+.order-archive[data-history-printing="true"] .history-order-actions { flex-wrap: wrap; min-width: 0; }
+.history-print-controls [data-history-print-status] { font-weight: 600; }
+.account-state-actions { display: flex; margin-bottom: 16px; }
+@media (max-width: 767px) {
+  .ea-app .dashboard-cta .row-actions, .ea-app .dashboard-cta .actions { width: 100%; }
+  .ea-app .operations-period-filter .filter-actions { align-self: start; }
+  .order-archive[data-history-printing="true"] .archive-day-heading .history-print-choice { flex-basis: 100%; }
+}
+.ea-app .form-stack > button[type="submit"]:not(.action-delete):not(.btn-danger), .ea-app .form-stack > .action-confirm, .ea-app .form-stack > .action-send { justify-self: end; margin-inline-start: auto; }
+.ea-app .form-stack > .action-delete { justify-self: start; margin-inline-end: auto; }
+.ea-app .form-stack > div:has(> .action-confirm:only-child) { display: flex; justify-content: flex-end; }
+.ea-app .form-actions { justify-content: flex-end; }
+.ea-app .form-actions > .action-delete, .ea-app .form-actions > .btn-danger, .ea-app .form-actions > .button-back { margin-inline-end: auto; }
+.ea-app .app-sidebar .icon-button.sidebar-create { align-self: flex-end; margin-inline: auto 12px; }

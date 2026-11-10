@@ -63,7 +63,10 @@ for (const panel of document.querySelectorAll('[data-rider-operations]')) {
         const metrics = node('dl', '', 'explorer-detail-metrics');
         for (const [key, label] of [['total', 'Programmate'], ['delivered', 'Consegnate'], ['pending', 'Da consegnare'], ['unassigned', 'Da assegnare']]) { const item = node('div'); item.append(node('dt', label), node('dd', group[key])); metrics.append(item); }
         detail.append(metrics);
-        const progress = node('progress'); progress.max = Math.max(1, group.total); progress.value = group.delivered; progress.setAttribute('aria-label', 'Spedizioni consegnate'); detail.append(progress);
+        const valid = group.total - group.closed_unfulfilled;
+        if (valid) { const progress = node('progress'); progress.max = valid; progress.value = group.delivered; progress.setAttribute('aria-label', 'Spedizioni consegnate'); detail.append(progress); }
+        else detail.append(node('p', 'Nessuna consegna prevista'));
+        if (group.closed_unfulfilled) detail.append(node('p', `${group.closed_unfulfilled} annullate o rifiutate · escluse dall’avanzamento`));
         const assignments = node('div', '', 'explorer-assignments');
         assignments.append(node('span', view === 'zone' ? 'Rider assegnati' : 'Zone della giornata', 'data-label'));
         for (const item of view === 'zone' ? group.riders : group.zones) {
@@ -92,7 +95,15 @@ for (const panel of document.querySelectorAll('[data-rider-operations]')) {
             const heading = node('span', '', 'explorer-item-heading'); heading.append(node('strong', group.name), node('span', group.total, 'explorer-volume')); button.append(heading);
             const status = node('span', '', 'explorer-item-status');
             status.append(node('span', `${group.delivered} consegnate`, 'operations-completed'), node('span', `${group.pending} da consegnare`), node('span', `${group.unassigned} da assegnare`));
-            button.append(status); list.append(button);
+            button.append(status);
+            if (view === 'zone' && group.riders.length) {
+                const names = group.riders.slice(0, 3).map(rider => rider.name);
+                const more = group.riders.length - names.length;
+                const summary = node('span', names.join(' · '), 'explorer-rider-summary');
+                if (more > 0) { const extra = node('span', ` · +${more}`); extra.setAttribute('aria-label', `${more} altri Rider: apri il dettaglio della zona`); summary.append(extra); }
+                button.append(summary);
+            }
+            list.append(button);
         }
         syncState();
         list.scrollTop = oldScroll;

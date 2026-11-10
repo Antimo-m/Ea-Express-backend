@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\BookingRulesController;
 use App\Http\Controllers\Api\CustomerAuthController as Auth;
+use App\Http\Controllers\Api\CustomerLabelController;
 use App\Http\Controllers\Api\CustomerMessageController as Messages;
 use App\Http\Controllers\Api\CustomerOrderController as Orders;
 use App\Http\Controllers\Api\CustomerPendingController;
@@ -42,6 +43,7 @@ Route::prefix('api/v1/customer')->name('customer.')->middleware('throttle:custom
         Route::get('rates/quote', [ShippingRateController::class, 'quote']);
         Route::patch('orders/{order}/price', [ShippingPriceController::class, 'update'])->middleware('throttle:writes');
         Route::get('orders', [Orders::class, 'index']);
+        Route::get('orders/labels', [CustomerLabelController::class, 'index']);
         Route::get('orders/{order}', [Orders::class, 'show']);
         Route::get('orders/{order}/messages', [Messages::class, 'index']);
         Route::get('notifications/feed', [Workspace::class, 'feed']);
