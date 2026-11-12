@@ -111,6 +111,8 @@ class BalanceExperienceTest extends TestCase
         $response = $this->get('/balance?ledger=reversed')->assertOk()->assertSee('Con rettifica contabile')->assertSee('Senza effetto sul netto')->assertDontSee('Storno ripristinato');
         if ($directory = getenv('EA_UI_FIXTURE_DIR')) {
             file_put_contents($directory.'/finance-reversals-flow.html', $response->getContent());
+            $history = $this->get('/balance?ledger=history')->assertOk()->assertSee('Ripristino contabile');
+            file_put_contents($directory.'/finance-reversals-history.html', $history->getContent());
         }
     }
 }

@@ -89,11 +89,6 @@ class Order extends Model
         return $this->hasMany(ShippingPriceProposal::class);
     }
 
-    public function shippingRate(): BelongsTo
-    {
-        return $this->belongsTo(ShippingRate::class);
-    }
-
     /** @return array{pickup_date: string, pickup_from: string, pickup_to: string} */
     public function pickupSchedule(): array
     {
@@ -163,11 +158,6 @@ class Order extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(OrderMessage::class);
-    }
-
-    public function assignedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'assigned_by');
     }
 
     public function rider(): BelongsTo

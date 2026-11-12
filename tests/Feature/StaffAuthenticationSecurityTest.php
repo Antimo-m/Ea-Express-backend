@@ -94,10 +94,12 @@ class StaffAuthenticationSecurityTest extends TestCase
         $this->assertSame(StaffAuthenticationState::FullyAuthenticated->value, session('staff_authentication.state'));
         $this->assertNull(session('email_otp_challenge'));
         $this->get('/profile')->assertOk();
-        $this->put('/password', ['current_password' => 'password', 'password' => 'new-password', 'password_confirmation' => 'new-password'])->assertSessionHasNoErrors();
-        $this->assertTrue(Hash::check('new-password', $user->fresh()->password));
-        $this->get('/profile')->assertOk();
         $this->getJson('/settings/users')->assertForbidden();
+        $this->put('/password', ['current_password' => 'password', 'password' => 'new-password', 'password_confirmation' => 'new-password'])->assertSessionHasNoErrors()->assertRedirect('/login');
+        $this->assertTrue(Hash::check('new-password', $user->fresh()->password));
+        $this->assertGuest();
+        $this->get('/profile')->assertRedirect('/login');
+        $this->getJson('/settings/users')->assertUnauthorized();
     }
 
     public function test_wrong_otp_does_not_elevate_the_session(): void

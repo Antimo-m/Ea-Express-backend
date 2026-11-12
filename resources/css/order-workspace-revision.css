@@ -83,6 +83,9 @@
 .shipment-card-party { font-size: .8125rem; overflow-wrap: anywhere; }
 .dashboard-order-preview > .shipment-card-reference { display: flex; grid-column: 1 / -1; }
 .dashboard-order-parties small { color: var(--ea-muted); font-size: .75rem; }
+.control-register[data-live-region="shipments"] .dashboard-order-parties { row-gap: 3px; }
+.control-register[data-live-region="shipments"] .dashboard-order-parties > .data-label { margin-bottom: 0; }
+.control-register[data-live-region="shipments"] .dashboard-order-parties > span:not(.data-label) { font-weight: 700; }
 .dashboard-order-preview { gap: 12px 20px; }
 .operation-mini-card { display: grid; align-content: start; gap: 10px; min-width: 0; }
 .operation-mini-card .operation-recipient, .operation-mini-card .operation-destination { margin: 0; }

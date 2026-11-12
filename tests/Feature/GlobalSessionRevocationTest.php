@@ -149,7 +149,7 @@ class GlobalSessionRevocationTest extends TestCase
     }
 
     #[DataProvider('passwordDrivers')]
-    public function test_password_change_revokes_other_device_and_keeps_only_rotated_current_session(string $driver, UserRole $role): void
+    public function test_password_change_requires_a_new_login_on_every_device(string $driver, UserRole $role): void
     {
         $this->sessionDriver($driver);
         $user = User::factory()->create(['role' => $role]);
@@ -172,12 +172,25 @@ class GlobalSessionRevocationTest extends TestCase
 
         $this->assertNotSame($previousSession, session()->getId());
         $this->assertNotSame($previousCsrf, session()->token());
-        $this->getJson($path)->assertOk();
+        $this->assertGuest($role === UserRole::Customer ? 'customer' : 'web');
+        $this->assertContains($this->getJson($path)->status(), [401, 403]);
         $this->device('b');
         $this->assertContains($this->getJson($path)->status(), [401, 403]);
         $this->assertGuest($role === UserRole::Customer ? 'customer' : 'web');
         $this->device('other-account');
         $this->getJson('/api/v1/customer/auth/me')->assertOk()->assertJsonPath('user.slug', $other->slug);
+
+        $this->device('a');
+        $this->travel(61)->seconds();
+        $credentials = ['email' => $user->email, 'password' => 'Updated-password-123'];
+        if ($role === UserRole::Customer) {
+            $this->postJson('/api/v1/customer/auth/login', $credentials)->assertOk();
+        } else {
+            $this->post('/login', $credentials)->assertRedirect(route('email-otp.notice'));
+            $code = Notification::sent($user, RiderEmailOtp::class)->last()->code;
+            $this->post('/verify-email-otp/confirm', ['code' => $code])->assertRedirect('/dashboard');
+        }
+        $this->getJson($path)->assertOk();
     }
 
     public static function revocationDrivers(): array

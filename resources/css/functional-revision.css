@@ -82,4 +82,4 @@
 .ea-app .form-stack > div:has(> .action-confirm:only-child) { display: flex; justify-content: flex-end; }
 .ea-app .form-actions { justify-content: flex-end; }
 .ea-app .form-actions > .action-delete, .ea-app .form-actions > .btn-danger, .ea-app .form-actions > .button-back { margin-inline-end: auto; }
-.ea-app .app-sidebar .icon-button.sidebar-create { align-self: flex-end; margin-inline: auto 12px; }
+.ea-app .app-sidebar .icon-button.sidebar-create { align-self: center; margin-inline: auto; }

@@ -254,3 +254,14 @@ Thumbs.db
 
 # Artefatti interni conservati soltanto in locale.
 /storage/app/reports/
+
+# Regressioni dei saldi separati e dei default di configurazione.
+!/tests/Feature/EnvironmentDefaultsTest.php
+!/tests/Feature/SeparateBalanceTotalsTest.php
+!/tests/Feature/MysqlBackupRestoreTest.php
+!/tests/JavaScript/
+!/tests/JavaScript/booking-rules.test.mjs
+!/tests/JavaScript/confirmations.test.mjs
+!/tests/JavaScript/financial-forms.test.mjs
+!/tests/JavaScript/notifications.test.mjs
+!/tests/customer-revision.browser.test.mjs

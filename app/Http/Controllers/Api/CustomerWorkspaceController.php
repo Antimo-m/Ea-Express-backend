@@ -104,8 +104,8 @@ class CustomerWorkspaceController extends Controller
     {
         $data = $request->validate(['current_password' => ['bail', 'required', 'string', new SafePasswordLength, 'current_password:customer'], 'password' => [...PasswordPolicy::rules(), 'confirmed']]);
         app(ChangePassword::class)->handle($request->user(), $data['current_password'], $data['password']);
-        app(AccountSessionRevocation::class)->renewCurrent($request, $request->user(), 'customer');
+        app(AccountSessionRevocation::class)->invalidateCurrent($request);
 
-        return response()->json(['message' => 'Password aggiornata.']);
+        return response()->json(['message' => 'Password aggiornata. Accedi nuovamente.', 'csrf_token' => csrf_token()]);
     }
 }

@@ -72,12 +72,16 @@ test('Collaudo produzione: selezione stampa, badge, azioni e Rider a tutte le la
                 await click('[aria-label="Apri menu"]');
                 await waitFor('document.querySelector("#app-navigation.show")');
                 assert.ok(await evaluate('const box=document.querySelector("#app-navigation").getBoundingClientRect();return box.left>=-1 && box.right<=innerWidth+1;'));
+                const addAlignment=await evaluate('const container=document.querySelector("#app-navigation .sidebar-content"),box=container.getBoundingClientRect(),button=container.querySelector(".sidebar-create").getBoundingClientRect();return Math.abs(box.left+container.clientWidth/2-(button.left+button.right)/2);');
+                assert.ok(addAlignment < 2, 'Aggiunta sidebar centrata: '+addAlignment);
                 await click('[aria-label="Chiudi menu"]');
                 await waitFor('!document.querySelector("#app-navigation.show")');
                 await checkBounds('sidebar chiusa @'+width);
             }
-            const addAlignment=await evaluate('const container=document.querySelector("#app-navigation .sidebar-content"),button=container.querySelector(".sidebar-create"),box=container.getBoundingClientRect();return Math.abs(box.left+container.clientWidth-24-button.getBoundingClientRect().right);');
-            if (width >= 992) assert.ok(addAlignment < 2, 'Aggiunta sidebar a destra: '+addAlignment);
+            if (width >= 992) {
+                const addAlignment=await evaluate('const container=document.querySelector("#app-navigation .sidebar-content"),box=container.getBoundingClientRect(),button=container.querySelector(".sidebar-create").getBoundingClientRect();return Math.abs(box.left+container.clientWidth/2-(button.left+button.right)/2);');
+                assert.ok(addAlignment < 2, 'Aggiunta sidebar centrata: '+addAlignment);
+            }
             await navigate('revision-history.html');
             await evaluate('window.__prints=[];window.open=(url)=>{window.__prints.push(String(url));};');
             await click('[data-history-print-start]');

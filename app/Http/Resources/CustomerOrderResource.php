@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Support\OrderContent;
 use App\Support\ShippingQuote;
+use App\OrderStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -26,7 +27,7 @@ class CustomerOrderResource extends JsonResource
             'delivery_zone' => $this->delivery_zone, 'total_cents' => $this->resource->totalCents(),
             'can_print' => $this->parcel_count > 0,
             'receipt' => $this->resource->receiptData(),
-            'price_cents' => $this->price_cents, 'tracking_active' => $this->tracking_started_at !== null, 'estimated_at' => $this->estimated_at?->toIso8601String(),
+            'price_cents' => $this->price_cents, 'tracking_active' => $this->tracking_started_at !== null, 'estimated_at' => in_array($this->status->value, OrderStatus::closed(), true) ? null : $this->estimated_at?->toIso8601String(),
             'delivered_at' => $this->delivered_at?->toIso8601String(), 'created_at' => $this->created_at->toIso8601String(),
             'messages_count' => $this->whenCounted('messages'), 'unread_messages_count' => $this->whenCounted('unread_messages'),
             'can_edit' => $this->resource->customerEditable(), 'can_cancel' => $this->resource->customerEditable(),

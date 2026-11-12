@@ -22,9 +22,7 @@ class EnsureAccountSessionVersion
                 continue;
             }
             SecurityEvent::record('obsolete_session_rejected', $user->id);
-            $guard->logoutCurrentDevice();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
+            $this->revocation->invalidateCurrent($request);
             if ($request->expectsJson() || $request->is('api/*')) {
                 return response()->json(['message' => 'Sessione revocata. Accedi nuovamente al tuo account.'], $name === 'customer' ? 401 : 403);
             }

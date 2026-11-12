@@ -73,4 +73,14 @@ class AccountSessionRevocation
             $request->session()->put('staff_authentication.credentials', $authentication->credentialProof($user));
         }
     }
+
+    public function invalidateCurrent(Request $request): void
+    {
+        app(StaffAuthentication::class)->invalidateChallenge($request);
+        foreach (['web', 'customer'] as $guard) {
+            Auth::guard($guard)->logoutCurrentDevice();
+        }
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+    }
 }

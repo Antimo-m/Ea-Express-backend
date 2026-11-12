@@ -89,7 +89,22 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm audit
       - run: npm run build
+      - run: npm test
       - run: php -d memory_limit=768M vendor/bin/phpunit
+      - name: Backend browser regression tests
+        if: matrix.database == 'sqlite'
+        shell: bash
+        run: |
+          export EA_BROWSER_PATH="$(command -v google-chrome)"
+          test -x "$EA_BROWSER_PATH"
+          node --test --test-concurrency=1 \
+            tests/finance-revision.browser.test.mjs \
+            tests/functional-revision.browser.test.mjs \
+            tests/order-workspace.browser.test.mjs \
+            tests/pickup-agenda.browser.test.mjs \
+            tests/production-revision.browser.test.mjs \
+            tests/rates-booking.browser.test.mjs \
+            tests/rider-workspace.browser.test.mjs
       - name: Lockfiles unchanged
         run: git diff --exit-code -- composer.lock package-lock.json
 

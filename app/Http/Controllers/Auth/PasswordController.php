@@ -9,7 +9,6 @@ use App\Support\AccountSessionRevocation;
 use App\Support\PasswordPolicy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rules\Password;
 
 class PasswordController extends Controller
 {
@@ -24,8 +23,8 @@ class PasswordController extends Controller
         ]);
 
         app(ChangePassword::class)->handle($request->user(), $validated['current_password'], $validated['password']);
-        app(AccountSessionRevocation::class)->renewCurrent($request, $request->user(), 'web');
+        app(AccountSessionRevocation::class)->invalidateCurrent($request);
 
-        return back()->with('status', 'password-updated');
+        return redirect()->route('login')->with('status', 'Password aggiornata. Accedi nuovamente.');
     }
 }

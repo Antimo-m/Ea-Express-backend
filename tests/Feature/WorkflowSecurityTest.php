@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
@@ -158,6 +159,21 @@ class WorkflowSecurityTest extends TestCase
         $this->assertNotNull($order->fresh()->estimated_at);
         $this->patchJson('/orders/'.$order->slug, ['status' => 'out_for_delivery', 'version' => 2])->assertOk();
         $this->assertNull($order->fresh()->estimated_at);
+    }
+
+    #[TestWith([OrderStatus::OutForDelivery, 'delivered'])]
+    #[TestWith([OrderStatus::DeliveryAttempted, 'cancelled'])]
+    public function test_closing_an_order_preserves_its_previous_eta_without_exposing_it_as_current(OrderStatus $current, string $next): void
+    {
+        $estimate = now()->addDay()->startOfMinute();
+        $order = $this->order(['status' => $current, 'estimated_at' => $estimate, 'tracking_started_at' => now()]);
+
+        $this->actingAs($order->rider)->patchJson('/orders/'.$order->slug, ['status' => $next, 'version' => 1, 'note' => 'Chiusura ordine'])->assertOk();
+
+        $this->assertSame($estimate->toIso8601String(), $order->fresh()->estimated_at->toIso8601String());
+        $this->assertSame($next, $order->fresh()->status->value);
+        $this->actingAs($order->customer, 'customer')->getJson('/api/v1/customer/orders/'.$order->slug)->assertOk()->assertJsonPath('data.estimated_at', null);
+        $this->get(route('tracking.public', $order->tracking_token))->assertOk()->assertDontSee('Previsione:');
     }
 
     public function test_skipped_steps_wrong_rider_and_stale_versions_cannot_mutate_orders(): void

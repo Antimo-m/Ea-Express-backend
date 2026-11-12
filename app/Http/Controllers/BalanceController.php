@@ -155,6 +155,7 @@ class BalanceController extends Controller
                 ->latest()->orderByDesc('id')->paginate(10, ['*'], 'reversals_page')->withQueryString(),
             'ledger' => $ledger, 'receiptSort' => $receiptSort, 'search' => $search, 'cashBalance' => $cashBalance, 'manualSections' => $manualSections, 'paymentSections' => $paymentSections,
             'cashMovementBalance' => $cashAdditions, 'operatingResult' => $operatingNet, 'finalNet' => $operatingNet,
+            'pendingBalance' => $snapshot['uncertain'] ? null : $pendingImpact,
             'deliveredCount' => (clone $orders)->where('status', OrderStatus::Delivered)->whereBetween('delivered_at', $period->utcRange())->count(),
             'pendingEntries' => $pendingEntries,
             'selectedCustomerSlugs' => $selectedCustomerSlugs, 'reversalTotal' => $reversalTotal, 'registeredIncome' => $registeredIncome,

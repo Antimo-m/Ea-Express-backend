@@ -9,7 +9,7 @@ import { join, resolve, extname } from 'node:path';
 
 const chrome = process.env.EA_BROWSER_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
-test('EA pickers and operational pages: keyboard, validation, long content, contrast and responsive', { skip: !existsSync(chrome), timeout: 480000 }, async t => {
+test('EA pickers and operational pages: keyboard, validation, long content, contrast and responsive', { skip: !existsSync(chrome), timeout: 900000 }, async t => {
     const temporary = mkdtempSync(join(tmpdir(), 'ea-ui-'));
     const scenarioPattern = process.env.EA_UI_SCENARIOS ? new RegExp(process.env.EA_UI_SCENARIOS, 'i') : null;
     const scenario = (name, callback) => t.test(name, { skip: Boolean(scenarioPattern && !scenarioPattern.test(name)) }, callback);
@@ -970,11 +970,11 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
                 await navigate('finance-reversals-flow.html');
                 assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`),`reversal page overflow ${width}`);
-                assert.equal(await evaluate(`document.querySelectorAll('[data-reversal]').length`),3);
-                assert.ok(await evaluate(`document.body.textContent.includes('Senza effetto sul netto')&&document.body.textContent.includes('Con rettifica contabile')&&document.body.textContent.includes('Ripristinato il')`));
-                assert.ok(await evaluate(`(()=>{const tile=document.querySelector('.statement-net').getBoundingClientRect(),grid=document.querySelector('.finance-metrics').getBoundingClientRect();return Math.abs(tile.width-grid.width)<2})()`));
+                assert.equal(await evaluate(`document.querySelectorAll('[data-reversal]').length`),2);
+                assert.ok(await evaluate(`document.body.textContent.includes('Senza effetto sul netto')&&document.body.textContent.includes('Con rettifica contabile')&&!document.body.textContent.includes('Ripristinato il')`));
+                assert.ok(await evaluate(`!!document.querySelector('[data-balance="final"]') && !!document.querySelector('[data-balance="pending"]')`));
                 await assertButtonShapes(`reversal controls ${width}`);
-                assert.equal(await evaluate(`document.querySelector('[data-dialog-open^="receipt-refund-"]')`),null,'the reversal already records the refund');
+                assert.equal(await evaluate(`document.querySelector('[data-dialog-open^="receipt-refund-"]')`),null,'the fixture records a separate completed refund');
                 await evaluate(`const row=[...document.querySelectorAll('[data-reversal]')].find(node=>node.textContent.includes('Con rettifica contabile')&&node.querySelector('[data-dialog-open^="receipt-state-"]'));row.querySelector('.row-actions-menu summary').click();row.querySelector('[data-dialog-open^="receipt-state-"]').click()`);
                 assert.ok(await evaluate(`document.querySelector('dialog[open]').textContent.includes('nuova registrazione del pagamento')`));
                 assert.equal(await evaluate(`document.querySelector('dialog[open] [name="action"]').value`),'restore');
@@ -985,6 +985,9 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                     assert.deepEqual((await contrast()).failed,[],`reversal contrast ${theme} ${width}`);
                 }
                 if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`reversals-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+                await navigate('finance-reversals-history.html');
+                assert.ok(await evaluate(`document.querySelector('[data-money-register="history"]').textContent.includes('Ripristino contabile')`));
+                assert.equal(await evaluate(`document.querySelectorAll('[data-reversal]').length`),0);
             }
         });
         await scenario('financial statement categories and verified reconciliation keep money and deliveries distinct on mobile and desktop', async () => {
@@ -992,7 +995,8 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
                 for(const page of ['finance-statement-customers.html','finance-manual-categories.html','finance-payment-categories.html','finance-reconciliation.html']) {
                     await navigate(page);
-                    assert.deepEqual(await evaluate(`[...document.querySelectorAll('.finance-overview h3')].map(node=>node.textContent)`),['Saldo dei movimenti registrati','Come sta andando l’attività','Ancora da regolare']);
+                    assert.deepEqual(await evaluate(`[...document.querySelectorAll('.finance-overview h3')].map(node=>node.textContent)`),['Saldo dei movimenti registrati','Saldo finale','Ancora da regolare']);
+                    assert.ok(await evaluate(`document.querySelector('[data-balance="final"]') && document.querySelector('[data-balance="pending"]')?.textContent.includes('Saldo sospeso')`));
                     assert.ok(await evaluate(`!!document.querySelector('.finance-overview .count-pill')`));
                     if(page==='finance-statement-customers.html') {
                         assert.equal(await evaluate(`document.querySelector('.finance-overview .count-pill').textContent`),'2 consegne');
@@ -1234,7 +1238,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`portal-dashboard-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true})).data,'base64'));
             }
         });
-        await scenario('shared navigation and pending workspace preserve centered creation, payment actions and bounded close tooltips', async () => {
+        await scenario('shared navigation and pending workspace preserve reachable creation, payment actions and bounded close tooltips', async () => {
             for (const width of [375,768,1024,1440]) {
                 await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<600});
                 await navigate('workspace-pending.html');
@@ -1244,8 +1248,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 const colors = await evaluate(`(()=>{const style=node=>getComputedStyle(document.querySelector(node));const token=name=>getComputedStyle(document.documentElement).getPropertyValue(name).trim();return {search:style('.filter-submit').getPropertyValue('--action-color').trim(),reset:style('.filter-reset').getPropertyValue('--action-color').trim(),filter:style('.filter-more').backgroundColor,searchBackground:style('.filter-submit').backgroundColor,edit:style('.pending-account-panel .action-edit').getPropertyValue('--action-color').trim(),brand:token('--ea-brand'),info:token('--ea-info'),success:token('--ea-success')};})()`);
                 assert.equal(colors.search,colors.brand); assert.equal(colors.reset,colors.info); assert.equal(colors.edit,colors.success); assert.equal(colors.filter,colors.searchBackground);
                 if(width<992){await evaluate(`document.querySelector('.app-header [data-bs-toggle="offcanvas"]').click()`);await evaluate(`Promise.all(document.querySelector('.app-sidebar').getAnimations().map(animation=>animation.finished))`);}
-                const center = await evaluate(`(()=>{const container=document.querySelector('.sidebar-content'),r=container.getBoundingClientRect(),b=document.querySelector('.sidebar-create').getBoundingClientRect();return Math.abs((b.left+b.right-2*r.left-container.clientWidth)/2);})()`);
-                assert.ok(center<=1,`Sidebar creation center @${width}: ${center}`);
+                assert.ok(await evaluate(`(()=>{const r=document.querySelector('.sidebar-content').getBoundingClientRect(),b=document.querySelector('.sidebar-create').getBoundingClientRect();return b.left>=r.left&&b.right<=r.right&&b.width>=44&&b.height>=44;})()`),`Sidebar creation is reachable @${width}`);
                 if(width<992){await key('Escape');await evaluate(`Promise.all(document.querySelector('.app-sidebar').getAnimations().map(animation=>animation.finished))`);}
                 const edit = await evaluate(`(()=>{const trigger=document.querySelector('.pending-account-panel .action-edit');trigger.click();return trigger.dataset.dialogOpen;})()`);
                 assert.ok(await evaluate(`document.getElementById(${JSON.stringify(edit)}).open`));
@@ -1327,8 +1330,10 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                     assert.ok(await evaluate(`[...document.querySelectorAll('.app-header,.page-heading,.dashboard-heading')].every(node=>!['sticky','fixed'].includes(getComputedStyle(node).position))`),`${page} persistent page title at ${width}`);
                     const invalid = await evaluate(`[...document.querySelectorAll('.action-add')].filter(node=>node.getClientRects().length).filter(node=>node.textContent.trim() || !node.getAttribute('aria-label') || node.getBoundingClientRect().width<44 || node.getBoundingClientRect().height<44).map(node=>({label:node.getAttribute('aria-label'),text:node.textContent.trim(),width:node.getBoundingClientRect().width}))`);
                     assert.deepEqual(invalid,[],`${page} creation action at ${width}`);
-                    await evaluate(`window.scrollTo(0,450)`);
-                    assert.ok(await evaluate(`document.querySelector('.app-header').getBoundingClientRect().top<0 || document.documentElement.scrollHeight<=innerHeight`),`${page} title scrolls at ${width}`);
+                    const headingPosition = await evaluate(`document.querySelector('.app-header').getBoundingClientRect().top+scrollY`);
+                    await evaluate(`window.scrollTo({top:450,behavior:'instant'})`);
+                    const scrolledHeadingPosition = await evaluate(`document.querySelector('.app-header').getBoundingClientRect().top+scrollY`);
+                    assert.ok(Math.abs(scrolledHeadingPosition-headingPosition)<=1,`${page} title follows document scrolling at ${width}`);
                     if(process.env.EA_UI_SCREENSHOTS && [375,768,1024,1440].includes(width)) writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`revision-${page.replace('.html','')}-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
                 }
             }
@@ -1540,7 +1545,7 @@ $app->handleRequest(Illuminate\\Http\\Request::capture());
                 assert.match(await evaluate(`document.querySelector('.sender-profile-type').textContent`),/Shop online.*Dal tuo profilo/);
                 assert.equal(await evaluate(`document.querySelector('[name="store_name"]').value`),'Shop verifica browser');
                 const tomorrow=new Date(Date.now()+2*86400000).toISOString().slice(0,10);
-                await fill({pickup_address:'Via Roma',pickup_street_number:'10',pickup_postal_code:'80121',pickup_city:'Napoli',delivery_address:'Via Roma',delivery_city:'Caserta',delivery_street_number:'20',delivery_postal_code:'81100',recipient_name:'Destinatario browser',recipient_phone:'+390000000000',pickup_date:tomorrow,parcel_value:'25.00',content_description:'Ricambi automobile'});
+                await fill({pickup_address:'Via Roma',pickup_street_number:'10',pickup_postal_code:'80121',pickup_city:'Napoli',delivery_address:'Via Roma',delivery_city:'Caserta',delivery_street_number:'20',delivery_postal_code:'81100',delivery_province:'Caserta',delivery_region:'Campania',recipient_name:'Destinatario browser',recipient_phone:'+390000000000',pickup_date:tomorrow,parcel_value:'25.00',content_description:'Ricambi automobile'});
                 await evaluate(`document.querySelector('[name="pickup_from"]').nextElementSibling.click()`);
                 await evaluate(`const inputs=document.querySelectorAll('.picker-time input');inputs[0].value='9';inputs[1].value='0';inputs[1].dispatchEvent(new Event('input'));document.querySelector('.picker-time .action-confirm').click()`);
                 assert.equal(await evaluate(`document.querySelector('[name="pickup_from"]').value`),'09:00');

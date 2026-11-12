@@ -67,7 +67,6 @@ class TransitionOrder
                 $locked->assigned_at = now();
                 app(RecordEconomicAudit::class)->handle($user, $locked, 'rider.assigned', $beforeAssignment, $locked->only(['rider_id', 'assigned_by', 'assigned_at']));
                 if ($locked->pricing_version === 1) {
-                    app(OrderPrice::class)->assertApproved($locked, true);
                     $before = ['price_cents' => $locked->price_cents, 'price_state' => $locked->price_state];
                     if ($locked->price_state !== 'agreed') {
                         $locked->price_cents = $locked->quoted_price_cents;
@@ -93,9 +92,12 @@ class TransitionOrder
                 $locked->delivered_at = now();
             }
             $previousEstimate = $locked->estimated_at?->toIso8601String();
-            $previousDeadline = app(DeliveryDeadline::class)->forOrder($locked)['at'];
-            $locked->estimated_at = $next === OrderStatus::Rescheduled
-                ? Carbon::parse($data['estimated_at'], 'Europe/Rome')->utc() : null;
+            $previousDeadline = $next === OrderStatus::Rescheduled ? app(DeliveryDeadline::class)->forOrder($locked)['at'] : null;
+            if ($next === OrderStatus::Rescheduled) {
+                $locked->estimated_at = Carbon::parse($data['estimated_at'], 'Europe/Rome')->utc();
+            } elseif (! in_array($next->value, OrderStatus::closed(), true)) {
+                $locked->estimated_at = null;
+            }
             if ($next === OrderStatus::Cancelled && ($data['cancellation_reason'] ?? 'other') === 'recipient_absent') {
                 if ($locked->status !== OrderStatus::DeliveryAttempted && ! $locked->events()->whereIn('status', [OrderStatus::OutForDelivery->value, OrderStatus::DeliveryAttempted->value])->exists()) {
                     throw ValidationException::withMessages(['cancellation_reason' => 'Registra prima il tentativo di consegna al destinatario.']);
