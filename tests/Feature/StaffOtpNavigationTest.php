@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Notifications\RiderActivationLink;
 use App\Notifications\RiderEmailOtp;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -74,14 +75,15 @@ class StaffOtpNavigationTest extends TestCase
 
     public function test_rider_created_by_an_admin_reaches_dashboard_on_the_first_otp_confirmation(): void
     {
-        Notification::fake([RiderEmailOtp::class]);
+        Notification::fake([RiderEmailOtp::class, RiderActivationLink::class]);
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $password = 'FirstLoginPassword123';
-        $this->actingAs($admin)->post(route('users.store'), ['name' => 'Nuovo Rider', 'email' => 'new-rider@example.test', 'password' => $password, 'password_confirmation' => $password])->assertRedirect(route('users.index'))->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post(route('users.store'), ['name' => 'Nuovo Rider', 'email' => 'new-rider@example.test'])->assertRedirect(route('users.index'))->assertSessionHasNoErrors();
         $rider = User::where('email', 'new-rider@example.test')->sole();
         $this->assertNull($rider->email_verified_at);
         $this->post(route('logout'));
         Auth::forgetGuards();
+        $this->activateRider($rider, $password);
 
         $this->post('/login', ['email' => $rider->email, 'password' => $password])->assertRedirect(route('email-otp.notice'));
         $code = Notification::sent($rider, RiderEmailOtp::class)->sole()->code;

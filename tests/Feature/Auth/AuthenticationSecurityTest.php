@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use App\Notifications\RiderActivationLink;
 use App\Notifications\RiderEmailOtp;
 use App\Support\AuthProtection;
 use App\UserRole;
@@ -44,8 +45,6 @@ class AuthenticationSecurityTest extends TestCase
         return [
             'missing name' => [['name' => ''], 'name'],
             'invalid email' => [['email' => 'invalid-address'], 'email'],
-            'short password' => [['password' => 'short', 'password_confirmation' => 'short'], 'password'],
-            'unconfirmed password' => [['password_confirmation' => 'different-password'], 'password'],
         ];
     }
 
@@ -82,8 +81,9 @@ class AuthenticationSecurityTest extends TestCase
         $this->assertAuthenticatedAs($admin);
     }
 
-    public function test_registration_stores_a_hashed_password_and_ignores_verification_input(): void
+    public function test_rider_creation_sends_an_activation_link_and_ignores_password_and_verification_input(): void
     {
+        Notification::fake();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $response = $this->actingAs($admin)->post('/settings/users', [
             'name' => 'New User',
@@ -96,8 +96,9 @@ class AuthenticationSecurityTest extends TestCase
         $response->assertRedirect(route('users.index'))->assertSessionHasNoErrors();
         $user = User::where('email', 'new@example.com')->sole();
         $this->assertAuthenticatedAs($admin);
-        $this->assertTrue(Hash::check('valid-password', $user->password));
+        $this->assertFalse(Hash::check('valid-password', $user->password));
         $this->assertNull($user->email_verified_at);
+        Notification::assertSentTo($user, RiderActivationLink::class);
     }
 
     public function test_invalid_reset_token_does_not_change_password(): void
@@ -112,7 +113,7 @@ class AuthenticationSecurityTest extends TestCase
             'password_confirmation' => 'new-password',
         ]);
 
-        $response->assertNotFound();
+        $response->assertSessionHasErrors('email');
         $this->assertSame($passwordHash, $user->fresh()->password);
         $this->assertGuest();
     }
@@ -122,7 +123,7 @@ class AuthenticationSecurityTest extends TestCase
         $user = User::factory()->create();
         $passwordHash = $user->password;
         $token = Password::createToken($user);
-        $this->travel(61)->minutes();
+        $this->travel(16)->minutes();
 
         $response = $this->post('/reset-password', [
             'email' => $user->email,
@@ -131,12 +132,12 @@ class AuthenticationSecurityTest extends TestCase
             'password_confirmation' => 'new-password',
         ]);
 
-        $response->assertNotFound();
+        $response->assertSessionHasErrors('email');
         $this->assertSame($passwordHash, $user->fresh()->password);
         $this->assertGuest();
     }
 
-    public function test_repeated_reset_requests_return_404_without_changing_password(): void
+    public function test_reset_token_works_only_once(): void
     {
         $user = User::factory()->create();
         $token = Password::createToken($user);
@@ -147,15 +148,16 @@ class AuthenticationSecurityTest extends TestCase
             'password_confirmation' => 'new-password',
         ];
 
+        $this->post('/reset-password', $payload)->assertRedirect(route('login'))->assertSessionHasNoErrors();
         $passwordHash = $user->fresh()->password;
-        $this->post('/reset-password', $payload)->assertNotFound();
+        $this->assertTrue(Hash::check('new-password', $passwordHash));
 
         $response = $this->post('/reset-password', array_replace($payload, [
             'password' => 'another-password',
             'password_confirmation' => 'another-password',
         ]));
 
-        $response->assertNotFound();
+        $response->assertSessionHasErrors('email');
         $this->assertSame($passwordHash, $user->fresh()->password);
         $this->assertGuest();
     }

@@ -2,9 +2,9 @@
 
 namespace App\Http\Resources;
 
+use App\OrderStatus;
 use App\Support\OrderContent;
 use App\Support\ShippingQuote;
-use App\OrderStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 

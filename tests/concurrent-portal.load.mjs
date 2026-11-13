@@ -79,7 +79,14 @@ class Client {
       await this.request('authentication', 'customer.csrf', '/api/v1/customer/csrf')
       const response = await this.request('authentication', 'customer.login', '/api/v1/customer/auth/login', 'POST', {
         email: this.user.email, password: config.password,
-      })
+      }, [200, 202])
+      if (response.status === 202) {
+        const code = await this.capturedOtp('customer')
+        if (!code) return
+        const verified = await this.request('authentication', 'customer.verifyOtp', '/api/v1/customer/auth/otp/verify', 'POST', { code })
+        this.ready = verified.status === 200
+        return
+      }
       this.ready = response.status === 200
       return
     }
@@ -89,23 +96,24 @@ class Client {
     }, [302])
     if (response.status !== 302) return
     await this.request('authentication', 'rider.otpPage', '/verify-email-otp')
+    const code = await this.capturedOtp('rider')
+    if (!code) return
+    const verified = await this.request('authentication', 'rider.verifyOtp', '/verify-email-otp/confirm', 'POST', { code }, [302])
+    const dashboard = await this.request('authentication', 'rider.dashboard', '/dashboard')
+    this.ready = verified.status === 302 && dashboard.status === 200
+  }
+
+  async capturedOtp(role) {
     const hash = createHash('sha256').update(this.user.email).digest('hex')
-    let code = null
     for (let attempt = 0; attempt < 80; attempt++) {
       try {
-        code = JSON.parse(await readFile(`${config.directory}/otp/${hash}.json`, 'utf8')).code
-        break
+        return JSON.parse(await readFile(`${config.directory}/otp/${hash}.json`, 'utf8')).code
       } catch {
         await sleep(25)
       }
     }
-    if (!code) {
-      failures.push({ phase: 'authentication', operation: 'rider.otpTransport', client: this.index, error: 'FakeOtpNotCaptured' })
-      return
-    }
-    const verified = await this.request('authentication', 'rider.verifyOtp', '/verify-email-otp/confirm', 'POST', { code }, [302])
-    const dashboard = await this.request('authentication', 'rider.dashboard', '/dashboard')
-    this.ready = verified.status === 302 && dashboard.status === 200
+    failures.push({ phase: 'authentication', operation: `${role}.otpTransport`, client: this.index, error: 'FakeOtpNotCaptured' })
+    return null
   }
 
   async step(phase) {

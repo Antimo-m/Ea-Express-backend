@@ -134,7 +134,7 @@ class LaunchReadinessTest extends TestCase
     /** @return array<string, string> */
     private function registration(): array
     {
-        return ['sender_type' => 'business', 'name' => 'Attività valida', 'email' => 'launch@example.test', 'password' => 'SecurePassword123', 'password_confirmation' => 'SecurePassword123'];
+        return ['privacy_acknowledged' => true, 'beta_terms_accepted' => true, 'sender_type' => 'business', 'name' => 'Attività valida', 'email' => 'launch@example.test', 'password' => 'SecurePassword123', 'password_confirmation' => 'SecurePassword123'];
     }
 
     /** @return array<string, mixed> */

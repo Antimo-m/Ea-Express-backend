@@ -87,7 +87,7 @@ class User extends Authenticatable
     {
         return [
             'email_otp_expires_at' => 'datetime', 'email_otp_sent_at' => 'datetime', 'email_otp_window_at' => 'datetime', 'email_otp_attempts' => 'integer', 'email_otp_send_count' => 'integer',
-            'email_verified_at' => 'datetime',
+            'email_verified_at' => 'datetime', 'privacy_acknowledged_at' => 'datetime', 'terms_accepted_at' => 'datetime',
             'phone_verified_at' => 'datetime', 'is_active' => 'boolean',
             'password' => 'hashed',
             'role' => UserRole::class,

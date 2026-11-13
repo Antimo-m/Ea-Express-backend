@@ -97,7 +97,13 @@ return [
         'users' => [
             'provider' => 'users',
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
-            'expire' => 60,
+            'expire' => 15,
+            'throttle' => 60,
+        ],
+        'rider_activations' => [
+            'provider' => 'users',
+            'table' => 'rider_activation_tokens',
+            'expire' => 2880,
             'throttle' => 60,
         ],
     ],

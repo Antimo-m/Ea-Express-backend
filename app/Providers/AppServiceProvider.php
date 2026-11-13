@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Support\AccountSessionRevocation;
 use App\Support\AuthUserProvider;
+use App\Support\CanonicalUrl;
 use App\Support\NotificationInbox;
 use App\Support\PostalCodeResolver;
 use App\Support\SecurityEvent;
@@ -28,6 +29,9 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        if ($this->app->isProduction()) {
+            CanonicalUrl::enforce();
+        }
         Auth::provider('auth-security', fn (Application $app, array $config): AuthUserProvider => new AuthUserProvider($app['hash'], $config['model']));
         Event::listen(Login::class, function (Login $event): void {
             app(AccountSessionRevocation::class)->authorize(request(), $event->user, $event->guard);

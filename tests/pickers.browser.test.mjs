@@ -1537,9 +1537,13 @@ $app->handleRequest(Illuminate\\Http\\Request::capture());
                 }
                 await evaluate(`document.querySelector('[name="sender_type"][value="online_shop"]').click()`);
                 await fill({name:'Shop verifica browser',email:'browser@example.test',password:'PasswordSicura123',password_confirmation:'PasswordSicura123'});
+                await evaluate(`document.querySelectorAll('.consent input[type="checkbox"]').forEach(input=>{if(!input.checked)input.click();})`);
                 await evaluate(`document.querySelector('form').requestSubmit()`);await waitFor(`location.pathname==='/login' && document.querySelector('.portal-auth.is-login form')`);
                 await fill({email:'browser@example.test',password:'PasswordSicura123'});
-                await evaluate(`document.querySelector('.portal-auth form').requestSubmit()`);await waitFor(`location.pathname==='/dashboard'`);
+                await evaluate(`document.querySelector('.portal-auth form').requestSubmit()`);await waitFor(`location.pathname==='/verify-access' && document.querySelector('[data-otp-verification] [name="code"]')`);
+                const customerCode=JSON.parse(readFileSync(join(temporary,'otp-'+createHash('sha256').update('browser@example.test').digest('hex')+'.json'),'utf8')).code;
+                await fill({code:customerCode});
+                await evaluate(`document.querySelector('[data-otp-verification]').requestSubmit()`);await waitFor(`location.pathname==='/dashboard'`);
                 await send('Page.navigate',{url:origin+'/pickups/new'});await waitFor(`document.querySelector('[name="store_name"]')`);
                 assert.equal(await evaluate(`document.querySelector('[name="sender_type"]')`),null);
                 assert.match(await evaluate(`document.querySelector('.sender-profile-type').textContent`),/Shop online.*Dal tuo profilo/);

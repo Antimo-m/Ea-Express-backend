@@ -6,9 +6,11 @@ use App\Models\Order;
 use App\Models\ShippingRate;
 use App\Models\User;
 use App\Notifications\OrderActivity;
+use App\Notifications\RiderEmailOtp;
 use App\OrderStatus;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class CustomerExperienceTest extends TestCase
@@ -46,10 +48,13 @@ class CustomerExperienceTest extends TestCase
 
     public function test_private_accounts_do_not_keep_business_fields_and_can_later_describe_a_business(): void
     {
-        $this->postJson('/api/v1/customer/auth/register', ['name' => 'Rita Rossi', 'email' => 'rita@example.test', 'password' => 'PasswordSicura123', 'password_confirmation' => 'PasswordSicura123', 'sender_type' => 'private', 'business_type' => 'Negozio', 'business_description' => 'Da eliminare'])
+        $this->postJson('/api/v1/customer/auth/register', ['privacy_acknowledged' => true, 'beta_terms_accepted' => true, 'name' => 'Rita Rossi', 'email' => 'rita@example.test', 'password' => 'PasswordSicura123', 'password_confirmation' => 'PasswordSicura123', 'sender_type' => 'private', 'business_type' => 'Negozio', 'business_description' => 'Da eliminare'])
             ->assertAccepted();
-        $this->postJson('/api/v1/customer/auth/login', ['email' => 'rita@example.test', 'password' => 'PasswordSicura123'])->assertOk()->assertJsonPath('user.sender_type', 'private')->assertJsonPath('user.business_type', null);
+        Notification::fake();
+        $this->postJson('/api/v1/customer/auth/login', ['email' => 'rita@example.test', 'password' => 'PasswordSicura123'])->assertAccepted();
         $user = User::where('email', 'rita@example.test')->sole();
+        $code = Notification::sent($user, RiderEmailOtp::class)->last()->code;
+        $this->postJson('/api/v1/customer/auth/otp/verify', ['code' => $code])->assertOk()->assertJsonPath('user.sender_type', 'private')->assertJsonPath('user.business_type', null);
         $this->assertNull($user->business_description);
         $this->patchJson('/api/v1/customer/profile', ['name' => 'Rita Lab', 'email' => $user->email, 'sender_type' => 'business', 'business_type' => 'Restauro di strumenti musicali', 'business_description' => 'Riparazioni artigianali su misura'])
             ->assertOk();

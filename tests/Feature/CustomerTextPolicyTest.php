@@ -114,7 +114,7 @@ class CustomerTextPolicyTest extends TestCase
     /** @return array<string, string> */
     private function registration(string $businessType): array
     {
-        return ['sender_type' => 'business', 'business_type' => $businessType, 'name' => 'Attività di prova', 'email' => 'policy@example.test', 'password' => 'SecurePassword123', 'password_confirmation' => 'SecurePassword123'];
+        return ['privacy_acknowledged' => true, 'beta_terms_accepted' => true, 'sender_type' => 'business', 'business_type' => $businessType, 'name' => 'Attività di prova', 'email' => 'policy@example.test', 'password' => 'SecurePassword123', 'password_confirmation' => 'SecurePassword123'];
     }
 
     /** @return array<string, mixed> */

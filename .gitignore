@@ -265,3 +265,10 @@ Thumbs.db
 !/tests/JavaScript/financial-forms.test.mjs
 !/tests/JavaScript/notifications.test.mjs
 !/tests/customer-revision.browser.test.mjs
+
+# Verifica OTP dei dispositivi cliente.
+!/tests/Feature/CustomerDeviceVerificationTest.php
+!/tests/Feature/PasswordRecoveryTest.php
+!/tests/Feature/ProductionHardeningTest.php
+!/tests/Feature/BetaModeTest.php
+!/tests/Feature/RiderActivationTest.php

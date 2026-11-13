@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Http\Middleware\TrustAuthenticationProxies;
 use App\Jobs\SendAuthSecurityAlert;
+use App\Models\Order;
 use App\Models\User;
 use App\Notifications\AuthenticationAlert;
 use App\Notifications\RiderEmailOtp;
@@ -19,6 +20,7 @@ use Illuminate\Contracts\Hashing\Hasher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
@@ -388,7 +390,8 @@ class AuthSecurityTest extends TestCase
             $this->postJson($path, $data)->assertUnprocessable();
             $this->assertGuest('customer');
         }
-        $this->postJson($path, $data)->assertOk()->assertJsonPath('user.slug', $customer->slug);
+        $this->postJson($path, $data)->assertAccepted()->assertJsonPath('otp_required', true);
+        $this->assertGuest('customer');
         Http::assertSentCount(4);
     }
 
@@ -456,17 +459,47 @@ class AuthSecurityTest extends TestCase
         Http::assertSent(fn ($request) => ! str_contains($request->url(), $password) && ! str_contains($request->url(), $hash));
     }
 
-    public function test_registration_has_same_response_for_new_and_existing_accounts_and_never_changes_existing_password(): void
+    public function test_registration_has_same_response_for_new_and_existing_accounts_and_never_changes_a_confirmed_password(): void
     {
-        $data = ['name' => 'Customer', 'email' => 'customer@example.test', 'sender_type' => 'private', 'password' => 'A sufficiently long passphrase', 'password_confirmation' => 'A sufficiently long passphrase'];
+        $data = ['privacy_acknowledged' => true, 'beta_terms_accepted' => true, 'name' => 'Customer', 'email' => 'customer@example.test', 'sender_type' => 'private', 'password' => 'A sufficiently long passphrase', 'password_confirmation' => 'A sufficiently long passphrase'];
         $expected = $this->postJson('/api/v1/customer/auth/register', $data)->assertAccepted()->json();
         $user = User::where('email', $data['email'])->sole();
-        $hash = $user->password;
+        $user->forceFill(['email_verified_at' => now()])->save();
+        $hash = $user->fresh()->password;
         $this->postJson('/api/v1/customer/auth/register', [...$data, 'password' => 'Another long secret passphrase', 'password_confirmation' => 'Another long secret passphrase'])->assertAccepted()->assertExactJson($expected);
         $this->assertSame($hash, $user->fresh()->password);
         $this->assertSame(UserRole::Customer, $user->role);
         $this->assertGuest('customer');
         $this->assertDatabaseCount('users', 1);
+    }
+
+    public function test_never_confirmed_account_can_be_registered_again_by_the_owner_of_the_address(): void
+    {
+        $data = ['privacy_acknowledged' => true, 'beta_terms_accepted' => true, 'name' => 'Occupante', 'email' => 'owner@example.test', 'sender_type' => 'private', 'password' => 'Squatter long passphrase', 'password_confirmation' => 'Squatter long passphrase'];
+        $expected = $this->postJson('/api/v1/customer/auth/register', $data)->assertAccepted()->json();
+
+        $this->postJson('/api/v1/customer/auth/register', [...$data, 'name' => 'Vera Titolare', 'password' => 'Owner chosen passphrase', 'password_confirmation' => 'Owner chosen passphrase'])->assertAccepted()->assertExactJson($expected);
+
+        $user = User::where('email', 'owner@example.test')->sole();
+        $this->assertSame('Vera Titolare', $user->name);
+        $this->assertTrue(Hash::check('Owner chosen passphrase', $user->password));
+        $this->assertNull($user->email_verified_at);
+        $this->assertDatabaseCount('users', 1);
+    }
+
+    public function test_unconfirmed_account_with_orders_or_staff_accounts_are_never_overwritten_by_registration(): void
+    {
+        $customer = User::factory()->unverified()->create(['role' => UserRole::Customer, 'email' => 'legacy@example.test']);
+        Order::factory()->create(['customer_id' => $customer->id]);
+        $rider = User::factory()->unverified()->create(['email' => 'rider@example.test']);
+        $hashes = [$customer->password, $rider->password];
+
+        foreach (['legacy@example.test', 'rider@example.test'] as $email) {
+            $this->postJson('/api/v1/customer/auth/register', ['privacy_acknowledged' => true, 'beta_terms_accepted' => true, 'name' => 'Altro', 'email' => $email, 'sender_type' => 'private', 'password' => 'Attacker long passphrase', 'password_confirmation' => 'Attacker long passphrase'])->assertAccepted();
+        }
+
+        $this->assertSame($hashes, [$customer->fresh()->password, $rider->fresh()->password]);
+        $this->assertSame(UserRole::Rider, $rider->fresh()->role);
     }
 
     public function test_security_logs_use_only_pseudonymous_context_and_no_credentials(): void

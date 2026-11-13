@@ -10,4 +10,5 @@
         @endif
         <button class="btn btn-primary auth-submit" type="submit">Accedi <x-ui.icon name="arrow-right" class="ms-2" /></button>
     </form>
+    <p class="mt-3 mb-0 text-center"><a href="{{ route('password.request') }}">Password dimenticata?</a></p>
 </x-guest-layout>

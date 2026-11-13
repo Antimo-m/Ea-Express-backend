@@ -15,7 +15,7 @@ class InterfaceTest extends TestCase
         $this->get('/login')
             ->assertSee('<html lang="it">', false)
             ->assertSee('<title>Accedi · EA-Express</title>', false)
-            ->assertDontSee('Password dimenticata?');
+            ->assertSee('Password dimenticata?');
     }
 
     public function test_login_validation_is_rendered_in_italian_without_repopulating_the_password(): void

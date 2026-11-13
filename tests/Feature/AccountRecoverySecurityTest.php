@@ -22,34 +22,39 @@ class AccountRecoverySecurityTest extends TestCase
     {
         return [
             'staff' => ['/forgot-password', '/reset-password', UserRole::Rider],
-            'customer' => ['/api/v1/customer/auth/forgot-password', '/api/v1/customer/auth/reset-password', UserRole::Customer],
+            'customer' => ['/api/v1/customer/auth/password/forgot', '/api/v1/customer/auth/password/reset', UserRole::Customer],
         ];
     }
 
     #[DataProvider('portals')]
-    public function test_recovery_endpoints_cannot_issue_tokens_or_send_notifications(string $requestPath, string $resetPath, UserRole $role): void
+    public function test_recovery_never_issues_tokens_or_mail_for_the_admin(string $requestPath, string $resetPath, UserRole $role): void
     {
         Notification::fake();
-        $user = User::factory()->create(['role' => $role]);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $regular = User::factory()->create(['role' => $role]);
 
-        $this->postJson($requestPath, ['email' => $user->email])->assertNotFound();
+        $adminResponse = $this->postJson($requestPath, ['email' => $admin->email]);
+        $this->travel(61)->seconds();
+        $regularResponse = $this->postJson($requestPath, ['email' => 'missing-'.$regular->email]);
 
-        Notification::assertNothingSent();
-        $this->assertDatabaseCount('password_reset_tokens', 0);
-        $this->assertTrue(Hash::check('password', $user->fresh()->password));
+        $this->assertSame($regularResponse->status(), $adminResponse->status());
+        $this->assertSame($regularResponse->getContent(), $adminResponse->getContent());
+        Notification::assertNothingSentTo($admin);
+        $this->assertDatabaseMissing('password_reset_tokens', ['email' => $admin->email]);
+        $this->assertTrue(Hash::check('password', $admin->fresh()->password));
     }
 
     #[DataProvider('portals')]
-    public function test_even_previously_issued_valid_tokens_cannot_change_credentials(string $requestPath, string $resetPath, UserRole $role): void
+    public function test_even_a_valid_token_cannot_change_admin_credentials(string $requestPath, string $resetPath, UserRole $role): void
     {
         Notification::fake();
-        $user = User::factory()->create(['role' => $role, 'email_otp_hash' => Hash::make('123456'), 'email_otp_expires_at' => now()->addMinutes(10)]);
-        $before = $user->fresh()->getAttributes();
-        $token = Password::broker('users')->createToken($user);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $before = $admin->fresh()->getAttributes();
+        $token = Password::broker('users')->createToken($admin);
 
-        $this->postJson($resetPath, ['email' => $user->email, 'token' => $token, 'password' => 'Changed-password-123', 'password_confirmation' => 'Changed-password-123'])->assertNotFound();
+        $this->postJson($resetPath, ['email' => $admin->email, 'token' => $token, 'password' => 'Changed-password-123', 'password_confirmation' => 'Changed-password-123'])->assertUnprocessable();
 
-        $this->assertSame($before, $user->fresh()->getAttributes());
+        $this->assertSame($before, $admin->fresh()->getAttributes());
         $this->assertGuest();
         $this->assertGuest('customer');
         Notification::assertNothingSent();

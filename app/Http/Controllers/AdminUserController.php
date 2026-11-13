@@ -7,11 +7,14 @@ use App\Http\Requests\StoreRiderRequest;
 use App\Models\Order;
 use App\Models\User;
 use App\OrderStatus;
+use App\Support\RiderActivation;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -43,21 +46,31 @@ class AdminUserController extends Controller
 
     public function store(StoreRiderRequest $request): RedirectResponse
     {
-        $user = new User($request->safe()->only(['name', 'email', 'password']));
+        $user = new User([...$request->safe()->only(['name', 'email']), 'password' => Hash::make(Str::random(64))]);
         $user->role = UserRole::Rider;
         $user->is_active = true;
         DB::transaction(function () use ($user, $request): void {
             $user->save();
             app(RecordEconomicAudit::class)->handle($request->user(), $user, 'rider.created', null, $user->only(['name', 'email', 'role']));
+            app(RiderActivation::class)->send($user);
         });
 
-        return redirect()->route('users.index')->with('status', 'Account rider creato. Comunica le credenziali al rider attraverso un canale riservato.');
+        return redirect()->route('users.index')->with('status', 'Account rider creato. Abbiamo inviato al rider un’email per creare la password: il link vale 48 ore.');
     }
 
     public function update(Request $request, User $user): RedirectResponse
     {
         Gate::authorize('update', $user);
-        $data = $request->validate(['action' => ['required', Rule::in(['activate', 'deactivate', 'reset-email', 'revoke-devices'])]]);
+        $data = $request->validate(['action' => ['required', Rule::in(['activate', 'deactivate', 'reset-email', 'revoke-devices', 'send-activation'])]]);
+        if ($data['action'] === 'send-activation') {
+            abort_unless($user->role === UserRole::Rider && $user->is_active && $user->email_verified_at === null, 422, 'Il link di attivazione si invia solo ai rider attivi non ancora verificati.');
+            DB::transaction(function () use ($user, $request): void {
+                app(RiderActivation::class)->send($user);
+                app(RecordEconomicAudit::class)->handle($request->user(), $user, 'rider.activation-sent', null, null);
+            });
+
+            return back()->with('status', 'Nuovo link di attivazione inviato al rider: vale 48 ore. Il link precedente non è più valido.');
+        }
         DB::transaction(function () use ($user, $data, $request) {
             $target = User::query()->lockForUpdate()->findOrFail($user->id);
             Gate::authorize('update', $target);

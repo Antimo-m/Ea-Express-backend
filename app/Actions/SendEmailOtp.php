@@ -7,6 +7,7 @@ use App\Notifications\RiderEmailOtp;
 use App\Support\AuthSecurityMonitor;
 use App\Support\AuthSecurityStore;
 use App\Support\SecurityEvent;
+use App\UserRole;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -15,7 +16,11 @@ use Throwable;
 
 class SendEmailOtp
 {
-    public function handle(User $user): void
+    public const StaffVerification = 'email_verification';
+
+    public const CustomerLogin = 'customer_login';
+
+    public function handle(User $user, string $purpose = self::StaffVerification): void
     {
         app(AuthSecurityStore::class)->consume(AuthSecurityStore::key('otp:send:ip', (string) request()->ip()), config('auth_security.otp.ip_sends'), config('auth_security.otp.window_seconds'));
         app(AuthSecurityMonitor::class)->activity('otp_requests');
@@ -24,9 +29,9 @@ class SendEmailOtp
             throw ValidationException::withMessages(['code' => 'Invio del codice temporaneamente non disponibile. Contatta l’amministratore.']);
         }
         $code = (string) random_int(100000, 999999);
-        $recipient = DB::transaction(function () use ($user, &$code): User {
+        $recipient = DB::transaction(function () use ($user, &$code, $purpose): User {
             $locked = User::query()->lockForUpdate()->findOrFail($user->id);
-            abort_unless($locked->is_active && $locked->isStaff(), 403);
+            abort_unless(self::eligible($locked, $purpose), 403);
             $window = config('auth_security.otp.window_seconds');
             if (! $locked->email_otp_window_at || $locked->email_otp_window_at->lessThanOrEqualTo(now()->subSeconds($window))) {
                 $locked->email_otp_window_at = now();
@@ -64,7 +69,7 @@ class SendEmailOtp
                 'user_id' => $recipient->id,
                 'fingerprint' => hash('sha256', $hash),
                 'challenge_id' => (string) Str::uuid(),
-                'type' => 'email_verification',
+                'type' => $purpose,
                 'session_binding' => hash_hmac('sha256', session()->getId(), (string) config('app.key')),
                 'issued_at' => now()->timestamp,
                 'expires_at' => $recipient->email_otp_expires_at->timestamp,
@@ -100,6 +105,15 @@ class SendEmailOtp
         }
 
         return true;
+    }
+
+    public static function eligible(User $user, string $purpose): bool
+    {
+        return $user->is_active && match ($purpose) {
+            self::StaffVerification => $user->isStaff(),
+            self::CustomerLogin => $user->role === UserRole::Customer,
+            default => false,
+        };
     }
 
     public static function digest(User $user, #[\SensitiveParameter] string $code): string

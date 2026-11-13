@@ -21,9 +21,15 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('api/v1/customer')->name('customer.')->middleware('throttle:customer-api')->group(function (): void {
     Route::get('csrf', [Auth::class, 'csrf']);
+    Route::get('platform', [Auth::class, 'platform']);
     Route::get('privacy', CustomerPrivacyController::class);
     Route::get('text-policy', CustomerTextPolicyController::class);
     Route::post('auth/login', [Auth::class, 'login'])->middleware([ProtectAuthentication::class]);
+    Route::get('auth/otp', [Auth::class, 'otp']);
+    Route::post('auth/otp/send', [Auth::class, 'sendOtp'])->block(10, 10);
+    Route::post('auth/otp/verify', [Auth::class, 'verifyOtp'])->block(10, 10);
+    Route::post('auth/password/forgot', [Auth::class, 'forgotPassword']);
+    Route::post('auth/password/reset', [Auth::class, 'resetPassword']);
     Route::post('auth/register', [Auth::class, 'register'])->middleware(ProtectAuthentication::class.':register');
     Route::middleware(['auth:customer', 'auth.session', EnsureCustomer::class])->group(function (): void {
         Route::get('realtime/configuration', [RealtimeController::class, 'configuration'])->middleware('throttle:60,1');

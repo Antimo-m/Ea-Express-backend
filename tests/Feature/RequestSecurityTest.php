@@ -63,7 +63,7 @@ class RequestSecurityTest extends TestCase
         $this->assertSame($hash, $user->fresh()->password);
         $this->post('/logout');
         $token = Password::createToken($user);
-        $this->post('/reset-password', ['email' => $user->email, 'token' => $token, 'password' => $password, 'password_confirmation' => $password])->assertNotFound();
+        $this->post('/reset-password', ['email' => $user->email, 'token' => $token, 'password' => $password, 'password_confirmation' => $password])->assertSessionHasErrors('password');
         $this->assertSame($hash, $user->fresh()->password);
     }
 }

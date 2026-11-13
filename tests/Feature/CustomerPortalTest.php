@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\OrderMessage;
 use App\Models\ShippingRate;
 use App\Models\User;
+use App\Notifications\RiderActivationLink;
 use App\Notifications\RiderEmailOtp;
 use App\OrderStatus;
 use App\UserRole;
@@ -34,10 +35,14 @@ class CustomerPortalTest extends TestCase
         $rider = User::factory()->create();
         $this->postJson($this->api.'/auth/login', ['email' => $rider->email, 'password' => 'password'])->assertUnprocessable();
         $this->getJson($this->api.'/dashboard')->assertUnauthorized();
-        $this->postJson($this->api.'/auth/register', ['sender_type' => 'business', 'name' => 'Boutique Centro', 'email' => 'shop@example.com', 'password' => 'SecurePassword123', 'password_confirmation' => 'SecurePassword123', 'role' => 'admin'])->assertAccepted();
+        $this->postJson($this->api.'/auth/register', ['privacy_acknowledged' => true, 'beta_terms_accepted' => true, 'sender_type' => 'business', 'name' => 'Boutique Centro', 'email' => 'shop@example.com', 'password' => 'SecurePassword123', 'password_confirmation' => 'SecurePassword123', 'role' => 'admin'])->assertAccepted();
         $this->assertGuest('customer');
-        $this->postJson($this->api.'/auth/login', ['email' => 'shop@example.com', 'password' => 'SecurePassword123'])->assertOk()->assertJsonPath('user.name', 'Boutique Centro')->assertJsonPath('user.notify_orders', true)->assertJsonPath('user.notify_messages', true);
+        Notification::fake();
+        $this->postJson($this->api.'/auth/login', ['email' => 'shop@example.com', 'password' => 'SecurePassword123'])->assertAccepted()->assertJsonPath('otp_required', true);
+        $this->assertGuest('customer');
         $user = User::where('email', 'shop@example.com')->sole();
+        $code = Notification::sent($user, RiderEmailOtp::class)->last()->code;
+        $this->postJson($this->api.'/auth/otp/verify', ['code' => $code])->assertOk()->assertJsonPath('user.name', 'Boutique Centro')->assertJsonPath('user.notify_orders', true)->assertJsonPath('user.notify_messages', true);
         $this->assertSame(UserRole::Customer, $user->role);
         $this->getJson($this->api.'/auth/me')->assertOk();
         $this->assertGuest('web');
@@ -165,12 +170,12 @@ class CustomerPortalTest extends TestCase
 
     public function test_complete_customer_admin_and_verified_rider_delivery_flow(): void
     {
-        Notification::fake([RiderEmailOtp::class]);
+        Notification::fake([RiderEmailOtp::class, RiderActivationLink::class]);
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $customer = $this->customer();
         $otherRider = User::factory()->create();
         ShippingRate::factory()->create(['city' => 'Caserta', 'city_key' => 'caserta']);
-        $this->actingAs($admin, 'web')->post('/settings/users', ['name' => 'Rider del flusso', 'email' => 'rider-flow@example.test', 'password' => 'PasswordSicura123', 'password_confirmation' => 'PasswordSicura123'])->assertSessionHasNoErrors();
+        $this->actingAs($admin, 'web')->post('/settings/users', ['name' => 'Rider del flusso', 'email' => 'rider-flow@example.test'])->assertSessionHasNoErrors();
         $rider = User::where('email', 'rider-flow@example.test')->sole();
         $this->assertNull($rider->email_verified_at);
         $this->actingAs($customer, 'customer')->postJson($this->api.'/orders', $this->checkoutData($this->payload()))->assertCreated();
@@ -179,6 +184,7 @@ class CustomerPortalTest extends TestCase
         $this->actingAs($otherRider, 'web')->get('/orders/incoming')->assertDontSee($order->slug);
         $this->actingAs($admin, 'web')->patch(route('orders.update', $order), ['status' => 'accepted', 'rider_id' => $rider->slug, 'version' => 1])->assertSessionHasNoErrors();
         $this->post('/logout');
+        $this->activateRider($rider, 'PasswordSicura123');
         $this->post('/login', ['email' => $rider->email, 'password' => 'PasswordSicura123'])->assertRedirect(route('email-otp.notice'));
         $this->get('/orders/in-progress')->assertRedirect(route('email-otp.notice'));
         Notification::assertSentTo($rider, RiderEmailOtp::class);

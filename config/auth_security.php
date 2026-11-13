@@ -29,6 +29,21 @@ return [
         'cookie' => 'ea_trusted_rider',
         'ttl_seconds' => (int) env('AUTH_TRUSTED_RIDER_TTL_SECONDS', 2592000),
     ],
+    'trusted_customer' => [
+        'enabled' => (bool) env('AUTH_TRUSTED_CUSTOMER_ENABLED', true),
+        'cookie' => 'ea_trusted_customer',
+        'ttl_seconds' => (int) env('AUTH_TRUSTED_CUSTOMER_TTL_SECONDS', 15552000),
+    ],
+    'password_reset' => [
+        'account_requests' => (int) env('AUTH_PASSWORD_RESET_ACCOUNT_REQUESTS', 3),
+        'account_window_seconds' => (int) env('AUTH_PASSWORD_RESET_ACCOUNT_WINDOW_SECONDS', 3600),
+        'delays' => [1 => 60, 2 => 300],
+        'ip_requests' => (int) env('AUTH_PASSWORD_RESET_IP_REQUESTS', 10),
+        'ip_window_seconds' => (int) env('AUTH_PASSWORD_RESET_IP_WINDOW_SECONDS', 900),
+        'submit_account_attempts' => (int) env('AUTH_PASSWORD_RESET_SUBMIT_ACCOUNT_ATTEMPTS', 5),
+        'submit_ip_attempts' => (int) env('AUTH_PASSWORD_RESET_SUBMIT_IP_ATTEMPTS', 20),
+        'submit_window_seconds' => (int) env('AUTH_PASSWORD_RESET_SUBMIT_WINDOW_SECONDS', 900),
+    ],
     'otp' => [
         'mailer' => env('AUTH_OTP_MAILER', env('MAIL_MAILER', 'smtp')),
         'ttl_seconds' => (int) env('AUTH_OTP_TTL_SECONDS', 300),

@@ -10,7 +10,7 @@ use Tests\TestCase;
 
 class RecoveryConcurrencyTest extends TestCase
 {
-    public function test_simultaneous_recovery_requests_return_404_without_changing_credentials(): void
+    public function test_simultaneous_requests_with_the_same_token_change_the_password_only_once(): void
     {
         $database = tempnam(sys_get_temp_dir(), 'ea-recovery-race-');
         $gate = $database.'.start';
@@ -42,8 +42,8 @@ echo $response->getStatusCode();
 $kernel->terminate($request, $response);
 CODE;
             foreach (['First-password-123', 'Second-password-123'] as $index => $password) {
-                $worker = new Process([PHP_BINARY, '-r', $script], base_path(), ['APP_ENV' => 'testing', 'DB_URL' => '', 'BROADCAST_CONNECTION' => 'null']);
-                $worker->setInput(json_encode(['database' => $database, 'ready' => $database.'.ready'.$index, 'gate' => $gate, 'path' => $index === 0 ? '/reset-password' : '/api/v1/customer/auth/reset-password', 'credentials' => ['email' => $user->email, 'token' => $token, 'password' => $password]], JSON_THROW_ON_ERROR));
+                $worker = new Process([PHP_BINARY, '-r', $script], base_path(), ['APP_ENV' => 'testing', 'DB_URL' => '', 'BROADCAST_CONNECTION' => 'null', 'AUTH_PASSWORD_BREACH_CHECK' => 'false', 'QUEUE_CONNECTION' => 'sync', 'MAIL_MAILER' => 'array', 'AUTH_OTP_MAILER' => 'array', 'CACHE_STORE' => 'array', 'AUTH_SECURITY_STORE' => 'array']);
+                $worker->setInput(json_encode(['database' => $database, 'ready' => $database.'.ready'.$index, 'gate' => $gate, 'path' => '/reset-password', 'credentials' => ['email' => $user->email, 'token' => $token, 'password' => $password, 'password_confirmation' => $password]], JSON_THROW_ON_ERROR));
                 $worker->setTimeout(20);
                 $worker->start();
                 $workers[] = $worker;
@@ -62,9 +62,9 @@ CODE;
                 $results[] = trim($worker->getOutput());
             }
             sort($results);
-            $this->assertSame(['404', '404'], $results);
-            $this->assertTrue(Password::broker('users')->tokenExists($user, $token));
-            $this->assertSame($passwordHash, $user->fresh()->password);
+            $this->assertSame(['302', '422'], $results);
+            $this->assertFalse(Password::broker('users')->tokenExists($user, $token));
+            $this->assertNotSame($passwordHash, $user->fresh()->password);
         } finally {
             foreach ($workers as $worker) {
                 if ($worker->isRunning()) {

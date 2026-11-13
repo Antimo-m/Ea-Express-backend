@@ -58,6 +58,7 @@ class GlobalSessionRevocationTest extends TestCase
         $session->start();
         $this->defaultCookies = [];
         app('cookie')->unqueue('ea_trusted_rider');
+        app('cookie')->unqueue('ea_trusted_customer');
         app('cookie')->unqueue('ea_staff_device');
         $this->currentDevice = $name;
     }
@@ -66,7 +67,10 @@ class GlobalSessionRevocationTest extends TestCase
     {
         Notification::fake();
         if ($user->role === UserRole::Customer) {
-            return $this->postJson('/api/v1/customer/auth/login', ['email' => $user->email, 'password' => 'password', 'remember' => $remember])->assertOk();
+            $this->postJson('/api/v1/customer/auth/login', ['email' => $user->email, 'password' => 'password', 'remember' => $remember])->assertAccepted()->assertJsonPath('otp_required', true);
+            $code = Notification::sent($user, RiderEmailOtp::class)->last()->code;
+
+            return $this->postJson('/api/v1/customer/auth/otp/verify', ['code' => $code])->assertOk();
         } else {
             $this->post('/login', ['email' => $user->email, 'password' => 'password', 'remember' => $remember])->assertRedirect(route('email-otp.notice'));
             $code = Notification::sent($user, RiderEmailOtp::class)->last()->code;
@@ -83,6 +87,7 @@ class GlobalSessionRevocationTest extends TestCase
         $this->login($customer);
         $this->getJson('/api/v1/customer/auth/me')->assertOk()->assertJsonPath('user.slug', $customer->slug);
         $this->device('customer-b');
+        $this->travel(61)->seconds();
         $this->login($customer);
         $this->getJson('/api/v1/customer/auth/me')->assertOk()->assertJsonPath('user.slug', $customer->slug);
         $this->device('admin');
@@ -140,7 +145,7 @@ class GlobalSessionRevocationTest extends TestCase
     {
         $cases = [];
         foreach (['file', 'database', 'database-alternative', 'redis'] as $driver) {
-            foreach (UserRole::cases() as $role) {
+            foreach ([UserRole::Rider, UserRole::Customer] as $role) {
                 $cases[$driver.' '.$role->value] = [$driver, $role];
             }
         }
@@ -184,7 +189,9 @@ class GlobalSessionRevocationTest extends TestCase
         $this->travel(61)->seconds();
         $credentials = ['email' => $user->email, 'password' => 'Updated-password-123'];
         if ($role === UserRole::Customer) {
-            $this->postJson('/api/v1/customer/auth/login', $credentials)->assertOk();
+            $this->postJson('/api/v1/customer/auth/login', $credentials)->assertAccepted();
+            $code = Notification::sent($user, RiderEmailOtp::class)->last()->code;
+            $this->postJson('/api/v1/customer/auth/otp/verify', ['code' => $code])->assertOk();
         } else {
             $this->post('/login', $credentials)->assertRedirect(route('email-otp.notice'));
             $code = Notification::sent($user, RiderEmailOtp::class)->last()->code;

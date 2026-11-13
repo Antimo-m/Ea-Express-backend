@@ -34,6 +34,8 @@ class AccountSessionRevocation
             $previous->email = $current->email;
             Password::broker('users')->deleteToken($previous);
             Password::broker('users')->deleteToken($user);
+            Password::broker('rider_activations')->deleteToken($previous);
+            Password::broker('rider_activations')->deleteToken($user);
             app(TrustedRiderDevices::class)->revoke($user);
             if (config('session.driver') === 'database') {
                 DB::connection(config('session.connection'))->table(config('session.table'))->where('user_id', $user->id)->delete();

@@ -3,12 +3,15 @@
 namespace Tests;
 
 use App\Models\User;
+use App\Notifications\RiderActivationLink;
 use App\StaffAuthenticationState;
 use App\Support\AccountSessionRevocation;
 use App\Support\StaffAuthentication;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Foundation\Vite;
+use Illuminate\Support\Facades\Notification;
+use Symfony\Component\HttpFoundation\Request;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -19,6 +22,28 @@ abstract class TestCase extends BaseTestCase
         if ($directory = getenv('EA_UI_FIXTURE_DIR')) {
             $this->app->make(Vite::class)->useHotFile($directory.'/vite.hot');
         }
+    }
+
+    /**
+     * TrustHosts stores the production host patterns in a static Symfony property; reset it between tests.
+     */
+    protected function tearDown(): void
+    {
+        Request::setTrustedHosts([]);
+
+        parent::tearDown();
+    }
+
+    /**
+     * Completes the rider activation from the link received by email (requires a faked RiderActivationLink).
+     */
+    protected function activateRider(User $rider, string $password): void
+    {
+        $notification = Notification::sent($rider, RiderActivationLink::class)->last();
+        $this->assertNotNull($notification, 'Nessun link di attivazione inviato al rider.');
+        $token = basename((string) parse_url($notification->url($rider), PHP_URL_PATH));
+        $this->post('/activate', ['email' => $rider->email, 'token' => $token, 'password' => $password, 'password_confirmation' => $password])
+            ->assertRedirect(route('login'))->assertSessionHasNoErrors();
     }
 
     public function actingAs(Authenticatable $user, $guard = null): static

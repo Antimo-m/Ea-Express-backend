@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Models\User;
+use App\Notifications\PasswordChanged;
 use App\Support\AccountSessionRevocation;
 use App\Support\SecurityEvent;
 use App\Support\StaffAuthentication;
@@ -18,6 +19,7 @@ class ChangePassword
         DB::transaction(function () use ($user, $currentPassword, $password): void {
             $locked = User::lockForUpdate()->findOrFail($user->id);
             abort_unless($locked->is_active, 403);
+            abort_if($locked->role === UserRole::Admin, 403, 'La password dell’Admin si gestisce soltanto dal terminale del server.');
             app(AccountSessionRevocation::class)->assertCurrent(request(), $locked, $locked->role === UserRole::Customer ? 'customer' : 'web');
             app(StaffAuthentication::class)->assertComplete($locked);
             if (! Hash::check($currentPassword, $locked->password)) {
@@ -28,5 +30,6 @@ class ChangePassword
             SecurityEvent::record('password_changed', $locked->id);
             $user->setRawAttributes($locked->getAttributes(), true);
         }, 3);
+        $user->notify(new PasswordChanged);
     }
 }

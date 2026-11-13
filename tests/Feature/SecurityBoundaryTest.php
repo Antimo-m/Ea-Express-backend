@@ -61,7 +61,7 @@ class SecurityBoundaryTest extends TestCase
         $this->withServerVariables(['REMOTE_ADDR' => '192.0.2.99'])->postJson($path, ['email' => strtoupper($user->email), 'password' => 'password'])->assertTooManyRequests();
         $this->travel(10)->seconds();
         $response = $this->postJson($path, ['email' => $user->email, 'password' => 'password']);
-        $role === UserRole::Customer ? $response->assertOk() : $response->assertRedirect(route('email-otp.notice'));
+        $role === UserRole::Customer ? $response->assertAccepted()->assertJsonPath('otp_required', true) : $response->assertRedirect(route('email-otp.notice'));
     }
 
     public function test_malformed_email_in_customer_limiter_is_a_validation_error(): void
