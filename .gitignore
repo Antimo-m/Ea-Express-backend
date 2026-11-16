@@ -272,3 +272,9 @@ Thumbs.db
 !/tests/Feature/ProductionHardeningTest.php
 !/tests/Feature/BetaModeTest.php
 !/tests/Feature/RiderActivationTest.php
+
+# Necessari alla CI: suite Unit dichiarata in phpunit.xml e factory usata dai test versionati.
+!/tests/Unit/
+/tests/Unit/*
+!/tests/Unit/ExampleTest.php
+!/database/factories/OrderMessageFactory.php
