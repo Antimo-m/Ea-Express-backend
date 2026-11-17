@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Actions\RecordEconomicAudit;
 use App\Models\AccountingControl;
+use App\Rules\PlainText;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,7 @@ class AccountingControlController extends Controller
         $data = $request->validate([
             'action' => ['required', 'in:close,reopen'], 'version' => ['required', 'integer', 'min:1'],
             'closed_through' => ['required_if:action,close', 'nullable', 'date_format:Y-m-d', 'before:'.now('Europe/Rome')->toDateString()],
-            'reason' => ['required', 'string', 'max:500'],
+            'reason' => ['required', 'string', 'max:500', new PlainText(multiline: true)],
         ]);
         DB::transaction(function () use ($request, $data, $audit): void {
             $control = AccountingControl::lockForUpdate()->findOrFail(1);

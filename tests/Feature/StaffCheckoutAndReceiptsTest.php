@@ -105,7 +105,7 @@ class StaffCheckoutAndReceiptsTest extends TestCase
         $order = Order::factory()->create(['rider_id' => $rider->id, 'shipping_type' => 'external', 'status' => OrderStatus::Received, 'price_cents' => 1000, 'quoted_price_cents' => 1000, 'pricing_version' => 1, 'price_state' => 'agreed']);
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $this->actingAs($admin)->get('/orders/'.$order->slug)->assertOk()->assertDontSee('Spedizione fuori regione')->assertSee('Prendi in carico');
-        foreach (['accepted', 'rider_arriving', 'picked_up', 'out_for_delivery', 'delivered'] as $status) {
+        foreach (['accepted', 'rider_arriving', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered'] as $status) {
             $this->actingAs($status === 'accepted' ? $admin : $rider);
             $this->patch('/orders/'.$order->slug, ['version' => $order->fresh()->version, 'status' => $status, 'rider_id' => $rider->slug])->assertSessionHasNoErrors();
         }

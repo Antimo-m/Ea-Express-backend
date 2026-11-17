@@ -47,9 +47,9 @@ enum OrderStatus: string
             self::Accepted => [self::RiderArriving, self::Cancelled],
             self::PickupScheduled => [self::RiderArriving, self::Cancelled],
             self::RiderArriving => [self::PickedUp, self::DeliveryIssue, self::Cancelled],
-            self::PickedUp => [self::InTransit, self::OutForDelivery, self::DeliveryIssue],
-            self::InTransit => [self::OutForDelivery, self::DeliveryIssue],
-            self::OutForDelivery => [self::Delivered, self::DeliveryAttempted, self::DeliveryIssue],
+            self::PickedUp => [self::InTransit, self::DeliveryAttempted, self::DeliveryIssue, self::Cancelled],
+            self::InTransit => [self::OutForDelivery, self::DeliveryAttempted, self::DeliveryIssue, self::Cancelled],
+            self::OutForDelivery => [self::Delivered, self::DeliveryAttempted, self::DeliveryIssue, self::Cancelled],
             self::DeliveryAttempted, self::DeliveryIssue => [self::Rescheduled, self::Cancelled],
             self::Rescheduled => [self::RiderArriving, self::OutForDelivery, self::DeliveryIssue, self::Cancelled],
             self::Rejected => [self::Received],
@@ -61,6 +61,26 @@ enum OrderStatus: string
     public static function deliveryStages(): array
     {
         return [self::Received, self::Accepted, self::RiderArriving, self::PickedUp, self::InTransit, self::OutForDelivery, self::Delivered];
+    }
+
+    /**
+     * States in which the parcel is already in the rider's hands, so the assigned rider is frozen.
+     *
+     * @return list<self>
+     */
+    public static function afterPickup(): array
+    {
+        return [self::PickedUp, self::InTransit, self::OutForDelivery, self::DeliveryAttempted, self::Delivered];
+    }
+
+    /**
+     * Transport states where a cancellation is an administrative decision rather than an operational step.
+     *
+     * @return list<self>
+     */
+    public static function transport(): array
+    {
+        return [self::PickedUp, self::InTransit, self::OutForDelivery];
     }
 
     /** @return list<string> */

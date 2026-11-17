@@ -45,7 +45,7 @@ class AuthenticatedSessionController extends Controller
             $authentication->factorVerified($request, $request->user());
             $authentication->complete($request, $request->user());
 
-            return redirect(IntendedDestination::take($request));
+            return redirect(IntendedDestination::take($request))->with('status', 'signed-in');
         }
 
         if ($authentication->requiresVerification($request->user())) {
@@ -58,7 +58,7 @@ class AuthenticatedSessionController extends Controller
             return redirect()->route('email-otp.notice');
         }
 
-        return redirect(IntendedDestination::take($request));
+        return redirect(IntendedDestination::take($request))->with('status', 'signed-in');
     }
 
     /**

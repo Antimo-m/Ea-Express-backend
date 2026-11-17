@@ -11,6 +11,7 @@ use App\Models\PendingSettlement;
 use App\Models\ReceiptReversal;
 use App\Models\User;
 use App\OrderStatus;
+use App\Support\BalanceStatement;
 use App\Support\FinancialRegister;
 use App\Support\PendingPositionSnapshot;
 use App\Support\PublicReferences;
@@ -71,11 +72,11 @@ class BalanceController extends Controller
         $orders = Order::financialFor($request->user())->when($customerIds, fn ($q) => $q->whereIn('customer_id', $customerIds))->when($search !== '', fn (Builder $q) => $this->searchOrder($q, $term));
         $completed = (clone $orders)->where('status', OrderStatus::Delivered)->whereNull('receipt_voided_at')->whereBetween('delivered_at', $period->utcRange());
         $reversed = (clone $orders)->where('status', OrderStatus::Delivered)->whereBetween('receipt_voided_at', $period->utcRange());
-        $payments = PaymentEntry::query()->where(fn ($q) => $q->where('amount_cents', '!=', 0)->orWhere('cash_amount_cents', '!=', 0)->orWhere('kind', 'restoration'))->whereHas('order', fn ($q) => $q->financialFor($request->user())->when($customerIds, fn ($q) => $q->whereIn('customer_id', $customerIds)))->when($search !== '', fn (Builder $q) => $q->where(fn (Builder $match) => $match->where('note', 'like', $term)->orWhereHas('order', fn (Builder $order) => $this->searchOrder($order, $term))))->whereBetween('created_at', $period->utcRange());
-        $expenses = Expense::visibleTo($request->user())->when($customerIds, fn ($q) => $q->whereHas('pendingSettlement.account', fn ($account) => $account->whereIn('customer_id', $customerIds)))->whereDate('spent_on', '>=', $start->toDateString())->whereDate('spent_on', '<=', $end->toDateString())->when($search !== '', fn (Builder $q) => $q->where(fn (Builder $match) => $match->where('description', 'like', $term)->orWhereHas('pendingSettlement.account', fn (Builder $account) => $this->searchPending($account, $term))));
+        $payments = $this->paymentsQuery($request->user(), $customerIds, $search, $term)->whereBetween('created_at', $period->utcRange());
+        $expenses = $this->expensesQuery($request->user(), $customerIds, $search, $term)->whereDate('spent_on', '>=', $start->toDateString())->whereDate('spent_on', '<=', $end->toDateString());
         $ledgerTotals = app(ReceiptLedger::class)->totals($payments);
         $cash = $ledgerTotals['cash'];
-        $generalQuery = PendingSettlement::where('amount_cents', '>', 0)->whereHas('account', fn ($q) => $q->where('direction', 'incoming')->whereNull('order_id')->when($customerIds, fn ($q) => $q->whereIn('customer_id', $customerIds)))->when($request->user()->role !== UserRole::Admin, fn ($q) => $q->where('user_id', $request->user()->id))->whereBetween('created_at', $period->utcRange())->when($search !== '', fn (Builder $q) => $q->whereHas('account', fn (Builder $account) => $this->searchPending($account, $term)));
+        $generalQuery = $this->generalReceiptsQuery($request->user(), $customerIds, $search, $term)->whereBetween('created_at', $period->utcRange());
         $generalReceipts = (int) (clone $generalQuery)->sum('amount_cents');
         $cash += (int) $generalReceipts;
         $receivableIds = (clone $completed)->whereNull('paid_at')->whereNull('receipt_voided_at')->select('id');
@@ -86,7 +87,7 @@ class BalanceController extends Controller
             $summaries[$label] = (int) (clone $orders)->where('status', OrderStatus::Delivered)->whereNull('receipt_voided_at')->whereBetween('delivered_at', [$since->utc(), now()])->sum('price_cents');
         }
 
-        $manual = FinancialMovement::query()->when($request->user()->role !== UserRole::Admin, fn ($q) => $q->whereRaw('1=0'))->when($customerIds, fn ($q) => $q->whereIn('customer_id', $customerIds))->whereDate('occurred_on', '>=', $start->toDateString())->whereDate('occurred_on', '<=', $end->toDateString())->when($search !== '', fn (Builder $q) => $q->where(fn (Builder $match) => $match->where('description', 'like', $term)->orWhere('notes', 'like', $term)->orWhereHas('customer', fn (Builder $customer) => $customer->where('name', 'like', $term))->orWhereHas('order', fn (Builder $order) => $this->searchOrder($order, $term))));
+        $manual = $this->manualQuery($request->user(), $customerIds, $search, $term)->whereDate('occurred_on', '>=', $start->toDateString())->whereDate('occurred_on', '<=', $end->toDateString());
         $manualTotals = (clone $manual)->whereNull('voided_at')->selectRaw('kind, SUM(amount_cents) AS cents')->groupBy('kind')->pluck('cents', 'kind');
         $extraIncome = (int) ($manualTotals['income'] ?? 0);
         $extraExpenses = -(int) ($manualTotals['extra_expense'] ?? 0);
@@ -130,11 +131,21 @@ class BalanceController extends Controller
             }
         });
         $cashBalance = $cash - $spent + (int) $manualTotals->sum();
+        $manualFlows = $this->manualFlows($manual);
+        $statement = BalanceStatement::make(
+            ['receipts' => $cash, 'expenses' => $spent, ...$manualFlows],
+            $this->flows(
+                $this->paymentsQuery($request->user(), $customerIds, $search, $term)->where('created_at', '<', $start->copy()->utc()),
+                $this->generalReceiptsQuery($request->user(), $customerIds, $search, $term)->where('created_at', '<', $start->copy()->utc()),
+                $this->expensesQuery($request->user(), $customerIds, $search, $term)->whereDate('spent_on', '<', $start->toDateString()),
+                $this->manualQuery($request->user(), $customerIds, $search, $term)->whereDate('occurred_on', '<', $start->toDateString()),
+            ),
+            $snapshot['uncertain'] ? null : $pendingIncoming,
+            $snapshot['uncertain'] ? null : $pendingOutgoing,
+        );
         $monetaryPayments = (clone $payments)->where(fn ($q) => $q->whereNull('kind')->orWhere('kind', '!=', 'cash_reconciliation'))->whereDoesntHave('audits', fn ($q) => $q->where('action', 'payment.refund_disputed'));
-        $cashIn = app(ReceiptLedger::class)->cash((clone $monetaryPayments)->whereRaw(ReceiptLedger::CashExpression.' > 0')) + $generalReceipts
-            + (int) (clone $manual)->whereNull('voided_at')->where('amount_cents', '>', 0)->sum('amount_cents');
-        $cashOut = -app(ReceiptLedger::class)->cash((clone $monetaryPayments)->whereRaw(ReceiptLedger::CashExpression.' < 0')) + $spent
-            - (int) (clone $manual)->whereNull('voided_at')->where('amount_cents', '<', 0)->sum('amount_cents');
+        $cashIn = app(ReceiptLedger::class)->cash((clone $monetaryPayments)->whereRaw(ReceiptLedger::CashExpression.' > 0')) + $generalReceipts + $manualFlows['manual_in'];
+        $cashOut = -app(ReceiptLedger::class)->cash((clone $monetaryPayments)->whereRaw(ReceiptLedger::CashExpression.' < 0')) + $spent + $manualFlows['manual_out'];
         $registerEntries = in_array($ledger, ['payments', 'expenses', 'cash', 'refunds', 'history'])
             ? app(FinancialRegister::class)->page($ledger, $payments, $expenses, $manual, $generalQuery, $referenceDate) : null;
         $manualSections = [];
@@ -153,6 +164,7 @@ class BalanceController extends Controller
                 ->when($search !== '', fn ($q) => $q->where(fn ($q) => $q->where('reason', 'like', $term)->orWhereHas('order', fn ($q) => $this->searchOrder($q, $term))))
                 ->with(['order' => fn ($q) => $q->withDisplayIdentity()->withReceiptLedger(), 'user:id,slug,name', 'restoredBy:id,slug,name', 'payments' => fn ($q) => $q->where('created_at', '<=', $cutoff)->with('originalEntry')])
                 ->latest()->orderByDesc('id')->paginate(10, ['*'], 'reversals_page')->withQueryString(),
+            'statement' => $statement,
             'ledger' => $ledger, 'receiptSort' => $receiptSort, 'search' => $search, 'cashBalance' => $cashBalance, 'manualSections' => $manualSections, 'paymentSections' => $paymentSections,
             'cashMovementBalance' => $cashAdditions, 'operatingResult' => $operatingNet, 'finalNet' => $operatingNet,
             'pendingBalance' => $snapshot['uncertain'] ? null : $pendingImpact,
@@ -173,6 +185,53 @@ class BalanceController extends Controller
             'expenses' => $expenses->with(['user:id,slug,name', 'pendingSettlement.account'])->latest('spent_on')->orderByDesc('id')->paginate(10, ['*'], 'expenses_page')->withQueryString(),
             'payments' => $payments->with(['order' => fn ($q) => $q->select(['id', 'slug', 'reference', 'store_name', 'customer_id', 'created_by'])->withDisplayIdentity(), 'user:id,slug,name', 'originalEntry:id,slug,created_at'])->latest()->orderByDesc('id')->paginate(10, ['*'], 'payments_page')->withQueryString(),
         ]);
+    }
+
+    /** @param list<int> $customerIds */
+    private function paymentsQuery(User $user, array $customerIds, string $search, string $term): Builder
+    {
+        return PaymentEntry::query()->where(fn ($q) => $q->where('amount_cents', '!=', 0)->orWhere('cash_amount_cents', '!=', 0)->orWhere('kind', 'restoration'))->whereHas('order', fn ($q) => $q->financialFor($user)->when($customerIds, fn ($q) => $q->whereIn('customer_id', $customerIds)))->when($search !== '', fn (Builder $q) => $q->where(fn (Builder $match) => $match->where('note', 'like', $term)->orWhereHas('order', fn (Builder $order) => $this->searchOrder($order, $term))));
+    }
+
+    /** @param list<int> $customerIds */
+    private function expensesQuery(User $user, array $customerIds, string $search, string $term): Builder
+    {
+        return Expense::visibleTo($user)->when($customerIds, fn ($q) => $q->whereHas('pendingSettlement.account', fn ($account) => $account->whereIn('customer_id', $customerIds)))->when($search !== '', fn (Builder $q) => $q->where(fn (Builder $match) => $match->where('description', 'like', $term)->orWhereHas('pendingSettlement.account', fn (Builder $account) => $this->searchPending($account, $term))));
+    }
+
+    /** @param list<int> $customerIds */
+    private function generalReceiptsQuery(User $user, array $customerIds, string $search, string $term): Builder
+    {
+        return PendingSettlement::where('amount_cents', '>', 0)->whereHas('account', fn ($q) => $q->where('direction', 'incoming')->whereNull('order_id')->when($customerIds, fn ($q) => $q->whereIn('customer_id', $customerIds)))->when($user->role !== UserRole::Admin, fn ($q) => $q->where('user_id', $user->id))->when($search !== '', fn (Builder $q) => $q->whereHas('account', fn (Builder $account) => $this->searchPending($account, $term)));
+    }
+
+    /** @param list<int> $customerIds */
+    private function manualQuery(User $user, array $customerIds, string $search, string $term): Builder
+    {
+        return FinancialMovement::query()->when($user->role !== UserRole::Admin, fn ($q) => $q->whereRaw('1=0'))->when($customerIds, fn ($q) => $q->whereIn('customer_id', $customerIds))->when($search !== '', fn (Builder $q) => $q->where(fn (Builder $match) => $match->where('description', 'like', $term)->orWhere('notes', 'like', $term)->orWhereHas('customer', fn (Builder $customer) => $customer->where('name', 'like', $term))->orWhereHas('order', fn (Builder $order) => $this->searchOrder($order, $term))));
+    }
+
+    /**
+     * Monetary flows with the same rules as «Saldo dei movimenti registrati».
+     *
+     * @return array{receipts: int, expenses: int, manual_in: int, manual_out: int}
+     */
+    private function flows(Builder $payments, Builder $generalReceipts, Builder $expenses, Builder $manual): array
+    {
+        return [
+            'receipts' => app(ReceiptLedger::class)->cash($payments) + (int) (clone $generalReceipts)->sum('amount_cents'),
+            'expenses' => (int) (clone $expenses)->whereNull('voided_at')->sum('amount_cents'),
+            ...$this->manualFlows($manual),
+        ];
+    }
+
+    /** @return array{manual_in: int, manual_out: int} */
+    private function manualFlows(Builder $manual): array
+    {
+        $totals = (clone $manual)->whereNull('voided_at')->toBase()
+            ->selectRaw('COALESCE(SUM(CASE WHEN amount_cents > 0 THEN amount_cents ELSE 0 END), 0) AS cents_in, COALESCE(SUM(CASE WHEN amount_cents < 0 THEN -amount_cents ELSE 0 END), 0) AS cents_out')->first();
+
+        return ['manual_in' => (int) ($totals->cents_in ?? 0), 'manual_out' => (int) ($totals->cents_out ?? 0)];
     }
 
     private function searchOrder(Builder $query, string $term): Builder

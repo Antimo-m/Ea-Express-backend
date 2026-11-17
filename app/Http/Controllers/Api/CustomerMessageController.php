@@ -6,6 +6,7 @@ use App\Actions\AcknowledgeMessages;
 use App\Actions\NotifyOrderParticipants;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Rules\PlainText;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,7 @@ class CustomerMessageController extends Controller
     public function store(Request $request, Order $order, NotifyOrderParticipants $notify): JsonResponse
     {
         abort_unless($order->customer_id === $request->user()->id, 404);
-        $data = $request->validate(['body' => ['required', 'string', 'max:2000'], 'submission_key' => ['nullable', 'uuid']]);
+        $data = $request->validate(['body' => ['required', 'string', 'max:2000', new PlainText(multiline: true)], 'submission_key' => ['nullable', 'uuid']]);
         DB::transaction(function () use ($order, $data, $notify, $request): void {
             $locked = Order::where('customer_id', $request->user()->id)->lockForUpdate()->findOrFail($order->id);
             if (! empty($data['submission_key'])) {

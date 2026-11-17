@@ -31,17 +31,36 @@ class PortalTextPolicy
 
     public function allows(string $value): bool
     {
-        $value = self::normalize($value);
         $definition = $this->definition();
-        $normalized = preg_replace('/[\p{Mn}\p{Cf}]/u', '', strtr(mb_strtolower($value, 'UTF-8'), $definition['substitutions']));
+        $text = self::comparable($value, $definition['substitutions']);
         foreach ($definition['terms'] as $term) {
-            $letters = preg_split('//u', preg_replace('/[^\p{L}\p{N}]/u', '', $term), -1, PREG_SPLIT_NO_EMPTY);
-            $pattern = '/(?<![\p{L}\p{N}])'.implode('[^\p{L}\p{N}]*', array_map(fn (string $letter): string => preg_quote($letter, '/'), $letters)).'(?![\p{L}\p{N}])/u';
-            if (preg_match($pattern, $normalized) === 1) {
+            $stem = str_ends_with($term, '*');
+            $letters = preg_split('//u', self::comparable(rtrim($term, '*'), $definition['substitutions'], letters: true), -1, PREG_SPLIT_NO_EMPTY);
+            $pattern = '/(?<![\p{L}\p{N}])'.implode('[^\p{L}\p{N}]*', array_map(fn (string $letter): string => preg_quote($letter, '/'), $letters)).($stem ? '' : '(?![\p{L}\p{N}])').'/u';
+            if (preg_match($pattern, $text) === 1) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    /**
+     * Canonical form used only for matching: compatibility characters, case, accents, look-alike
+     * symbols, invisible characters and repeated letters are folded. The stored value is never changed.
+     *
+     * @param  array<string, string>  $substitutions
+     */
+    public static function comparable(string $value, array $substitutions, bool $letters = false): string
+    {
+        $value = \Normalizer::normalize($value, \Normalizer::FORM_KC) ?: $value;
+        $value = strtr(mb_strtolower(self::normalize($value), 'UTF-8'), $substitutions);
+        $value = \Normalizer::normalize($value, \Normalizer::FORM_D) ?: $value;
+        $value = preg_replace('/[\p{Mn}\p{Cf}]/u', '', $value);
+        if ($letters) {
+            $value = preg_replace('/[^\p{L}\p{N}]/u', '', $value);
+        }
+
+        return preg_replace('/(\p{L})\1+/u', '$1', $value);
     }
 }

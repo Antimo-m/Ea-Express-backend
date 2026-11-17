@@ -11,6 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -106,7 +107,7 @@ class GlobalSessionRevocationTest extends TestCase
         $user = User::factory()->create();
         $stale = $user->fresh();
         $user->forceFill(['is_active' => false])->save();
-        $stale->forceFill(['email' => 'changed@example.test'])->save();
+        $stale->forceFill(['password' => Hash::make('changed-password-123')])->save();
         $this->assertSame(2, (int) $stale->fresh()->auth_version);
     }
 
@@ -300,7 +301,7 @@ class GlobalSessionRevocationTest extends TestCase
 
     public static function accountChanges(): array
     {
-        return ['role' => ['role'], 'email' => ['email'], 'deletion' => ['deletion']];
+        return ['role' => ['role'], 'password' => ['password'], 'deletion' => ['deletion']];
     }
 
     #[DataProvider('accountChanges')]
@@ -315,7 +316,7 @@ class GlobalSessionRevocationTest extends TestCase
             $customer->delete();
             $this->assertModelMissing($customer);
         } else {
-            $customer->forceFill($change === 'role' ? ['role' => UserRole::Rider] : ['email' => 'updated@example.test'])->save();
+            $customer->forceFill($change === 'role' ? ['role' => UserRole::Rider] : ['password' => Hash::make('updated-password-123')])->save();
             $this->assertSame(1, (int) $customer->fresh()->auth_version);
         }
 

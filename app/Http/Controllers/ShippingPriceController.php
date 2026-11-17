@@ -9,6 +9,7 @@ use App\Models\User;
 use App\OrderStatus;
 use App\Support\Money;
 use App\Support\RiderOperations;
+use App\Support\TextFields;
 use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -27,7 +28,7 @@ class ShippingPriceController extends Controller
         } else {
             Gate::authorize('update', $order);
         }
-        $data = $request->validate(['action' => ['required', 'in:propose,accept,reject'], 'version' => ['required', 'integer', 'min:1'], 'price' => ['required_if:action,propose', 'nullable', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'], 'reason' => ['required_if:action,propose', 'nullable', 'string', 'max:1000'], 'response_note' => ['nullable', 'string', 'max:1000']]);
+        $data = $request->validate(['action' => ['required', 'in:propose,accept,reject'], 'version' => ['required', 'integer', 'min:1'], 'price' => ['required_if:action,propose', 'nullable', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'], 'reason' => ['required_if:action,propose', 'nullable', 'string', 'max:1000', ...TextFields::description(multiline: true)], 'response_note' => ['nullable', 'string', 'max:1000', ...TextFields::description(multiline: true)]]);
         DB::transaction(function () use ($order, $user, $customer, $data, $notify): void {
             $user = User::lockForUpdate()->findOrFail($user->id);
             abort_unless($user->is_active && ($customer ? $user->role === UserRole::Customer : $user->role === UserRole::Admin), 403);

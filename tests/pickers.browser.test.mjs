@@ -995,12 +995,12 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
                 for(const page of ['finance-statement-customers.html','finance-manual-categories.html','finance-payment-categories.html','finance-reconciliation.html']) {
                     await navigate(page);
-                    assert.deepEqual(await evaluate(`[...document.querySelectorAll('.finance-overview h3')].map(node=>node.textContent)`),['Saldo dei movimenti registrati','Saldo finale','Ancora da regolare']);
+                    assert.deepEqual(await evaluate(`[...document.querySelectorAll('.finance-overview h3')].map(node=>node.textContent)`),['Saldi del periodo','Saldo finale','Ancora da regolare']);
                     assert.ok(await evaluate(`document.querySelector('[data-balance="final"]') && document.querySelector('[data-balance="pending"]')?.textContent.includes('Saldo sospeso')`));
                     assert.ok(await evaluate(`!!document.querySelector('.finance-overview .count-pill')`));
                     if(page==='finance-statement-customers.html') {
                         assert.equal(await evaluate(`document.querySelector('.finance-overview .count-pill').textContent`),'2 consegne');
-                        assert.ok(await evaluate(`document.querySelector('.liquidity-flows').textContent.includes('Da riconciliare')`));
+                        assert.ok(await evaluate(`document.querySelector('.liquidity-flows').textContent.includes('Saldo iniziale')`));
                     }
                     if(page==='finance-manual-categories.html') {
                         const sections=await evaluate(`[...document.querySelectorAll('[data-money-register]')].map(node=>node.dataset.moneyRegister)`);

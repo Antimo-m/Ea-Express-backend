@@ -6,8 +6,10 @@ use App\Models\User;
 use App\Support\BookingRules;
 use App\Support\CustomerIdentity;
 use App\Support\OrderContent;
+use App\Support\PortalTextPolicy;
 use App\Support\PostalCodeResolver;
 use App\Support\ShippingQuote;
+use App\Support\TextFields;
 use App\UserRole;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -21,6 +23,7 @@ class StoreOrderRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $this->merge(PortalTextPolicy::normalizeFields($this->only(['store_name', 'business_type', 'business_description'])));
         $category = $this->input('category');
         if (is_string($category) && $category !== 'custom' && isset(OrderContent::Categories[$category])
             && $this->input('content_description') === OrderContent::Categories[$category]) {
@@ -122,14 +125,14 @@ class StoreOrderRequest extends FormRequest
         return [...CustomerIdentity::rules(),
             'checkout_token' => ['nullable', 'string', 'max:30000'],
             'shipping_type' => ['sometimes', 'required', 'in:regional,external'],
-            'delivery_region' => ['required', 'string', 'max:100'],
-            'delivery_province' => ['required', 'string', 'max:100'],
+            'delivery_region' => ['required', 'string', 'max:100', ...TextFields::address()],
+            'delivery_province' => ['required', 'string', 'max:100', ...TextFields::address()],
             'weight_kg' => ['nullable', 'numeric', 'min:0.01', 'max:10000'],
             'max_dimension_cm' => ['nullable', 'numeric', 'min:1', 'max:500'],
-            'delivery_zone' => ['nullable', 'string', 'max:100'],
-            'pickup_street_number' => ['required', 'string', 'max:20'], 'pickup_postal_code' => ['required', 'regex:/^[0-9]{5}$/D'],
-            'delivery_street_number' => ['required', 'string', 'max:20'], 'delivery_postal_code' => ['required', 'regex:/^[0-9]{5}$/D'],
-            'package_type' => ['required', 'in:standard,fragile,other'], 'package_description' => ['required_if:package_type,other', 'nullable', 'string', 'max:255'],
+            'delivery_zone' => ['nullable', 'string', 'max:100', ...TextFields::address()],
+            'pickup_street_number' => ['required', 'string', 'max:20', ...TextFields::address()], 'pickup_postal_code' => ['required', 'regex:/^[0-9]{5}$/D'],
+            'delivery_street_number' => ['required', 'string', 'max:20', ...TextFields::address()], 'delivery_postal_code' => ['required', 'regex:/^[0-9]{5}$/D'],
+            'package_type' => ['required', 'in:standard,fragile,other'], 'package_description' => ['required_if:package_type,other', 'nullable', 'string', 'max:255', ...TextFields::description()],
             'customer_id' => ['nullable', Rule::exists('users', 'slug')->where('role', 'customer')->where('is_active', true), 'uuid'],
             'packages' => ['sometimes', 'required', 'array', 'list', 'min:1', 'max:100', 'size:'.$this->integer('parcel_count')],
             'packages.*' => ['required', 'array:weight_kg,length_cm,width_cm,height_cm'],
@@ -138,16 +141,16 @@ class StoreOrderRequest extends FormRequest
             'packages.*.width_cm' => ['required', 'numeric', 'min:1', 'max:500'],
             'packages.*.height_cm' => ['required', 'numeric', 'min:1', 'max:500'],
             'parcel_value' => ['required', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'],
-            'store_name' => ['required', 'string', 'max:150'], 'contact_email' => ['nullable', 'email', 'max:255'],
-            'recipient_name' => ['required', 'string', 'max:150'], 'recipient_phone' => ['required', 'string', 'max:30', 'regex:/^[+0-9 ()\-]{6,30}$/D'],
-            'pickup_address' => ['required', 'string', 'max:255'], 'pickup_city' => ['required', 'string', 'max:100'],
-            'delivery_address' => ['required', 'string', 'max:255'], 'delivery_city' => ['required', 'string', 'max:100'],
+            'store_name' => ['required', 'string', 'max:150', ...TextFields::identity()], 'contact_email' => ['nullable', 'email', 'max:255'],
+            'recipient_name' => ['required', 'string', 'max:150', ...TextFields::identity()], 'recipient_phone' => ['required', 'string', 'max:30', 'regex:/^[+0-9 ()\-]{6,30}$/D'],
+            'pickup_address' => ['required', 'string', 'max:255', ...TextFields::address()], 'pickup_city' => ['required', 'string', 'max:100', ...TextFields::address()],
+            'delivery_address' => ['required', 'string', 'max:255', ...TextFields::address()], 'delivery_city' => ['required', 'string', 'max:100', ...TextFields::address()],
             'pickup_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.(app(BookingRules::class)->unchanged($this->all(), $this->route('order')) ? $this->route('order')->pickup_date->toDateString() : now('Europe/Rome')->toDateString())],
             'pickup_from' => ['required', 'date_format:H:i'], 'pickup_to' => ['required', 'date_format:H:i', 'after:pickup_from'],
             'delivery_window' => ['exclude'], 'parcel_count' => ['required', 'integer', 'between:1,100'],
             'category' => ['required', Rule::in(array_keys(OrderContent::Categories))],
-            'content_description' => ['required_if:category,custom', 'nullable', 'string', 'max:255'],
-            'urgency' => ['required', Rule::in(['standard', 'urgent'])], 'notes' => ['nullable', 'string', 'max:2000'],
+            'content_description' => ['required_if:category,custom', 'nullable', 'string', 'max:255', ...TextFields::description()],
+            'urgency' => ['required', Rule::in(['standard', 'urgent'])], 'notes' => ['nullable', 'string', 'max:2000', ...TextFields::description(multiline: true)],
         ];
     }
 }

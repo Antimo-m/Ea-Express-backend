@@ -146,4 +146,32 @@ class ShippingRatePostalRevisionTest extends TestCase
 
         $this->assertDatabaseCount('shipping_rates', 1);
     }
+
+    public function test_an_abbreviated_legacy_city_is_recovered_only_with_a_matching_verified_cap(): void
+    {
+        $rate = ShippingRate::factory()->create(['city' => 'Casalnuovo', 'city_key' => 'casalnuovo', 'area' => 'Napoli / Nola', 'postal_code' => null, 'postal_codes' => null, 'territory_review_required' => true, 'active' => false]);
+        $this->actingAs(User::factory()->create(['role' => UserRole::Admin]));
+
+        $this->postJson('/rates/'.$rate->slug, $this->payload(['city' => 'Casalnuovo', 'area' => 'Napoli / Nola', 'postal_code' => '80016', 'postal_codes' => ['80016']]))
+            ->assertUnprocessable()->assertJsonValidationErrors('city')
+            ->assertJsonFragment(['city' => ['Comune non identificato con certezza. Usa il nome ufficiale e, per i comuni omonimi, aggiungi la sigla della provincia tra parentesi (es. Samone (TO)). Comuni corrispondenti: Casalnuovo di Napoli (NA, CAP 80013); Casalnuovo Monterotaro (FG, CAP 71033). Il CAP 80016 appartiene a Marano di Napoli (NA).']]);
+        $this->postJson('/rates/'.$rate->slug, $this->payload(['city' => 'Casalnuovo', 'area' => 'Napoli / Nola', 'postal_code' => '', 'postal_codes' => []]))
+            ->assertUnprocessable()->assertJsonValidationErrors('city');
+
+        $corrected = $this->postJson('/rates/'.$rate->slug, $this->payload(['city' => 'Casalnuovo', 'area' => 'Napoli / Nola', 'postal_code' => '80013', 'postal_codes' => ['80013']]))
+            ->assertCreated()->assertJsonPath('data.city', 'Casalnuovo di Napoli')->assertJsonPath('data.postal_code', '80013')->assertJsonPath('data.territory_review_required', false)->json('data.slug');
+        $this->patchJson('/rates/'.$corrected.'/state', ['active' => true])->assertOk();
+        $this->getJson('/rates/quote?city=Casalnuovo di Napoli&province=NA&postal_code=80013')->assertJsonPath('available', true);
+        $this->getJson('/rates/quote?city=Casalnuovo di Napoli&province=NA&postal_code=80016')->assertJsonPath('available', false);
+        $this->assertNull($rate->fresh()->postal_code);
+    }
+
+    public function test_a_cap_alone_never_renames_a_destination_to_an_unrelated_municipality(): void
+    {
+        $rate = ShippingRate::factory()->create(['city' => 'Camposanto', 'city_key' => 'camposanto', 'area' => 'Napoli / Nola', 'postal_code' => null, 'postal_codes' => null, 'territory_review_required' => true, 'active' => false]);
+        $this->actingAs(User::factory()->create(['role' => UserRole::Admin]));
+        $this->postJson('/rates/'.$rate->slug, $this->payload(['city' => 'Camposanto', 'area' => 'Napoli / Nola', 'postal_code' => '80030', 'postal_codes' => ['80030']]))
+            ->assertUnprocessable();
+        $this->assertSame(1, ShippingRate::count());
+    }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Actions\NotifyOrderParticipants;
 use App\Models\Order;
+use App\Rules\PlainText;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +26,7 @@ class CustomerConversationController extends Controller
 
     public function store(Request $request, string $token, NotifyOrderParticipants $notify): RedirectResponse
     {
-        $data = $request->validate(['body' => ['required', 'string', 'max:2000']]);
+        $data = $request->validate(['body' => ['required', 'string', 'max:2000', new PlainText(multiline: true)]]);
         DB::transaction(function () use ($token, $data, $notify) {
             $order = Order::query()->where('conversation_token', $token)->where('conversation_expires_at', '>', now())->lockForUpdate()->firstOrFail();
             $order->messages()->create($data);

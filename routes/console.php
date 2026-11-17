@@ -22,5 +22,6 @@ if (config('backup.enabled')) {
 }
 
 Schedule::command('customers:prune-unconfirmed')->hourly()->withoutOverlapping(30);
+Schedule::command('accounts:review-deactivated')->weeklyOn(1, '07:00')->timezone('Europe/Rome')->withoutOverlapping(30);
 
 Schedule::command('auth-security:prune')->everyTenMinutes()->withoutOverlapping(10)->runInBackground();

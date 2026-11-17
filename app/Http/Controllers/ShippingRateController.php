@@ -8,6 +8,7 @@ use App\Http\Requests\ShippingRateRequest;
 use App\Models\ShippingRate;
 use App\Support\Money;
 use App\Support\ShippingQuote;
+use App\Support\TextFields;
 use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -19,7 +20,7 @@ class ShippingRateController extends Controller
 {
     public function index(Request $request): View|JsonResponse
     {
-        $data = $request->validate(['q' => ['nullable', 'string', 'max:100'], 'area' => ['nullable', 'string', 'max:100'], 'shipping_type' => ['nullable', 'in:regional,external']]);
+        $data = $request->validate(['q' => ['nullable', 'string', 'max:100'], 'area' => ['nullable', 'string', 'max:100', ...TextFields::address()], 'shipping_type' => ['nullable', 'in:regional,external']]);
         $request->validate(['state' => ['nullable', 'in:active,inactive,all,archived']]);
         $isAdmin = $request->user()->role === UserRole::Admin;
         $state = $isAdmin ? $request->input('state', 'active') : 'active';
@@ -79,7 +80,7 @@ class ShippingRateController extends Controller
 
     public function quote(Request $request, ShippingQuote $quote): JsonResponse
     {
-        $data = $request->validate(['province' => ['nullable', 'string', 'max:100'], 'region' => ['nullable', 'string', 'max:100'], 'shipping_type' => ['nullable', 'in:regional,external'], 'weight_kg' => ['nullable', 'numeric', 'min:0.01', 'max:10000'], 'max_dimension_cm' => ['nullable', 'numeric', 'min:1', 'max:500'], 'zone' => ['nullable', 'string', 'max:100'], 'street' => ['nullable', 'string', 'max:255'], 'city' => ['required', 'string', 'max:100'], 'postal_code' => ['nullable', 'regex:/^[0-9]{5}$/D']]);
+        $data = $request->validate(['province' => ['nullable', 'string', 'max:100'], 'region' => ['nullable', 'string', 'max:100'], 'shipping_type' => ['nullable', 'in:regional,external'], 'weight_kg' => ['nullable', 'numeric', 'min:0.01', 'max:10000'], 'max_dimension_cm' => ['nullable', 'numeric', 'min:1', 'max:500'], 'zone' => ['nullable', 'string', 'max:100', ...TextFields::address()], 'street' => ['nullable', 'string', 'max:255', ...TextFields::address()], 'city' => ['required', 'string', 'max:100', ...TextFields::address()], 'postal_code' => ['nullable', 'regex:/^[0-9]{5}$/D']]);
 
         $result = $quote->find($data['city'], $data['postal_code'] ?? null, $data['zone'] ?? null, $data['street'] ?? null, false, $data['shipping_type'] ?? 'regional', isset($data['weight_kg']) ? (float) $data['weight_kg'] : null, isset($data['max_dimension_cm']) ? (float) $data['max_dimension_cm'] : null, $data['province'] ?? null, $data['region'] ?? null);
         unset($result['rate_id']);

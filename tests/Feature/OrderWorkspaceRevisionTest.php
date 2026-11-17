@@ -47,7 +47,7 @@ class OrderWorkspaceRevisionTest extends TestCase
 
         $response = $this->actingAs($admin)->get(route('orders.incoming'));
 
-        $response->assertSee('Antimo')->assertSee('Giuseppe Marconi')->assertSee('Giugliano')->assertSee('Caiazzo')->assertSee('7 giorni')->assertSee($order->reference);
+        $response->assertSee('Antimo')->assertSee('Giuseppe Marconi')->assertSee('Giugliano')->assertSee('Caiazzo')->assertSee('7 giorni fa')->assertSee($order->reference);
         $xpath = $this->document($response);
         $this->assertSame(2, $xpath->query('//*[contains(@class,"operational-route")]//*[contains(@class,"shipment-route-stop")]/strong')->length);
         $this->assertSame(1, $xpath->query('//*[contains(@class,"operational-card-heading")]/time')->length);
@@ -65,7 +65,7 @@ class OrderWorkspaceRevisionTest extends TestCase
 
         $response = $this->actingAs($admin)->get(route('orders.in-progress'));
 
-        $response->assertSee('3 ore')->assertSee('2 giorni')->assertSee('4 colli')->assertSee('Nome destinatario')->assertSee($urgent->reference)->assertSee($standard->reference);
+        $response->assertSee('3 ore fa')->assertSee('2 giorni fa')->assertSee('4 colli')->assertSee('Nome destinatario')->assertSee($urgent->reference)->assertSee($standard->reference);
         $xpath = $this->document($response);
         $urgentCard = $xpath->query('//*[@data-operational-order="'.$urgent->slug.'"]')->item(0);
         $standardCard = $xpath->query('//*[@data-operational-order="'.$standard->slug.'"]')->item(0);

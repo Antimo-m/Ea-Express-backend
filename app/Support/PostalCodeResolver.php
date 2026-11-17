@@ -66,6 +66,71 @@ class PostalCodeResolver
         return $this->municipalities()[ShippingQuote::cityKey($city)] ?? [];
     }
 
+    /**
+     * Resolves an abbreviated municipality name only when the postal codes identify exactly one
+     * municipality whose official name starts with the given words (e.g. «Casalnuovo» + 80013).
+     *
+     * @param  list<string>  $postalCodes
+     * @return list<array<string, mixed>>
+     */
+    public function placesByPostalCode(string $city, array $postalCodes): array
+    {
+        $prefix = ShippingQuote::cityKey($city);
+        if ($prefix === '' || $postalCodes === []) {
+            return [];
+        }
+        $matches = [];
+        foreach ($this->municipalities() as $key => $places) {
+            if ($key !== $prefix && ! str_starts_with($key, $prefix.' ')) {
+                continue;
+            }
+            foreach ($places as $place) {
+                if (array_diff($postalCodes, $place['postal_codes']) === []) {
+                    $matches[$place['name'].'|'.$place['province_code']] = $place;
+                }
+            }
+        }
+
+        return array_values($matches);
+    }
+
+    /**
+     * Human readable hints for an unresolved name or a postal code belonging to another municipality.
+     *
+     * @param  list<string>  $postalCodes
+     */
+    public function hint(string $city, array $postalCodes): string
+    {
+        $prefix = ShippingQuote::cityKey($city);
+        $named = [];
+        foreach ($this->municipalities() as $key => $places) {
+            if ($prefix !== '' && ($key === $prefix || str_starts_with($key, $prefix.' '))) {
+                foreach ($places as $place) {
+                    $named[$place['name'].$place['province_code']] = $place['name'].' ('.$place['province_code'].', CAP '.implode(', ', array_slice($place['postal_codes'], 0, 3)).')';
+                }
+            }
+        }
+        $owners = [];
+        foreach ($postalCodes as $code) {
+            foreach ($this->municipalities() as $places) {
+                foreach ($places as $place) {
+                    if (in_array($code, $place['postal_codes'], true)) {
+                        $owners[$place['name'].$place['province_code']] = 'il CAP '.$code.' appartiene a '.$place['name'].' ('.$place['province_code'].')';
+                    }
+                }
+            }
+        }
+        $parts = [];
+        if ($named) {
+            $parts[] = 'Comuni corrispondenti: '.implode('; ', array_slice(array_values($named), 0, 4)).'.';
+        }
+        if ($owners) {
+            $parts[] = ucfirst(implode('; ', array_slice(array_values($owners), 0, 3))).'.';
+        }
+
+        return implode(' ', $parts);
+    }
+
     /** @return array<string, array<int, array<string, mixed>>> */
     private function municipalities(): array
     {

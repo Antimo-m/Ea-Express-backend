@@ -18,8 +18,11 @@
                     <label for="customer_id" class="form-label">Account cliente (facoltativo)</label>
                     <select class="form-select" name="customer_id" id="customer_id">
                         <option value="">Nessun account collegato</option>
+                        @php
+                            $homonyms = $customers->countBy(fn ($customer) => mb_strtolower(trim($customer->name)))->filter(fn ($count) => $count > 1);
+                        @endphp
                         @foreach($customers as $customer)
-                        <option value="{{ $customer->slug }}" data-identity="{{ json_encode($customer->only(['name', 'email', 'sender_type', 'business_type', 'business_description'])) }}" @selected(old('customer_id')==$customer->slug)>{{ $customer->name }} · {{ $customer->email }}</option>
+                        <option value="{{ $customer->slug }}" data-identity="{{ json_encode($customer->only(['name', 'email', 'sender_type', 'business_type', 'business_description'])) }}" @selected(old('customer_id')==$customer->slug)>{{ $customer->name }}@if($homonyms->has(mb_strtolower(trim($customer->name)))) · {{ $customer->business_type ?: 'Cliente '.\Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($customer->slug, 0, 6)) }}@endif</option>
                         @endforeach
                     </select>
                 </div>

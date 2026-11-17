@@ -14,13 +14,13 @@ class OrderProgressTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_actions_update_the_real_milestones_and_optional_steps_stay_unconfirmed(): void
+    public function test_actions_update_the_real_milestones_in_order(): void
     {
         $this->freezeTime();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $order = Order::factory()->create(['created_by' => $admin->id, 'pickup_date' => now('Europe/Rome')->toDateString()]);
         $this->actingAs($admin)->get('/orders/'.$order->slug)->assertSee('data-progress-status="received" data-progress-state="current"', false)->assertDontSee('data-tracking-panel', false)->assertDontSee('transition-note-', false)->assertDontSee('data-map-points', false);
-        foreach (['accepted', 'rider_arriving', 'picked_up', 'out_for_delivery', 'delivered'] as $index => $status) {
+        foreach (['accepted', 'rider_arriving', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered'] as $index => $status) {
             $data = ['status' => $status, 'version' => $index + 1];
             if ($status === 'accepted') {
                 $data += ['rider_id' => $admin->slug, 'price' => '5,00'];
@@ -28,7 +28,9 @@ class OrderProgressTest extends TestCase
             $response = $this->patchJson('/orders/'.$order->slug, $data)->assertOk()->assertJsonPath('status', $status);
             $this->assertStringContainsString('data-progress-status="'.$status.'" data-progress-state="'.($status === 'delivered' ? 'complete' : 'current').'"', $response->json('html'));
             $this->assertStringNotContainsString('data-progress-status="pickup_scheduled"', $response->json('html'));
-            $this->assertStringContainsString('data-progress-status="in_transit" data-progress-state="future"', $response->json('html'));
+            if (in_array($status, ['accepted', 'rider_arriving', 'picked_up'], true)) {
+                $this->assertStringContainsString('data-progress-status="in_transit" data-progress-state="future"', $response->json('html'));
+            }
         }
         $this->get('/orders/'.$order->slug)->assertSee('data-progress-status="delivered" data-progress-state="complete"', false);
         $this->patchJson('/orders/'.$order->slug.'/map-points', ['version' => 6, 'kind' => 'pickup', 'latitude' => 40, 'longitude' => 14])->assertNotFound();

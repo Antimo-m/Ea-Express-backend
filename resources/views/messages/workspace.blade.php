@@ -1,5 +1,6 @@
-<header class="page-heading"><div><span class="eyebrow">CONNESSI AI TUOI CLIENTI</span><h1>Messaggi</h1><p>Ogni conversazione, nel contesto della sua spedizione.</p></div><a class="btn btn-outline-secondary" href="{{ route('orders.incoming') }}"><x-ui.icon name="inbox" /> Richieste in arrivo</a></header>
-<section class="inbox-workspace" data-inbox aria-label="Messaggistica clienti">
+@php($inboxView = $order && request()->routeIs('messages.show') ? 'thread' : 'list')
+<header class="page-heading inbox-page-heading"><div><span class="eyebrow">CONNESSI AI TUOI CLIENTI</span><h1>Messaggi</h1><p>Ogni conversazione, nel contesto della sua spedizione.</p></div><a class="btn btn-outline-secondary" href="{{ route('orders.incoming') }}"><x-ui.icon name="inbox" /> Richieste in arrivo</a></header>
+<section class="inbox-workspace" data-inbox data-inbox-view="{{ $inboxView }}" aria-label="Messaggistica clienti">
     <aside class="inbox-sidebar" aria-labelledby="inbox-heading">
         <header class="inbox-sidebar-heading"><h2 id="inbox-heading" tabindex="-1">Conversazioni</h2><span>{{ $orders->total() }}</span></header>
         <label class="directory-search"><x-ui.icon name="search" /><input type="search" data-inbox-search placeholder="Cerca in questa pagina" aria-label="Cerca conversazioni in questa pagina"></label>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\ReschedulePickup;
 use App\Models\Order;
 use App\Support\OrderDetail;
+use App\Support\TextFields;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,7 +20,7 @@ class PickupScheduleController extends Controller
         $data = $request->validate([
             'pickup_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.now('Europe/Rome')->toDateString()],
             'pickup_from' => ['required', 'date_format:H:i'], 'pickup_to' => ['required', 'date_format:H:i', 'after:pickup_from'],
-            'reason' => ['required', 'string', 'max:500'], 'version' => ['required', 'integer', 'min:1'],
+            'reason' => ['required', 'string', 'max:500', ...TextFields::description(multiline: true)], 'version' => ['required', 'integer', 'min:1'],
         ]);
         $reschedule->handle($request->user(), $order, $data);
 

@@ -53,13 +53,16 @@ class ReviseShippingRate
             if (! $data['is_default'] && ($territoryChanged || (($data['active'] ?? true) && ($rate?->territory_review_required || ! $rate?->active)))) {
                 $places = app(PostalCodeResolver::class)->places($data['city']);
                 $selectedCodes = ($data['postal_codes'] ?? []) ?: (! empty($data['postal_code']) ? [$data['postal_code']] : []);
+                if ($places === [] && $selectedCodes !== []) {
+                    $places = app(PostalCodeResolver::class)->placesByPostalCode($data['city'], $selectedCodes);
+                }
                 if (count($places) > 1 && $selectedCodes !== []) {
                     $places = array_values(array_filter($places, fn (array $place): bool => array_diff($selectedCodes, $place['postal_codes']) === []));
                 }
                 if (count($places) === 1) {
                     $codes = $places[0]['postal_codes'];
                     if (! empty($data['postal_code']) && ! in_array($data['postal_code'], $codes, true)) {
-                        throw ValidationException::withMessages([$postalErrorField => 'Il CAP non corrisponde alla località del listino.']);
+                        throw ValidationException::withMessages([$postalErrorField => trim('Il CAP non corrisponde alla località del listino. '.app(PostalCodeResolver::class)->hint('', [$data['postal_code']]))]);
                     }
                     $data['city'] = $places[0]['name'];
                     $data['city_key'] = ShippingQuote::cityKey($data['city']);
@@ -71,7 +74,8 @@ class ReviseShippingRate
                     $data['postal_code'] = count($data['postal_codes']) === 1 ? $data['postal_codes'][0] : null;
                     $data['territory_review_required'] = false;
                 } else {
-                    throw ValidationException::withMessages(['city' => 'Comune non identificato con certezza. Usa il nome ufficiale e, per i comuni omonimi, aggiungi la sigla della provincia tra parentesi (es. Samone (TO)).']);
+                    $hint = app(PostalCodeResolver::class)->hint($data['city'], $selectedCodes);
+                    throw ValidationException::withMessages(['city' => trim('Comune non identificato con certezza. Usa il nome ufficiale e, per i comuni omonimi, aggiungi la sigla della provincia tra parentesi (es. Samone (TO)). '.$hint)]);
                 }
             }
             foreach (['zone', 'street'] as $field) {

@@ -41,6 +41,7 @@ class PasswordResetLink extends Notification implements ShouldBeEncrypted, Shoul
     public function toMail(User $notifiable): MailMessage
     {
         return (new MailMessage)->mailer(config('auth_security.otp.mailer'))
+            ->markdown('mail.auth.action')
             ->subject('Reimposta la password · EA-Express')
             ->greeting('Reimposta la tua password')
             ->line('Abbiamo ricevuto una richiesta di ripristino della password per il tuo account EA-Express.')

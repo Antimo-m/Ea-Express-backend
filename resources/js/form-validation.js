@@ -99,6 +99,9 @@ function markRequiredFields() {
         else field.removeAttribute('aria-required');
         for (const label of field.labels || []) {
             const marker = label.querySelector('[data-required-marker]');
+            // Wrapping labels (radio pills, time popover fields) would show the marker after the control itself.
+            // Filter controls are always prefilled and repeat their name inside the picker: no marker there.
+            if (label.contains(field) || label.classList.contains('visually-hidden') || field.closest('.ea-picker-popup, [data-filter-toolbar], [data-filter-range], .filter-dialog')) { marker?.remove(); continue; }
             if (required && !marker && !label.textContent.includes('*')) {
                 const star = document.createElement('span');
                 star.className = 'required-marker'; star.dataset.requiredMarker = '';

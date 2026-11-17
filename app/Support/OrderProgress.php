@@ -28,7 +28,7 @@ class OrderProgress
                 $at = $order->delivered_at;
             }
             $isCurrent = $current === $index && $status !== OrderStatus::Delivered;
-            $steps[] = ['status' => $status->value, 'label' => $status->label(), 'state' => $isCurrent ? 'current' : ($at ? 'complete' : 'future'), 'at' => $at, 'optional' => in_array($status, [OrderStatus::PickupScheduled, OrderStatus::InTransit], true), 'description' => $isCurrent ? ($event?->public_note ?: 'Stato confermato dal gestionale.') : ($at ? 'Passaggio registrato' : 'Non ancora registrato')];
+            $steps[] = ['status' => $status->value, 'label' => $status->label(), 'state' => $isCurrent ? 'current' : ($at ? 'complete' : 'future'), 'at' => $at, 'optional' => $status === OrderStatus::PickupScheduled, 'description' => $isCurrent ? ($event?->public_note ?: 'Stato confermato dal gestionale.') : ($at ? 'Passaggio registrato' : 'Non ancora registrato')];
         }
         $exception = $current === false ? ['label' => $order->status->label(), 'tone' => $order->status->tone(), 'note' => $events->last(fn ($event) => $event->status === $order->status)?->public_note, 'at' => $events->last(fn ($event) => $event->status === $order->status)?->created_at, 'last' => $last?->status->label()] : null;
 

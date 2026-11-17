@@ -6,7 +6,6 @@ use App\Actions\SendEmailOtp;
 use App\Actions\VerifyEmailOtp;
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Rules\AllowedPortalText;
 use App\Rules\SafePasswordLength;
 use App\Support\AuthProtection;
 use App\Support\AuthSecurityStore;
@@ -17,6 +16,7 @@ use App\Support\PasswordPolicy;
 use App\Support\PasswordRecovery;
 use App\Support\PortalTextPolicy;
 use App\Support\SecurityEvent;
+use App\Support\TextFields;
 use App\Support\TrustedRiderDevices;
 use App\Support\UnconfirmedCustomers;
 use App\UserRole;
@@ -117,10 +117,7 @@ class CustomerAuthController extends Controller
     public function register(Request $request): JsonResponse
     {
         $request->merge(PortalTextPolicy::normalizeFields($request->only(['name', 'business_type', 'business_description'])));
-        $rules = CustomerIdentity::rules(required: true);
-        $rules['business_type'][] = new AllowedPortalText;
-        $rules['business_description'][] = new AllowedPortalText;
-        $data = $request->validate([...$rules, 'name' => ['required', 'string', 'max:150', Rule::when($request->input('sender_type') !== 'private', [new AllowedPortalText])], 'email' => ['required', 'email', 'lowercase', 'max:255'], 'password' => [...PasswordPolicy::rules(), 'confirmed'],
+        $data = $request->validate([...CustomerIdentity::rules(required: true), 'name' => ['required', 'string', 'max:150', ...TextFields::identity()], 'email' => ['required', 'email', 'lowercase', 'max:255'], 'password' => [...PasswordPolicy::rules(), 'confirmed'],
             'privacy_acknowledged' => ['accepted'], 'beta_terms_accepted' => Rule::when((bool) config('beta.enabled'), ['accepted'], ['nullable'])], [
                 'privacy_acknowledged.accepted' => 'Conferma di aver letto l’informativa privacy.', 'beta_terms_accepted.accepted' => 'Accetta le condizioni d’uso della beta per continuare.',
             ]);

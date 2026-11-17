@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Notifications\RiderEmailOtp;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
@@ -78,7 +79,7 @@ class RiderEmailOtpTest extends TestCase
         Notification::assertSentToTimes($rider, RiderEmailOtp::class, 2);
     }
 
-    public function test_admin_can_reset_verification_and_email_changes_invalidate_otp(): void
+    public function test_admin_can_reset_verification_and_credential_changes_invalidate_otp(): void
     {
         Notification::fake();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
@@ -88,7 +89,7 @@ class RiderEmailOtpTest extends TestCase
         $this->actingAs($rider->fresh())->get('/dashboard')->assertRedirect(route('email-otp.notice'));
         $this->post('/verify-email-otp/send')->assertSessionHasNoErrors();
         $code = Notification::sent($rider, RiderEmailOtp::class)->first()->code;
-        $rider->forceFill(['email' => 'changed@example.com'])->save();
+        $rider->forceFill(['password' => Hash::make('changed-password-123')])->save();
         $this->actingAs($rider->fresh())->post('/verify-email-otp/confirm', ['code' => $code])->assertSessionHasErrors('code');
         Notification::assertSentToTimes($rider, RiderEmailOtp::class, 1);
     }

@@ -1,0 +1,134 @@
+/* Revisione pre-testing: toast di accesso, dettagli spedizioni e controlli compatti del gestionale. */
+
+/* Toast di esito: pill compatta nel flusso su mobile, ancorata all'area account su desktop. */
+.alert.app-flash { display: flex; align-items: center; gap: 12px; width: fit-content; max-width: 100%; min-height: 52px; margin: 0 0 16px; padding: 8px 10px 8px 8px; border: 1px solid var(--ea-success); border-left-width: 1px; border-radius: 999px; background: var(--ea-surface) !important; color: var(--ea-ink) !important; box-shadow: 0 10px 28px rgb(15 23 42 / .10); }
+.app-flash-icon { display: grid; flex-shrink: 0; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: color-mix(in srgb, var(--ea-success) 14%, transparent); color: var(--ea-success); font-size: 1.05rem; }
+.app-flash-text { display: grid; flex: 1 1 auto; min-width: 0; gap: 1px; line-height: 1.3; }
+.app-flash-text strong { font-size: .9375rem; font-weight: 650; overflow-wrap: anywhere; }
+.app-flash-text small { color: var(--ea-muted); font-size: .8125rem; overflow-wrap: anywhere; }
+.app-flash .btn-close { flex-shrink: 0; width: 28px; height: 28px; margin: 0; padding: 0; border-radius: 50%; background-size: 10px; opacity: .55; }
+.app-flash .btn-close:hover, .app-flash .btn-close:focus-visible { opacity: 1; }
+@media (min-width: 992px) {
+  .ea-app .alert.app-flash { position: fixed; top: 108px; right: 32px; z-index: 1085; min-width: 320px; max-width: min(440px, calc(100vw - 48px)); margin: 0; padding: 10px 12px 10px 10px; animation: app-flash-in .22s ease-out; }
+  .ea-app .app-flash-icon { width: 40px; height: 40px; }
+}
+@keyframes app-flash-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ea-app .app-flash { animation: none; } }
+
+/* Dashboard: la prima anteprima non tocca più il divisore dell'intestazione. */
+.dashboard-workspace-revision .dashboard-order-previews { padding: 16px 20px 20px; }
+@media (max-width: 575px) { .dashboard-workspace-revision .dashboard-order-previews { padding: 14px 16px 16px; } }
+
+/* Spedizioni in corso: su desktop ampio le card mostrano di nuovo mittente, destinatario e percorso con le relative etichette. */
+.order-elapsed { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: var(--ea-surface-muted); font-weight: 600; white-space: nowrap; }
+.order-elapsed .bi { font-size: .85em; }
+@media (min-width: 1400px) {
+  .operational-order--revised.operational-order--progress .operational-order-main { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 1.1fr) minmax(80px, .65fr); gap: 20px; }
+  .operational-order--revised.operational-order--progress .operational-order-main .data-label { display: block; }
+}
+
+/* Dettaglio ordine: selettore Rider compatto e stato di blocco dopo il ritiro. */
+.rider-assignment-current { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin: 0 0 14px; }
+.rider-assignment-current .data-label { margin: 0; }
+.rider-assignment-current strong { overflow-wrap: anywhere; }
+.rider-assignment-controls.rider-assignment-compact { max-width: 340px; align-items: end; gap: 8px; margin-bottom: 10px; }
+.rider-assignment-compact .form-label { margin-bottom: 4px; font-size: .8125rem; }
+.rider-assignment-compact .form-select, .rider-assignment-compact .ea-picker-trigger { min-height: 40px; height: 40px; padding: 7px 14px; border-radius: 999px; font-size: .875rem; }
+.rider-assignment-compact .icon-button { --ea-icon-size: 40px; flex-shrink: 0; }
+.rider-assignment-compact .ea-picker-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rider-assignment-locked { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--ea-surface-muted); color: var(--ea-muted); font-size: .875rem; line-height: 1.45; }
+.rider-assignment-locked .bi { flex-shrink: 0; margin-top: 2px; color: var(--ea-ink); }
+@media (max-width: 767px) {
+  .rider-assignment-controls.rider-assignment-compact { max-width: none; }
+  .rider-assignment-compact .form-select, .rider-assignment-compact .ea-picker-trigger { min-height: 44px; height: 44px; }
+  .rider-assignment-compact .icon-button { --ea-icon-size: 44px; }
+}
+
+/* Dettaglio ordine: «Segnala un problema» apre le opzioni solo su richiesta. */
+.workflow-problem { display: flex; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--ea-line); }
+.btn.workflow-problem-button { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; max-width: 100%; padding: 8px 18px; border: 1px solid var(--ea-warning); border-radius: 999px; background: var(--ea-orange-soft); color: var(--ea-warning); font-weight: 600; white-space: normal; }
+.btn.workflow-problem-button:hover, .btn.workflow-problem-button:focus-visible { background: color-mix(in srgb, var(--ea-warning) 14%, var(--ea-surface)); color: var(--ea-warning); border-color: var(--ea-warning); }
+.workflow-problem-options { display: grid; gap: 10px; }
+.workflow-problem-option { min-width: 0; border: 1px solid var(--ea-line); border-radius: 16px; background: var(--ea-surface); }
+.workflow-problem-option > summary { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 14px; list-style: none; cursor: pointer; border-radius: 16px; }
+.workflow-problem-option > summary::-webkit-details-marker { display: none; }
+.workflow-problem-option > summary:focus-visible { outline: 3px solid var(--ea-focus); outline-offset: 2px; }
+.workflow-problem-option > summary strong { display: block; font-size: .9375rem; }
+.workflow-problem-option > summary small { display: block; margin-top: 2px; color: var(--ea-muted); font-size: .8125rem; line-height: 1.4; }
+.workflow-problem-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--ea-orange-soft); color: var(--ea-warning); }
+.workflow-problem-option.is-danger .workflow-problem-icon { background: color-mix(in srgb, var(--ea-danger) 12%, var(--ea-surface)); color: var(--ea-danger); }
+.workflow-problem-chevron { transition: transform .15s ease; }
+.workflow-problem-option[open] { border-color: var(--ea-control-border); }
+.workflow-problem-option[open] .workflow-problem-chevron { transform: rotate(180deg); }
+.workflow-problem-option > form { padding: 0 14px 14px; }
+.workflow-problem-submit { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.workflow-problem-submit .btn { min-height: 42px; padding-inline: 18px; border-radius: 999px; white-space: normal; }
+
+/* Fine modulo e checkout: su mobile due pulsanti della stessa larghezza, azione di ritorno a sinistra. */
+.ea-app .checkout-actions { margin-top: 8px; gap: 12px 16px; }
+@media (max-width: 575px) {
+  .ea-app .order-form-actions, .ea-app .checkout-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); justify-items: stretch; align-items: stretch; gap: 12px; width: 100%; max-width: 420px; margin-inline: auto; padding: 12px 0 calc(8px + env(safe-area-inset-bottom)); flex-direction: initial; }
+  .ea-app .order-form-actions > *, .ea-app .checkout-actions > form, .ea-app .checkout-actions .btn { order: 0; width: 100%; min-width: 0; margin: 0; }
+  .ea-app .order-form-actions > .btn-outline-danger { order: -1; }
+  .ea-app .order-form-actions > .btn, .ea-app .order-form-actions > .icon-button, .ea-app .checkout-actions .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding-inline: 12px; white-space: normal; text-align: center; }
+  .ea-app .checkout-actions > :only-child { grid-column: 1 / -1; justify-self: start; width: auto; }
+}
+
+/* Rider per zona: i pulsanti del periodo vanno a capo invece di tagliare il testo a 320px. */
+@media (max-width: 359px) { .ea-app .period-options .btn, .ea-app .filter-range > .btn { min-width: 0; padding-inline: 8px; font-size: .75rem; white-space: normal; } }
+
+/* Messaggi: due pannelli su desktop/tablet, due schermate separate su mobile (lista → conversazione). */
+.inbox-back { display: none; }
+.inbox-thread-label { display: block; margin-bottom: 2px; color: var(--ea-muted); font-size: .6875rem; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; }
+.inbox-conversation[aria-current] .inbox-conversation-top strong { font-weight: 700; }
+@media (max-width: 767px) {
+  .inbox-workspace[data-inbox-view="list"] > .inbox-thread, .inbox-workspace[data-inbox-view="list"] > .inbox-empty { display: none; }
+  .inbox-workspace[data-inbox-view="list"] .inbox-sidebar { border-bottom: 0; }
+  .inbox-workspace[data-inbox-view="list"] .inbox-conversations { max-height: none; overflow: visible; }
+  .inbox-workspace[data-inbox-view="list"] .inbox-conversation[aria-current] { background: transparent; border-color: transparent; }
+  .inbox-workspace[data-inbox-view="thread"] > .inbox-sidebar { display: none; }
+  .app-content:has(.inbox-workspace[data-inbox-view="thread"]) > .inbox-page-heading { display: none; }
+  .inbox-workspace[data-inbox-view="thread"] .inbox-thread-heading { position: sticky; top: 0; z-index: 3; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px 12px; padding: 12px 14px; border-bottom: 1px solid var(--ea-line); background: var(--ea-surface); border-radius: var(--ea-radius-card) var(--ea-radius-card) 0 0; }
+  .inbox-workspace[data-inbox-view="thread"] .inbox-back { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 1px solid var(--ea-line); border-radius: 50%; background: var(--ea-surface); color: var(--ea-ink); }
+  .inbox-workspace[data-inbox-view="thread"] .inbox-back span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .inbox-workspace[data-inbox-view="thread"] .inbox-thread-person { gap: 10px; }
+  .inbox-workspace[data-inbox-view="thread"] .inbox-thread-person .identity-avatar { width: 38px; height: 38px; flex-basis: 38px; }
+  .inbox-workspace[data-inbox-view="thread"] .inbox-thread-person h2 { margin: 0; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .inbox-workspace[data-inbox-view="thread"] .inbox-thread-person p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .inbox-workspace[data-inbox-view="thread"] .inbox-thread-actions { grid-column: 1 / -1; justify-content: flex-end; }
+  .inbox-workspace[data-inbox-view="thread"] .inbox-shipment { padding: 10px 14px; }
+  .inbox-workspace[data-inbox-view="thread"] .inbox-messages { padding: 14px 12px; }
+  .inbox-workspace[data-inbox-view="thread"] .inbox-messages .conversation-list { min-height: 240px; max-height: calc(100dvh - 380px); }
+  .inbox-workspace[data-inbox-view="thread"] .inbox-composer-area { position: sticky; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 2; padding: 12px 14px 14px; background: var(--ea-surface); border-radius: 0 0 var(--ea-radius-card) var(--ea-radius-card); }
+  .inbox-workspace[data-inbox-view="thread"] .message-composer { flex-direction: row; align-items: flex-end; }
+  .inbox-workspace[data-inbox-view="thread"] .message-composer textarea { min-height: 48px; }
+  .inbox-workspace[data-inbox-view="thread"] .message-composer .btn { min-height: 48px; flex-shrink: 0; }
+  /* Con la tastiera virtuale aperta la barra di navigazione fissa non deve coprire il campo di scrittura. */
+  body:has(.inbox-composer-area textarea:focus) .mobile-nav { display: none; }
+  body:has(.inbox-composer-area textarea:focus) .inbox-workspace[data-inbox-view="thread"] .inbox-composer-area { bottom: env(safe-area-inset-bottom); }
+}
+
+/* Bilancio: saldo disponibile e saldo contabile affiancati, compatti e leggibili. */
+.balance-key-heading { margin: 0 0 12px; font-size: 1rem; }
+.balance-key-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; margin-bottom: 16px; }
+.balance-key { display: grid; gap: 4px; min-width: 0; padding: 14px 16px; border: 1px solid var(--ea-line); border-radius: 16px; background: var(--ea-surface); }
+.balance-key .eyebrow { margin: 0; }
+.balance-key strong { font-size: clamp(1.35rem, 2.4vw, 1.75rem); font-variant-numeric: tabular-nums; line-height: 1.15; overflow-wrap: anywhere; }
+.balance-key small { color: var(--ea-muted); font-size: .8125rem; overflow-wrap: anywhere; }
+.balance-key[data-balance="accounting"] { border-color: color-mix(in srgb, var(--ea-success) 45%, var(--ea-line)); }
+.liquidity-flows dt small { display: block; color: var(--ea-muted); font-weight: 400; }
+[data-balance="refunds-due"] dd small { display: block; font-size: .75rem; }
+
+.account-retention-note { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--ea-orange-soft); color: var(--ea-ink); font-size: .8125rem; line-height: 1.45; }
+
+/* Navigazione: barra sottile in alto durante il caricamento della pagina successiva. */
+.page-progress { position: fixed; inset: 0 0 auto 0; z-index: 2000; height: 3px; overflow: hidden; pointer-events: none; }
+.page-progress::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 35%; border-radius: 0 999px 999px 0; background: var(--ea-signal, #e6a23d); animation: page-progress 1.2s ease-in-out infinite; }
+@keyframes page-progress { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+form[aria-busy="true"] button[type="submit"], form[aria-busy="true"] button:not([type]) { cursor: progress; opacity: .7; }
+@media (prefers-reduced-motion: reduce) { .page-progress::before { animation: none; width: 100%; opacity: .7; } }
+.finance-liquidity > .balance-key-heading, .finance-liquidity > .balance-explanation { grid-column: 1 / -1; }
+.finance-liquidity > .balance-key-figures { margin: 0; }
+.finance-liquidity > .liquidity-flows { align-content: start; padding: 4px 4px 0; }
+@media (min-width: 992px) { .finance-liquidity { align-items: start; } }
+@media (max-width: 359px) { .rider-operations-page .operations-period-filter .filter-primary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rider-operations-page .operations-period-filter .period-options a, .rider-operations-page .operations-period-filter [data-custom-period] { font-size: .8125rem; } }

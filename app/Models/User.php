@@ -18,6 +18,8 @@ use Illuminate\Validation\ValidationException;
 #[Hidden(['auth_version', 'admin_slot', 'email_otp_hash', 'email_otp_expires_at', 'email_otp_sent_at', 'email_otp_window_at', 'email_otp_attempts', 'email_otp_send_count', 'password', 'remember_token', 'phone_otp_hash', 'pending_phone', 'phone_otp_expires_at', 'phone_otp_attempts', 'phone_otp_send_count', 'phone_otp_window_at', 'phone_otp_sent_at'])]
 class User extends Authenticatable
 {
+    public const ImmutableEmailMessage = 'L’indirizzo email dell’account non può essere modificato.';
+
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
@@ -35,6 +37,16 @@ class User extends Authenticatable
             }
             if ($user->exists && $user->getRawOriginal('role') === UserRole::Admin->value && ($user->role !== UserRole::Admin || ! $user->is_active)) {
                 throw ValidationException::withMessages(['role' => 'Usa la procedura sicura di trasferimento dell’amministrazione.']);
+            }
+        });
+        static::updating(function (User $user): void {
+            if ($user->isDirty('email')) {
+                throw ValidationException::withMessages(['email' => self::ImmutableEmailMessage]);
+            }
+        });
+        static::saving(function (User $user): void {
+            if ($user->isDirty('is_active') || ! $user->exists) {
+                $user->deactivated_at = $user->is_active === false ? now() : null;
             }
         });
         static::saving(function (User $user): void {
@@ -87,7 +99,7 @@ class User extends Authenticatable
     {
         return [
             'email_otp_expires_at' => 'datetime', 'email_otp_sent_at' => 'datetime', 'email_otp_window_at' => 'datetime', 'email_otp_attempts' => 'integer', 'email_otp_send_count' => 'integer',
-            'email_verified_at' => 'datetime', 'privacy_acknowledged_at' => 'datetime', 'terms_accepted_at' => 'datetime',
+            'email_verified_at' => 'datetime', 'deactivated_at' => 'datetime', 'privacy_acknowledged_at' => 'datetime', 'terms_accepted_at' => 'datetime',
             'phone_verified_at' => 'datetime', 'is_active' => 'boolean',
             'password' => 'hashed',
             'role' => UserRole::class,

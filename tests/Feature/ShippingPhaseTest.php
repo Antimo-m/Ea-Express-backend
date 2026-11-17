@@ -52,7 +52,7 @@ class ShippingPhaseTest extends TestCase
         $this->assertNull($order->weight_kg);
         $this->assertSame(700, $order->quoted_price_cents);
         $this->get('/orders/'.$order->slug)->assertOk()->assertSee('Ricambi per automobile');
-        foreach (['accepted', 'rider_arriving', 'picked_up', 'out_for_delivery'] as $status) {
+        foreach (['accepted', 'rider_arriving', 'picked_up', 'in_transit', 'out_for_delivery'] as $status) {
             $this->patch('/orders/'.$order->slug, ['version' => $order->fresh()->version, 'status' => $status, 'rider_id' => User::factory()->create()->slug])->assertSessionHasNoErrors()->assertRedirect();
         }
         $this->patch('/orders/'.$order->slug.'/carrier', ['version' => $order->fresh()->version, 'carrier_name' => 'Vettore sintetico', 'carrier_tracking' => 'SYNTH-001', 'carrier_status' => 'handed_over'])->assertSessionHasNoErrors();

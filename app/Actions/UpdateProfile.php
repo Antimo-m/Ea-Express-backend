@@ -4,39 +4,27 @@ namespace App\Actions;
 
 use App\Models\User;
 use App\Support\AccountSessionRevocation;
-use App\Support\SecurityEvent;
 use App\Support\StaffAuthentication;
 use App\UserRole;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 
+/**
+ * Updates the editable profile fields. The account email is immutable after registration.
+ */
 class UpdateProfile
 {
     /** @param array<string, mixed> $data */
-    public function handle(User $user, array $data, #[\SensitiveParameter] ?string $currentPassword = null): bool
+    public function handle(User $user, array $data): void
     {
-        $emailChanged = DB::transaction(function () use ($user, $data, $currentPassword): bool {
+        DB::transaction(function () use ($user, $data): void {
             $locked = User::lockForUpdate()->findOrFail($user->id);
             abort_unless($locked->is_active && $locked->role === $user->role, 403);
             app(AccountSessionRevocation::class)->assertCurrent(request(), $locked, $locked->role === UserRole::Customer ? 'customer' : 'web');
             app(StaffAuthentication::class)->assertComplete($locked);
-            $locked->fill(Arr::only($data, ['name', 'email', 'sender_type', 'business_type', 'business_description']));
-            $emailChanged = $locked->isDirty('email');
-            if ($emailChanged && ($currentPassword === null || ! Hash::check($currentPassword, $locked->password))) {
-                throw ValidationException::withMessages(['current_password' => 'Per cambiare email, inserisci la password attuale corretta.']);
-            }
+            $locked->fill(Arr::only($data, ['name', 'sender_type', 'business_type', 'business_description']));
             $locked->save();
             $user->setRawAttributes($locked->getAttributes(), true);
-
-            return $emailChanged;
         }, 3);
-
-        if ($emailChanged) {
-            SecurityEvent::record('email_changed', $user->id);
-        }
-
-        return $emailChanged;
     }
 }

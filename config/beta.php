@@ -6,5 +6,5 @@ return [
      * Impostare BETA_MODE=false al lancio ufficiale.
      */
     'enabled' => (bool) env('BETA_MODE', true),
-    'terms_version' => '2026-11-12',
+    'terms_version' => '2026-11-16',
 ];

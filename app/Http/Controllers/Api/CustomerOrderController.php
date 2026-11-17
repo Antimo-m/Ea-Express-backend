@@ -17,6 +17,7 @@ use App\Support\CustomerOrderSelection;
 use App\Support\Money;
 use App\Support\RiderOperations;
 use App\Support\ShippingQuote;
+use App\Support\TextFields;
 use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -109,7 +110,7 @@ class CustomerOrderController extends Controller
     public function cancel(Request $request, Order $order, NotifyOrderParticipants $notify): JsonResponse
     {
         $this->authorizeOwner($request, $order);
-        $data = $request->validate(['version' => ['required', 'integer'], 'reason' => ['required', 'string', 'max:500']]);
+        $data = $request->validate(['version' => ['required', 'integer'], 'reason' => ['required', 'string', 'max:500', ...TextFields::description(multiline: true)]]);
         DB::transaction(function () use ($request, $order, $data, $notify): void {
             $locked = Order::where('customer_id', $request->user()->id)->lockForUpdate()->findOrFail($order->id);
             abort_unless($locked->customerEditable() && $locked->version === (int) $data['version'], 409, 'La richiesta è già stata gestita dal rider. Contattalo dalla conversazione.');

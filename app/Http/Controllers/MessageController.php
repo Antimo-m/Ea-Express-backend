@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\AcknowledgeMessages;
 use App\Actions\NotifyOrderParticipants;
 use App\Models\Order;
+use App\Rules\PlainText;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,7 +49,7 @@ class MessageController extends Controller
     public function store(Request $request, Order $order, NotifyOrderParticipants $notify): RedirectResponse|JsonResponse
     {
         Gate::authorize('update', $order);
-        $data = $request->validate(['body' => ['required', 'string', 'max:2000'], 'submission_key' => ['nullable', 'uuid']]);
+        $data = $request->validate(['body' => ['required', 'string', 'max:2000', new PlainText(multiline: true)], 'submission_key' => ['nullable', 'uuid']]);
         DB::transaction(function () use ($request, $order, $data, $notify) {
             $locked = Order::query()->lockForUpdate()->findOrFail($order->id);
             Gate::authorize('update', $locked);

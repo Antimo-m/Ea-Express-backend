@@ -75,24 +75,25 @@ class AccountRecoverySecurityTest extends TestCase
         $this->assertDatabaseMissing('password_reset_tokens', ['email' => $user->email]);
     }
 
-    public function test_email_change_invalidates_tokens_before_an_address_can_be_reused(): void
+    public function test_email_cannot_be_changed_so_recovery_tokens_stay_bound_to_the_account(): void
     {
         $user = User::factory()->create();
         $oldEmail = $user->email;
         Password::broker('users')->createToken($user);
 
-        $this->actingAs($user)->patch('/profile', ['name' => $user->name, 'email' => 'new-address@example.test', 'current_password' => 'password'])->assertSessionHasNoErrors();
+        $this->actingAs($user)->patch('/profile', ['name' => $user->name, 'email' => 'new-address@example.test', 'current_password' => 'password'])->assertSessionHasErrors('email');
 
-        $this->assertDatabaseMissing('password_reset_tokens', ['email' => $oldEmail]);
+        $this->assertSame($oldEmail, $user->fresh()->email);
+        $this->assertDatabaseHas('password_reset_tokens', ['email' => $oldEmail]);
+        $this->assertDatabaseMissing('password_reset_tokens', ['email' => 'new-address@example.test']);
     }
 
     public function test_otp_delivery_uses_the_locked_email_instead_of_a_stale_user_snapshot(): void
     {
         Notification::fake();
         $stale = User::factory()->unverified()->create();
+        DB::table('users')->where('id', $stale->id)->update(['email' => 'current-recipient@example.test']);
         $current = $stale->fresh();
-        $current->email = 'current-recipient@example.test';
-        $current->save();
 
         app(SendEmailOtp::class)->handle($stale);
 

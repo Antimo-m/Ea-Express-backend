@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\PlainText;
+use App\Support\TextFields;
 use App\UserRole;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -15,6 +17,6 @@ class PendingAccountRequest extends FormRequest
 
     public function rules(): array
     {
-        return ['state' => ['prohibited'], 'subject' => ['required', 'string', 'max:150'], 'direction' => ['required', 'in:incoming,outgoing'], 'description' => ['required', 'string', 'max:500'], 'amount' => ['required', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'], 'customer_id' => ['required', 'uuid', Rule::exists('users', 'slug')->where('role', 'customer')], 'order_id' => ['nullable', 'uuid', 'exists:orders,slug'], 'occurred_on' => ['required', 'date_format:Y-m-d'], 'due_on' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:occurred_on'], 'notes' => ['nullable', 'string', 'max:4000']];
+        return ['state' => ['prohibited'], 'subject' => ['required', 'string', 'max:150', ...TextFields::address()], 'direction' => ['required', 'in:incoming,outgoing'], 'description' => ['required', 'string', 'max:500', new PlainText], 'amount' => ['required', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'], 'customer_id' => ['required', 'uuid', Rule::exists('users', 'slug')->where('role', 'customer')], 'order_id' => ['nullable', 'uuid', 'exists:orders,slug'], 'occurred_on' => ['required', 'date_format:Y-m-d'], 'due_on' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:occurred_on'], 'notes' => ['nullable', 'string', 'max:4000', new PlainText(multiline: true)]];
     }
 }

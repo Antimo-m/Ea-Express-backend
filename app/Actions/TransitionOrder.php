@@ -42,6 +42,9 @@ class TransitionOrder
             if ($locked->version !== (int) $data['version'] || ! in_array($next, $locked->allowedTransitions(), true)) {
                 throw ValidationException::withMessages(['status' => 'L’ordine è cambiato o il passaggio non è consentito. Ricarica la pagina.']);
             }
+            if ($next === OrderStatus::Cancelled && in_array($locked->status, OrderStatus::transport(), true) && $user->role !== UserRole::Admin) {
+                throw ValidationException::withMessages(['status' => 'Durante il trasporto solo l’amministrazione può annullare l’ordine. Segnala il problema all’Admin.']);
+            }
             Validator::make($data, ['estimated_at' => ['prohibited_unless:status,rescheduled', 'required_if:status,rescheduled', 'nullable', 'date_format:Y-m-d\\TH:i', 'after:'.now('Europe/Rome')->format('Y-m-d H:i:s')]])->validate();
             if (! in_array($next, [OrderStatus::Received, OrderStatus::Rejected, OrderStatus::Cancelled, OrderStatus::DeliveryIssue], true)) {
                 if ($next !== OrderStatus::Accepted || $locked->pricing_version === 1) {
@@ -97,6 +100,9 @@ class TransitionOrder
                 $locked->estimated_at = Carbon::parse($data['estimated_at'], 'Europe/Rome')->utc();
             } elseif (! in_array($next->value, OrderStatus::closed(), true)) {
                 $locked->estimated_at = null;
+            }
+            if ($next === OrderStatus::DeliveryAttempted) {
+                app(RecipientRisk::class)->record($locked, $user);
             }
             if ($next === OrderStatus::Cancelled && ($data['cancellation_reason'] ?? 'other') === 'recipient_absent') {
                 if ($locked->status !== OrderStatus::DeliveryAttempted && ! $locked->events()->whereIn('status', [OrderStatus::OutForDelivery->value, OrderStatus::DeliveryAttempted->value])->exists()) {

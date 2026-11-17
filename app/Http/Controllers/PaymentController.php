@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\ManageReceipt;
 use App\Actions\ReconcileReceipt;
 use App\Models\Order;
+use App\Rules\PlainText;
 use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -22,7 +23,7 @@ class PaymentController extends Controller
             'resolution' => ['exclude_unless:action,reconcile', 'required', 'in:links,refunded,partial,refund_paid,refund_unpaid'],
             'entry_slug' => ['required_if:resolution,refund_paid,refund_unpaid', 'nullable', 'uuid'],
             'confirmed' => ['exclude_unless:action,reconcile', 'accepted'],
-            'note' => ['exclude_if:action,receive', 'required', 'string', 'max:500'],
+            'note' => ['exclude_if:action,receive', 'required', 'string', 'max:500', new PlainText(multiline: true)],
             'version' => ['required', 'integer', 'min:1'],
         ]);
         $message = $data['action'] === 'reconcile' ? $reconcile->handle($request->user(), $order, $data) : $manage->handle($request->user(), $order, $data);

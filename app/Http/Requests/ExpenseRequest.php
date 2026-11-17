@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\PlainText;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ExpenseRequest extends FormRequest
@@ -13,6 +14,6 @@ class ExpenseRequest extends FormRequest
 
     public function rules(): array
     {
-        return ['submission_key' => ['nullable', 'uuid'], 'version' => [$this->isMethod('PATCH') ? 'required' : 'nullable', 'integer', 'min:1'], 'description' => ['required', 'string', 'max:200'], 'amount' => ['required', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'], 'spent_on' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.now('Europe/Rome')->toDateString()]];
+        return ['submission_key' => ['nullable', 'uuid'], 'version' => [$this->isMethod('PATCH') ? 'required' : 'nullable', 'integer', 'min:1'], 'description' => ['required', 'string', 'max:200', new PlainText], 'amount' => ['required', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'], 'spent_on' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.now('Europe/Rome')->toDateString()]];
     }
 }

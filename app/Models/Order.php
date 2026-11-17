@@ -22,6 +22,8 @@ use Illuminate\Support\Facades\DB;
 #[Hidden(['delay_reported_at', 'delay_reported_by', 'gps_session_id', 'pickup_point', 'delivery_point', 'tracking_token', 'conversation_token', 'carrier_cost_cents'])]
 class Order extends Model
 {
+    public const RiderLockedMessage = 'Il pacco è già stato ritirato: il Rider assegnato non può più essere cambiato.';
+
     /** @use HasFactory<OrderFactory> */
     use HasFactory;
 
@@ -223,6 +225,18 @@ class Order extends Model
         }
 
         return $this->status->next();
+    }
+
+    /**
+     * The rider can be changed only until the parcel has been collected ("Rider in arrivo" is the last allowed step).
+     */
+    public function riderReassignable(): bool
+    {
+        if ($this->status === OrderStatus::Received || in_array($this->status->value, OrderStatus::closed(), true) || in_array($this->status, OrderStatus::afterPickup(), true)) {
+            return false;
+        }
+
+        return ! $this->events()->where('status', OrderStatus::PickedUp)->exists();
     }
 
     public function recoverable(): bool

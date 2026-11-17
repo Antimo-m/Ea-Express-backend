@@ -88,8 +88,9 @@ class FinancialStatementTest extends TestCase
 
         $this->get('/balance?period=today')->assertViewHas('cashMovementBalance', 3000)
             ->assertViewHas('totalExpenses', 400)->assertViewHas('operatingResult', 1100)->assertViewHas('finalNet', 1100)->assertViewHas('cashBalance', 4100)
-            ->assertSee('Saldo dei movimenti registrati')->assertDontSee('Contanti disponibili')
-            ->assertSeeTextInOrder(['Saldo dei movimenti registrati', 'Risultato operativo', 'Ancora da regolare']);
+            ->assertViewHas('statement', fn (array $statement): bool => $statement['available'] === 4100)
+            ->assertSee('Saldo disponibile')->assertDontSee('Contanti disponibili')->assertDontSee('Da riconciliare')
+            ->assertSeeTextInOrder(['Saldo disponibile', 'Saldo contabile', 'Risultato operativo', 'Ancora da regolare']);
     }
 
     public function test_reversals_adjust_final_result_without_becoming_expenses_or_delivery_counts(): void

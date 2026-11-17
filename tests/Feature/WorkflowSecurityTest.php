@@ -120,7 +120,7 @@ class WorkflowSecurityTest extends TestCase
         $this->actingAs($order->customer, 'customer')->patchJson('/api/v1/customer/orders/'.$order->slug.'/price', ['action' => 'accept', 'version' => 2])->assertOk();
         $this->actingAs($admin, 'web')->patchJson('/orders/'.$order->slug, ['status' => 'accepted', 'version' => 3, 'rider_id' => $rider->slug])->assertOk();
         $this->actingAs($rider, 'web');
-        foreach (['rider_arriving', 'picked_up', 'out_for_delivery', 'delivered'] as $status) {
+        foreach (['rider_arriving', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered'] as $status) {
             $this->patchJson('/orders/'.$order->slug, ['status' => $status, 'version' => $order->fresh()->version])->assertOk();
         }
         $this->assertSame(OrderStatus::Delivered, $order->fresh()->status);
@@ -242,7 +242,7 @@ class WorkflowSecurityTest extends TestCase
         return [
             'delivered' => [OrderStatus::OutForDelivery, 'delivered'],
             'cancelled' => [OrderStatus::DeliveryAttempted, 'cancelled'],
-            'out for delivery' => [OrderStatus::PickedUp, 'out_for_delivery'],
+            'out for delivery' => [OrderStatus::InTransit, 'out_for_delivery'],
         ];
     }
 

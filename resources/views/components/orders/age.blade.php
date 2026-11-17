@@ -5,6 +5,11 @@
     $days = intdiv($hours, 24);
     $amount = $incoming || $hours >= 24 ? $days : $hours;
     $unit = $incoming || $hours >= 24 ? ($amount === 1 ? 'giorno' : 'giorni') : ($amount === 1 ? 'ora' : 'ore');
+    $elapsed = match (true) {
+        $amount > 0 => $amount.' '.$unit.' fa',
+        $unit === 'ore' => 'Meno di un’ora fa',
+        default => 'Oggi',
+    };
     $caption = $incoming ? 'Dalla creazione della richiesta' : ($order->assigned_at ? 'Dall’assegnazione' : 'Dalla creazione della richiesta');
 @endphp
-<time class="order-elapsed" datetime="{{ $reference->toIso8601String() }}" title="{{ $caption }} · {{ $reference->timezone('Europe/Rome')->format('d/m/Y H:i') }}" aria-label="{{ $caption }}: {{ $amount }} {{ $unit }}">{{ $amount }} {{ $unit }}</time>
+<time class="order-elapsed" datetime="{{ $reference->toIso8601String() }}" title="{{ $caption }} · {{ $reference->timezone('Europe/Rome')->format('d/m/Y H:i') }}" aria-label="{{ $caption }}: {{ $elapsed }}"><x-ui.icon name="clock-history" />{{ $elapsed }}</time>

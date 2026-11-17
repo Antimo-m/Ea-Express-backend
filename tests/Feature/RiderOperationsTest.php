@@ -147,10 +147,12 @@ class RiderOperationsTest extends TestCase
         $admin = $this->admin();
         $first = User::factory()->create();
         $second = User::factory()->create();
-        $order = Order::factory()->create(['pickup_date' => '2026-10-02', 'rider_id' => $first->id, 'status' => OrderStatus::OutForDelivery, 'delivery_zone' => 'Aversa']);
+        $order = Order::factory()->create(['pickup_date' => '2026-10-02', 'rider_id' => $first->id, 'status' => OrderStatus::RiderArriving, 'delivery_zone' => 'Aversa']);
         $this->actingAs($admin)->patch('/orders/'.$order->slug.'/rider', ['rider_id' => $second->slug, 'version' => 1])->assertSessionHasNoErrors()->assertRedirect();
         $this->assertDatabaseHas('order_events', ['order_id' => $order->id, 'rider_id' => $second->id, 'operational_zone' => 'Aversa', 'user_id' => $admin->id]);
-        $this->patch('/orders/'.$order->slug, ['status' => 'delivered', 'version' => 2])->assertSessionHasNoErrors()->assertRedirect();
+        foreach (['picked_up', 'in_transit', 'out_for_delivery', 'delivered'] as $index => $status) {
+            $this->patch('/orders/'.$order->slug, ['status' => $status, 'version' => $index + 2])->assertSessionHasNoErrors()->assertRedirect();
+        }
         $this->assertDatabaseHas('order_events', ['order_id' => $order->id, 'status' => 'delivered', 'rider_id' => $second->id, 'operational_zone' => 'Aversa', 'user_id' => $admin->id]);
         $this->get('/rider-operations/'.$second->slug.'?date=2026-10-02')->assertOk()->assertViewHas('counts', fn ($counts) => $counts['completed'] === 1);
     }

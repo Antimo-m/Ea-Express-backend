@@ -34,6 +34,9 @@ class RiderAssignmentController extends Controller
             $locked = Order::lockForUpdate()->findOrFail($order->id);
             abort_unless($locked->version === (int) $data['version'], 409, 'Ordine aggiornato. Ricarica la pagina.');
             abort_if(in_array($locked->status->value, [...OrderStatus::closed(), OrderStatus::Received->value], true), 409, 'Assegna il Rider durante la presa in carico. Gli ordini chiusi conservano lo storico.');
+            if (! $locked->riderReassignable()) {
+                throw ValidationException::withMessages(['rider_id' => Order::RiderLockedMessage]);
+            }
             if ($locked->rider_id === $rider->id) {
                 return;
             }

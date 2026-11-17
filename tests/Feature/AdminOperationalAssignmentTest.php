@@ -48,7 +48,7 @@ class AdminOperationalAssignmentTest extends TestCase
     {
         $rider = User::factory()->create();
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $order = Order::factory()->create(['status' => OrderStatus::OutForDelivery, 'rider_id' => $rider->id]);
+        $order = Order::factory()->create(['status' => OrderStatus::RiderArriving, 'rider_id' => $rider->id]);
         $this->actingAs($rider)->postJson('/orders/'.$order->slug.'/location/session')->assertNotFound();
 
         $this->actingAs($admin)->patchJson('/orders/'.$order->slug.'/rider', ['rider_id' => $admin->slug, 'version' => 1])->assertOk();

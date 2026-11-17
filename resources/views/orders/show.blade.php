@@ -52,15 +52,20 @@
         </div>
         <aside class="order-support" aria-label="Tariffa e strumenti operativi">
             @if(auth()->user()->role === \App\UserRole::Admin)
-                <div id="order-pricing"><x-orders.price :order="$order" />
-                    <details class="surface order-price-origin"><summary>Origine del prezzo e storico economico</summary><dl class="operation-facts"><div><dt>Tariffa iniziale</dt><dd>{{ \App\Support\Money::format($order->quoted_price_cents) }}</dd></div><div><dt>Tariffa applicata</dt><dd>{{ \App\Support\Money::format($order->price_cents) }}</dd></div><div><dt>Località listino</dt><dd>{{ $order->rate_snapshot['city'] ?? $order->delivery_city }}</dd></div><div><dt>Fonte</dt><dd>{{ $order->rate_snapshot['source_reference'] ?? 'Fonte non registrata nello storico' }}</dd></div></dl><a href="{{ route('audits.index', ['type' => 'orders', 'slug' => $order->slug]) }}">Storico economico dell’ordine</a></details>
-                </div>
+                <div id="order-pricing"><x-orders.price :order="$order" /></div>
                 @if(!in_array($order->status->value, [...\App\OrderStatus::closed(), 'received'], true))
-                    <section class="surface rider-assignment-card"><header class="section-heading"><h2>Assegnazione Rider</h2></header><p class="small"><strong>Rider attuale:</strong> {{ $order->rider?->name ?: 'Da assegnare' }}</p>
-                        <form id="rider-assignment-{{ $order->slug }}" data-order-action method="post" action="{{ route('orders.rider', $order) }}" class="rider-assignment-controls">
-                            @csrf @method('patch')<input type="hidden" name="version" value="{{ $order->version }}">
-                            <div><label class="form-label" for="reassign-rider">Rider da assegnare</label><select class="form-select" id="reassign-rider" data-inline-label="Rider" name="rider_id" required><option value="">Seleziona un Rider</option>@foreach($riders as $rider)<option value="{{ $rider->slug }}" @selected($order->rider?->slug === $rider->slug)>{{ $rider->name }}{{ $rider->slug === auth()->user()->slug ? ' · Tu (Admin)' : '' }}</option>@endforeach</select></div><x-ui.icon-button action="confirm" type="submit" label="Conferma Rider" />
-                        </form>
+                    <section class="surface rider-assignment-card" aria-labelledby="rider-assignment-title">
+                        <header class="section-heading"><h2 id="rider-assignment-title">Assegnazione Rider</h2></header>
+                        <p class="rider-assignment-current"><span class="data-label">Rider attuale</span><strong>{{ $order->rider?->name ?: 'Da assegnare' }}</strong></p>
+                        @if($order->riderReassignable())
+                            <form id="rider-assignment-{{ $order->slug }}" data-order-action method="post" action="{{ route('orders.rider', $order) }}" class="rider-assignment-controls rider-assignment-compact">
+                                @csrf @method('patch')<input type="hidden" name="version" value="{{ $order->version }}">
+                                <div><label class="form-label" for="reassign-rider">Cambia Rider</label><select class="form-select" id="reassign-rider" name="rider_id" required><option value="">Seleziona un Rider</option>@foreach($riders as $rider)<option value="{{ $rider->slug }}" @selected($order->rider?->slug === $rider->slug)>{{ $rider->name }}{{ $rider->slug === auth()->user()->slug ? ' · Tu (Admin)' : '' }}</option>@endforeach</select></div><x-ui.icon-button action="confirm" type="submit" label="Conferma Rider" />
+                            </form>
+                            <p class="small text-secondary mb-0">Puoi cambiare il Rider fino alla fase «Rider in arrivo».</p>
+                        @else
+                            <p class="rider-assignment-locked" role="note"><x-ui.icon name="lock" /><span>{{ \App\Models\Order::RiderLockedMessage }}</span></p>
+                        @endif
                     </section>
                 @endif
             @endif

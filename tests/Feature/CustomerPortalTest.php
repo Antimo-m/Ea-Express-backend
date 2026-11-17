@@ -192,7 +192,7 @@ class CustomerPortalTest extends TestCase
         $this->post('/verify-email-otp/confirm', ['code' => $code])->assertSessionHasNoErrors();
         $this->assertNotNull($rider->fresh()->email_verified_at);
         $this->actingAs($rider->fresh(), 'web')->get('/orders/in-progress')->assertOk()->assertSee($order->slug);
-        foreach (['rider_arriving', 'picked_up', 'out_for_delivery', 'delivered'] as $status) {
+        foreach (['rider_arriving', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered'] as $status) {
             $this->patch(route('orders.update', $order), ['status' => $status, 'version' => $order->fresh()->version])->assertSessionHasNoErrors();
         }
         $this->postJson(route('messages.store', $order), ['body' => 'Consegna completata'])->assertCreated();

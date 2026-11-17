@@ -24,8 +24,8 @@ class CustomerIdentity
     {
         return [
             'sender_type' => [...($required ? [] : ['sometimes']), 'required', Rule::enum(SenderType::class)],
-            'business_type' => ['nullable', 'string', 'max:100'],
-            'business_description' => ['nullable', 'string', 'max:500'],
+            'business_type' => ['nullable', 'string', 'max:100', ...TextFields::identity()],
+            'business_description' => ['nullable', 'string', 'max:500', ...TextFields::description(multiline: true)],
         ];
     }
 

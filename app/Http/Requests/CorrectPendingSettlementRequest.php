@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\PlainText;
 use App\UserRole;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -16,7 +17,7 @@ class CorrectPendingSettlementRequest extends FormRequest
     {
         return [
             'ea_amount' => ['nullable', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'], 'amount' => ['required', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'],
-            'reason' => ['required', 'string', 'max:500'],
+            'reason' => ['required', 'string', 'max:500', new PlainText(multiline: true)],
             'version' => ['required', 'integer', 'min:1'],
         ];
     }

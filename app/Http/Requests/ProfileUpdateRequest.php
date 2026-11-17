@@ -2,14 +2,19 @@
 
 namespace App\Http\Requests;
 
-use App\Models\User;
-use App\Rules\SafePasswordLength;
+use App\Rules\UnchangedAccountEmail;
+use App\Support\PortalTextPolicy;
+use App\Support\TextFields;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class ProfileUpdateRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $this->merge(PortalTextPolicy::normalizeFields($this->only(['name'])));
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -18,16 +23,8 @@ class ProfileUpdateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'current_password' => [Rule::excludeIf($this->input('email') === $this->user()->email), 'bail', 'required', new SafePasswordLength, 'current_password:web'],
-            'name' => ['required', 'string', 'max:255'],
-            'email' => [
-                'required',
-                'string',
-                'lowercase',
-                'email',
-                'max:255',
-                Rule::unique(User::class)->ignore($this->user()->id),
-            ],
+            'name' => ['required', 'string', 'max:255', ...TextFields::identity()],
+            'email' => [new UnchangedAccountEmail($this->user())],
         ];
     }
 }

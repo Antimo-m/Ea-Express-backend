@@ -30,12 +30,15 @@ class OrderActionLayoutTest extends TestCase
         $this->assertSame('primary-transition-'.$order->slug, $actions->item(0)->getAttribute('form'));
         $this->assertSame(0, $xpath->query('//*[@id="next-action"]//a[contains(@href,"/messages/")]')->length);
         $this->assertSame(1, $xpath->query('//header[contains(@class,"order-detail-heading")]//a[contains(@href,"/messages/")]')->length);
-        $cancel = $xpath->query('//*[@id="next-action"]//footer//button[@aria-label="Annulla spedizione"]')->item(0);
-        $this->assertNotNull($cancel);
-        $this->assertSame('workflow-'.$order->slug.'-cancelled', $cancel->getAttribute('data-dialog-open'));
-        $this->assertSame('', trim($cancel->textContent));
+        $problem = $xpath->query('//*[@id="next-action"]//footer[contains(@class,"workflow-problem")]//button')->item(0);
+        $this->assertNotNull($problem);
+        $this->assertSame('Segnala un problema', trim($problem->textContent));
+        $this->assertSame('workflow-problem-'.$order->slug, $problem->getAttribute('data-dialog-open'));
         $this->assertSame(1, $xpath->query('//form[@id="primary-transition-'.$order->slug.'"]//input[@name="status" and @value="picked_up"]')->length);
-        $this->assertSame(1, $xpath->query('//dialog[@id="workflow-'.$order->slug.'-cancelled"]//form/input[@name="version"]')->length);
+        $dialog = '//dialog[@id="workflow-problem-'.$order->slug.'"]';
+        $this->assertSame(1, $xpath->query($dialog.'//form[input[@name="status" and @value="cancelled"]]/input[@name="version"]')->length);
+        $this->assertSame(1, $xpath->query($dialog.'//form[input[@name="status" and @value="delivery_issue"]]')->length);
+        $this->assertSame(0, $xpath->query('//details[contains(@class,"workflow-alternatives")]')->length);
         $this->assertSame(0, $xpath->query('//form//form')->length);
     }
 

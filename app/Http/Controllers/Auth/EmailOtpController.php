@@ -36,6 +36,6 @@ class EmailOtpController extends Controller
         $verify->handle($request->user(), $data['code']);
         app(StaffAuthentication::class)->complete($request, $request->user()->refresh());
 
-        return redirect(IntendedDestination::take($request))->with('status', 'Accesso verificato.');
+        return redirect(IntendedDestination::take($request))->with('status', 'signed-in');
     }
 }

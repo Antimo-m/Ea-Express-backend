@@ -9,6 +9,7 @@ use App\Models\User;
 use App\OrderStatus;
 use App\Support\OrderPrice;
 use App\Support\RiderOperations;
+use App\Support\TextFields;
 use App\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,7 +21,7 @@ class CarrierShipmentController extends Controller
     public function update(Request $request, Order $order, NotifyOrderParticipants $notify): RedirectResponse
     {
         Gate::authorize('update', $order);
-        $data = $request->validate(['version' => ['required', 'integer'], 'carrier_name' => ['nullable', 'string', 'max:100'], 'carrier_tracking' => ['required', 'string', 'max:100'], 'carrier_status' => ['required', 'in:booked,handed_over,in_transit,delivery_issue'], 'estimated_at' => ['prohibited']]);
+        $data = $request->validate(['version' => ['required', 'integer'], 'carrier_name' => ['nullable', 'string', 'max:100', ...TextFields::address()], 'carrier_tracking' => ['required', 'string', 'max:100', ...TextFields::address()], 'carrier_status' => ['required', 'in:booked,handed_over,in_transit,delivery_issue'], 'estimated_at' => ['prohibited']]);
         DB::transaction(function () use ($request, $order, $data, $notify): void {
             $actor = User::lockForUpdate()->findOrFail($request->user()->id);
             abort_unless($actor->is_active && $actor->isStaff() && ($actor->role === UserRole::Admin || $actor->email_verified_at !== null), 403);
