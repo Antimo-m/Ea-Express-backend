@@ -33,7 +33,7 @@ class LaunchReadinessTest extends TestCase
         $this->assertDatabaseMissing('users', ['email' => 'launch@example.test']);
         $this->postJson($this->api.'/auth/register', [...$this->registration(), 'name' => "\u{00A0}\u{2003}"])
             ->assertUnprocessable()->assertJsonValidationErrors('name');
-        $this->postJson($this->api.'/auth/register', [...$this->registration(), 'sender_type' => 'private', 'name' => 'Maria Troia'])
+        $this->postJson($this->api.'/auth/register', [...$this->registration(), 'sender_type' => 'private', 'first_name' => 'Maria', 'last_name' => 'Troia'])
             ->assertAccepted();
         $this->assertDatabaseHas('users', ['email' => $this->registration()['email'], 'name' => 'Maria Troia']);
     }

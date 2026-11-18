@@ -14,7 +14,7 @@ class PortalTextPolicy
     /** @param array<string, mixed> $data @return array<string, mixed> */
     public static function normalizeFields(array $data): array
     {
-        foreach (['name', 'store_name', 'business_type', 'business_description'] as $field) {
+        foreach (['name', 'first_name', 'last_name', 'store_name', 'business_type', 'business_description'] as $field) {
             if (isset($data[$field]) && is_string($data[$field])) {
                 $data[$field] = self::normalize($data[$field]);
             }

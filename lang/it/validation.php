@@ -28,6 +28,8 @@ return [
         'store_name' => 'negozio / cliente', 'recipient_name' => 'destinatario', 'recipient_phone' => 'telefono', 'pickup_address' => 'indirizzo di ritiro', 'pickup_city' => 'comune di ritiro', 'delivery_address' => 'indirizzo di consegna', 'delivery_city' => 'comune di consegna', 'pickup_date' => 'data di ritiro', 'pickup_from' => 'inizio fascia di ritiro', 'pickup_to' => 'fine fascia di ritiro', 'parcel_count' => 'numero colli', 'category' => 'categoria', 'urgency' => 'urgenza', 'price' => 'importo', 'note' => 'motivo', 'public_note' => 'aggiornamento pubblico', 'estimated_at' => 'nuova previsione', 'status' => 'stato', 'version' => 'versione ordine',
 
         'name' => 'nome e cognome',
+        'first_name' => 'nome',
+        'last_name' => 'cognome',
         'email' => 'email',
         'password' => 'password',
         'password_confirmation' => 'conferma password',

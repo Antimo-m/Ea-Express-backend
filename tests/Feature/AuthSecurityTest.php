@@ -461,7 +461,7 @@ class AuthSecurityTest extends TestCase
 
     public function test_registration_has_same_response_for_new_and_existing_accounts_and_never_changes_a_confirmed_password(): void
     {
-        $data = ['privacy_acknowledged' => true, 'beta_terms_accepted' => true, 'name' => 'Customer', 'email' => 'customer@example.test', 'sender_type' => 'private', 'password' => 'A sufficiently long passphrase', 'password_confirmation' => 'A sufficiently long passphrase'];
+        $data = ['privacy_acknowledged' => true, 'beta_terms_accepted' => true, 'first_name' => 'Anna', 'last_name' => 'Rossi', 'email' => 'customer@example.test', 'sender_type' => 'private', 'password' => 'A sufficiently long passphrase', 'password_confirmation' => 'A sufficiently long passphrase'];
         $expected = $this->postJson('/api/v1/customer/auth/register', $data)->assertAccepted()->json();
         $user = User::where('email', $data['email'])->sole();
         $user->forceFill(['email_verified_at' => now()])->save();
@@ -475,10 +475,10 @@ class AuthSecurityTest extends TestCase
 
     public function test_never_confirmed_account_can_be_registered_again_by_the_owner_of_the_address(): void
     {
-        $data = ['privacy_acknowledged' => true, 'beta_terms_accepted' => true, 'name' => 'Occupante', 'email' => 'owner@example.test', 'sender_type' => 'private', 'password' => 'Squatter long passphrase', 'password_confirmation' => 'Squatter long passphrase'];
+        $data = ['privacy_acknowledged' => true, 'beta_terms_accepted' => true, 'first_name' => 'Primo', 'last_name' => 'Occupante', 'email' => 'owner@example.test', 'sender_type' => 'private', 'password' => 'Squatter long passphrase', 'password_confirmation' => 'Squatter long passphrase'];
         $expected = $this->postJson('/api/v1/customer/auth/register', $data)->assertAccepted()->json();
 
-        $this->postJson('/api/v1/customer/auth/register', [...$data, 'name' => 'Vera Titolare', 'password' => 'Owner chosen passphrase', 'password_confirmation' => 'Owner chosen passphrase'])->assertAccepted()->assertExactJson($expected);
+        $this->postJson('/api/v1/customer/auth/register', [...$data, 'first_name' => 'Vera', 'last_name' => 'Titolare', 'password' => 'Owner chosen passphrase', 'password_confirmation' => 'Owner chosen passphrase'])->assertAccepted()->assertExactJson($expected);
 
         $user = User::where('email', 'owner@example.test')->sole();
         $this->assertSame('Vera Titolare', $user->name);
@@ -495,7 +495,7 @@ class AuthSecurityTest extends TestCase
         $hashes = [$customer->password, $rider->password];
 
         foreach (['legacy@example.test', 'rider@example.test'] as $email) {
-            $this->postJson('/api/v1/customer/auth/register', ['privacy_acknowledged' => true, 'beta_terms_accepted' => true, 'name' => 'Altro', 'email' => $email, 'sender_type' => 'private', 'password' => 'Attacker long passphrase', 'password_confirmation' => 'Attacker long passphrase'])->assertAccepted();
+            $this->postJson('/api/v1/customer/auth/register', ['privacy_acknowledged' => true, 'beta_terms_accepted' => true, 'first_name' => 'Altro', 'last_name' => 'Utente', 'email' => $email, 'sender_type' => 'private', 'password' => 'Attacker long passphrase', 'password_confirmation' => 'Attacker long passphrase'])->assertAccepted();
         }
 
         $this->assertSame($hashes, [$customer->fresh()->password, $rider->fresh()->password]);

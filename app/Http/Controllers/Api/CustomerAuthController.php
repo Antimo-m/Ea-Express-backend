@@ -16,7 +16,6 @@ use App\Support\PasswordPolicy;
 use App\Support\PasswordRecovery;
 use App\Support\PortalTextPolicy;
 use App\Support\SecurityEvent;
-use App\Support\TextFields;
 use App\Support\TrustedRiderDevices;
 use App\Support\UnconfirmedCustomers;
 use App\UserRole;
@@ -116,12 +115,12 @@ class CustomerAuthController extends Controller
 
     public function register(Request $request): JsonResponse
     {
-        $request->merge(PortalTextPolicy::normalizeFields($request->only(['name', 'business_type', 'business_description'])));
-        $data = $request->validate([...CustomerIdentity::rules(required: true), 'name' => ['required', 'string', 'max:150', ...TextFields::identity()], 'email' => ['required', 'email', 'lowercase', 'max:255'], 'password' => [...PasswordPolicy::rules(), 'confirmed'],
+        $request->merge(PortalTextPolicy::normalizeFields($request->only(['name', 'first_name', 'last_name', 'business_type', 'business_description'])));
+        $data = $request->validate([...CustomerIdentity::rules(required: true), ...CustomerIdentity::nameRules($request->input('sender_type') === 'private'), 'email' => ['required', 'email', 'lowercase', 'max:255'], 'password' => [...PasswordPolicy::rules(), 'confirmed'],
             'privacy_acknowledged' => ['accepted'], 'beta_terms_accepted' => Rule::when((bool) config('beta.enabled'), ['accepted'], ['nullable'])], [
                 'privacy_acknowledged.accepted' => 'Conferma di aver letto l’informativa privacy.', 'beta_terms_accepted.accepted' => 'Accetta le condizioni d’uso della beta per continuare.',
             ]);
-        $attributes = CustomerIdentity::normalize(Arr::only($data, ['name', 'password', 'sender_type', 'business_type', 'business_description']));
+        $attributes = CustomerIdentity::accountAttributes(Arr::only($data, ['name', 'first_name', 'last_name', 'sender_type', 'business_type', 'business_description']));
         $attributes['password'] = Hash::make($data['password']);
         $attributes += ['privacy_acknowledged_at' => now(), 'privacy_version' => config('customer_privacy.version'),
             'terms_accepted_at' => config('beta.enabled') ? now() : null, 'terms_version' => config('beta.enabled') ? config('beta.terms_version') : null];
@@ -149,7 +148,7 @@ class CustomerAuthController extends Controller
     {
         $user = $request->user('customer');
 
-        return response()->json(['user' => ['slug' => $user->slug, 'name' => $user->name, 'email' => $user->email, 'sender_type' => $user->sender_type, 'business_type' => $user->business_type, 'business_description' => $user->business_description, 'notify_orders' => $user->notify_orders, 'notify_messages' => $user->notify_messages, 'portal_preferences' => $user->portal_preferences ?? []], 'csrf_token' => csrf_token()]);
+        return response()->json(['user' => ['slug' => $user->slug, 'name' => $user->name, 'first_name' => $user->first_name, 'last_name' => $user->last_name, 'email' => $user->email, 'sender_type' => $user->sender_type, 'business_type' => $user->business_type, 'business_description' => $user->business_description, 'notify_orders' => $user->notify_orders, 'notify_messages' => $user->notify_messages, 'portal_preferences' => $user->portal_preferences ?? []], 'csrf_token' => csrf_token()]);
     }
 
     public function logout(Request $request): JsonResponse

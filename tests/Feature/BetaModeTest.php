@@ -13,7 +13,7 @@ class BetaModeTest extends TestCase
     /** @return array<string, mixed> */
     private function registration(array $overrides = []): array
     {
-        return [...['name' => 'Rita Rossi', 'email' => 'rita@example.test', 'sender_type' => 'private', 'password' => 'PasswordSicura123', 'password_confirmation' => 'PasswordSicura123', 'privacy_acknowledged' => true, 'beta_terms_accepted' => true], ...$overrides];
+        return [...['first_name' => 'Rita', 'last_name' => 'Rossi', 'email' => 'rita@example.test', 'sender_type' => 'private', 'password' => 'PasswordSicura123', 'password_confirmation' => 'PasswordSicura123', 'privacy_acknowledged' => true, 'beta_terms_accepted' => true], ...$overrides];
     }
 
     public function test_platform_exposes_beta_state_and_terms_to_the_portal(): void

@@ -48,19 +48,35 @@ class CustomerExperienceTest extends TestCase
 
     public function test_private_accounts_do_not_keep_business_fields_and_can_later_describe_a_business(): void
     {
-        $this->postJson('/api/v1/customer/auth/register', ['privacy_acknowledged' => true, 'beta_terms_accepted' => true, 'name' => 'Rita Rossi', 'email' => 'rita@example.test', 'password' => 'PasswordSicura123', 'password_confirmation' => 'PasswordSicura123', 'sender_type' => 'private', 'business_type' => 'Negozio', 'business_description' => 'Da eliminare'])
+        $this->postJson('/api/v1/customer/auth/register', ['privacy_acknowledged' => true, 'beta_terms_accepted' => true, 'first_name' => ' Rita  Maria ', 'last_name' => ' De  Luca ', 'email' => 'rita@example.test', 'password' => 'PasswordSicura123', 'password_confirmation' => 'PasswordSicura123', 'sender_type' => 'private', 'business_type' => 'Negozio', 'business_description' => 'Da eliminare'])
             ->assertAccepted();
         Notification::fake();
         $this->postJson('/api/v1/customer/auth/login', ['email' => 'rita@example.test', 'password' => 'PasswordSicura123'])->assertAccepted();
         $user = User::where('email', 'rita@example.test')->sole();
         $code = Notification::sent($user, RiderEmailOtp::class)->last()->code;
         $this->postJson('/api/v1/customer/auth/otp/verify', ['code' => $code])->assertOk()->assertJsonPath('user.sender_type', 'private')->assertJsonPath('user.business_type', null);
+        $this->assertDatabaseHas('users', ['email' => $user->email, 'first_name' => 'Rita Maria', 'last_name' => 'De Luca', 'name' => 'Rita Maria De Luca']);
         $this->assertNull($user->business_description);
+        $this->patchJson('/api/v1/customer/profile', ['first_name' => 'Rita Maria', 'last_name' => 'De Luca Rossi'])->assertOk();
+        $this->getJson('/api/v1/customer/auth/me')->assertOk()->assertJsonPath('user.first_name', 'Rita Maria')->assertJsonPath('user.last_name', 'De Luca Rossi')->assertJsonPath('user.name', 'Rita Maria De Luca Rossi');
         $this->patchJson('/api/v1/customer/profile', ['name' => 'Rita Lab', 'email' => $user->email, 'sender_type' => 'business', 'business_type' => 'Restauro di strumenti musicali', 'business_description' => 'Riparazioni artigianali su misura'])
             ->assertOk();
+        $this->assertDatabaseHas('users', ['email' => $user->email, 'first_name' => null, 'last_name' => null, 'name' => 'Rita Lab']);
         $this->assertSame('Restauro di strumenti musicali', $user->fresh()->business_type);
         $this->getJson('/api/v1/customer/auth/me')->assertJsonPath('user.business_description', 'Riparazioni artigianali su misura');
         $this->patchJson('/api/v1/customer/profile', ['name' => 'Rita Lab', 'email' => $user->email, 'sender_type' => 'admin'])->assertUnprocessable();
+    }
+
+    public function test_private_registration_requires_both_names_and_checks_the_combined_display_name(): void
+    {
+        $registration = ['sender_type' => 'private', 'name' => 'Rita Rossi', 'email' => 'rita@example.test', 'password' => 'PasswordSicura123', 'password_confirmation' => 'PasswordSicura123', 'privacy_acknowledged' => true, 'beta_terms_accepted' => true];
+        $this->postJson('/api/v1/customer/auth/register', $registration)
+            ->assertUnprocessable()->assertJsonValidationErrors(['first_name', 'last_name']);
+        $this->postJson('/api/v1/customer/auth/register', [...$registration, 'first_name' => str_repeat('a', 100), 'last_name' => str_repeat('b', 50)])
+            ->assertUnprocessable()->assertJsonValidationErrors('last_name');
+        $this->postJson('/api/v1/customer/auth/register', [...$registration, 'first_name' => 'Madonna', 'last_name' => 'Troia'])
+            ->assertUnprocessable()->assertJsonPath('errors.last_name.0', config('portal_text_policy.message'));
+        $this->assertDatabaseMissing('users', ['email' => $registration['email']]);
     }
 
     public function test_customer_declares_parcel_value_without_setting_shipping_cost_or_changing_identity_history(): void

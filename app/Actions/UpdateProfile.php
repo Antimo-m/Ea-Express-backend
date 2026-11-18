@@ -22,7 +22,7 @@ class UpdateProfile
             abort_unless($locked->is_active && $locked->role === $user->role, 403);
             app(AccountSessionRevocation::class)->assertCurrent(request(), $locked, $locked->role === UserRole::Customer ? 'customer' : 'web');
             app(StaffAuthentication::class)->assertComplete($locked);
-            $locked->fill(Arr::only($data, ['name', 'sender_type', 'business_type', 'business_description']));
+            $locked->fill(Arr::only($data, ['name', 'first_name', 'last_name', 'sender_type', 'business_type', 'business_description']));
             $locked->save();
             $user->setRawAttributes($locked->getAttributes(), true);
         }, 3);

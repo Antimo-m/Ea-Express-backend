@@ -14,7 +14,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Validation\ValidationException;
 
-#[Fillable(['name', 'email', 'password', 'sender_type', 'business_type', 'business_description'])]
+#[Fillable(['name', 'first_name', 'last_name', 'email', 'password', 'sender_type', 'business_type', 'business_description'])]
 #[Hidden(['auth_version', 'admin_slot', 'email_otp_hash', 'email_otp_expires_at', 'email_otp_sent_at', 'email_otp_window_at', 'email_otp_attempts', 'email_otp_send_count', 'password', 'remember_token', 'phone_otp_hash', 'pending_phone', 'phone_otp_expires_at', 'phone_otp_attempts', 'phone_otp_send_count', 'phone_otp_window_at', 'phone_otp_sent_at'])]
 class User extends Authenticatable
 {

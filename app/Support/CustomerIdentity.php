@@ -20,6 +20,35 @@ class CustomerIdentity
     }
 
     /** @return array<string, array<int, mixed>> */
+    public static function nameRules(bool $private): array
+    {
+        $rules = ['required', 'string', 'max:150', ...TextFields::identity()];
+
+        return $private ? ['first_name' => $rules, 'last_name' => $rules] : ['name' => $rules];
+    }
+
+    /** @param array<string, mixed> $data @return array<string, mixed> */
+    public static function accountAttributes(array $data, string $fallback = 'business'): array
+    {
+        $data = self::normalize($data, $fallback);
+        if ($data['sender_type'] === 'private') {
+            $data['name'] = $data['first_name'].' '.$data['last_name'];
+            if (mb_strlen($data['name']) > 150) {
+                throw ValidationException::withMessages(['last_name' => 'Nome e cognome insieme possono contenere al massimo 150 caratteri, spazio incluso.']);
+            }
+            $policy = app(PortalTextPolicy::class);
+            if (! $policy->allows($data['name'])) {
+                throw ValidationException::withMessages(['last_name' => $policy->definition()['message']]);
+            }
+        } else {
+            $data['first_name'] = null;
+            $data['last_name'] = null;
+        }
+
+        return $data;
+    }
+
+    /** @return array<string, array<int, mixed>> */
     public static function rules(bool $required = false): array
     {
         return [

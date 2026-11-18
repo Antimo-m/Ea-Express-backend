@@ -15,7 +15,6 @@ use App\Support\CustomerIdentity;
 use App\Support\NotificationInbox;
 use App\Support\PasswordPolicy;
 use App\Support\PortalTextPolicy;
-use App\Support\TextFields;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -76,9 +75,9 @@ class CustomerWorkspaceController extends Controller
 
     public function profile(Request $request, UpdateProfile $update): JsonResponse
     {
-        $request->merge(PortalTextPolicy::normalizeFields($request->only(['name', 'business_type', 'business_description'])));
-        $data = $request->validate([...CustomerIdentity::rules(), 'name' => ['required', 'string', 'max:150', ...TextFields::identity()], 'email' => [new UnchangedAccountEmail($request->user())]]);
-        $update->handle($request->user(), CustomerIdentity::normalize(Arr::except($data, ['email']), $request->user()->sender_type));
+        $request->merge(PortalTextPolicy::normalizeFields($request->only(['name', 'first_name', 'last_name', 'business_type', 'business_description'])));
+        $data = $request->validate([...CustomerIdentity::rules(), ...CustomerIdentity::nameRules($request->input('sender_type', $request->user()->sender_type) === 'private'), 'email' => [new UnchangedAccountEmail($request->user())]]);
+        $update->handle($request->user(), CustomerIdentity::accountAttributes(Arr::except($data, ['email']), $request->user()->sender_type));
 
         return response()->json(['message' => 'Profilo aggiornato.']);
     }

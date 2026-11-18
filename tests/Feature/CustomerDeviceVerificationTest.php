@@ -50,7 +50,7 @@ class CustomerDeviceVerificationTest extends TestCase
     public function test_new_account_must_confirm_the_otp_before_reaching_the_portal(): void
     {
         Notification::fake();
-        $this->postJson('/api/v1/customer/auth/register', ['privacy_acknowledged' => true, 'beta_terms_accepted' => true, 'name' => 'Rita Rossi', 'email' => 'rita@example.test', 'password' => 'PasswordSicura123', 'password_confirmation' => 'PasswordSicura123', 'sender_type' => 'private'])->assertAccepted();
+        $this->postJson('/api/v1/customer/auth/register', ['privacy_acknowledged' => true, 'beta_terms_accepted' => true, 'first_name' => 'Rita', 'last_name' => 'Rossi', 'email' => 'rita@example.test', 'password' => 'PasswordSicura123', 'password_confirmation' => 'PasswordSicura123', 'sender_type' => 'private'])->assertAccepted();
         $this->assertGuest('customer');
         $user = User::where('email', 'rita@example.test')->sole();
 
