@@ -17,13 +17,15 @@ class WorkspaceRevisionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_public_tracking_returns_staff_to_the_authorized_order_and_guests_to_entry(): void
+    public function test_public_tracking_returns_staff_to_the_authorized_order_and_guests_to_the_customer_portal(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $order = Order::factory()->create(['tracking_started_at' => now(), 'rider_id' => $admin->id]);
         config(['customer.frontend_url' => 'https://portal.example.test']);
 
-        $this->get(route('tracking.public', $order->tracking_token))->assertViewHas('returnUrl', url('/'));
+        $this->get(route('tracking.public', $order->tracking_token))
+            ->assertViewHas('returnUrl', 'https://portal.example.test/shipments')
+            ->assertViewHas('returnLabel', 'Torna alle spedizioni');
         $this->actingAs($admin)->get(route('tracking.public', $order->tracking_token))
             ->assertViewHas('returnUrl', route('orders.show', $order))->assertDontSee('portal.example.test');
         $otherRider = User::factory()->create();

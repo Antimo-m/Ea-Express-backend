@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
-use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
@@ -30,14 +29,11 @@ class TrackingController extends Controller
     {
         $order = Order::query()->where('tracking_token', $token)->whereNotNull('tracking_started_at')->firstOrFail();
 
-        $returnUrl = url('/');
-        $returnLabel = 'Torna a EA-Express';
+        $returnUrl = rtrim(config('customer.frontend_url'), '/').'/shipments';
+        $returnLabel = 'Torna alle spedizioni';
         if ($request->user()?->isStaff()) {
             $returnUrl = $request->user()->can('view', $order) ? route('orders.show', $order) : route('dashboard');
             $returnLabel = 'Torna al gestionale';
-        } elseif ($request->user()?->role === UserRole::Customer) {
-            $returnUrl = rtrim(config('customer.frontend_url'), '/').'/shipments';
-            $returnLabel = 'Torna alle spedizioni';
         }
 
         return view('tracking.public', ['returnUrl' => $returnUrl, 'returnLabel' => $returnLabel, 'shippingType' => $order->shipping_type, 'carrierTracking' => $order->carrier_tracking, 'carrierStatus' => $order->carrier_status, 'deliveryFrom' => $order->estimated_delivery_from, 'deliveryTo' => $order->estimated_delivery_to, 'reference' => $order->reference, 'status' => $order->status, 'estimated' => $order->estimated_at, 'events' => $order->events()->whereNull('delay_action')->select(['id', 'slug', 'status', 'schedule_change', 'public_note', 'created_at'])->latest()->orderByDesc('id')->paginate(30)]);
