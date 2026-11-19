@@ -28,11 +28,12 @@ class EconomicAuditController extends Controller
         $data = $request->validate(['type' => ['required', 'in:recipient_incidents,users,orders,shipping_rates,shipping_price_proposals,expenses,pending_accounts,pending_settlements,payment_entries,financial_movements,accounting_controls'], 'slug' => ['required', 'uuid']]);
         $models = ['recipient_incidents' => RecipientIncident::class, 'users' => User::class, 'orders' => Order::class, 'shipping_rates' => ShippingRate::class, 'shipping_price_proposals' => ShippingPriceProposal::class, 'expenses' => Expense::class, 'pending_accounts' => PendingAccount::class, 'pending_settlements' => PendingSettlement::class, 'payment_entries' => PaymentEntry::class, 'financial_movements' => FinancialMovement::class, 'accounting_controls' => AccountingControl::class];
         $data['id'] = $models[$data['type']]::where('slug', $data['slug'])->firstOrFail()->id;
-        $entries = EconomicAudit::where(function ($query) use ($data): void {
+        // Elenchi espliciti di storni e incassi dell'ordine: l'indice (entity_type, entity_id) resta utilizzabile anche con l'OR.
+        $related = $data['type'] === 'orders' ? ['receipt_reversals' => ReceiptReversal::where('order_id', $data['id'])->pluck('id')->all(), 'payment_entries' => PaymentEntry::where('order_id', $data['id'])->pluck('id')->all()] : [];
+        $entries = EconomicAudit::where(function ($query) use ($data, $related): void {
             $query->where(fn ($entity) => $entity->where('entity_type', $data['type'])->where('entity_id', $data['id']));
-            if ($data['type'] === 'orders') {
-                $query->orWhere(fn ($reversals) => $reversals->where('entity_type', 'receipt_reversals')->whereIn('entity_id', ReceiptReversal::where('order_id', $data['id'])->select('id')));
-                $query->orWhere(fn ($payments) => $payments->where('entity_type', 'payment_entries')->whereIn('entity_id', PaymentEntry::where('order_id', $data['id'])->select('id')));
+            foreach ($related as $type => $ids) {
+                $query->orWhere(fn ($entities) => $entities->where('entity_type', $type)->whereIn('entity_id', $ids));
             }
         })->with('user:id,slug,name')->latest()->orderByDesc('id')->paginate(25)->withQueryString();
         $entityLabel = ['recipient_incidents' => 'Precedente destinatario', 'users' => 'Rider', 'orders' => 'Spedizione', 'expenses' => 'Spesa', 'pending_accounts' => 'Sospeso', 'pending_settlements' => 'Pagamento', 'payment_entries' => 'Incasso', 'financial_movements' => 'Movimento', 'shipping_rates' => 'Tariffa', 'shipping_price_proposals' => 'Proposta tariffa', 'accounting_controls' => 'Chiusura contabile'][$data['type']];

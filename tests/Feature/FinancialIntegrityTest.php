@@ -41,7 +41,8 @@ class FinancialIntegrityTest extends TestCase
         $change('restore')->assertOk();
         $this->get('/balance')->assertViewHas('outstanding', 20000)->assertViewHas('orders', fn ($rows) => $rows->total() === 1);
         $change('receive')->assertOk();
-        $this->get('/balance')->assertViewHas('cash', 20000)->assertViewHas('recordedOrders', fn ($rows) => $rows->total() === 1);
+        $this->assertNotNull($order->fresh()->paid_at);
+        $this->get('/balance')->assertViewHas('cash', 20000)->assertViewHas('orders', fn ($rows) => $rows->isEmpty());
         $change('reverse')->assertOk();
         if ((int) $order->payments()->sum('cash_amount_cents') > 0) {
             $change('refund')->assertOk();
@@ -114,7 +115,11 @@ class FinancialIntegrityTest extends TestCase
                 $this->assertSame($amount * 100, Expense::sole()->amount_cents);
             } elseif ($amount === 200) {
                 $this->get('/balance')->assertDontSee('tone-green">Saldato', false)
-                    ->assertViewHas('generalEntries', fn ($entries): bool => $entries->total() === 1 && $entries->first()->amount_cents === 20000 && $entries->first()->account->state === 'paid');
+                    ->assertViewHas('registerEntries', function ($entries): bool {
+                        $settlements = $entries->getCollection()->where('source', 'settlement');
+
+                        return $settlements->count() === 1 && $settlements->first()['amount'] === 20000 && $settlements->first()['account']->state === 'paid';
+                    });
                 $this->get('/pending?state=paid')->assertSee('tone-green">Saldato', false);
             }
             $this->patchJson(route('pending.settlements.update', [$account, $payment]), ['version' => $version, 'amount' => '120', 'reason' => 'Invio duplicato'])->assertConflict();

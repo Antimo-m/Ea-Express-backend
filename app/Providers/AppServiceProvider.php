@@ -29,6 +29,7 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->optimizes(optimize: 'shipping:cache-postal-codes', clear: 'shipping:clear-postal-codes', key: 'postal-codes');
         if ($this->app->isProduction()) {
             CanonicalUrl::enforce();
         }

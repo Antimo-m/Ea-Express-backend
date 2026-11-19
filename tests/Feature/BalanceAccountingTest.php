@@ -57,7 +57,7 @@ class BalanceAccountingTest extends TestCase
             ->assertViewHas('cashAdditions', 900)->assertViewHas('cashBalance', 4150)->assertViewHas('outstanding', 500)
             ->assertViewHas('selectedCustomerSlugs', [$firstCustomer->slug, $secondCustomer->slug])
             ->assertViewHas('shippingEconomics', fn (array $totals): bool => $totals['regional_count'] === 3)
-            ->assertViewHas('payments', fn ($entries): bool => $entries->total() === 2)
+            ->assertViewHas('registerEntries', fn ($entries): bool => $entries->getCollection()->where('source', 'payment')->count() === 2)
             ->assertViewHas('orders', fn ($entries): bool => $entries->pluck('slug')->all() === [$unpaid->slug]);
         $page->assertSee('customer_ids%5B0%5D='.$firstCustomer->slug, false)
             ->assertSee('name="customer_ids[]"', false)->assertDontSee('<select name="customer_id"', false);
@@ -198,8 +198,7 @@ class BalanceAccountingTest extends TestCase
 
         $this->get('/balance?customer_ids[]='.$customer->slug)->assertViewHas('cash', 1000)->assertViewHas('grossIncome', 1000)
             ->assertViewHas('spent', 300)->assertViewHas('operatingNet', 700)->assertViewHas('pendingIncoming', 1000)->assertViewHas('pendingOutgoing', 200)
-            ->assertViewHas('payments', fn ($rows): bool => $rows->total() === 1)
-            ->assertViewHas('generalEntries', fn ($rows): bool => $rows->total() === 1);
+            ->assertViewHas('registerEntries', fn ($rows): bool => $rows->getCollection()->where('source', 'payment')->count() === 1 && $rows->getCollection()->where('source', 'settlement')->count() === 1);
         $this->assertDatabaseCount('payment_entries', 1);
         $this->assertDatabaseCount('expenses', 1);
         $this->assertDatabaseCount('pending_settlements', 3);
@@ -377,8 +376,7 @@ class BalanceAccountingTest extends TestCase
         $this->travelTo(Carbon::parse('2026-11-03 12:00', 'Europe/Rome'));
         AccountingControl::first()->forceFill(['closed_through' => '2026-10-31'])->save();
         $this->postJson($path, ['action' => 'restore', 'version' => $order->fresh()->version, 'note' => 'Compensazione di novembre'])->assertOk();
-        $this->get('/balance?month=2026-09&ledger=recorded')->assertViewHas('grossIncome', 1000)->assertViewHas('operatingNet', 1000)
-            ->assertViewHas('recordedOrders', fn ($rows): bool => $rows->total() === 0);
+        $this->get('/balance?month=2026-09&ledger=recorded')->assertViewHas('grossIncome', 1000)->assertViewHas('operatingNet', 1000);
         $this->get('/balance?month=2026-10')->assertViewHas('grossIncome', -1000)->assertViewHas('reversalTotal', 1000)->assertViewHas('operatingNet', -1000);
         $this->get('/balance?month=2026-11&ledger=history')->assertViewHas('grossIncome', 0)->assertViewHas('restorationTotal', 0)
             ->assertViewHas('operatingNet', 0)->assertViewHas('cash', 0)->assertSee('Compensazione di novembre');

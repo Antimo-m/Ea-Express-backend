@@ -122,7 +122,7 @@ class RiderOperations
         $riders = $this->finalizeGroups($riders);
         $summary['riders'] = count($assignedRiders);
         $summary['zones'] = count($zones);
-        $moved = OrderEvent::query()->where('schedule_change->before->pickup_date', '>=', $date->toDateString())->where('schedule_change->before->pickup_date', '<=', $period->end->toDateString())->with(['user:id,slug,name', 'order:id,slug,reference'])->orderByDesc('id')->limit(20)->get();
+        $moved = OrderEvent::query()->where('rescheduled_from', '>=', $date->toDateString())->where('rescheduled_from', '<=', $period->end->toDateString())->with(['user:id,slug,name', 'order:id,slug,reference'])->orderByDesc('id')->limit(20)->get();
         $scheduleHistory = $moved->map(fn ($event) => ['reference' => $event->order?->reference, 'url' => $event->order ? route('orders.show', $event->order) : null, 'before' => $event->schedule_change['before'], 'after' => $event->schedule_change['after'], 'at' => $event->created_at->toIso8601String(), 'operator' => $event->user?->name, 'reason' => $event->note])->all();
 
         return ['date' => $date->toDateString(), 'to' => $period->end->toDateString(), 'reference_at' => $reference->toIso8601String(), 'today' => $date->isSameDay(now('Europe/Rome')), 'summary' => $summary, 'zones' => $zones, 'riders' => $riders, 'schedule_history' => $scheduleHistory, 'generated_at' => now()->toIso8601String()];

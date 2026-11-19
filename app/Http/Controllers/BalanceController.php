@@ -79,14 +79,20 @@ class BalanceController extends Controller
         $generalQuery = $this->generalReceiptsQuery($request->user(), $customerIds, $search, $term)->whereBetween('created_at', $period->utcRange());
         $generalReceipts = (int) (clone $generalQuery)->sum('amount_cents');
         $cash += (int) $generalReceipts;
+        $delivered = (clone $orders)->where('status', OrderStatus::Delivered)->whereBetween('delivered_at', $period->utcRange())
+            // Senza filtri l'indice di copertura evita di leggere le righe; MySQL non lo sceglie da solo sui periodi lunghi.
+            ->when($request->user()->role === UserRole::Admin && $customerIds === [] && $search === '', function (Builder $q): void {
+                $q->getQuery()->forceIndex('orders_financial_delivered_index');
+            })
+            ->toBase()->selectRaw(
+                'COUNT(*) AS delivered_count, COALESCE(SUM(CASE WHEN receipt_voided_at IS NULL THEN 1 ELSE 0 END), 0) AS completed_count, '
+                .'COALESCE(SUM(CASE WHEN receipt_voided_at IS NULL THEN price_cents END), 0) AS earned, '
+                .'COALESCE(SUM(CASE WHEN receipt_voided_at IS NULL AND paid_at IS NULL THEN price_cents END), 0) AS unpaid, '
+                .ShippingEconomics::sumColumns('receipt_voided_at IS NULL')
+            )->first();
         $receivableIds = (clone $completed)->whereNull('paid_at')->whereNull('receipt_voided_at')->select('id');
-        $outstanding = (int) (clone $completed)->whereNull('paid_at')->whereNull('receipt_voided_at')->sum('price_cents') - app(ReceiptLedger::class)->cash(PaymentEntry::whereIn('order_id', $receivableIds));
+        $outstanding = (int) $delivered->unpaid - app(ReceiptLedger::class)->cash(PaymentEntry::whereIn('order_id', $receivableIds));
         $spent = (int) (clone $expenses)->whereNull('voided_at')->sum('amount_cents');
-        $summaries = [];
-        foreach (['Oggi' => now('Europe/Rome')->startOfDay(), 'Questa settimana' => now('Europe/Rome')->startOfWeek(), 'Questo mese' => now('Europe/Rome')->startOfMonth()] as $label => $since) {
-            $summaries[$label] = (int) (clone $orders)->where('status', OrderStatus::Delivered)->whereNull('receipt_voided_at')->whereBetween('delivered_at', [$since->utc(), now()])->sum('price_cents');
-        }
-
         $manual = $this->manualQuery($request->user(), $customerIds, $search, $term)->whereDate('occurred_on', '>=', $start->toDateString())->whereDate('occurred_on', '<=', $end->toDateString());
         $manualTotals = (clone $manual)->whereNull('voided_at')->selectRaw('kind, SUM(amount_cents) AS cents')->groupBy('kind')->pluck('cents', 'kind');
         $extraIncome = (int) ($manualTotals['income'] ?? 0);
@@ -143,13 +149,17 @@ class BalanceController extends Controller
             $snapshot['uncertain'] ? null : $pendingIncoming,
             $snapshot['uncertain'] ? null : $pendingOutgoing,
         );
-        $monetaryPayments = (clone $payments)->where(fn ($q) => $q->whereNull('kind')->orWhere('kind', '!=', 'cash_reconciliation'))->whereDoesntHave('audits', fn ($q) => $q->where('action', 'payment.refund_disputed'));
-        $cashIn = app(ReceiptLedger::class)->cash((clone $monetaryPayments)->whereRaw(ReceiptLedger::CashExpression.' > 0')) + $generalReceipts + $manualFlows['manual_in'];
-        $cashOut = -app(ReceiptLedger::class)->cash((clone $monetaryPayments)->whereRaw(ReceiptLedger::CashExpression.' < 0')) + $spent + $manualFlows['manual_out'];
+        // L'attestazione «rimborso non pagato» esiste solo sui rimborsi (ReconcileReceipt): gli altri incassi non la cercano.
+        $monetaryPayments = (clone $payments)->where(fn ($q) => $q->whereNull('kind')->orWhere('kind', '!=', 'cash_reconciliation'))
+            ->where(fn ($q) => $q->whereNull('kind')->orWhere('kind', '!=', 'refund')->orWhereDoesntHave('audits', fn ($q) => $q->where('action', 'payment.refund_disputed')));
+        $monetaryFlows = (clone $monetaryPayments)->toBase()->selectRaw(
+            'COALESCE(SUM(CASE WHEN '.ReceiptLedger::CashExpression.' > 0 THEN '.ReceiptLedger::CashExpression.' ELSE 0 END), 0) AS cash_in, '
+            .'COALESCE(SUM(CASE WHEN '.ReceiptLedger::CashExpression.' < 0 THEN '.ReceiptLedger::CashExpression.' ELSE 0 END), 0) AS cash_out'
+        )->first();
+        $cashIn = (int) $monetaryFlows->cash_in + $generalReceipts + $manualFlows['manual_in'];
+        $cashOut = -(int) $monetaryFlows->cash_out + $spent + $manualFlows['manual_out'];
         $registerEntries = in_array($ledger, ['payments', 'expenses', 'cash', 'refunds', 'history'])
             ? app(FinancialRegister::class)->page($ledger, $payments, $expenses, $manual, $generalQuery, $referenceDate) : null;
-        $manualSections = [];
-        $paymentSections = [];
         $customers = User::where('role', UserRole::Customer)->when($request->user()->role !== UserRole::Admin, fn ($q) => $q->whereIn('id', (clone $orders)->select('customer_id')))->orderBy('name')->get(['id', 'slug', 'name', 'email']);
 
         return view('balance.index', [
@@ -157,7 +167,6 @@ class BalanceController extends Controller
                 ->whereHas('order', fn ($q) => $q->financialFor($request->user())->when($customerIds, fn ($q) => $q->whereIn('customer_id', $customerIds))->when($search !== '', fn ($q) => $this->searchOrder($q, $term)))
                 ->whereDoesntHave('audits', fn ($q) => $q->where('created_at', '<=', $cutoff)->where(fn ($q) => $q->whereIn('action', ['payment.refund_verified', 'payment.refund_disputed'])->orWhere('after->cash_confirmation', 'explicit_payment')))->count(), 'ledgerTotals' => $ledgerTotals, 'referenceDate' => $referenceDate, 'pendingUncertain' => $snapshot['uncertain'], 'pendingState' => $pendingState, 'refundsDue' => $refundsDue, 'cashIn' => $cashIn, 'cashOut' => $cashOut, 'registerEntries' => $registerEntries,
             'restorationTotal' => $restorationTotal, 'refundTotal' => $refundTotal,
-            'legacyReversals' => (clone $payments)->where('amount_cents', '<', 0)->whereNull('original_entry_id')->with(['order' => fn ($q) => $q->withDisplayIdentity(), 'user:id,slug,name'])->latest()->orderByDesc('id')->paginate(10, ['*'], 'legacy_reversals_page')->withQueryString(),
             'reversalEntries' => ReceiptReversal::where('created_at', '<=', $cutoff)
                 ->where(fn ($q) => $q->whereNull('restored_at')->orWhere('restored_at', '>', $cutoff))
                 ->whereHas('order', fn ($q) => $q->financialFor($request->user())->when($customerIds, fn ($q) => $q->whereIn('customer_id', $customerIds)))
@@ -165,32 +174,30 @@ class BalanceController extends Controller
                 ->with(['order' => fn ($q) => $q->withDisplayIdentity()->withReceiptLedger(), 'user:id,slug,name', 'restoredBy:id,slug,name', 'payments' => fn ($q) => $q->where('created_at', '<=', $cutoff)->with('originalEntry')])
                 ->latest()->orderByDesc('id')->paginate(10, ['*'], 'reversals_page')->withQueryString(),
             'statement' => $statement,
-            'ledger' => $ledger, 'receiptSort' => $receiptSort, 'search' => $search, 'cashBalance' => $cashBalance, 'manualSections' => $manualSections, 'paymentSections' => $paymentSections,
+            'ledger' => $ledger, 'receiptSort' => $receiptSort, 'search' => $search, 'cashBalance' => $cashBalance,
             'cashMovementBalance' => $cashAdditions, 'operatingResult' => $operatingNet, 'finalNet' => $operatingNet,
             'pendingBalance' => $snapshot['uncertain'] ? null : $pendingImpact,
-            'deliveredCount' => (clone $orders)->where('status', OrderStatus::Delivered)->whereBetween('delivered_at', $period->utcRange())->count(),
+            'deliveredCount' => (int) $delivered->delivered_count,
             'pendingEntries' => $pendingEntries,
             'selectedCustomerSlugs' => $selectedCustomerSlugs, 'reversalTotal' => $reversalTotal, 'registeredIncome' => $registeredIncome,
             'reversedCount' => (clone $reversed)->count(),
-            'manualEntries' => $ledger === 'cash' ? (clone $manual)->with(['user:id,slug,name', 'customer:id,slug,name', 'order:id,slug,reference'])->latest('occurred_on')->orderByDesc('id')->paginate(10, ['*'], 'cash_page')->withQueryString() : null,
             'grossIncome' => $grossIncome, 'totalExpenses' => $totalExpenses, 'cashAdditions' => $cashAdditions,
-            'receiptEconomics' => $receiptEconomics, 'shippingEconomics' => app(ShippingEconomics::class)->summarize($completed), 'period' => $period, 'customers' => $customers, 'extraIncome' => $extraIncome, 'extraExpenses' => $extraExpenses, 'adjustments' => $adjustments, 'operatingNet' => $operatingNet, 'pendingIncoming' => $pendingIncoming, 'pendingOutgoing' => $pendingOutgoing, 'pendingImpact' => $pendingImpact,
+            'receiptEconomics' => $receiptEconomics, 'shippingEconomics' => app(ShippingEconomics::class)->fromSums($delivered), 'period' => $period, 'customers' => $customers, 'extraIncome' => $extraIncome, 'extraExpenses' => $extraExpenses, 'adjustments' => $adjustments, 'operatingNet' => $operatingNet, 'pendingIncoming' => $pendingIncoming, 'pendingOutgoing' => $pendingOutgoing, 'pendingImpact' => $pendingImpact,
             'pendingCount' => count($openIds),
-            'generalEntries' => $generalQuery->with(['account', 'user'])->latest()->orderByDesc('id')->paginate(10, ['*'], 'general_page')->withQueryString(), 'summaries' => $summaries, 'earned' => (int) (clone $completed)->sum('price_cents'), 'completedCount' => (clone $completed)->count(),
+            'earned' => (int) $delivered->earned, 'completedCount' => (int) $delivered->completed_count,
             'cancelledCount' => (clone $orders)->where('status', OrderStatus::Cancelled)->whereBetween('updated_at', $period->utcRange())->count(),
             'outstanding' => $outstanding, 'generalReceipts' => (int) $generalReceipts, 'cash' => $cash, 'spent' => $spent, 'net' => $cash - $spent,
             'orders' => (clone $completed)->whereNull('paid_at')->whereNull('receipt_voided_at')->withDisplayIdentity()->withReceiptLedger()->orderBy($receiptColumn, $receiptDirection)->orderByDesc('id')->paginate(10, ['*'], 'orders_page')->withQueryString(),
             'reversedOrders' => (clone $orders)->where('status', OrderStatus::Delivered)->where('receipt_voided_at', '<=', $cutoff)->whereDoesntHave('receiptReversals')->withDisplayIdentity()->withReceiptLedger()->latest('receipt_voided_at')->orderByDesc('id')->paginate(10, ['*'], 'reversed_page')->withQueryString(),
-            'recordedOrders' => (clone $orders)->where('status', OrderStatus::Delivered)->whereNull('receipt_voided_at')->whereBetween('paid_at', $period->utcRange())->withDisplayIdentity()->withReceiptLedger()->latest('delivered_at')->orderByDesc('id')->paginate(10, ['*'], 'recorded_page')->withQueryString(),
-            'expenses' => $expenses->with(['user:id,slug,name', 'pendingSettlement.account'])->latest('spent_on')->orderByDesc('id')->paginate(10, ['*'], 'expenses_page')->withQueryString(),
-            'payments' => $payments->with(['order' => fn ($q) => $q->select(['id', 'slug', 'reference', 'store_name', 'customer_id', 'created_by'])->withDisplayIdentity(), 'user:id,slug,name', 'originalEntry:id,slug,created_at'])->latest()->orderByDesc('id')->paginate(10, ['*'], 'payments_page')->withQueryString(),
         ]);
     }
 
     /** @param list<int> $customerIds */
     private function paymentsQuery(User $user, array $customerIds, string $search, string $term): Builder
     {
-        return PaymentEntry::query()->where(fn ($q) => $q->where('amount_cents', '!=', 0)->orWhere('cash_amount_cents', '!=', 0)->orWhere('kind', 'restoration'))->whereHas('order', fn ($q) => $q->financialFor($user)->when($customerIds, fn ($q) => $q->whereIn('customer_id', $customerIds)))->when($search !== '', fn (Builder $q) => $q->where(fn (Builder $match) => $match->where('note', 'like', $term)->orWhereHas('order', fn (Builder $order) => $this->searchOrder($order, $term))));
+        return PaymentEntry::query()->where(fn ($q) => $q->where('amount_cents', '!=', 0)->orWhere('cash_amount_cents', '!=', 0)->orWhere('kind', 'restoration'))
+            // La chiave esterna garantisce che ogni incasso abbia un ordine: il controllo serve solo quando filtra davvero.
+            ->when($user->role !== UserRole::Admin || $customerIds !== [], fn ($q) => $q->whereHas('order', fn ($q) => $q->financialFor($user)->when($customerIds, fn ($q) => $q->whereIn('customer_id', $customerIds))))->when($search !== '', fn (Builder $q) => $q->where(fn (Builder $match) => $match->where('note', 'like', $term)->orWhereHas('order', fn (Builder $order) => $this->searchOrder($order, $term))));
     }
 
     /** @param list<int> $customerIds */

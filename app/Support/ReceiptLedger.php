@@ -13,14 +13,25 @@ class ReceiptLedger
         return (int) (clone $payments)->selectRaw('COALESCE(SUM('.self::CashExpression.'), 0) AS cents')->value('cents');
     }
 
-    /** @return array{gross: int, reversals: int, restorations: int, net: int, cash: int, refunds: int} */
+    /**
+     * Totali degli incassi con una sola lettura per incassi, storni, ripristini e cassa; i rimborsi verificati
+     * richiedono il controllo dell'attestazione e restano una query distinta.
+     *
+     * @return array{gross: int, reversals: int, restorations: int, net: int, cash: int, refunds: int}
+     */
     public function totals(Builder $payments): array
     {
-        $gross = (int) (clone $payments)->where('amount_cents', '>', 0)->where(fn ($q) => $q->whereNull('kind')->orWhere('kind', '!=', 'restoration'))->sum('amount_cents');
-        $reversals = -(int) (clone $payments)->where('amount_cents', '<', 0)->sum('amount_cents');
-        $restorations = (int) (clone $payments)->where('kind', 'restoration')->sum('amount_cents');
+        $sums = (clone $payments)->toBase()->selectRaw(
+            "COALESCE(SUM(CASE WHEN amount_cents > 0 AND (kind IS NULL OR kind <> 'restoration') THEN amount_cents ELSE 0 END), 0) AS gross, "
+            .'COALESCE(SUM(CASE WHEN amount_cents < 0 THEN amount_cents ELSE 0 END), 0) AS negative, '
+            ."COALESCE(SUM(CASE WHEN kind = 'restoration' THEN amount_cents ELSE 0 END), 0) AS restorations, "
+            .'COALESCE(SUM('.self::CashExpression.'), 0) AS cash'
+        )->first();
+        $gross = (int) $sums->gross;
+        $reversals = -(int) $sums->negative;
+        $restorations = (int) $sums->restorations;
         $refunds = -(int) (clone $payments)->verifiedRefund()->sum('cash_amount_cents');
 
-        return ['gross' => $gross, 'reversals' => $reversals, 'restorations' => $restorations, 'net' => $gross - $reversals + $restorations, 'cash' => $this->cash($payments), 'refunds' => $refunds];
+        return ['gross' => $gross, 'reversals' => $reversals, 'restorations' => $restorations, 'net' => $gross - $reversals + $restorations, 'cash' => (int) $sums->cash, 'refunds' => $refunds];
     }
 }

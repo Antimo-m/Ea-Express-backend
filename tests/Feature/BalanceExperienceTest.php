@@ -49,7 +49,7 @@ class BalanceExperienceTest extends TestCase
         $customer = User::factory()->create(['role' => UserRole::Customer]);
         Order::factory()->count(11)->create(['created_by' => $admin->id, 'customer_id' => $customer->id, 'status' => OrderStatus::Delivered, 'delivered_at' => now(), 'paid_at' => now()]);
         $this->actingAs($admin)->get('/balance?ledger=recorded&recorded_page=2&customer_id='.$customer->slug)->assertOk()
-            ->assertViewHas('recordedOrders', fn ($rows): bool => $rows->currentPage() === 2 && $rows->count() === 1)
+            ->assertViewHas('orders', fn ($rows): bool => $rows->isEmpty())
             ->assertSee('ledger=payments', false)->assertViewHas('ledger', 'payments')->assertSee('customer_id='.$customer->slug, false);
         $movement = FinancialMovement::factory()->create(['user_id' => $admin->id, 'kind' => 'cash', 'amount_cents' => 1500, 'voided_at' => now()]);
         $this->get('/balance?ledger=cash')->assertOk()->assertSee('Annullata')

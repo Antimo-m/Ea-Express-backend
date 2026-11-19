@@ -105,10 +105,10 @@ class CashMovementsTest extends TestCase
 
         $this->get('/balance?period=today&q=Zaffiro&ledger=recorded')->assertViewHas('grossIncome', 1000)
             ->assertViewHas('spent', 200)->assertViewHas('cashAdditions', 500)->assertViewHas('cashBalance', 1300)
-            ->assertViewHas('operatingNet', 800)->assertViewHas('recordedOrders', fn ($rows): bool => $rows->total() === 1)
+            ->assertViewHas('operatingNet', 800)->assertViewHas('registerEntries', fn ($rows): bool => $rows->total() === 1 && $rows->first()['source'] === 'payment')
             ->assertSee('Storna incasso')->assertSee('name="action" value="reverse"', false);
-        $this->get('/balance?period=today&q=Zaffiro&ledger=expenses')->assertViewHas('expenses', fn ($rows): bool => $rows->total() === 1)->assertDontSee('Spesa non pertinente');
-        $this->get('/balance?period=today&q=Zaffiro&ledger=cash')->assertViewHas('manualEntries', fn ($rows): bool => $rows->total() === 1)->assertDontSee('Apporto non pertinente');
+        $this->get('/balance?period=today&q=Zaffiro&ledger=expenses')->assertViewHas('registerEntries', fn ($rows): bool => $rows->total() === 1 && $rows->first()['description'] === 'Materiali Zaffiro')->assertDontSee('Spesa non pertinente');
+        $this->get('/balance?period=today&q=Zaffiro&ledger=cash')->assertViewHas('registerEntries', fn ($rows): bool => $rows->total() === 1 && $rows->first()['description'] === 'Apporto Zaffiro')->assertDontSee('Apporto non pertinente');
         $this->getJson('/balance?period=invalid')->assertUnprocessable()->assertJsonValidationErrors('period');
         $this->getJson('/balance?q='.str_repeat('a', 151))->assertUnprocessable()->assertJsonValidationErrors('q');
         $this->getJson('/balance?from=2026-10-28&to=2026-10-27')->assertUnprocessable()->assertJsonValidationErrors('to');

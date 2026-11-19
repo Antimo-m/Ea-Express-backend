@@ -21,18 +21,19 @@ class CustomerController extends Controller
     {
         $filters = $request->validate(['q' => ['nullable', 'string', 'max:150'], 'sender_type' => ['nullable', Rule::enum(SenderType::class)], 'sort' => ['nullable', 'in:name,volume,value']]);
         $activity = Order::query()->selectRaw("customer_id, COUNT(*) AS orders_count, SUM(CASE WHEN status NOT IN ('cancelled','rejected') THEN COALESCE(price_cents,0) ELSE 0 END) AS shipping_cents")->groupBy('customer_id');
-        $customers = User::query()->where('role', UserRole::Customer)
-            ->leftJoinSub($activity, 'activity', 'activity.customer_id', '=', 'users.id')
-            ->select('users.*')->selectRaw('COALESCE(activity.orders_count,0) AS orders_count, COALESCE(activity.shipping_cents,0) AS shipping_cents')
+        $filtered = User::query()->where('role', UserRole::Customer)
             ->when($filters['q'] ?? null, fn ($query, $term) => $query->where(fn ($identity) => $identity->where('name', 'like', '%'.$term.'%')->orWhere('email', 'like', '%'.$term.'%')))
             ->when($filters['sender_type'] ?? null, fn ($query, $type) => $query->where('sender_type', $type));
+        $customers = (clone $filtered)->leftJoinSub($activity, 'activity', 'activity.customer_id', '=', 'users.id')
+            ->select('users.*')->selectRaw('COALESCE(activity.orders_count,0) AS orders_count, COALESCE(activity.shipping_cents,0) AS shipping_cents');
         match ($filters['sort'] ?? 'name') {
             'volume' => $customers->orderByDesc('orders_count'),
             'value' => $customers->orderByDesc('shipping_cents'),
             default => $customers->orderBy('name'),
         };
 
-        return view('customers.index', ['customers' => $customers->orderBy('users.id')->paginate(25)->withQueryString()]);
+        // Il join aggrega gli ordini per cliente (una riga per cliente): il totale si conta senza ricalcolarlo.
+        return view('customers.index', ['customers' => $customers->orderBy('users.id')->paginate(25, total: (clone $filtered)->count())->withQueryString()]);
     }
 
     public function show(Request $request, User $customer, OrderStatistics $statistics): View

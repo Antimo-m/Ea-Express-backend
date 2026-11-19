@@ -9,6 +9,8 @@ class PostalCodeResolver
     /** @var array<string, array<int, array<string, mixed>>>|null */
     private ?array $municipalities = null;
 
+    public function __construct(private PostalCodeIndex $index) {}
+
     public function resolve(string $city, ?string $postalCode, ?string $zone = null, ?string $street = null, string $shippingType = 'regional', ?string $province = null, ?string $region = null): string
     {
         return $this->canonical($city, $postalCode, $province, $region)['postal_code'];
@@ -134,17 +136,7 @@ class PostalCodeResolver
     /** @return array<string, array<int, array<string, mixed>>> */
     private function municipalities(): array
     {
-        if ($this->municipalities === null) {
-            $this->municipalities = [];
-            $data = json_decode(file_get_contents(resource_path('italian-postal-codes.json')), true, 512, JSON_THROW_ON_ERROR);
-            foreach ($data['municipalities'] as $place) {
-                foreach ([$place['name'], ...($place['aliases'] ?? [])] as $name) {
-                    $this->municipalities[ShippingQuote::cityKey($name)][] = $place;
-                }
-            }
-        }
-
-        return $this->municipalities;
+        return $this->municipalities ??= $this->index->load();
     }
 
     private function invalid(string $message): never

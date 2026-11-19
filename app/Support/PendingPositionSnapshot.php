@@ -18,18 +18,26 @@ class PendingPositionSnapshot
     public function at(Builder $accounts, Carbon $cutoff): array
     {
         $result = ['positions' => [], 'incoming' => 0, 'outgoing' => 0, 'uncertain' => 0];
+        // Le date sono salvate in UTC con precisione al secondo: il confronto tra stringhe equivale a quello tra istanti.
+        $cutoffUtc = $cutoff->copy()->utc()->format('Y-m-d H:i:s');
         (clone $accounts)->whereDate('occurred_on', '<=', $cutoff->toDateString())
             ->addSelect(['pending_accounts.*', 'subsequent_snapshot' => EconomicAudit::select('before')
                 ->where('entity_type', 'pending_accounts')->whereColumn('entity_id', 'pending_accounts.id')
                 ->where('created_at', '>', $cutoff->copy()->utc())->whereNotNull('before')
                 ->oldest('created_at')->orderBy('id')->limit(1)])
             ->withSum(['settlements as registered_settled' => fn ($query) => $query->where('created_at', '<=', $cutoff->copy()->utc())], 'amount_cents')
-            ->chunkById(200, function ($accounts) use (&$result, $cutoff): void {
+            // Righe semplici invece di modelli: servono pochi campi e l'idratazione costava più delle query.
+            ->toBase()
+            ->chunkById(200, function ($accounts) use (&$result, $cutoffUtc): void {
                 foreach ($accounts as $account) {
                     $snapshot = $account->subsequent_snapshot ? json_decode($account->subsequent_snapshot, true, flags: JSON_THROW_ON_ERROR) : null;
-                    $position = $snapshot ?? $account->only(['amount_cents', 'settled_cents', 'state', 'subject', 'description', 'notes', 'customer_id', 'due_on']);
-                    $reliable = $account->created_at->lessThanOrEqualTo($cutoff) && isset($position['amount_cents'], $position['settled_cents'], $position['state']);
-                    if (! $snapshot && $account->updated_at->greaterThan($cutoff)) {
+                    $position = $snapshot ?? [
+                        'amount_cents' => (int) $account->amount_cents, 'settled_cents' => (int) $account->settled_cents, 'state' => $account->state,
+                        'subject' => $account->subject, 'description' => $account->description, 'notes' => $account->notes,
+                        'customer_id' => $account->customer_id, 'due_on' => $account->due_on,
+                    ];
+                    $reliable = $account->created_at <= $cutoffUtc && isset($position['amount_cents'], $position['settled_cents'], $position['state']);
+                    if (! $snapshot && $account->updated_at > $cutoffUtc) {
                         $reliable = false;
                     }
                     if (! $snapshot && (int) $account->registered_settled !== (int) $position['settled_cents']) {
@@ -44,7 +52,7 @@ class PendingPositionSnapshot
                         $result[$account->direction] += $position['remaining_cents'];
                     }
                 }
-            });
+            }, 'pending_accounts.id', 'id');
 
         return $result;
     }

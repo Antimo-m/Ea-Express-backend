@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\AcknowledgeMessages;
 use App\Actions\NotifyOrderParticipants;
 use App\Models\Order;
+use App\Models\OrderMessage;
 use App\Rules\PlainText;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -41,9 +42,20 @@ class MessageController extends Controller
     /** @return LengthAwarePaginator<int, Order> */
     private function conversations(Request $request): LengthAwarePaginator
     {
-        return Order::visibleTo($request->user())->whereHas('messages')->withDisplayIdentity()->with('latestMessage')
-            ->withMax('messages', 'created_at')->withCount(['messages as unread_count' => fn ($query) => $query->whereNull('user_id')->whereNull('read_at')])
-            ->orderByDesc('messages_max_created_at')->orderByDesc('id')->paginate(15, ['*'], 'conversations_page')->withQueryString();
+        // Un solo aggregato sui messaggi (servito dall'indice) invece di due sottoquery per ogni ordine con messaggi.
+        $conversations = OrderMessage::query()->toBase()->select('order_id')
+            ->selectRaw('MAX(created_at) AS messages_max_created_at, CAST(SUM(CASE WHEN user_id IS NULL AND read_at IS NULL THEN 1 ELSE 0 END) AS UNSIGNED) AS unread_count')
+            ->groupBy('order_id');
+
+        // Si ordinano solo gli identificativi; gli ordini completi si caricano per la pagina visualizzata.
+        $page = Order::visibleTo($request->user())->joinSub($conversations, 'conversations', 'conversations.order_id', '=', 'orders.id')
+            ->select('orders.id', 'conversations.messages_max_created_at', 'conversations.unread_count')
+            ->orderByDesc('conversations.messages_max_created_at')->orderByDesc('orders.id')->paginate(15, ['*'], 'conversations_page')->withQueryString();
+        $orders = Order::whereKey($page->getCollection()->modelKeys())->withDisplayIdentity()->with('latestMessage')->get()->keyBy('id');
+
+        return $page->setCollection($page->getCollection()->map(fn (Order $row): Order => $orders[$row->id]->setRawAttributes([
+            ...$orders[$row->id]->getAttributes(), 'messages_max_created_at' => $row->messages_max_created_at, 'unread_count' => $row->unread_count,
+        ], true)));
     }
 
     public function store(Request $request, Order $order, NotifyOrderParticipants $notify): RedirectResponse|JsonResponse

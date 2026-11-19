@@ -59,21 +59,25 @@ class ReportController extends Controller
         $receiptEconomics = app(ShippingEconomics::class)->receipts($payments);
         $operatingNet = $ledgerTotals['net'] + $generalTotal - $spent + $manualNet;
         $cashDays = [];
-        $addCash = function (string $day, int $amount) use (&$cashDays): void {
+        // Somme per ora UTC (incassi) o per data (spese e movimenti) calcolate dal database. L'ora UTC cade sempre in un
+        // solo giorno italiano, anche con l'ora legale; entrate e uscite restano classificate per singolo movimento.
+        $hour = $payments->getConnection()->getDriverName() === 'sqlite' ? "strftime('%Y-%m-%d %H:00:00', created_at)" : "DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00')";
+        $flows = fn (string $sign): string => "COALESCE(SUM(CASE WHEN {$sign} >= 0 THEN {$sign} ELSE 0 END), 0) AS incoming, COALESCE(SUM(CASE WHEN {$sign} < 0 THEN -({$sign}) ELSE 0 END), 0) AS outgoing";
+        $addFlows = function (string $day, object $row) use (&$cashDays): void {
             $cashDays[$day] ??= ['incoming' => 0, 'outgoing' => 0];
-            $cashDays[$day][$amount >= 0 ? 'incoming' : 'outgoing'] += abs($amount);
+            $cashDays[$day]['incoming'] += (int) $row->incoming;
+            $cashDays[$day]['outgoing'] += (int) $row->outgoing;
         };
-        foreach ((clone $payments)->select(['id', 'slug', 'created_at', 'amount_cents', 'ea_amount_cents'])->lazyById(500) as $payment) {
-            $addCash($payment->created_at->timezone('Europe/Rome')->toDateString(), $payment->amount_cents);
+        foreach ([$payments, $general] as $receipts) {
+            foreach ((clone $receipts)->toBase()->selectRaw("{$hour} AS utc_hour, ".$flows('amount_cents'))->groupByRaw($hour)->get() as $row) {
+                $addFlows(Carbon::parse($row->utc_hour, 'UTC')->timezone('Europe/Rome')->toDateString(), $row);
+            }
         }
-        foreach ((clone $general)->select(['id', 'slug', 'created_at', 'amount_cents'])->lazyById(500) as $payment) {
-            $addCash($payment->created_at->timezone('Europe/Rome')->toDateString(), $payment->amount_cents);
+        foreach ((clone $expenses)->toBase()->selectRaw('spent_on AS day, '.$flows('-amount_cents'))->groupBy('spent_on')->get() as $row) {
+            $addFlows(substr((string) $row->day, 0, 10), $row);
         }
-        foreach ((clone $expenses)->select(['id', 'slug', 'spent_on', 'amount_cents'])->lazyById(500) as $expense) {
-            $addCash($expense->spent_on->toDateString(), -$expense->amount_cents);
-        }
-        foreach ((clone $manual)->where('kind', '!=', 'cash')->select(['id', 'slug', 'occurred_on', 'amount_cents'])->lazyById(500) as $movement) {
-            $addCash($movement->occurred_on->toDateString(), $movement->amount_cents);
+        foreach ((clone $manual)->where('kind', '!=', 'cash')->toBase()->selectRaw('occurred_on AS day, '.$flows('amount_cents'))->groupBy('occurred_on')->get() as $row) {
+            $addFlows(substr((string) $row->day, 0, 10), $row);
         }
         $topCustomers = (clone $cohort)->whereNotNull('customer_id')->select('customer_id')->selectRaw('COUNT(*) AS shipments')->groupBy('customer_id')->with('customer:id,slug,name')->orderByDesc('shipments')->orderBy('customer_id')->limit(5)->get();
         $zones = (clone $cohort)->select('delivery_city')->selectRaw('COUNT(*) as total')->groupBy('delivery_city')->orderByDesc('total')->orderBy('delivery_city')->limit(10)->get();
