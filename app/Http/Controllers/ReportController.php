@@ -46,8 +46,14 @@ class ReportController extends Controller
         $before = (clone $base)->whereBetween('created_at', $previous->utcRange())->count();
         $states = (clone $cohort)->select('status')->selectRaw('COUNT(*) as total')->groupBy('status')->pluck('total', 'status');
         $accepted = (clone $cohort)->whereHas('events', fn ($q) => $q->where('status', OrderStatus::Accepted))->count();
-        $delivered = Order::financialFor($request->user())->where('status', OrderStatus::Delivered)->whereNull('receipt_voided_at')->whereBetween('delivered_at', $period->utcRange());
-        $payments = PaymentEntry::whereHas('order', fn ($q) => $q->financialFor($request->user()))->whereBetween('created_at', $period->utcRange());
+        $isAdmin = $request->user()->role === UserRole::Admin;
+        $delivered = Order::financialFor($request->user())->where('status', OrderStatus::Delivered)->whereNull('receipt_voided_at')->whereBetween('delivered_at', $period->utcRange())
+            // Senza filtri l'indice di copertura evita di leggere le righe (MySQL non lo sceglie da solo sui periodi lunghi).
+            ->when($isAdmin, function ($q): void {
+                $q->getQuery()->forceIndex('orders_financial_delivered_index');
+            });
+        // La chiave esterna garantisce che ogni incasso abbia un ordine: il controllo serve solo quando filtra per Rider.
+        $payments = PaymentEntry::query()->when(! $isAdmin, fn ($q) => $q->whereHas('order', fn ($q) => $q->financialFor($request->user())))->whereBetween('created_at', $period->utcRange());
         $general = PendingSettlement::whereHas('account', fn ($q) => $q->where('direction', 'incoming')->whereNull('order_id'))->when($request->user()->role !== UserRole::Admin, fn ($q) => $q->where('user_id', $request->user()->id))->whereBetween('created_at', $period->utcRange());
         $ledgerTotals = app(ReceiptLedger::class)->totals($payments);
         $generalTotal = (int) (clone $general)->sum('amount_cents');
