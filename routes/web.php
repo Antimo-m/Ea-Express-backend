@@ -33,6 +33,7 @@ use App\Http\Controllers\TrackingController;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureEmailVerified;
 use App\Http\Middleware\EnsureStaff;
+use App\Http\Middleware\ProtectAuthentication;
 use App\UserRole;
 use Illuminate\Support\Facades\Route;
 
@@ -120,6 +121,7 @@ Route::middleware(['auth', 'auth.session', EnsureStaff::class, EnsureEmailVerifi
     Route::get('/settings/users/create', [AdminUserController::class, 'create'])->middleware(EnsureAdmin::class)->name('users.create');
     Route::post('/settings/users', [AdminUserController::class, 'store'])->middleware('throttle:writes')->middleware(EnsureAdmin::class)->name('users.store');
     Route::patch('/settings/users/{user}', [AdminUserController::class, 'update'])->middleware('throttle:writes')->middleware(EnsureAdmin::class)->name('users.update');
+    Route::delete('/settings/users/{user}', [AdminUserController::class, 'destroy'])->middleware('throttle:writes')->middleware(EnsureAdmin::class)->name('users.destroy');
     Route::get('/settings', [SettingsController::class, 'edit'])->middleware(EnsureAdmin::class)->name('settings.index');
 
 });
@@ -127,7 +129,7 @@ Route::middleware(['auth', 'auth.session', EnsureStaff::class, EnsureEmailVerifi
 Route::middleware(['auth', 'auth.session', EnsureStaff::class, EnsureEmailVerified::class, 'throttle:writes'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->middleware('throttle:profile-update')->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->middleware(ProtectAuthentication::class.':confirm')->name('profile.destroy');
 });
 
 require __DIR__.'/auth.php';

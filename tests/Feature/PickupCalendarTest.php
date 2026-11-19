@@ -32,7 +32,8 @@ class PickupCalendarTest extends TestCase
         $this->get(route('pickups.index', ['month' => '9999-12']))->assertOk()->assertViewHas('nextMonth', null);
     }
 
-    public function test_counts_use_the_pickup_date_and_existing_awaiting_pickup_rules_for_individual_orders(): void
+    /** L'agenda segue la data di ritiro: ogni ordine resta visibile in qualsiasi stato, in una sola categoria. */
+    public function test_every_order_with_the_pickup_date_is_counted_once_in_its_progress_category(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $customer = User::factory()->create(['role' => UserRole::Customer]);
@@ -45,16 +46,18 @@ class PickupCalendarTest extends TestCase
         }
         Order::factory()->create(['created_by' => $admin->id, 'pickup_date' => '2026-11-14']);
         $this->actingAs($admin)->get(route('pickups.index', ['month' => '2026-10']))->assertOk()
-            ->assertSee('data-pickup-date="2026-10-14" data-pickup-count="6"', false)->assertSee('6 ritiri da effettuare nel mese');
+            ->assertSee('data-pickup-date="2026-10-14" data-pickup-count="15"', false)->assertSee('15 ritiri programmati nel mese');
 
         $summary = $this->getJson(route('pickups.day', ['date' => '2026-10-14']))->assertOk()
-            ->assertJsonPath('total_orders', 6)->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.orders_count', 6)->assertJsonPath('data.0.parcel_count', 42)
+            ->assertJsonPath('total_orders', 15)->assertJsonCount(3, 'data')
+            ->assertJsonPath('progress', ['total' => 15, 'waiting' => 1, 'in_progress' => 7, 'picked_up' => 4, 'delivered' => 1, 'cancelled' => 2])
+            ->assertJsonPath('data.0.orders_count', 13)->assertJsonPath('data.0.parcel_count', 91)
             ->assertJsonMissingPath('data.0.orders');
-        $this->getJson($summary->json('data.0.orders_url'))->assertOk()->assertJsonCount(6, 'data');
+        $this->getJson($summary->json('data.0.orders_url'))->assertOk()->assertJsonCount(13, 'data');
+        $this->get(route('pickups.day', ['date' => '2026-10-14']))->assertSee('data-pickup-progress-cancelled>2<', false)->assertSee('Ritirati / in consegna');
         $this->getJson(route('pickups.day', ['date' => '2026-10-15']))->assertOk()
             ->assertJsonPath('total_orders', 0)->assertJsonCount(0, 'data');
-        $this->get(route('pickups.day', ['date' => '2026-10-15']))->assertSee('Nessun ritiro da effettuare');
+        $this->get(route('pickups.day', ['date' => '2026-10-15']))->assertSee('Nessun ritiro in questa data');
     }
 
     public function test_last_day_is_counted_without_spilling_into_the_next_month(): void
@@ -63,7 +66,7 @@ class PickupCalendarTest extends TestCase
         Order::factory()->create(['created_by' => $admin->id, 'pickup_date' => '2026-10-31']);
         Order::factory()->create(['created_by' => $admin->id, 'pickup_date' => '2026-11-01']);
         $this->actingAs($admin)->get(route('pickups.index', ['month' => '2026-10']))->assertOk()
-            ->assertSee('data-pickup-date="2026-10-31" data-pickup-count="1"', false)->assertSee('1 ritiro da effettuare nel mese');
+            ->assertSee('data-pickup-date="2026-10-31" data-pickup-count="1"', false)->assertSee('1 ritiro programmato nel mese');
         $this->get(route('pickups.day', ['date' => '2026-10-31']))->assertOk()->assertViewHas('totalOrders', 1);
     }
 
@@ -94,6 +97,7 @@ class PickupCalendarTest extends TestCase
         $this->assertSame(0, $hydratedOrders);
     }
 
+    /** Lo spostamento cambia il giorno in agenda; l'annullamento resta nello storico del giorno tra gli annullati. */
     public function test_official_rescheduling_and_cancellation_update_calendar_summary_and_account_orders(): void
     {
         $this->travelTo(Carbon::parse('2026-10-07 08:00', 'Europe/Rome'));
@@ -109,9 +113,10 @@ class PickupCalendarTest extends TestCase
         $summary = $this->getJson(route('pickups.day', ['date' => '2026-11-02']))->assertOk()->assertJsonPath('total_orders', 1)->assertJsonCount(1, 'data');
         $this->getJson($summary->json('data.0.orders_url'))->assertOk()->assertJsonPath('data.0.slug', $order->slug);
         $this->patchJson('/orders/'.$order->slug, ['status' => 'cancelled', 'version' => 2, 'note' => 'Annullato dal cliente'])->assertOk();
-        $this->get(route('pickups.index', ['month' => '2026-11']))->assertSee('data-pickup-date="2026-11-02" data-pickup-count="0"', false);
-        $this->getJson(route('pickups.day', ['date' => '2026-11-02']))->assertOk()->assertJsonPath('total_orders', 0)->assertJsonCount(0, 'data');
-        $this->getJson($summary->json('data.0.orders_url'))->assertNotFound();
+        $this->get(route('pickups.index', ['month' => '2026-11']))->assertSee('data-pickup-date="2026-11-02" data-pickup-count="1"', false);
+        $this->getJson(route('pickups.day', ['date' => '2026-11-02']))->assertOk()->assertJsonPath('total_orders', 1)
+            ->assertJsonPath('progress.cancelled', 1)->assertJsonPath('progress.in_progress', 0);
+        $this->getJson($summary->json('data.0.orders_url'))->assertOk()->assertJsonPath('data.0.status', 'cancelled');
     }
 
     public function test_one_account_loads_forty_seven_orders_only_in_stable_twenty_order_pages(): void
@@ -159,7 +164,7 @@ class PickupCalendarTest extends TestCase
         $this->withHeader('X-Pickup-Agenda', '');
         $this->exportPickupManifest(['single' => ['date' => '2026-10-16', 'accounts' => $summary->json('data')]]);
         if ($directory = getenv('EA_UI_FIXTURE_DIR')) {
-            $this->patchJson('/orders/'.$orders[1]->slug, ['status' => 'cancelled', 'version' => 1, 'note' => 'Rimozione dimostrativa per aggiornamento agenda'])->assertOk();
+            $this->patchJson(route('orders.pickup-schedule', $orders[1]), ['pickup_date' => '2026-10-20', 'pickup_from' => '10:00', 'pickup_to' => '12:00', 'reason' => 'Spostamento dimostrativo per aggiornamento agenda', 'version' => 1])->assertOk();
             $changedSummary = $this->getJson($summaryUrl)->assertOk()->assertJsonPath('total_orders', 46);
             file_put_contents($directory.'/pickup-single-accounts-after-change.html', $this->withHeader('X-Pickup-Agenda', 'accounts')->get($summaryUrl)->assertOk()->getContent());
             $this->withHeader('X-Pickup-Agenda', '');
@@ -224,7 +229,7 @@ class PickupCalendarTest extends TestCase
         }
         if ($directory = getenv('EA_UI_FIXTURE_DIR')) {
             foreach ($firstOrders as $order) {
-                $this->patchJson('/orders/'.$order->slug, ['status' => 'cancelled', 'version' => 1, 'note' => 'Rimozione dimostrativa account agenda'])->assertOk();
+                $this->patchJson(route('orders.pickup-schedule', $order), ['pickup_date' => '2026-10-20', 'pickup_from' => '10:00', 'pickup_to' => '12:00', 'reason' => 'Spostamento dimostrativo account agenda', 'version' => 1])->assertOk();
             }
             $summaryUrl = route('pickups.day', ['date' => '2026-10-17']);
             $this->getJson($summaryUrl)->assertOk()->assertJsonPath('total_orders', 40)->assertJsonPath('meta.total', 40);

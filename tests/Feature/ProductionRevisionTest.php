@@ -101,17 +101,18 @@ class ProductionRevisionTest extends TestCase
 
     public static function prices(): array
     {
-        return ['accepted' => ['agreed', 'green'], 'rejected' => ['rejected', 'danger'], 'pending customer' => ['awaiting_customer', 'blue'], 'pending rider' => ['awaiting_rider', 'blue']];
+        // Il portale mostra «Da confermare» (giallo) finché il rider non accetta: vedi CustomerPriceStatusTest.
+        return ['accepted' => ['agreed', 'green', 'warning'], 'rejected' => ['rejected', 'danger', 'danger'], 'pending customer' => ['awaiting_customer', 'blue', 'blue'], 'pending rider' => ['awaiting_rider', 'blue', 'warning']];
     }
 
     #[DataProvider('prices')]
-    public function test_price_badges_share_explicit_semantic_tones(string $state, string $tone): void
+    public function test_price_badges_share_explicit_semantic_tones(string $state, string $tone, string $customerTone): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $customer = User::factory()->create(['role' => UserRole::Customer]);
         $order = Order::factory()->create(['customer_id' => $customer->id, 'pricing_version' => 1, 'price_state' => $state, 'price_cents' => 1000]);
         $this->actingAs($admin)->get(route('orders.show', $order))->assertSee('tone-'.$tone, false);
-        $this->actingAs($customer, 'customer')->getJson('/api/v1/customer/orders/'.$order->slug)->assertJsonPath('data.price_tone', $tone);
+        $this->actingAs($customer, 'customer')->getJson('/api/v1/customer/orders/'.$order->slug)->assertJsonPath('data.price_tone', $customerTone);
     }
 
     public function test_customer_history_has_ten_per_page_and_keeps_period_and_status_filters(): void

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Order;
 use App\Models\User;
+use App\OrderStatus;
 use App\Rules\PlainText;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -52,10 +53,11 @@ class PreviousRevisionAuditTest extends TestCase
 
     public function test_riders_cannot_reach_orders_assigned_to_someone_else_on_any_order_route(): void
     {
+        $this->withoutAccessPauses();
         $owner = User::factory()->create();
         $intruder = User::factory()->create();
         $customer = User::factory()->create(['role' => UserRole::Customer]);
-        $order = Order::factory()->create(['rider_id' => $owner->id, 'customer_id' => $customer->id, 'status' => \App\OrderStatus::RiderArriving]);
+        $order = Order::factory()->create(['rider_id' => $owner->id, 'customer_id' => $customer->id, 'status' => OrderStatus::RiderArriving]);
         $before = $order->fresh()->getAttributes();
         $this->actingAs($intruder);
         $requests = [

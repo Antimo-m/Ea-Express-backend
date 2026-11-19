@@ -5,4 +5,5 @@
 <meta name="theme-color" content="#141a20">
 <title>{{ $title }} · EA-Express</title>
 <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+<script @if(\Illuminate\Support\Facades\Vite::cspNonce()) nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}" @endif>document.documentElement.classList.add('js');</script>
 @vite(['resources/css/app.css', 'resources/css/experience.css', 'resources/js/app.js'])

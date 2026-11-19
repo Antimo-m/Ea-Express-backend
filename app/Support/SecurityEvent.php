@@ -7,7 +7,10 @@ use Illuminate\Support\Str;
 
 class SecurityEvent
 {
-    public static function record(string $action, ?int $userId = null): void
+    /**
+     * @param  array<string, scalar|null>  $context  dati aggiuntivi non sensibili
+     */
+    public static function record(string $action, ?int $userId = null, array $context = []): void
     {
         $request = request();
         Log::channel('security')->notice('security.'.$action, [
@@ -15,6 +18,7 @@ class SecurityEvent
             'ip' => AuthSecurityStore::key('ip', (string) $request->ip()),
             'route' => $request->route()?->getName() ?? $request->route()?->uri(),
             'request_id' => self::requestId(),
+            ...$context,
         ]);
     }
 

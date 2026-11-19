@@ -31,7 +31,7 @@ class DeactivatedAccounts
     /** @return Builder<User> */
     public function due(?Carbon $now = null): Builder
     {
-        return User::query()->where('role', '!=', UserRole::Admin->value)->where('is_active', false)
+        return User::query()->where('role', '!=', UserRole::Admin->value)->where('is_active', false)->whereNull('closed_at')
             ->whereNotNull('deactivated_at')->where('deactivated_at', '<=', ($now ?? now())->copy()->subDays(self::days()));
     }
 

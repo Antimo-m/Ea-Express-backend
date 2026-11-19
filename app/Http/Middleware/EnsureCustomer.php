@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\UserRole;
 use Closure;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -13,7 +14,9 @@ class EnsureCustomer
     {
         $user = $request->user('customer');
         abort_unless($user && $user->is_active, 401, 'Accedi nuovamente al portale.');
-        abort_unless($user->role === UserRole::Customer, 403, 'Accesso riservato ai clienti.');
+        if ($user->role !== UserRole::Customer) {
+            throw new AuthorizationException;
+        }
 
         return $next($request);
     }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\CloseStaffAccount;
 use App\Actions\RecordEconomicAudit;
 use App\Http\Requests\StoreRiderRequest;
 use App\Models\Order;
@@ -25,7 +26,7 @@ class AdminUserController extends Controller
     {
         Gate::authorize('viewAny', User::class);
 
-        $users = User::query()->where('role', UserRole::Rider)
+        $users = User::query()->where('role', UserRole::Rider)->whereNull('closed_at')
             ->addSelect([
                 'assigned_count' => Order::selectRaw('count(*)')->whereColumn('rider_id', 'users.id'),
                 'active_orders_count' => Order::selectRaw('count(*)')->whereColumn('rider_id', 'users.id')->whereNotIn('status', OrderStatus::closed()),
@@ -56,6 +57,14 @@ class AdminUserController extends Controller
         });
 
         return redirect()->route('users.index')->with('status', 'Account rider creato. Abbiamo inviato al rider un’email per creare la password: il link vale 48 ore.');
+    }
+
+    public function destroy(Request $request, User $user, CloseStaffAccount $close): RedirectResponse
+    {
+        Gate::authorize('delete', $user);
+        $close->handle($request->user(), $user);
+
+        return redirect()->route('users.index')->with('status', 'Account rider eliminato. Accessi e dispositivi sono stati revocati; spedizioni, contabilità e storico restano conservati.');
     }
 
     public function update(Request $request, User $user): RedirectResponse

@@ -109,6 +109,33 @@ class Order extends Model
         return $this->status === OrderStatus::Received && $this->rider_id === null;
     }
 
+    /**
+     * Stato del prezzo mostrato al cliente nel portale.
+     *
+     * Il prezzo è «concordato» solo quando l'ordine è stato accettato dal rider e la tariffa risulta
+     * accettata secondo il flusso esistente (checkout o proposta confermata dal cliente). Prima di
+     * allora il prezzo finale è presentato come 0,00 € e la tariffa del listino resta «prevista»:
+     * è solo presentazione, price_cents e price_state (usati da incassi e bilancio) non cambiano.
+     *
+     * @return array{label: string, tone: string, agreed_price_cents: int|null}
+     */
+    public function customerPriceStatus(): array
+    {
+        if ($this->pricing_version !== 1) {
+            return ['label' => $this->priceLabel(), 'tone' => $this->priceTone(), 'agreed_price_cents' => $this->price_cents];
+        }
+        $acceptedByRider = $this->rider_id !== null && ! in_array($this->status, [OrderStatus::Received, OrderStatus::Rejected], true);
+
+        return match (true) {
+            $this->price_state === 'awaiting_customer' => ['label' => 'Nuova proposta', 'tone' => 'blue', 'agreed_price_cents' => null],
+            $this->price_state === 'rejected' => ['label' => 'Proposta rifiutata', 'tone' => 'danger', 'agreed_price_cents' => null],
+            $this->price_state === 'unavailable' => ['label' => 'Tariffa da verificare', 'tone' => 'blue', 'agreed_price_cents' => null],
+            $this->price_state === 'agreed' && $acceptedByRider => ['label' => 'Prezzo accettato', 'tone' => 'green', 'agreed_price_cents' => $this->price_cents],
+            in_array($this->status, [OrderStatus::Cancelled, OrderStatus::Rejected], true) => ['label' => 'Non concordato', 'tone' => 'danger', 'agreed_price_cents' => null],
+            default => ['label' => 'Da confermare', 'tone' => 'warning', 'agreed_price_cents' => null],
+        };
+    }
+
     public function priceLabel(): string
     {
         return match ($this->price_state) {

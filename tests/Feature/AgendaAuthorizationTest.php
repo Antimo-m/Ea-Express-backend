@@ -86,27 +86,28 @@ class AgendaAuthorizationTest extends TestCase
         $visible = Order::factory()->count(21)->create(['customer_id' => $customer->id, 'rider_id' => $rider->id, 'pickup_date' => '2026-11-07', 'status' => OrderStatus::Accepted, 'store_name' => 'Ritiro assegnato visibile']);
         $foreign = Order::factory()->create(['customer_id' => $customer->id, 'rider_id' => $other->id, 'pickup_date' => '2026-11-07', 'status' => OrderStatus::Accepted, 'store_name' => 'Ritiro segreto altro rider']);
         $received = Order::factory()->create(['customer_id' => $customer->id, 'rider_id' => $rider->id, 'pickup_date' => '2026-11-07', 'status' => OrderStatus::Received, 'store_name' => 'Richiesta ancora riservata']);
-        $pickedUp = Order::factory()->create(['customer_id' => $customer->id, 'rider_id' => $rider->id, 'pickup_date' => '2026-11-07', 'status' => OrderStatus::Rescheduled, 'store_name' => 'Gia ritirato escluso']);
+        // Un ritiro già effettuato resta nell'agenda del giorno: la visibilità del rider resta invariata.
+        $pickedUp = Order::factory()->create(['customer_id' => $customer->id, 'rider_id' => $rider->id, 'pickup_date' => '2026-11-07', 'status' => OrderStatus::Rescheduled, 'store_name' => 'Ritiro gia effettuato', 'pickup_from' => '23:00', 'pickup_to' => '23:30']);
         $pickedUp->events()->create(['user_id' => $rider->id, 'status' => OrderStatus::PickedUp]);
         $this->actingAs($rider);
 
-        $summary = $this->getJson('/pickups/day?date=2026-11-07')->assertOk()->assertHeader('Cache-Control', 'no-store, private')->assertJsonPath('total_orders', 21)->assertJsonPath('data.0.orders_count', 21)->assertJsonPath('meta.total', 1);
+        $summary = $this->getJson('/pickups/day?date=2026-11-07')->assertOk()->assertHeader('Cache-Control', 'no-store, private')->assertJsonPath('total_orders', 22)->assertJsonPath('data.0.orders_count', 22)->assertJsonPath('meta.total', 1);
         $this->assertSame([], array_intersect(['id', 'customer_id', 'rider_id', 'created_by', 'email', 'phone'], array_keys($summary->json('data.0'))));
         $slugs = [];
         foreach ([1, 2] as $page) {
             $response = $this->getJson($this->accountPath($customer->slug).'&page='.$page)->assertOk()->assertSee('Ritiro assegnato visibile')
-                ->assertJsonPath('account.orders_count', 21)->assertJsonPath('meta.total', 21)->assertJsonCount($page === 1 ? 20 : 1, 'data');
+                ->assertJsonPath('account.orders_count', 22)->assertJsonPath('meta.total', 22)->assertJsonCount($page === 1 ? 20 : 2, 'data');
             $slugs = [...$slugs, ...array_column($response->json('data'), 'slug')];
             foreach ($response->json('data') as $order) {
                 $this->assertSame([], array_intersect(['id', 'customer_id', 'rider_id', 'created_by', 'tracking_token', 'conversation_token'], array_keys($order)));
                 $this->assertSame($rider->slug, $order['rider']['slug']);
                 $this->assertSame(['slug', 'name'], array_keys($order['rider']));
             }
-            foreach ([$foreign, $received, $pickedUp] as $hidden) {
+            foreach ([$foreign, $received] as $hidden) {
                 $response->assertDontSee($hidden->slug)->assertDontSee($hidden->store_name);
             }
         }
-        $this->assertSame($visible->pluck('slug')->all(), $slugs);
+        $this->assertSame([...$visible->pluck('slug')->all(), $pickedUp->slug], $slugs);
     }
 
     public function test_manual_order_reference_is_a_singleton_even_when_sender_details_match(): void

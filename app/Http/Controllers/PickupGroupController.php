@@ -46,15 +46,16 @@ class PickupGroupController extends Controller
 
         return $this->readSnapshot(function () use ($request, $agenda, $date, $data): Response|JsonResponse {
             ['groups' => $groups, 'totalOrders' => $totalOrders] = $agenda->accounts($request->user(), $date, $data['page'] ?? 1, $data['per_page'] ?? 10);
+            $progress = $agenda->progress($request->user(), $date);
             if ($request->expectsJson()) {
                 return response()->json([
-                    'date' => $date->toDateString(), 'total_orders' => $totalOrders,
+                    'date' => $date->toDateString(), 'total_orders' => $totalOrders, 'progress' => $progress,
                     'data' => $groups->items(), ...$this->pageData($groups),
                 ])->header('Cache-Control', 'private, no-store');
             }
             $view = $request->header('X-Pickup-Agenda') === 'accounts' ? 'pickups.accounts' : 'pickups.day';
 
-            return response()->view($view, compact('date', 'groups', 'totalOrders'))->header('Cache-Control', 'private, no-store');
+            return response()->view($view, compact('date', 'groups', 'totalOrders', 'progress'))->header('Cache-Control', 'private, no-store');
         });
     }
 
@@ -129,9 +130,9 @@ class PickupGroupController extends Controller
         ];
     }
 
-    /** @return Builder<Order> */
+    /** @return Builder<Order> Tutte le richieste visibili, in qualsiasi stato: l'agenda segue la data di ritiro programmata. */
     private function scheduledPickups(Request $request): Builder
     {
-        return Order::visibleTo($request->user())->awaitingPickup();
+        return Order::visibleTo($request->user());
     }
 }

@@ -19,6 +19,12 @@ class UserPolicy
 
     public function update(User $user, User $target): bool
     {
-        return $this->viewAny($user) && in_array($target->role, [UserRole::Rider, UserRole::Customer], true);
+        return $this->viewAny($user) && $target->closed_at === null && in_array($target->role, [UserRole::Rider, UserRole::Customer], true);
+    }
+
+    /** L'Admin elimina i Rider; il proprio account si chiude dal profilo. */
+    public function delete(User $user, User $target): bool
+    {
+        return $this->viewAny($user) && $target->closed_at === null && $target->role === UserRole::Rider;
     }
 }

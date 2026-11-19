@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Order;
 use App\Models\User;
+use App\OrderStatus;
 use App\UserRole;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -11,18 +12,48 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use stdClass;
 
+/**
+ * Agenda dei ritiri: tutte le richieste con quella data di ritiro programmata, in qualsiasi stato,
+ * limitate a ciò che l'utente può vedere (Admin: tutto; Rider: soltanto i propri ordini accettati).
+ * Un ordine non sparisce dall'agenda quando viene ritirato, consegnato o annullato.
+ */
 class PickupAgenda
 {
+    /**
+     * Avanzamento della giornata: ogni stato appartiene a una sola categoria, così nessun ordine è contato due volte.
+     *
+     * @var array<string, list<OrderStatus>>
+     */
+    public const array Progress = [
+        'waiting' => [OrderStatus::Received],
+        'in_progress' => [OrderStatus::Accepted, OrderStatus::PickupScheduled, OrderStatus::RiderArriving, OrderStatus::Rescheduled, OrderStatus::DeliveryIssue],
+        'picked_up' => [OrderStatus::PickedUp, OrderStatus::InTransit, OrderStatus::OutForDelivery, OrderStatus::DeliveryAttempted],
+        'delivered' => [OrderStatus::Delivered],
+        'cancelled' => [OrderStatus::Cancelled, OrderStatus::Rejected],
+    ];
+
     /** @return Builder<Order> */
     public function scheduled(User $viewer, Carbon $date): Builder
     {
-        $query = Order::visibleTo($viewer)->awaitingPickup();
+        $query = Order::visibleTo($viewer);
         if ($query->getConnection()->getDriverName() === 'sqlite') {
             return $query->where('pickup_date', '>=', $date->toDateString())
                 ->where('pickup_date', '<=', $date->toDateString().' 23:59:59');
         }
 
         return $query->where('pickup_date', $date->toDateString());
+    }
+
+    /** @return array{total: int, waiting: int, in_progress: int, picked_up: int, delivered: int, cancelled: int} */
+    public function progress(User $viewer, Carbon $date): array
+    {
+        $byStatus = $this->scheduled($viewer, $date)->toBase()->selectRaw('status, COUNT(*) AS total')->groupBy('status')->pluck('total', 'status');
+        $progress = ['total' => (int) $byStatus->sum()];
+        foreach (self::Progress as $category => $statuses) {
+            $progress[$category] = (int) collect($statuses)->sum(fn (OrderStatus $status): int => (int) ($byStatus[$status->value] ?? 0));
+        }
+
+        return $progress;
     }
 
     /** @return array{groups: LengthAwarePaginator, totalOrders: int} */
@@ -82,7 +113,7 @@ class PickupAgenda
         return $query->select([
             'id', 'slug', 'customer_id', 'created_by', 'rider_id', 'reference', 'store_name', 'recipient_name', 'recipient_phone',
             'pickup_date', 'pickup_from', 'pickup_to', 'pickup_address', 'pickup_street_number', 'pickup_postal_code', 'pickup_city',
-            'delivery_address', 'delivery_street_number', 'delivery_postal_code', 'delivery_city', 'parcel_count', 'status', 'created_at',
+            'delivery_address', 'delivery_street_number', 'delivery_postal_code', 'delivery_city', 'delivery_zone', 'parcel_count', 'status', 'created_at',
         ])->withDisplayIdentity()->with('rider:id,slug,name')
             ->orderBy('pickup_from')->orderBy('created_at')->orderBy('id')
             ->paginate($perPage, ['*'], 'page', $page, $total);

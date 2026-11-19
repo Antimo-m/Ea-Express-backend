@@ -170,7 +170,8 @@ class RiderOperationsTest extends TestCase
         $this->getJson('/rider-operations/feed')->assertOk()->assertJsonMissingPath('locations')->assertJsonMissingPath('gps_session_id');
         $queries = DB::getQueryLog();
         DB::disableQueryLog();
-        $gpsReads = collect($queries)->filter(fn (array $query): bool => str_contains($query['query'], '"cache"') && str_starts_with(strtolower($query['query']), 'select'));
+        $gpsReads = collect($queries)->filter(fn (array $query): bool => str_contains($query['query'], '"cache"') && str_starts_with(strtolower($query['query']), 'select')
+            && ! collect($query['bindings'])->contains(fn (mixed $binding): bool => is_string($binding) && str_contains($binding, 'auth:access-timeout:')));
         $this->assertCount(0, $gpsReads);
         $this->assertLessThan(20, count($queries));
     }

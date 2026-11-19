@@ -4,11 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\Order;
 use App\Models\User;
+use App\Notifications\RiderActivationLink;
 use App\OrderStatus;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
-use App\Notifications\RiderActivationLink;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
@@ -33,6 +33,7 @@ class AdminUsersTest extends TestCase
 
     public function test_rider_cannot_list_create_or_modify_profiles(): void
     {
+        $this->withoutAccessPauses();
         $user = User::factory()->create();
         $other = User::factory()->create();
         $this->actingAs($user)->get('/settings')->assertDontSee('Gestione utenti');

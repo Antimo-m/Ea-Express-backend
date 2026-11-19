@@ -67,7 +67,16 @@ export function attachFormPopovers(root = document) {
             const isMobile = () => window.matchMedia('(max-width: 575px)').matches;
             const position = () => {
                 panel.setAttribute('aria-modal', String(isMobile()));
-                if (isMobile()) { panel.style.removeProperty('width'); panel.style.removeProperty('left'); panel.style.removeProperty('top'); return; }
+                if (isMobile()) {
+                    panel.style.removeProperty('width'); panel.style.removeProperty('left'); panel.style.removeProperty('top');
+                    // La tastiera virtuale riduce soltanto la parte visibile della pagina: il pannello resta sopra di essa e scorre al suo interno.
+                    const viewport = window.visualViewport;
+                    const keyboard = viewport ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop) : 0;
+                    if (keyboard > 0) { panel.style.bottom = `${keyboard + 12}px`; panel.style.maxHeight = `${Math.max(180, viewport.height - 24)}px`; }
+                    else { panel.style.removeProperty('bottom'); panel.style.removeProperty('max-height'); }
+                    return;
+                }
+                panel.style.removeProperty('bottom'); panel.style.removeProperty('max-height');
                 const rect = trigger.getBoundingClientRect();
                 const width = Math.min(control.tagName === 'SELECT' || control.hasAttribute('list') ? Math.max(rect.width, 280) : control.type === 'time' ? 260 : 340, innerWidth - 24);
                 panel.style.width = `${width}px`;
@@ -83,6 +92,7 @@ export function attachFormPopovers(root = document) {
                 document.removeEventListener('keydown', keys, true);
                 window.removeEventListener('resize', position);
                 window.removeEventListener('scroll', position, true);
+                window.visualViewport?.removeEventListener('resize', position); window.visualViewport?.removeEventListener('scroll', position);
                 if (restore && trigger.isConnected) trigger.focus();
             };
             const outside = event => { if (!panel.contains(event.target) && !trigger.contains(event.target)) close(false); };
@@ -139,10 +149,13 @@ export function attachFormPopovers(root = document) {
             }
             trigger.setAttribute('aria-expanded', 'true');
             panel.showPopover?.(); position();
-            const initialFocus = content.querySelector('input') || content.querySelector('.is-selected:not(:disabled)') || content.querySelector('[data-today]:not(:disabled)') || content.querySelector('button:not(:disabled)');
+            // Su smartphone gli elenchi non aprono subito la tastiera: si sceglie toccando, si scrive solo toccando il campo.
+            const listOnMobile = isMobile() && (control.tagName === 'SELECT' || control.hasAttribute('list'));
+            const initialFocus = (listOnMobile ? null : content.querySelector('input')) || content.querySelector('.is-selected:not(:disabled)') || content.querySelector('[data-today]:not(:disabled)') || content.querySelector('button:not(:disabled)');
             initialFocus?.focus();
             document.addEventListener('pointerdown', outside, true); document.addEventListener('keydown', keys, true);
             window.addEventListener('resize', position); window.addEventListener('scroll', position, true);
+            window.visualViewport?.addEventListener('resize', position); window.visualViewport?.addEventListener('scroll', position);
         };
         const keyOpen = event => {
             if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); open(); }

@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\AccessGateController;
+use App\Http\Middleware\EnforceAccessTimeout;
 use App\Http\Middleware\EnsureAccountSessionVersion;
 use App\Http\Middleware\EnsureActiveAccount;
 use App\Http\Middleware\EnsureStaffAuthentication;
@@ -7,8 +9,10 @@ use App\Http\Middleware\LimitRequestInput;
 use App\Http\Middleware\PreservePageNavigation;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\TrustAuthenticationProxies;
+use App\Support\AccessGuard;
 use App\Support\CanonicalUrl;
 use App\Support\SecurityEvent;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
@@ -18,7 +22,9 @@ use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -27,16 +33,36 @@ return Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        then: function (): void {
+            // Fuori dal gruppo web: nessuna sessione, nessun cookie, nessun controllo CSRF (risponde anche a POST respinti).
+            Route::any('/accesso-negato', AccessGateController::class)->name('access-gate');
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->replace(TrustProxies::class, TrustAuthenticationProxies::class);
         $middleware->trustHosts(at: fn (): array => CanonicalUrl::trustedHostPatterns(), subdomains: false);
         $middleware->prepend([LimitRequestInput::class, SecurityHeaders::class]);
         $middleware->trimStrings(except: ['price', 'parcel_value', 'carrier_cost', 'amount']);
-        $middleware->web(append: [EnsureAccountSessionVersion::class, EnsureActiveAccount::class, EnsureStaffAuthentication::class], replace: [StartSession::class => PreservePageNavigation::class]);
+        $middleware->web(append: [EnsureAccountSessionVersion::class, EnsureActiveAccount::class, EnsureStaffAuthentication::class, EnforceAccessTimeout::class], replace: [StartSession::class => PreservePageNavigation::class]);
         $middleware->prependToPriorityList(AuthenticatesRequests::class, EnsureStaffAuthentication::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(function (HttpException $exception, Request $request): ?Response {
+            if (! $exception->getPrevious() instanceof AuthorizationException) {
+                return null;
+            }
+            $guard = app(AccessGuard::class);
+            $timeout = $guard->recordDenial($request, 'authorization');
+            if ($timeout > 0) {
+                return $guard->timeoutResponse($request, $timeout);
+            }
+
+            if ($exception->getStatusCode() === 404 && ! ($request->is('api/*') || $request->expectsJson())) {
+                return null; // Identica a un 404 ordinario: non rivela che la risorsa esiste.
+            }
+
+            return $guard->deniedResponse($request, $exception->getStatusCode() === 404 ? 404 : 403);
+        });
         $exceptions->render(function (ThrottleRequestsException $exception, Request $request): Response {
             SecurityEvent::record('rate_limited');
             $headers = $exception->getHeaders();

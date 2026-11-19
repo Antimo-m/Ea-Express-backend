@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Rules\AllowedPortalText;
+use App\Support\AccessGuard;
 use App\Support\CustomerIdentity;
 use App\Support\PortalTextPolicy;
 use App\Support\TextFields;
@@ -28,7 +29,7 @@ class CustomerOrderRequest extends StoreOrderRequest
     public function authorize(): bool
     {
         if ($this->route('order') && $this->user('customer')?->role === UserRole::Customer) {
-            abort_unless($this->route('order')->customer_id === $this->user('customer')->id, 404);
+            AccessGuard::hideUnless($this->route('order')->customer_id === $this->user('customer')->id);
         }
 
         return $this->user('customer')?->role === UserRole::Customer;

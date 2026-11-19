@@ -593,16 +593,22 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             await key('Escape'); await key('Escape');
             assert.equal(await evaluate(`document.activeElement.getAttribute('aria-label')`), 'Modifica dati o rimuovi segnalazione');
         });
-        await scenario('pickup action group preserves confirmation and cancellation without the removed edit dialog', async () => {
+        // Dal 17/11 l'annullamento si trova in «Segnala un problema» → «Annulla ordine» (motivo «other», nota obbligatoria, conferma esplicita).
+        await scenario('pickup action group preserves confirmation and cancels only through the confirmed problem report', async () => {
             const orderFile = readdirSync(temporary).filter(file=>/^orders_\d+\.html$/.test(file)).find(file=>readFileSync(join(temporary,file),'utf8').includes('aria-label="Conferma pacco ritirato"'));
             assert.ok(orderFile);
             await navigate(orderFile);
             assert.equal(await evaluate(`document.querySelector('.workflow-primary-actions [type="submit"]').form.querySelector('[name="status"]').value`), 'picked_up');
             assert.equal(await evaluate(`document.querySelector('[data-dialog-open^="transition-note-"]')`), null);
-            await evaluate(`document.querySelector('.workflow-secondary-actions [aria-label="Annulla spedizione"]').click()`);
-            assert.equal(await evaluate(`document.querySelector('dialog[id$="-cancelled"]').open`), true);
-            assert.equal(await evaluate(`document.querySelector('dialog[id$="-cancelled"] [name="cancellation_reason"]').value`), 'other');
+            assert.equal(await evaluate(`document.querySelector('.workflow-secondary-actions [aria-label="Annulla spedizione"]')`), null, 'nessun secondo percorso di annullamento senza motivo');
+            await evaluate(`document.querySelector('.workflow-problem-button').click()`);
+            const dialog = `document.getElementById(document.querySelector('.workflow-problem-button').dataset.dialogOpen)`;
+            assert.equal(await evaluate(`${dialog}.open`), true);
+            await evaluate(`${dialog}.querySelector('.workflow-problem-option.is-danger > summary').click()`);
+            const cancellation = await evaluate(`(()=>{const option=${dialog}.querySelector('.workflow-problem-option.is-danger');const form=option.querySelector('form');const note=form.querySelector('[name="note"]');const submit=form.querySelector('[type="submit"]');return {open:option.open,status:form.querySelector('[name="status"]').value,reason:form.querySelector('[name="cancellation_reason"]').value,required:note.required,minLength:note.minLength,confirm:submit.dataset.confirm};})()`);
+            assert.deepEqual(cancellation, {open:true,status:'cancelled',reason:'other',required:true,minLength:5,confirm:'Annulla ordine'});
             await key('Escape');
+            assert.equal(await evaluate(`${dialog}.open`), false);
         });
         await scenario('filters keep their intended hierarchy, identical heights and mobile apply/cancel behavior', async () => {
             const pages = ['orders_incoming.html','orders_in-progress.html','orders_history.html','balance.html','customers.html','customer-detail.html','reports.html','rates.html','pending.html','recipient-incidents.html','rider-operations.html'];
@@ -846,7 +852,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             }
         });
         await scenario('forty consecutive receipts update only their regions and preserve filters page scroll and duplicate protection', async () => {
-            const metric = label => evaluate(`(()=>{const metric=${JSON.stringify(label)}==='Contanti'?document.querySelector('.liquidity-total > strong'):document.querySelector('.finance-economic .statement-lines > div:first-child dd');return Math.round(Number(metric.textContent.replace(/[^0-9,-]/g,'').replace(',','.'))*100);})()`);
+            const metric = label => evaluate(`(()=>{const metric=${JSON.stringify(label)}==='Contanti'?document.querySelector('[data-balance="available"] > strong'):document.querySelector('.finance-economic .statement-lines > div:first-child dd');return Math.round(Number(metric.textContent.replace(/[^0-9,-]/g,'').replace(',','.'))*100);})()`);
             try {
             for (const width of [375,1440]) {
                 batchMode=true;batchStep=0;batchWrites=0;
@@ -1201,7 +1207,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             assert.match(await evaluate(`document.getElementById('calendar-month').textContent`),/Novembre 2026/);
             await follow('.pickup-calendar-navigation a.btn');
             await follow('[data-pickup-date="2026-10-18"]');
-            assert.ok(await evaluate(`document.body.textContent.includes('Nessun ritiro da effettuare')`));
+            assert.ok(await evaluate(`document.body.textContent.includes('Nessun ritiro in questa data')`));
             assert.equal(await evaluate(`window.__agendaDocument`),'retained');
             await navigate('pickups?month=2026-10');
             await evaluate(`window.__originalCalendar=document.querySelector('[data-pickup-date="2026-10-17"]');window.__originalCalendar.focus();window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'orders'}}))`);

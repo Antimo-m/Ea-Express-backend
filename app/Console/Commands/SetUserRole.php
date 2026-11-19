@@ -33,6 +33,11 @@ class SetUserRole extends Command
 
                 return self::FAILURE;
             }
+            if ($user->closed_at !== null) {
+                $this->error('Account eliminato: crea un nuovo account per assegnare un ruolo.');
+
+                return self::FAILURE;
+            }
             if ($user->role === UserRole::Admin && $role !== UserRole::Admin && $users->where('role', UserRole::Admin)->count() <= 1) {
                 $this->error('Non puoi rimuovere l’ultimo amministratore.');
 

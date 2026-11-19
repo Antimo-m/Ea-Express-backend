@@ -96,14 +96,16 @@ class StatisticsScalabilityTest extends TestCase
         $measure('staff_dashboard', fn () => $this->get('/dashboard'));
         $measure('staff_orders', fn () => $this->get('/orders/incoming'))->assertViewHas('orders', fn ($orders) => $orders->total() === 6000 && $orders->count() === 20);
         $measure('staff_pickup_calendar', fn () => $this->get('/pickups?month=2026-09'))
-            ->assertViewHas('dailyCounts', fn ($counts): bool => $counts->get('2026-09-28') === 6000);
+            // L'agenda conta ogni richiesta con quella data di ritiro, in qualsiasi stato (60 negozi × 1000 ordini).
+            ->assertViewHas('dailyCounts', fn ($counts): bool => $counts->get('2026-09-28') === 60000);
         $pickups = $measure('staff_pickups', fn () => $this->getJson('/pickups/day?date=2026-09-28'))
-            ->assertJsonPath('total_orders', 6000)->assertJsonPath('meta.total', 60)
+            ->assertJsonPath('total_orders', 60000)->assertJsonPath('meta.total', 60)
+            ->assertJsonPath('progress.waiting', 6000)->assertJsonPath('progress.delivered', 54000)
             ->assertJsonPath('meta.per_page', 10)->assertJsonCount(10, 'data')
-            ->assertJsonPath('data.0.orders_count', 100)->assertJsonMissingPath('data.0.orders');
+            ->assertJsonPath('data.0.orders_count', 1000)->assertJsonMissingPath('data.0.orders');
         $this->assertLessThan(10000, strlen($pickups->getContent()));
         $measure('staff_pickup_account', fn () => $this->getJson($pickups->json('data.0.orders_url')))
-            ->assertJsonCount(20, 'data')->assertJsonPath('meta.total', 100)->assertJsonPath('meta.last_page', 5);
+            ->assertJsonCount(20, 'data')->assertJsonPath('meta.total', 1000)->assertJsonPath('meta.last_page', 50);
         $measure('staff_reports', fn () => $this->get('/reports'));
         $measure('staff_balance', fn () => $this->get('/balance'));
         foreach ($customers as $index => $customer) {

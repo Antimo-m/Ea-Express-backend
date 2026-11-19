@@ -22,7 +22,7 @@ class RiderLinks
         if ($missing === []) {
             return;
         }
-        $users = User::whereIn('id', $missing)->get(['id', 'slug', 'name', 'is_active'])->keyBy('id');
+        $users = User::whereIn('id', $missing)->get(['id', 'slug', 'name', 'is_active', 'closed_at'])->keyBy('id');
         foreach ($missing as $riderId) {
             $user = $users->get($riderId);
             if (! $user) {
@@ -32,7 +32,7 @@ class RiderLinks
             }
             $url = route('rider-operations.show', ['rider' => $user->slug, ...$this->periodParameters]);
             $this->riders[$riderId] = ['slug' => $user->slug, 'name' => $user->name, 'url' => $url,
-                'entry' => ['slug' => $user->slug, 'name' => $user->name.($user->is_active ? '' : ' (inattivo)'), 'url' => $url]];
+                'entry' => ['slug' => $user->slug, 'name' => $user->name.($user->closed_at ? ' (account eliminato)' : ($user->is_active ? '' : ' (inattivo)')), 'url' => $url]];
         }
     }
 

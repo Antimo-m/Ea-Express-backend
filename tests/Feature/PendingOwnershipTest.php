@@ -109,6 +109,7 @@ class PendingOwnershipTest extends TestCase
 
     public function test_customer_cannot_mutate_accounts_through_portal_or_admin_endpoints(): void
     {
+        $this->withoutAccessPauses();
         $customer = User::factory()->create(['role' => UserRole::Customer]);
         $account = PendingAccount::factory()->create(['customer_id' => $customer->id]);
         $payment = $account->settlements()->create(['user_id' => $account->created_by, 'amount_cents' => 100, 'method' => 'cash', 'note' => 'Privata', 'submission_key' => (string) Str::uuid()]);

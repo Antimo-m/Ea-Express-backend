@@ -10,6 +10,14 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class CustomerOrderResource extends JsonResource
 {
+    /** @return array{price_label: string, price_tone: string, agreed_price_cents: int|null} */
+    private function priceStatus(): array
+    {
+        $status = $this->resource->customerPriceStatus();
+
+        return ['price_label' => $status['label'], 'price_tone' => $status['tone'], 'agreed_price_cents' => $status['agreed_price_cents']];
+    }
+
     public function toArray(Request $request): array
     {
         return [
@@ -21,7 +29,8 @@ class CustomerOrderResource extends JsonResource
             'pickup_date' => $this->pickup_date->toDateString(), 'pickup_from' => substr($this->pickup_from, 0, 5), 'pickup_to' => substr($this->pickup_to, 0, 5),
             'pickup_street_number' => $this->pickup_street_number, 'pickup_postal_code' => $this->pickup_postal_code, 'delivery_street_number' => $this->delivery_street_number, 'delivery_postal_code' => $this->delivery_postal_code,
             'package_type' => $this->package_type, 'package_description' => $this->package_description,
-            'pricing_version' => $this->pricing_version, 'quoted_price_cents' => $this->quoted_price_cents, 'price_state' => $this->price_state, 'price_tone' => $this->resource->priceTone(), 'price_label' => $this->resource->priceLabel(), 'rate_snapshot' => ShippingQuote::customerData($this->rate_snapshot),
+            ...$this->priceStatus(),
+            'pricing_version' => $this->pricing_version, 'quoted_price_cents' => $this->quoted_price_cents, 'price_state' => $this->price_state, 'rate_snapshot' => ShippingQuote::customerData($this->rate_snapshot),
             'price_proposals' => $this->whenLoaded('priceProposals', fn () => $this->priceProposals->map(fn ($p) => ['slug' => $p->slug, 'price_cents' => $p->price_cents, 'previous_price_cents' => $p->previous_price_cents, 'reason' => $p->reason, 'state' => $p->state, 'created_at' => $p->created_at->toIso8601String(), 'responded_at' => $p->responded_at?->toIso8601String()])),
             'delivery_window' => $this->delivery_window, 'parcel_count' => $this->parcel_count, 'packages' => $this->packages, 'category' => $this->category, 'content_description' => $this->content_description, 'category_label' => OrderContent::label($this->category, $this->content_description), 'urgency' => $this->urgency, 'customer_notes' => $this->customer_notes,
             'delivery_zone' => $this->delivery_zone, 'total_cents' => $this->resource->totalCents(),

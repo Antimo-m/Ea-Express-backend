@@ -23,7 +23,13 @@ class AccountSecurityRevisionTest extends TestCase
         return ['rider' => [UserRole::Rider], 'customer' => [UserRole::Customer], 'admin' => [UserRole::Admin]];
     }
 
-    #[DataProvider('roles')]
+    /** L'Admin può chiudere il proprio account con conferma esplicita: vedi StaffAccountClosureTest. */
+    public static function rolesWithoutSelfDeletion(): array
+    {
+        return ['rider' => [UserRole::Rider], 'customer' => [UserRole::Customer]];
+    }
+
+    #[DataProvider('rolesWithoutSelfDeletion')]
     public function test_self_service_deletion_is_denied_and_account_is_preserved(UserRole $role): void
     {
         $user = User::factory()->create(['role' => $role]);

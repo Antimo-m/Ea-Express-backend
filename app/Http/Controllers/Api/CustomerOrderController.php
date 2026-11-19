@@ -11,6 +11,7 @@ use App\Http\Resources\CustomerOrderResource;
 use App\Models\Order;
 use App\Models\User;
 use App\OrderStatus;
+use App\Support\AccessGuard;
 use App\Support\CheckoutReview;
 use App\Support\CustomerIdentity;
 use App\Support\CustomerOrderSelection;
@@ -127,6 +128,6 @@ class CustomerOrderController extends Controller
 
     private function authorizeOwner(Request $request, Order $order): void
     {
-        abort_unless($order->customer_id === $request->user()->id, 404);
+        AccessGuard::hideUnless($order->customer_id === $request->user()->id);
     }
 }

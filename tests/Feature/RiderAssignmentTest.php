@@ -42,6 +42,7 @@ class RiderAssignmentTest extends TestCase
 
     public function test_rider_is_denied_every_administrative_endpoint_and_order_creation(): void
     {
+        $this->withoutAccessPauses();
         $rider = User::factory()->create();
         $this->actingAs($rider);
         foreach (['/balance', '/pending', '/reports', '/customers', '/economic-audits', '/movements', '/settings', '/settings/users', '/settings/users/create', '/rates', '/rates/quote', '/orders/create'] as $path) {
@@ -60,6 +61,7 @@ class RiderAssignmentTest extends TestCase
 
     public function test_lists_details_tracking_messages_and_labels_are_isolated(): void
     {
+        $this->withoutAccessPauses();
         $rider = User::factory()->create();
         $other = User::factory()->create();
         $incoming = Order::factory()->create(['created_by' => $rider->id]);

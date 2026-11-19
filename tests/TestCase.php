@@ -35,6 +35,16 @@ abstract class TestCase extends BaseTestCase
     }
 
     /**
+     * Per i test che verificano molti permessi di fila: la pausa dopo accessi negati ripetuti ha i propri test.
+     */
+    protected function withoutAccessPauses(): static
+    {
+        config(['auth_security.access.attempts' => 1000]);
+
+        return $this;
+    }
+
+    /**
      * Completes the rider activation from the link received by email (requires a faked RiderActivationLink).
      */
     protected function activateRider(User $rider, string $password): void
