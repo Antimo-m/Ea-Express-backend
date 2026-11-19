@@ -109,6 +109,7 @@ jobs:
         run: git diff --exit-code -- composer.lock package-lock.json
 
   # Test del browser più lunghi (selettori, revisione clienti): job separato, in parallelo, con un proprio limite di tempo.
+  # Usano anche la build del portale clienti: il job lo scarica e lo compila in ../Ea-express, come in locale.
   browser-extended:
     name: Browser / pickers and customer revision
     runs-on: ubuntu-24.04
@@ -146,6 +147,18 @@ jobs:
       - run: php artisan key:generate --no-interaction
       - run: npm ci --ignore-scripts
       - run: npm run build
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: Antimo-m/Ea-Express
+          path: portal
+          persist-credentials: false
+      - name: Build customer portal
+        shell: bash
+        run: |
+          mv portal ../Ea-express
+          cd ../Ea-express
+          npm ci --ignore-scripts
+          npm run build
       - name: Extended browser regression tests
         shell: bash
         run: |
