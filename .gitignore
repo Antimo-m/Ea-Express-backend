@@ -60,15 +60,8 @@ Thumbs.db
 !/public/source-sans-3-OFL.txt
 !/public/spacegrotesk-OFL.txt
 
-# Suite di sicurezza riproducibile; gli altri strumenti di test restano locali.
-/tests/*
-!/tests/TestCase.php
-!/tests/Feature/
-/tests/Feature/*
-!/tests/Feature/PaymentIntegrityTest.php
-!/tests/Feature/PaymentConcurrencyTest.php
-!/tests/Feature/ShippingQuoteSecurityTest.php
-!/tests/Feature/WorkflowSecurityTest.php
+# File di sistema del Mac nei test
+/tests/**/.DS_Store
 /database/factories/*
 !/database/factories/UserFactory.php
 !/database/factories/OrderFactory.php
@@ -159,7 +152,6 @@ Thumbs.db
 !/tests/Feature/RequestSecurityTest.php
 !/tests/Feature/SecurityReviewTest.php
 !/tests/Feature/Auth/
-/tests/Feature/Auth/*
 !/tests/Feature/Auth/AuthenticationTest.php
 !/tests/Feature/Auth/AuthenticationSecurityTest.php
 !/tests/Feature/Auth/PasswordResetTest.php
