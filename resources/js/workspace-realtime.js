@@ -1,10 +1,11 @@
-import Echo from 'laravel-echo';
-import Pusher from 'pusher-js';
-export function connectWorkspace(request) {
+// Le librerie del realtime (circa un terzo del JavaScript iniziale) si scaricano solo quando serve il collegamento,
+// in parallelo alla richiesta della configurazione: la pagina di accesso non le carica.
+const loadClient = () => Promise.all([import('laravel-echo'), import('pusher-js')]).then(([echo, pusher]) => [echo.default, pusher.default]);
+export function connectWorkspace(request, load = loadClient) {
   let stopped = false, echo;
   const seen = new Set();
   const status = (state) => { window.eaRealtimeConnected = state === 'connected'; window.dispatchEvent(new CustomEvent('ea:realtime-status', { detail: state })); };
-  request('/realtime/configuration').then(config => {
+  Promise.all([request('/realtime/configuration'), load()]).then(([config, [Echo, Pusher]]) => {
     if (stopped || !config.key) return;
     echo = new Echo({ broadcaster: 'reverb', client: new Pusher(config.key, {
       cluster: 'mt1', wsHost: config.host, wsPort: config.port, wssPort: config.port,
