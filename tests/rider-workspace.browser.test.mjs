@@ -88,7 +88,10 @@ test('Rider workspace: ranges, status sorting, stable state and mobile controls'
                 await viewport(width); await navigate('/rider-operations' + range);
                 const layout = await evaluate(`(() => { const controls=[...document.querySelectorAll('.operations-period-filter .period-options a,.operations-period-filter [data-custom-period]')].map(node=>({text:node.textContent.trim(),x:node.getBoundingClientRect().x,y:node.getBoundingClientRect().y,right:node.getBoundingClientRect().right,height:node.getBoundingClientRect().height}));return {controls,overflow:document.documentElement.scrollWidth>innerWidth+1};})()`);
                 assert.equal(layout.controls.length, 4, `${width}: four preset controls`);
-                assert.equal(Math.max(...layout.controls.map(node => node.y)) - Math.min(...layout.controls.map(node => node.y)) < 3, true, `${width}: presets share one line ${JSON.stringify(layout)}`);
+                // Sotto i 360px i quattro periodi passano volutamente su due righe da due (testing-revision.css).
+                const rows = [...new Set(layout.controls.map(node => Math.round(node.y)))];
+                assert.equal(rows.length, width < 360 ? 2 : 1, `${width}: preset rows ${JSON.stringify(layout)}`);
+                if (width < 360) assert.deepEqual(layout.controls.map(node => Math.round(node.y)), [rows[0], rows[0], rows[1], rows[1]], `${width}: two presets per row ${JSON.stringify(layout)}`);
                 assert.equal(layout.controls.every(node => node.x >= 0 && node.right <= width + 1 && node.height >= 40), true, `${width}: touch controls within screen`);
                 assert.equal(layout.overflow, false, `${width}: no horizontal document overflow`);
                 await navigate('/settings/users/create');

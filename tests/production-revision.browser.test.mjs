@@ -71,7 +71,8 @@ test('Collaudo produzione: selezione stampa, badge, azioni e Rider a tutte le la
             if (width < 992) {
                 await click('[aria-label="Apri menu"]');
                 await waitFor('document.querySelector("#app-navigation.show")');
-                assert.ok(await evaluate('const box=document.querySelector("#app-navigation").getBoundingClientRect();return box.left>=-1 && box.right<=innerWidth+1;'));
+                // La classe «show» compare all'inizio dell'animazione: si attende che il pannello sia arrivato in posizione.
+                await waitFor('(()=>{const box=document.querySelector("#app-navigation").getBoundingClientRect();return box.left>=-1 && box.right<=innerWidth+1;})()');
                 const addAlignment=await evaluate('const container=document.querySelector("#app-navigation .sidebar-content"),box=container.getBoundingClientRect(),button=container.querySelector(".sidebar-create").getBoundingClientRect();return Math.abs(box.left+container.clientWidth/2-(button.left+button.right)/2);');
                 assert.ok(addAlignment < 2, 'Aggiunta sidebar centrata: '+addAlignment);
                 await click('[aria-label="Chiudi menu"]');
