@@ -8,6 +8,7 @@ use App\Models\User;
 use App\OrderStatus;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ShippingServicesTest extends TestCase
@@ -16,7 +17,7 @@ class ShippingServicesTest extends TestCase
 
     private function payload(): array
     {
-        return ['shipping_type' => 'external', 'delivery_province' => 'Torino', 'delivery_region' => 'Piemonte', 'weight_kg' => '3.50', 'max_dimension_cm' => '40', 'parcel_value' => '100', 'recipient_name' => 'Destinatario di prova', 'recipient_phone' => '+390000000000', 'pickup_address' => 'Via Prova', 'pickup_city' => 'Napoli', 'pickup_street_number' => '10', 'pickup_postal_code' => '80100', 'delivery_address' => 'Via Test', 'delivery_city' => 'Torino', 'delivery_street_number' => '20', 'delivery_postal_code' => '10121', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'category' => 'other', 'urgency' => 'standard', 'package_type' => 'standard', 'sender_type' => 'online_shop'];
+        return ['shipping_type' => 'external', 'delivery_province' => 'Torino', 'delivery_region' => 'Piemonte', 'weight_kg' => '3.50', 'max_dimension_cm' => '40', 'parcel_value' => '100', 'recipient_name' => 'Destinatario di prova', 'recipient_phone' => '+393331234567', 'pickup_address' => 'Via Prova', 'pickup_city' => 'Napoli', 'pickup_street_number' => '10', 'pickup_postal_code' => '80100', 'delivery_address' => 'Via Test', 'delivery_city' => 'Torino', 'delivery_street_number' => '20', 'delivery_postal_code' => '10121', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'category' => 'other', 'urgency' => 'standard', 'package_type' => 'standard', 'sender_type' => 'online_shop'];
     }
 
     private function rate(array $attributes = []): ShippingRate
@@ -182,6 +183,7 @@ class ShippingServicesTest extends TestCase
         $this->actingAs(User::factory()->create(), 'web')->patchJson('/orders/'.$order->slug.'/carrier', ['version' => 1, 'carrier_tracking' => 'FORGED', 'carrier_status' => 'handed_over'])->assertForbidden();
         $this->assertNull($order->fresh()->carrier_tracking);
     }
+
     public function test_statistics_keep_response_and_query_count_bounded_with_five_thousand_orders(): void
     {
         $this->travelTo(now('Europe/Rome')->setDate(2026, 9, 25)->setTime(12, 0));
@@ -191,12 +193,12 @@ class ShippingServicesTest extends TestCase
             $rows = Order::factory()->count(500)->make(['customer_id' => $customer->id, 'created_by' => $creator->id, 'rider_id' => null, 'status' => OrderStatus::Delivered, 'created_at' => '2026-09-10 10:00:00', 'price_cents' => 700, 'parcel_value_cents' => 10000])->map(fn ($order) => $order->getAttributes())->all();
             Order::insert($rows);
         }
-        \Illuminate\Support\Facades\DB::enableQueryLog();
+        DB::enableQueryLog();
         $started = hrtime(true);
         $response = $this->actingAs($customer, 'customer')->getJson('/api/v1/customer/statistics')->assertOk()->assertJsonPath('total', 5000)->assertJsonPath('delivered', 5000)->assertJsonPath('net_cents', 46500000)->assertJsonCount(25, 'trend');
         $elapsed = (hrtime(true) - $started) / 1e6;
-        $queries = count(\Illuminate\Support\Facades\DB::getQueryLog());
-        \Illuminate\Support\Facades\DB::disableQueryLog();
+        $queries = count(DB::getQueryLog());
+        DB::disableQueryLog();
         $this->assertLessThan(40, $queries);
         $this->assertLessThan(40000, strlen($response->getContent()));
         if ($directory = getenv('EA_UI_CAPTURE_DIR')) {
@@ -204,5 +206,4 @@ class ShippingServicesTest extends TestCase
             file_put_contents($directory.'/scale.json', json_encode(['orders' => 5000, 'milliseconds' => round($elapsed, 1), 'queries' => $queries, 'response_bytes' => strlen($response->getContent()), 'peak_memory_mb' => round(memory_get_peak_usage(true) / 1048576, 1)]));
         }
     }
-
 }

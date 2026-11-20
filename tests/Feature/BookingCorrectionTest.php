@@ -16,7 +16,7 @@ class BookingCorrectionTest extends TestCase
     private function payload(): array
     {
         return ['shipping_type' => 'external', 'delivery_province' => 'Torino', 'delivery_region' => 'Piemonte',
-            'store_name' => 'Mittente prova', 'sender_type' => 'private', 'recipient_name' => 'Destinatario prova', 'recipient_phone' => '+390000000000',
+            'store_name' => 'Mittente prova', 'sender_type' => 'private', 'recipient_name' => 'Destinatario prova', 'recipient_phone' => '+393331234567',
             'pickup_address' => 'Via Prova', 'pickup_street_number' => '1', 'pickup_postal_code' => '80100', 'pickup_city' => 'Napoli',
             'delivery_address' => 'Via Test', 'delivery_street_number' => '2', 'delivery_postal_code' => '10121', 'delivery_city' => 'Torino',
             'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00',

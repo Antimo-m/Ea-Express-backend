@@ -48,7 +48,7 @@ class RequestSecurityTest extends TestCase
     {
         $user = User::factory()->create();
         $phone = $user->phone;
-        $this->actingAs($user)->patch('/profile', ['name' => 'Updated', 'email' => $user->email, 'role' => 'admin', 'phone' => '+390000000000', 'is_active' => false])->assertSessionHasNoErrors();
+        $this->actingAs($user)->patch('/profile', ['name' => 'Updated', 'email' => $user->email, 'role' => 'admin', 'phone' => '+393331234567', 'is_active' => false])->assertSessionHasNoErrors();
         $this->assertSame(UserRole::Rider, $user->fresh()->role);
         $this->assertSame($phone, $user->fresh()->phone);
         $this->assertTrue($user->fresh()->is_active);

@@ -3,6 +3,10 @@
     if ($type === 'text' && in_array($name, ['price', 'amount', 'parcel_value', 'received_amount', 'ea_amount', 'carrier_cost'], true)) {
         $attributes = $attributes->merge(['inputmode' => 'decimal', 'pattern' => '[0-9]{1,6}([.,][0-9]{1,2})?']);
     }
+    if ($name === 'recipient_phone') {
+        $type = 'tel';
+        $attributes = $attributes->merge(['data-phone' => 'true', 'inputmode' => 'tel', 'maxlength' => '30']);
+    }
     $fieldId = $id ?? $name;
     $messages = $errors->getBag($bag)->get($name);
     $describedBy = trim(($help ? $fieldId.'-help ' : '').($messages ? $fieldId.'-error' : ''));

@@ -65,7 +65,7 @@ class WorkspaceRevisionTest extends TestCase
     public function test_recipient_register_search_filters_actual_incidents_and_preserves_removed_history(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $order = Order::factory()->create(['recipient_name' => 'Destinatario Test Registro', 'recipient_phone' => '+390000000000']);
+        $order = Order::factory()->create(['recipient_name' => 'Destinatario Test Registro', 'recipient_phone' => '+393331234567']);
         app(RecipientRisk::class)->record($order, $admin);
         $incident = RecipientIncident::sole();
 

@@ -19,7 +19,7 @@ class DeliveryAddressRequiredTest extends TestCase
     {
         $data = [
             'store_name' => 'Mittente', 'sender_type' => 'private',
-            'recipient_name' => 'Destinatario', 'recipient_phone' => '+390000000000',
+            'recipient_name' => 'Destinatario', 'recipient_phone' => '+393331234567',
             'pickup_address' => 'Via Roma', 'pickup_street_number' => '1', 'pickup_postal_code' => '81031', 'pickup_city' => 'Aversa',
             'delivery_address' => 'Via Napoli', 'delivery_street_number' => '2',
             'delivery_city' => 'Aversa', 'delivery_postal_code' => '81031', 'delivery_province' => 'Caserta', 'delivery_region' => 'Campania',

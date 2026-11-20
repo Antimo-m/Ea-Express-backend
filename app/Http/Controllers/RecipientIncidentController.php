@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Actions\RecordEconomicAudit;
 use App\Models\RecipientIncident;
 use App\Models\RecipientRiskProfile;
+use App\Rules\ValidPhoneNumber;
+use App\Support\PhoneNumber;
 use App\Support\RecipientIdentity;
 use App\Support\RecipientRisk;
 use App\UserRole;
@@ -69,7 +71,10 @@ class RecipientIncidentController extends Controller
             }];
         }
         $rules['delivery_postal_code'][] = 'regex:/^[0-9]{5}$/D';
-        $rules['recipient_phone'][] = 'regex:/^[+0-9 ()\-]{6,30}$/D';
+        $rules['recipient_phone'][] = new ValidPhoneNumber;
+        if ($phone = PhoneNumber::normalize($request->input('recipient_phone'))) {
+            $request->merge(['recipient_phone' => $phone]);
+        }
         $data = $request->validate($rules);
         DB::transaction(function () use ($request, $incident, $risk, $data): void {
             $locked = RecipientIncident::lockForUpdate()->findOrFail($incident->id);

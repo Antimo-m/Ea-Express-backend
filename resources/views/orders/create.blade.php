@@ -59,7 +59,7 @@
                 </div>
                 <div class="booking-grid booking-contact">
                     <x-ui.field width="name" name="recipient_name" label="Nome destinatario" :value="old('recipient_name')" maxlength="150" autocomplete="section-recipient shipping name" required />
-                    <x-ui.field name="recipient_phone" label="Telefono destinatario" type="tel" :value="old('recipient_phone')" minlength="6" maxlength="30" autocomplete="section-recipient shipping tel" required />
+                    <x-ui.field name="recipient_phone" label="Telefono destinatario" type="tel" :value="old('recipient_phone')" autocomplete="section-recipient shipping tel" required />
                 </div>
                 <div class="booking-grid booking-address">
                     <x-ui.field width="address" name="delivery_address" label="Indirizzo di consegna" :value="old('delivery_address')" required />

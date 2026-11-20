@@ -15,7 +15,7 @@ class PostalCodeResolutionTest extends TestCase
 
     private function payload(): array
     {
-        return ['store_name' => 'Mittente', 'sender_type' => 'private', 'recipient_name' => 'Destinatario', 'recipient_phone' => '+390000000000', 'pickup_address' => 'Via Roma', 'pickup_street_number' => '1', 'pickup_postal_code' => '81031', 'pickup_city' => 'Aversa', 'delivery_address' => 'Via Roma', 'delivery_street_number' => '2', 'delivery_postal_code' => '81031', 'delivery_province' => 'Caserta', 'delivery_region' => 'Campania', 'delivery_city' => 'Aversa', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'parcel_value' => '50', 'category' => 'documents', 'package_type' => 'standard', 'urgency' => 'standard'];
+        return ['store_name' => 'Mittente', 'sender_type' => 'private', 'recipient_name' => 'Destinatario', 'recipient_phone' => '+393331234567', 'pickup_address' => 'Via Roma', 'pickup_street_number' => '1', 'pickup_postal_code' => '81031', 'pickup_city' => 'Aversa', 'delivery_address' => 'Via Roma', 'delivery_street_number' => '2', 'delivery_postal_code' => '81031', 'delivery_province' => 'Caserta', 'delivery_region' => 'Campania', 'delivery_city' => 'Aversa', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 1, 'parcel_value' => '50', 'category' => 'documents', 'package_type' => 'standard', 'urgency' => 'standard'];
     }
 
     public function test_listino_cap_is_checked_on_quotes_and_modified_api_requests(): void
@@ -43,7 +43,7 @@ class PostalCodeResolutionTest extends TestCase
     public function test_multicap_municipalities_need_an_explicit_valid_cap_unless_the_listino_identifies_a_zone(): void
     {
         ShippingRate::factory()->create(['city' => 'Torino', 'city_key' => 'torino', 'postal_code' => null, 'price_cents' => 500]);
-        $this->actingAs(User::factory()->create(['role' => \App\UserRole::Admin]));
+        $this->actingAs(User::factory()->create(['role' => UserRole::Admin]));
         $this->getJson('/rates/quote?city=Torino')->assertOk()->assertJsonPath('available', false);
         $this->getJson('/rates/quote?city=Torino&postal_code=10121')->assertOk()->assertJsonPath('available', true);
         $this->getJson('/rates/quote?city=Torino&postal_code=10100')->assertOk()->assertJsonPath('available', false);
@@ -55,7 +55,7 @@ class PostalCodeResolutionTest extends TestCase
     public function test_homonyms_require_province_and_unknown_or_mismatched_localities_are_not_guessed(): void
     {
         ShippingRate::factory()->create(['city' => 'Samone', 'city_key' => 'samone', 'postal_code' => null, 'price_cents' => 500]);
-        $this->actingAs(User::factory()->create(['role' => \App\UserRole::Admin]));
+        $this->actingAs(User::factory()->create(['role' => UserRole::Admin]));
         $this->getJson('/rates/quote?city=Samone')->assertOk()->assertJsonPath('available', false);
         $this->getJson('/rates/quote?city=Samone&province=TO')->assertOk()->assertJsonPath('postal_code', '10010');
         $this->getJson('/rates/quote?city=Samone&province=TN')->assertOk()->assertJsonPath('postal_code', '38059');

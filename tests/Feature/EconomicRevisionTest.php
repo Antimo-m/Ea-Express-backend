@@ -20,7 +20,7 @@ class EconomicRevisionTest extends TestCase
 
     private function payload(): array
     {
-        return ['store_name' => 'Negozio test', 'sender_type' => 'business', 'recipient_name' => 'Destinatario', 'recipient_phone' => '0000000000', 'pickup_address' => 'Via Roma', 'pickup_city' => 'Napoli', 'pickup_street_number' => '1', 'pickup_postal_code' => '80100', 'delivery_address' => 'Via Milano', 'delivery_city' => 'Caserta', 'delivery_street_number' => '2', 'delivery_postal_code' => '81100', 'delivery_province' => 'Caserta', 'delivery_region' => 'Campania', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 2, 'package_type' => 'fragile', 'category' => 'other', 'urgency' => 'standard', 'parcel_value' => '50', 'payment_method' => 'cash'];
+        return ['store_name' => 'Negozio test', 'sender_type' => 'business', 'recipient_name' => 'Destinatario', 'recipient_phone' => '3331234567', 'pickup_address' => 'Via Roma', 'pickup_city' => 'Napoli', 'pickup_street_number' => '1', 'pickup_postal_code' => '80100', 'delivery_address' => 'Via Milano', 'delivery_city' => 'Caserta', 'delivery_street_number' => '2', 'delivery_postal_code' => '81100', 'delivery_province' => 'Caserta', 'delivery_region' => 'Campania', 'pickup_date' => now()->addDay()->toDateString(), 'pickup_from' => '09:00', 'pickup_to' => '12:00', 'parcel_count' => 2, 'package_type' => 'fragile', 'category' => 'other', 'urgency' => 'standard', 'parcel_value' => '50', 'payment_method' => 'cash'];
     }
 
     public function test_checkout_confirms_fifty_plus_five_and_is_idempotent_and_bound_to_the_review(): void

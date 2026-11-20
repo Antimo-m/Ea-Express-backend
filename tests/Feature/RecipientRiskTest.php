@@ -19,7 +19,7 @@ class RecipientRiskTest extends TestCase
 
     private function recipient(): array
     {
-        return ['recipient_name' => 'Destinatario Test Uno', 'recipient_phone' => '+390100000000', 'delivery_address' => 'Via Test', 'delivery_street_number' => '50', 'delivery_postal_code' => '80100', 'delivery_city' => 'Napoli', 'delivery_province' => 'NA'];
+        return ['recipient_name' => 'Destinatario Test Uno', 'recipient_phone' => '+390101234567', 'delivery_address' => 'Via Test', 'delivery_street_number' => '50', 'delivery_postal_code' => '80100', 'delivery_city' => 'Napoli', 'delivery_province' => 'NA'];
     }
 
     private function failedOrder(User $rider, array $changes = []): Order
@@ -67,10 +67,10 @@ class RecipientRiskTest extends TestCase
     {
         $rider = User::factory()->create();
         $this->report($rider, $this->failedOrder($rider));
-        $phone = Order::factory()->make([...$this->recipient(), 'id' => 100, 'recipient_name' => ' DESTINATARIO   TEST UNO ', 'recipient_phone' => '00390100000000', 'delivery_address' => 'Via Test Alternativa']);
-        $localPhone = Order::factory()->make([...$this->recipient(), 'id' => 101, 'recipient_phone' => '0100000000', 'delivery_address' => 'Via Test Alternativa']);
-        $address = Order::factory()->make([...$this->recipient(), 'id' => 102, 'recipient_phone' => '+390000000001', 'delivery_address' => 'via TEST, 50', 'delivery_city' => ' NAPOLI ']);
-        $namesake = Order::factory()->make([...$this->recipient(), 'id' => 103, 'recipient_phone' => '+390000000001', 'delivery_address' => 'Via Test Diversa', 'delivery_street_number' => '12']);
+        $phone = Order::factory()->make([...$this->recipient(), 'id' => 100, 'recipient_name' => ' DESTINATARIO   TEST UNO ', 'recipient_phone' => '00390101234567', 'delivery_address' => 'Via Test Alternativa']);
+        $localPhone = Order::factory()->make([...$this->recipient(), 'id' => 101, 'recipient_phone' => '0101234567', 'delivery_address' => 'Via Test Alternativa']);
+        $address = Order::factory()->make([...$this->recipient(), 'id' => 102, 'recipient_phone' => '+393331234568', 'delivery_address' => 'via TEST, 50', 'delivery_city' => ' NAPOLI ']);
+        $namesake = Order::factory()->make([...$this->recipient(), 'id' => 103, 'recipient_phone' => '+393331234568', 'delivery_address' => 'Via Test Diversa', 'delivery_street_number' => '12']);
         $sharedPhone = Order::factory()->make([...$this->recipient(), 'id' => 104, 'recipient_name' => 'Destinatario Test Due']);
         $risks = app(RecipientRisk::class)->forOrders(collect([$phone, $localPhone, $address, $namesake, $sharedPhone]));
         $this->assertSame(1, $risks[100]['count']);
@@ -85,7 +85,7 @@ class RecipientRiskTest extends TestCase
     {
         $rider = User::factory()->create();
         $this->report($rider, $this->failedOrder($rider));
-        $this->report($rider, $this->failedOrder($rider, ['recipient_phone' => '0100000000']));
+        $this->report($rider, $this->failedOrder($rider, ['recipient_phone' => '0101234567']));
         $this->assertDatabaseCount('recipient_risk_profiles', 1);
         $this->assertDatabaseCount('recipient_incidents', 2);
         $orders = Order::factory()->count(15)->create($this->recipient());

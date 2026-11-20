@@ -19,12 +19,12 @@ class RecipientDetailTest extends TestCase
     public function test_register_links_to_person_without_exposing_phone_address_or_order_history(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
-        $incident = RecipientIncident::factory()->create(['recipient' => ['recipient_name' => 'Destinatario Test Nominativo Esteso', 'recipient_phone' => '+390000000000', 'delivery_address' => 'Via Test Dimostrativa del Punto di Ritiro 145', 'delivery_city' => 'Napoli']]);
+        $incident = RecipientIncident::factory()->create(['recipient' => ['recipient_name' => 'Destinatario Test Nominativo Esteso', 'recipient_phone' => '+393331234567', 'delivery_address' => 'Via Test Dimostrativa del Punto di Ritiro 145', 'delivery_city' => 'Napoli']]);
 
         $this->actingAs($admin)->get(route('recipient-incidents.index'))
             ->assertSee('Destinatario Test Nominativo Esteso')->assertSee('Napoli')
             ->assertSee(route('recipient-incidents.show', $incident->profile), false)
-            ->assertDontSee('+390000000000')->assertDontSee('Via Test Dimostrativa del Punto di Ritiro 145')
+            ->assertDontSee('+393331234567')->assertDontSee('Via Test Dimostrativa del Punto di Ritiro 145')
             ->assertDontSee('Apri ordine')->assertDontSee('Storico rettifiche');
     }
 
@@ -111,7 +111,7 @@ class RecipientDetailTest extends TestCase
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $payload = '<script>alert("recipient")</script>';
-        $incident = RecipientIncident::factory()->create(['recipient' => ['recipient_name' => $payload, 'recipient_phone' => '+390000000000', 'delivery_address' => $payload, 'delivery_city' => 'Napoli'], 'correction_reason' => $payload]);
+        $incident = RecipientIncident::factory()->create(['recipient' => ['recipient_name' => $payload, 'recipient_phone' => '+393331234567', 'delivery_address' => $payload, 'delivery_city' => 'Napoli'], 'correction_reason' => $payload]);
 
         $this->actingAs($admin)->get(route('recipient-incidents.show', $incident->profile))
             ->assertSee($payload)->assertDontSee($payload, false);
@@ -141,7 +141,7 @@ class RecipientDetailTest extends TestCase
         app(RecipientRisk::class)->record($order, $admin);
         $incident = RecipientIncident::sole();
         $before = $order->fresh()->toArray();
-        $data = [...$incident->recipient, 'recipient_name' => 'Destinatario Test Nominativo Esteso', 'recipient_phone' => '+390000000000', 'delivery_postal_code' => '80100', 'delivery_street_number' => '145', 'action' => 'correct', 'version' => $incident->version, 'correction_reason' => 'Dati verificati con il destinatario'];
+        $data = [...$incident->recipient, 'recipient_name' => 'Destinatario Test Nominativo Esteso', 'recipient_phone' => '+393331234567', 'delivery_postal_code' => '80100', 'delivery_street_number' => '145', 'action' => 'correct', 'version' => $incident->version, 'correction_reason' => 'Dati verificati con il destinatario'];
 
         $response = $this->actingAs($admin)->patch(route('recipient-incidents.update', $incident), $data);
 

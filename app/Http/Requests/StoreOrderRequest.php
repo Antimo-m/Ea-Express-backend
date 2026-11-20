@@ -3,9 +3,11 @@
 namespace App\Http\Requests;
 
 use App\Models\User;
+use App\Rules\ValidPhoneNumber;
 use App\Support\BookingRules;
 use App\Support\CustomerIdentity;
 use App\Support\OrderContent;
+use App\Support\PhoneNumber;
 use App\Support\PortalTextPolicy;
 use App\Support\PostalCodeResolver;
 use App\Support\ShippingQuote;
@@ -24,6 +26,9 @@ class StoreOrderRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge(PortalTextPolicy::normalizeFields($this->only(['store_name', 'business_type', 'business_description'])));
+        if ($phone = PhoneNumber::normalize($this->input('recipient_phone'))) {
+            $this->merge(['recipient_phone' => $phone]);
+        }
         $category = $this->input('category');
         if (is_string($category) && $category !== 'custom' && isset(OrderContent::Categories[$category])
             && $this->input('content_description') === OrderContent::Categories[$category]) {
@@ -142,7 +147,7 @@ class StoreOrderRequest extends FormRequest
             'packages.*.height_cm' => ['required', 'numeric', 'min:1', 'max:500'],
             'parcel_value' => ['required', 'regex:/^\d{1,6}(?:[.,]\d{1,2})?$/D'],
             'store_name' => ['required', 'string', 'max:150', ...TextFields::identity()], 'contact_email' => ['nullable', 'email', 'max:255'],
-            'recipient_name' => ['required', 'string', 'max:150', ...TextFields::identity()], 'recipient_phone' => ['required', 'string', 'max:30', 'regex:/^[+0-9 ()\-]{6,30}$/D'],
+            'recipient_name' => ['required', 'string', 'max:150', ...TextFields::identity()], 'recipient_phone' => ['required', 'string', 'max:30', new ValidPhoneNumber],
             'pickup_address' => ['required', 'string', 'max:255', ...TextFields::address()], 'pickup_city' => ['required', 'string', 'max:100', ...TextFields::address()],
             'delivery_address' => ['required', 'string', 'max:255', ...TextFields::address()], 'delivery_city' => ['required', 'string', 'max:100', ...TextFields::address()],
             'pickup_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.(app(BookingRules::class)->unchanged($this->all(), $this->route('order')) ? $this->route('order')->pickup_date->toDateString() : now('Europe/Rome')->toDateString())],
