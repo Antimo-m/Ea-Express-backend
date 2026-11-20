@@ -21,7 +21,7 @@ class AccessGuardTest extends TestCase
         $rider = User::factory()->create();
 
         $this->actingAs($rider)->get('/settings/users')->assertForbidden()
-            ->assertSee('Pagina non disponibile')->assertSee('Torna indietro')->assertSee('Pagina iniziale')
+            ->assertSee('Pagina non disponibile')->assertSee('Torna indietro')->assertSee('Pagina iniziale')->assertDontSee('class="return"', false)
             ->assertDontSee('staff')->assertDontSee('Admin')->assertDontSee('riservat')->assertDontSee('personale');
         $this->getJson('/settings/users')->assertForbidden()->assertExactJson(['message' => 'Non è possibile completare la richiesta.']);
     }
@@ -144,12 +144,20 @@ class AccessGuardTest extends TestCase
         $this->assertStringNotContainsString("'unsafe-inline'", explode('style-src', (string) $response->headers->get('Content-Security-Policy'))[0]);
     }
 
-    public function test_gate_page_links_to_the_home_of_the_requested_site(): void
+    public function test_gate_and_pause_pages_show_only_the_error_and_return_to_the_previous_page(): void
     {
         config(['customer.frontend_url' => 'https://app.example.test']);
 
-        $this->withServerVariables(['EA_ACCESS_GATE' => 'area'])->get('/accesso-negato')->assertSee('href="'.route('dashboard').'"', false);
-        $this->withServerVariables(['EA_ACCESS_GATE' => 'app.example.test'])->get('http://app.example.test/accesso-negato')
-            ->assertForbidden()->assertSee('href="https://app.example.test/"', false);
+        foreach (['area', 'app.example.test'] as $host) {
+            $response = $this->withServerVariables(['EA_ACCESS_GATE' => $host, 'REMOTE_ADDR' => '203.0.113.30'])->get('/accesso-negato')->assertForbidden()
+                ->assertSee('Non è possibile raggiungere la pagina richiesta.')->assertSee('data-unavailable-return', false)->assertSee('secondi tornerai alla pagina precedente')
+                ->assertDontSee('Torna indietro')->assertDontSee('Pagina iniziale');
+            $this->assertStringNotContainsString('<a ', $response->getContent());
+        }
+        foreach (range(1, 4) as $attempt) {
+            $this->withServerVariables(['EA_ACCESS_GATE' => 'area', 'REMOTE_ADDR' => '203.0.113.31'])->get('/accesso-negato');
+        }
+        $this->withServerVariables(['EA_ACCESS_GATE' => 'area', 'REMOTE_ADDR' => '203.0.113.31'])->get('/accesso-negato')->assertStatus(429)
+            ->assertSee('Accesso momentaneamente sospeso')->assertSee('data-unavailable-return', false)->assertDontSee('Pagina iniziale');
     }
 }

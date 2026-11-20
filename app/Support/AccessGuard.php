@@ -75,17 +75,18 @@ class AccessGuard
             return response()->json(['message' => $message, 'retry_after' => $seconds], 429, $headers);
         }
 
-        return response()->view('errors.unavailable', ['title' => 'Accesso momentaneamente sospeso', 'message' => $message, 'homeUrl' => $this->homeUrl($request)], 429, $headers);
+        return response()->view('errors.unavailable', ['title' => 'Accesso momentaneamente sospeso', 'message' => $message, 'blocked' => true], 429, $headers);
     }
 
-    public function deniedResponse(Request $request, int $status = 403): Response
+    /** Con `$blocked` (cancello) la pagina mostra solo l'errore: ogni collegamento porterebbe di nuovo a una pagina bloccata. */
+    public function deniedResponse(Request $request, int $status = 403, bool $blocked = false): Response
     {
         $headers = ['Cache-Control' => 'no-store, private'];
         if ($this->wantsJson($request)) {
             return response()->json(['message' => $status === 404 ? 'Risorsa non disponibile.' : self::DeniedMessage], $status, $headers);
         }
 
-        return response()->view('errors.unavailable', ['homeUrl' => $this->homeUrl($request)], $status, $headers);
+        return response()->view('errors.unavailable', $blocked ? ['blocked' => true] : ['homeUrl' => $this->homeUrl($request)], $status, $headers);
     }
 
     /** Pagina iniziale consentita per l'host della richiesta: portale clienti o gestionale. */

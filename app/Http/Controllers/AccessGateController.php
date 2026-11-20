@@ -20,6 +20,6 @@ class AccessGateController extends Controller
         abort_if(blank($request->server('EA_ACCESS_GATE')), 404);
         $timeout = $guard->recordDenial($request, 'gate', networkOnly: true);
 
-        return $timeout > 0 ? $guard->timeoutResponse($request, $timeout) : $guard->deniedResponse($request);
+        return $timeout > 0 ? $guard->timeoutResponse($request, $timeout) : $guard->deniedResponse($request, blocked: true);
     }
 }

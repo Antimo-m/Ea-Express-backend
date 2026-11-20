@@ -1,6 +1,8 @@
 {{-- Pagina neutra per accessi non consentiti e pause di sicurezza: autonoma (nessun file esterno), così funziona anche dietro il cancello di entrambi i domini. --}}
+{{-- Con $blocked (cancello e pause) resta solo l'errore e, se esiste, si torna da soli alla pagina precedente dopo 8 secondi. --}}
+@php($blocked = $blocked ?? false)
 @php($title = $title ?? 'Pagina non disponibile')
-@php($message = $message ?? 'Non è possibile raggiungere la pagina richiesta. Torna alla pagina precedente oppure alla pagina iniziale.')
+@php($message = $message ?? ($blocked ? 'Non è possibile raggiungere la pagina richiesta.' : 'Non è possibile raggiungere la pagina richiesta. Torna alla pagina precedente oppure alla pagina iniziale.'))
 @php($homeUrl = $homeUrl ?? route('dashboard'))
 <!DOCTYPE html>
 <html lang="it">
@@ -22,6 +24,8 @@ main { width: min(100%, 440px); padding: 32px 28px; border: 1px solid var(--line
 .mark svg { width: 26px; height: 26px; }
 h1 { margin: 8px 0; font: 600 1.4rem/1.25 'Space Grotesk', 'Segoe UI', system-ui, sans-serif; letter-spacing: -.02em; }
 p { margin: 0 0 24px; color: var(--muted); }
+.blocked p { margin-bottom: 0; }
+.return { margin-top: 12px; font-size: .875rem; }
 nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 18px; border-radius: 10px; font-weight: 600; text-decoration: none; }
 a:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
@@ -31,21 +35,38 @@ a:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 </style>
 </head>
 <body>
-<main aria-labelledby="unavailable-title">
+<main aria-labelledby="unavailable-title" @class(['blocked' => $blocked])>
     <span class="brand" role="img" aria-label="EA-Express"><b>EA</b><span>-Express</span></span>
     <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16.5h.01"/></svg></div>
     <h1 id="unavailable-title">{{ $title }}</h1>
     <p>{{ $message }}</p>
-    <nav aria-label="Dove andare">
-        <a class="secondary" href="{{ $homeUrl }}" data-unavailable-back>Torna indietro</a>
-        <a class="primary" href="{{ $homeUrl }}">Pagina iniziale</a>
-    </nav>
+    @if($blocked)
+        <p class="return" data-unavailable-return role="status" hidden>Tra <strong data-unavailable-seconds>8</strong> secondi tornerai alla pagina precedente.</p>
+    @else
+        <nav aria-label="Dove andare">
+            <a class="secondary" href="{{ $homeUrl }}" data-unavailable-back>Torna indietro</a>
+            <a class="primary" href="{{ $homeUrl }}">Pagina iniziale</a>
+        </nav>
+    @endif
 </main>
-{{-- Torna indietro solo se la pagina precedente appartiene allo stesso sito; altrimenti il collegamento porta alla pagina iniziale. --}}
 <script @if(\Illuminate\Support\Facades\Vite::cspNonce()) nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}" @endif>
-document.querySelector('[data-unavailable-back]')?.addEventListener('click', function (event) {
-    if (window.navigation && window.navigation.canGoBack) { event.preventDefault(); history.back(); }
-});
+(function () {
+    var canGoBack = window.navigation ? window.navigation.canGoBack : history.length > 1;
+    {{-- Torna indietro solo se esiste una pagina precedente; altrimenti il collegamento porta alla pagina iniziale. --}}
+    document.querySelector('[data-unavailable-back]')?.addEventListener('click', function (event) {
+        if (canGoBack) { event.preventDefault(); history.back(); }
+    });
+    var notice = document.querySelector('[data-unavailable-return]');
+    if (!notice || !canGoBack) { return; }
+    var seconds = 8;
+    var counter = notice.querySelector('[data-unavailable-seconds]');
+    notice.hidden = false;
+    var timer = window.setInterval(function () {
+        seconds -= 1;
+        counter.textContent = String(seconds);
+        if (seconds <= 0) { window.clearInterval(timer); history.back(); }
+    }, 1000);
+})();
 </script>
 </body>
 </html>
