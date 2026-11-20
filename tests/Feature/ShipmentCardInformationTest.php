@@ -57,7 +57,7 @@ class ShipmentCardInformationTest extends TestCase
         $this->assertSame(1, $nodes->length);
         $text = preg_replace('/\s+/u', ' ', $nodes->item(0)->textContent);
         // L'agenda mostra CAP e comune come coppie etichetta–valore separate.
-        $places = $cardClass === 'pickup-order-card' ? ['CAP80100', 'ComuneNapoli', 'CAP81100', 'ComuneCaserta', 'Nome mittenteMario Rossi'] : ['80100 Napoli', '81100 Caserta'];
+        $places = $cardClass === 'pickup-order-card' ? ['CAP80100', 'ComuneNapoli', 'CAP81100', 'ComuneCaserta', 'MittenteMario Rossi'] : ['80100 Napoli', '81100 Caserta'];
         foreach (['EA-2026-CARD', 'Mario Rossi', 'Giuseppe Bianchi', 'Via Roma 12', 'Via Milano 24', ...$places, '09/11/2026', '10:00–12:30', $status->label(), $status === OrderStatus::Received ? 'In attesa di assegnazione' : 'Sara'] as $detail) {
             $this->assertStringContainsString($detail, $text, $detail.' missing from '.$cardClass);
         }

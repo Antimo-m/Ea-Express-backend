@@ -65,7 +65,7 @@ class OrderWorkspaceRevisionTest extends TestCase
 
         $response = $this->actingAs($admin)->get(route('orders.in-progress'));
 
-        $response->assertSee('3 ore fa')->assertSee('2 giorni fa')->assertSee('4 colli')->assertSee('Nome destinatario')->assertSee($urgent->reference)->assertSee($standard->reference);
+        $response->assertSee('3 ore fa')->assertSee('2 giorni fa')->assertSee('4 colli')->assertSee('Destinatario')->assertDontSee('Nome destinatario')->assertSee($urgent->reference)->assertSee($standard->reference);
         $xpath = $this->document($response);
         $urgentCard = $xpath->query('//*[@data-operational-order="'.$urgent->slug.'"]')->item(0);
         $standardCard = $xpath->query('//*[@data-operational-order="'.$standard->slug.'"]')->item(0);

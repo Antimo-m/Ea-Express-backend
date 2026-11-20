@@ -11,13 +11,13 @@
                     <div><dt>Data / fascia di ritiro</dt><dd class="pickup-order-time">{{ $order->pickup_date->format('d/m/Y') }} · {{ substr($order->pickup_from, 0, 5) }}–{{ substr($order->pickup_to, 0, 5) }}</dd></div>
                     <div><dt>Rider assegnato</dt><dd>{{ $order->rider?->name ?: 'In attesa di assegnazione' }}</dd></div>
                     <div class="pickup-party"><dt>Mittente</dt><dd><dl class="key-values">
-                        <div><dt>Nome mittente</dt><dd>{{ $order->displayName() }}</dd></div>
+                        <div><dt>Mittente</dt><dd>{{ $order->displayName() }}</dd></div>
                         <div><dt>Indirizzo</dt><dd>{{ trim($order->pickup_address.' '.$order->pickup_street_number) }}</dd></div>
                         @if($order->pickup_city)<div><dt>Comune</dt><dd>{{ $order->pickup_city }}</dd></div>@endif
                         @if($order->pickup_postal_code)<div><dt>CAP</dt><dd>{{ $order->pickup_postal_code }}</dd></div>@endif
                     </dl></dd></div>
                     <div class="pickup-party"><dt>Destinatario</dt><dd><dl class="key-values">
-                        <div><dt>Nome destinatario</dt><dd><x-orders.recipient-indicator :name="$order->recipient_name" :risk="$recipientRisks[$order->id] ?? null" /></dd></div>
+                        <div><dt>Destinatario</dt><dd><x-orders.recipient-indicator :name="$order->recipient_name" :risk="$recipientRisks[$order->id] ?? null" /></dd></div>
                         <div><dt>Indirizzo</dt><dd>{{ trim($order->delivery_address.' '.$order->delivery_street_number) }}</dd></div>
                         @if($order->delivery_zone)<div><dt>Zona</dt><dd>{{ $order->delivery_zone }}</dd></div>@endif
                         @if($order->delivery_city)<div><dt>Comune</dt><dd>{{ $order->delivery_city }}</dd></div>@endif

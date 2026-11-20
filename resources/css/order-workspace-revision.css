@@ -29,8 +29,15 @@
 .operational-order--revised .operational-order-main { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 1.1fr) minmax(80px, .65fr); align-items: start; gap: 20px; padding: 22px; }
 .operational-order--revised .operational-card-heading { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
 .operational-order--revised .operational-identity, .operational-order--revised .operational-route, .operational-order--revised .operational-time, .operational-order--revised .operational-price { display: grid; align-content: start; gap: 7px; min-width: 0; grid-column: auto; grid-row: auto; }
-.operational-order--revised .operational-identity .data-label:not(:first-child) { margin-top: 7px; }
-.operational-order--revised .operational-name { font-size: 1rem; line-height: 1.4; }
+/* Mittente e destinatario: stesso linguaggio del percorso (accento laterale, etichetta piccola, valore in evidenza). */
+.operational-order--revised .operational-identity { gap: 12px; padding-left: 12px; border-left: 2px solid var(--ea-signal); }
+.operational-order--revised .operational-party { display: grid; gap: 2px; min-width: 0; }
+.operational-order--revised .operational-party > .data-label { display: inline-flex; align-items: center; gap: 5px; margin: 0; font-size: .6875rem; line-height: 1.3; }
+.operational-order--revised .operational-party > .data-label .bi { font-size: .75rem; color: var(--ea-brand); }
+.operational-order--revised .operational-name, .operational-order--revised .operational-party .recipient-name { font-size: .9375rem; font-weight: 650; line-height: 1.35; }
+.operational-order--revised .operational-party .order-recipient { align-items: center; gap: 6px; }
+.operational-order--revised :is(.operational-time, .operational-price) { gap: 4px; }
+.operational-order--revised :is(.operational-time, .operational-price) > .data-label { margin: 0 0 2px; font-size: .6875rem; line-height: 1.3; }
 .order-elapsed, .order-priority-label { font-size: .8125rem; color: var(--ea-muted); }
 .operational-order--revised .operational-actions { grid-column: 1 / -1; display: flex; flex-direction: row; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; }
 .operational-order--revised .operational-order-main:hover { background: var(--ea-hover); }
