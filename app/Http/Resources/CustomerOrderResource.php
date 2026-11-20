@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\OrderStatus;
 use App\Support\OrderContent;
+use App\Support\OrderProgress;
 use App\Support\ShippingQuote;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -41,6 +42,7 @@ class CustomerOrderResource extends JsonResource
             'messages_count' => $this->whenCounted('messages'), 'unread_messages_count' => $this->whenCounted('unread_messages'),
             'can_edit' => $this->resource->customerEditable(), 'can_cancel' => $this->resource->customerEditable(),
             'rider' => $this->whenLoaded('rider', fn () => $this->rider ? ['slug' => $this->rider->slug, 'name' => $this->rider->name] : null),
+            'progress' => $this->whenLoaded('events', fn () => app(OrderProgress::class)->forCustomer($this->resource)),
             'events' => $this->whenLoaded('events', fn () => $this->events->whereNull('delay_action')->values()->map(fn ($event) => ['slug' => $event->slug, 'status' => $event->status->value, 'label' => $event->label(), 'schedule_change' => $event->schedule_change, 'message' => $event->public_note, 'created_at' => $event->created_at->toIso8601String()])),
         ];
     }

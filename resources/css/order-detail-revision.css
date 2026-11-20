@@ -1,0 +1,197 @@
+/* Dettaglio ordine: intestazione, percorso animato e "Percorso e contatti". */
+
+/* Intestazione: stato e azioni sulla stessa linea, alla stessa altezza. */
+.ea-app .order-page .order-detail-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 16px 32px; }
+.ea-app .order-detail-heading h1 { margin: 6px 0 8px; font-size: clamp(1.6rem, 1.1rem + 1.6vw, 2.35rem); line-height: 1.12; }
+.ea-app .order-detail-heading > .row-actions { width: auto; align-items: center; justify-content: flex-end; flex-wrap: nowrap; gap: 10px; }
+.ea-app .order-detail-heading .order-detail-status { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.ea-app .order-detail-heading .order-detail-status > .status-pill { align-self: center; min-height: 44px; padding: 0 10px; font-size: .8125rem; font-weight: 650; border-radius: var(--ea-radius-button); }
+.order-detail-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; color: var(--ea-muted); font-size: .875rem; }
+.order-detail-meta > span { display: inline-flex; align-items: center; gap: 6px; }
+.order-detail-meta .bi { color: var(--ea-brand); }
+@media (max-width: 767px) {
+  .ea-app .order-page .order-detail-heading { grid-template-columns: minmax(0, 1fr); align-items: start; }
+  .ea-app .order-detail-heading > .row-actions { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+  .ea-app .order-detail-heading .order-detail-status { justify-content: flex-start; margin-inline-end: auto; }
+}
+
+/* Percorso animato. Il camion si muove solo quando cambia lo stato registrato. */
+.journey { --journey-duration: 1.4s; --journey-ease: cubic-bezier(.55, .05, .2, 1); --journey-truck: 124px; --journey-from: 0; margin-top: 20px; padding: 24px; overflow: hidden; }
+.journey-heading { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; }
+.journey-heading h2 { margin: 0; font-size: 1.15rem; }
+.journey-now { display: grid; justify-items: end; gap: 2px; margin: 0; text-align: right; }
+.journey-now-label { color: var(--ea-muted); font-size: .6875rem; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
+.journey-now strong { font-size: 1.2rem; line-height: 1.2; color: var(--ea-ink); }
+.journey-now-count { color: var(--ea-muted); font-family: var(--ea-font-mono); font-size: .6875rem; }
+.journey[data-journey-state="stopped"] .journey-now strong { color: var(--ea-danger); }
+.journey[data-journey-state="paused"] .journey-now strong { color: var(--ea-warning); }
+.journey[data-journey-state="arrived"] .journey-now strong { color: var(--ea-success); }
+
+.journey-scene {
+  position: relative; margin: 18px 0 0; padding: 108px 0 46px; border-radius: var(--ea-radius-card); isolation: isolate;
+  background:
+    radial-gradient(90% 120% at 88% -10%, #e6a23d2e, transparent 60%),
+    radial-gradient(70% 90% at 0% 120%, #2557744d, transparent 60%),
+    linear-gradient(180deg, #1f2932 0%, #141a20 100%);
+  box-shadow: inset 0 1px 0 #ffffff12, inset 0 -18px 30px #0000003d, 0 14px 30px -18px #141a2099;
+}
+.journey-scene::after { content: ''; position: absolute; inset: auto 0 0; height: 46%; z-index: -1; border-radius: inherit; background: repeating-linear-gradient(90deg, #ffffff06 0 1px, transparent 1px 44px); mask-image: linear-gradient(180deg, transparent, #000); }
+.journey-road {
+  position: relative; height: 12px; border-radius: 999px; container-type: inline-size;
+  margin-inline: max(calc(100% / (var(--journey-stops) * 2)), calc(var(--journey-truck) / 2 + 6px));
+  background: linear-gradient(180deg, #36424d, #26303a); box-shadow: inset 0 2px 3px #00000080, 0 1px 0 #ffffff14;
+}
+.journey-road::before { content: ''; position: absolute; inset: 5px 10px; background: repeating-linear-gradient(90deg, #ffffff40 0 12px, transparent 12px 26px); }
+.journey-road-fill {
+  position: absolute; inset-block: 0; left: 0; width: 100%; border-radius: inherit; transform-origin: 0 50%;
+  scale: calc(var(--journey-at) / max(var(--journey-stops) - 1, 1)) 1;
+  background: linear-gradient(90deg, #b06d16, #e6a23d 55%, #ffcc7a); box-shadow: 0 0 16px #e6a23d8c;
+  transition: scale var(--journey-duration) var(--journey-ease);
+}
+.journey-stop {
+  position: absolute; top: 50%; left: calc(var(--stop) / max(var(--journey-stops) - 1, 1) * 100%); z-index: 1;
+  display: grid; place-items: center; width: 18px; height: 18px; translate: -50% -50%; border-radius: 50%;
+  border: 3px solid #141a20; background: #4a5663; color: #141a20; font-size: .625rem;
+  transition: background-color .45s ease, box-shadow .45s ease, transform .45s ease;
+}
+.journey-stop.is-complete { background: #e6a23d; box-shadow: 0 0 0 3px #e6a23d33, 0 0 12px #e6a23d99; }
+.journey-stop.is-current { background: #fff; box-shadow: 0 0 0 4px #ffffff26, 0 0 0 10px #e6a23d24; }
+.journey-stop.is-destination { width: 28px; height: 28px; background: #5d6a77; }
+.journey-stop.is-destination.is-complete { background: #3fbf8f; box-shadow: 0 0 0 4px #3fbf8f33, 0 0 16px #3fbf8faa; }
+.journey-stop.is-pending { background: #4a5663; box-shadow: none; }
+.journey-vehicle {
+  position: absolute; bottom: calc(100% - 5px); z-index: 2; width: var(--journey-truck);
+  left: 0; translate: calc(var(--journey-at) / max(var(--journey-stops) - 1, 1) * 100cqw - 50%) 0;
+  transition: translate var(--journey-duration) var(--journey-ease);
+  filter: drop-shadow(0 6px 6px #0000004d);
+}
+.journey-truck { display: block; width: 100%; height: auto; overflow: visible; transform-origin: 50% 100%; }
+.journey-truck-shadow { fill: #0000006b; }
+.journey-truck-box { fill: #f5f2ec; }
+.journey-truck-stripe { fill: #e6a23d; }
+.journey-truck-mark { fill: #141a20; font: 800 15px/1 var(--ea-font-display, var(--ea-font)); letter-spacing: -.5px; }
+.journey-truck-cab { fill: #e6a23d; }
+.journey-truck-glass { fill: #1d2a35; }
+.journey-truck-light { fill: #fff1c9; }
+.journey-truck-chassis { fill: #0f1418; }
+.journey-tyre { fill: #0c0f12; }
+.journey-rim { fill: #c9d0d7; }
+.journey-spoke { stroke: #6f7b87; stroke-width: 1.8; stroke-linecap: round; }
+.journey-signal {
+  position: absolute; left: 50%; bottom: calc(100% + 6px); display: grid; place-items: center; width: 28px; height: 28px; translate: -50% 0;
+  border-radius: 50%; background: #e6a23d; color: #141a20; font-size: .9rem; box-shadow: 0 0 0 4px #e6a23d33;
+}
+.journey-place { position: absolute; top: calc(100% + 12px); display: inline-flex; align-items: center; gap: 5px; max-width: 45%; color: #c3ccd4; font-family: var(--ea-font-mono); font-size: .6875rem; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.journey-place .bi { color: #e6a23d; font-size: .55rem; }
+.journey-place--to .bi { font-size: .75rem; }
+.journey-place--from { left: 0; translate: -9px 0; }
+.journey-place--to { right: 0; translate: 9px 0; }
+.journey-place--to .bi { color: #3fbf8f; }
+.journey-signal.is-stopped { background: #e2554d; color: #fff; box-shadow: 0 0 0 4px #e2554d33; }
+.journey[data-journey-state="stopped"] .journey-truck { filter: saturate(.25) brightness(.8); }
+.journey[data-journey-state="stopped"] .journey-road-fill { background: linear-gradient(90deg, #7a4b14, #a8743a); box-shadow: none; }
+
+/* Solo durante lo spostamento: ruote, leggero sobbalzo e arrivo sulla tappa. */
+.journey.is-driving .journey-wheel { animation: journey-wheel .42s linear infinite; }
+.journey.is-driving .journey-truck { animation: journey-bob .3s ease-in-out infinite alternate; }
+.journey.is-preparing :is(.journey-road-fill, .journey-vehicle, .journey-stop) { transition: none; }
+.journey.has-arrived .journey-stop.is-current, .journey.has-arrived .journey-stop.is-destination.is-complete { animation: journey-arrive .9s ease-out; }
+@keyframes journey-wheel { to { rotate: 360deg; } }
+@keyframes journey-bob { from { translate: 0 0; } to { translate: 0 -1.5px; } }
+@keyframes journey-arrive { 0% { transform: scale(1); } 35% { transform: scale(1.35); } 100% { transform: scale(1); } }
+
+/* Elenco delle tappe: allineato alle tappe della strada su tablet e desktop. */
+@media (min-width: 768px) {
+  .journey:not(.journey--compact) .progress-stages { grid-template-columns: repeat(var(--journey-stops), minmax(0, 1fr)); gap: 0; padding-top: 16px; }
+  .journey:not(.journey--compact) .progress-stage { display: block; padding: 0 6px; text-align: center; }
+  .journey:not(.journey--compact) .progress-stage::before, .journey:not(.journey--compact) .progress-stage > .progress-dot { display: none; }
+  .journey:not(.journey--compact) .progress-stage strong { min-height: 0; font-size: .8rem; line-height: 1.3; }
+  .journey:not(.journey--compact) .progress-stage div > span { font-size: .6875rem; }
+  .journey:not(.journey--compact) .progress-stage time { margin-top: 2px; font-size: .6875rem; }
+  .journey:not(.journey--compact) .progress-stage small { margin-top: 4px; font-size: .6875rem; line-height: 1.35; }
+  .journey:not(.journey--compact) .progress-stage[data-progress-state="future"] { opacity: .6; }
+  .journey:not(.journey--compact) .progress-stage[aria-current="step"] strong { color: var(--ea-brand); }
+}
+@media (max-width: 767px) {
+  .journey { --journey-truck: 84px; padding: 18px; }
+  .journey-heading { align-items: flex-start; }
+  .journey-now { justify-items: start; text-align: left; }
+  .journey-scene { padding: 84px 0 40px; }
+  .journey-stop.is-current { box-shadow: 0 0 0 3px #ffffff26; }
+  .journey-place { font-size: .625rem; }
+  .journey-stop { width: 14px; height: 14px; border-width: 2px; }
+  .journey-stop.is-destination { width: 24px; height: 24px; }
+  /* Su smartphone resta visibile la tappa corrente; le altre restano disponibili agli screen reader. */
+  .journey .progress-stage:not([aria-current="step"]) { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .journey[data-journey-state="arrived"] .progress-stage:last-child { position: static; width: auto; height: auto; overflow: visible; clip-path: none; white-space: normal; }
+  .journey .progress-stages { padding-top: 16px; }
+  .journey .progress-stage { padding-bottom: 0; }
+  .journey .progress-stage::before { display: none; }
+}
+/* Tracking pubblico: la scheda è stretta a ogni larghezza, quindi usa sempre l'impaginazione compatta. */
+.journey.journey--compact { --journey-truck: 84px; margin-top: 4px; padding: 0; overflow: visible; border: 0; background: none; box-shadow: none; }
+.journey--compact .journey-heading { align-items: flex-start; }
+.journey--compact .journey-now { justify-items: start; text-align: left; }
+.journey--compact .journey-scene { padding: 84px 0 40px; }
+.journey--compact .journey-place { font-size: .625rem; }
+.journey--compact .journey-stop { width: 14px; height: 14px; border-width: 2px; }
+.journey--compact .journey-stop.is-destination { width: 24px; height: 24px; }
+.journey--compact .journey-stop.is-current { box-shadow: 0 0 0 3px #ffffff26; }
+.journey--compact .progress-stage:not([aria-current="step"]) { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.journey--compact[data-journey-state="arrived"] .progress-stage:last-child { position: static; width: auto; height: auto; overflow: visible; clip-path: none; white-space: normal; }
+.journey--compact .progress-stages { display: block; padding-top: 16px; }
+.journey--compact .progress-stage { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 14px; padding-bottom: 0; }
+.journey--compact .progress-dot { margin: 0; }
+.journey--compact .progress-stage::before { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .journey :is(.journey-road-fill, .journey-vehicle, .journey-stop) { transition: none; }
+  .journey .journey-wheel, .journey .journey-truck, .journey .journey-stop { animation: none !important; }
+}
+
+/* Percorso e contatti: indirizzi in primo piano, dal mittente al destinatario. */
+.order-route-sheet { container-type: inline-size; }
+.order-route-sheet .section-heading > .order-route-count { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--ea-radius-button); background: var(--ea-surface-muted); color: var(--ea-ink); font-size: .8125rem; font-weight: 600; }
+.order-page .order-route-stops { position: relative; display: grid; gap: 0; margin: 18px 0 0; padding: 0; list-style: none; }
+.order-page .order-route-stops > .order-route-stop { position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 16px; padding: 0 0 22px; border: 0; }
+.order-page .order-route-stops > .order-route-stop + .order-route-stop { padding-top: 0; border-top: 0; }
+.order-route-stop:first-child::before { content: ''; position: absolute; top: 44px; bottom: 4px; left: 19px; width: 2px; background: repeating-linear-gradient(180deg, var(--ea-line) 0 6px, transparent 6px 11px); }
+.order-route-stop .order-stop-marker { width: 40px; height: 40px; border-radius: 50%; font-size: 1.05rem; }
+.order-route-stop--pickup .order-stop-marker { background: var(--ea-orange-soft); color: var(--ea-brand); }
+.order-route-stop--delivery .order-stop-marker { background: color-mix(in srgb, var(--ea-info) 14%, var(--ea-surface)); color: var(--ea-info); }
+.order-stop-body { display: grid; align-content: start; gap: 6px; min-width: 0; }
+.order-stop-role { color: var(--ea-muted); font-size: .6875rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.order-route-stop--pickup .order-stop-role { color: var(--ea-brand); }
+.order-route-stop--delivery .order-stop-role { color: var(--ea-info); }
+.order-page .order-route-stops .order-stop-name, .order-page .order-route-stops .order-stop-name .recipient-name { margin: 0; font-size: 1.05rem; font-weight: 650; line-height: 1.3; overflow-wrap: anywhere; }
+.order-stop-address { display: grid; gap: 2px; margin: 4px 0 0; padding: 12px 14px; border-radius: 16px; background: var(--ea-surface-muted); border-left: 3px solid var(--ea-signal); font-style: normal; }
+.order-route-stop--delivery .order-stop-address { border-left-color: var(--ea-info); }
+.order-stop-address strong { font-size: 1.125rem; font-weight: 700; line-height: 1.3; color: var(--ea-ink); overflow-wrap: anywhere; }
+.order-stop-address span { font-size: .9375rem; color: var(--ea-ink); }
+.order-stop-address small { color: var(--ea-muted); font-size: .75rem; }
+.order-stop-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 16px; margin: 6px 0 0; }
+.order-stop-facts > div { min-width: 0; }
+.order-stop-facts dt { color: var(--ea-muted); font-size: .6875rem; font-weight: 600; }
+.order-stop-facts dd { margin: 1px 0 0; font-size: .875rem; overflow-wrap: anywhere; }
+.order-stop-facts a { color: var(--ea-info); font-weight: 650; text-decoration: none; }
+.order-stop-facts a:hover { text-decoration: underline; }
+@container (min-width: 680px) {
+  .order-page .order-route-stops { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; }
+  .order-page .order-route-stops > .order-route-stop { padding: 0; }
+  .order-route-stop:first-child::before { inset: 19px -24px auto auto; top: 19px; left: auto; right: -22px; width: 18px; height: 2px; background: repeating-linear-gradient(90deg, var(--ea-line) 0 6px, transparent 6px 10px); }
+}
+@media (max-width: 575px) {
+  .order-page .order-route-stops > .order-route-stop { grid-template-columns: 32px minmax(0, 1fr); gap: 12px; }
+  .order-route-stop .order-stop-marker { width: 32px; height: 32px; font-size: .9rem; }
+  .order-route-stop:first-child::before { top: 36px; left: 15px; }
+  .order-stop-address strong { font-size: 1.0625rem; }
+}
+
+/* Su smartphone le azioni operative vengono prima del percorso: il lavoro di Rider e Admin resta in cima. */
+@media (max-width: 767px) {
+  .order-page { display: flex; flex-direction: column; }
+  .order-page > * { order: 5; }
+  .order-page > .page-back, .order-page > .order-detail-heading { order: 1; }
+  .order-page > .order-workflow { order: 2; }
+  .order-page > .journey { order: 3; }
+}
+.progress-exception.is-stopped { border-left-color: var(--ea-danger); }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Support\OrderProgress;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
@@ -36,6 +37,6 @@ class TrackingController extends Controller
             $returnLabel = 'Torna al gestionale';
         }
 
-        return view('tracking.public', ['returnUrl' => $returnUrl, 'returnLabel' => $returnLabel, 'shippingType' => $order->shipping_type, 'carrierTracking' => $order->carrier_tracking, 'carrierStatus' => $order->carrier_status, 'deliveryFrom' => $order->estimated_delivery_from, 'deliveryTo' => $order->estimated_delivery_to, 'reference' => $order->reference, 'status' => $order->status, 'estimated' => $order->estimated_at, 'events' => $order->events()->whereNull('delay_action')->select(['id', 'slug', 'status', 'schedule_change', 'public_note', 'created_at'])->latest()->orderByDesc('id')->paginate(30)]);
+        return view('tracking.public', ['progress' => [...app(OrderProgress::class)->current($order), 'pricing' => null], 'returnUrl' => $returnUrl, 'returnLabel' => $returnLabel, 'shippingType' => $order->shipping_type, 'carrierTracking' => $order->carrier_tracking, 'carrierStatus' => $order->carrier_status, 'deliveryFrom' => $order->estimated_delivery_from, 'deliveryTo' => $order->estimated_delivery_to, 'reference' => $order->reference, 'status' => $order->status, 'estimated' => $order->estimated_at, 'events' => $order->events()->whereNull('delay_action')->select(['id', 'slug', 'status', 'schedule_change', 'public_note', 'created_at'])->latest()->orderByDesc('id')->paginate(30)]);
     }
 }

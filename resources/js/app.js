@@ -6,6 +6,7 @@ import '../css/functional-revision.css';
 import '../css/rider-day.css';
 import '../css/staff-auth-revision.css';
 import '../css/order-workspace-revision.css';
+import '../css/order-detail-revision.css';
 import './order-history';
 import '../css/pickup-agenda.css';
 import './pickup-agenda';

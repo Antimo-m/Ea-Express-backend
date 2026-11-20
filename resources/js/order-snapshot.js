@@ -1,4 +1,5 @@
 import { bindFinancialForms } from './financial-forms';
+import { animateJourney, journeyPosition } from './order-journey';
 
 export function applyOrderSnapshot(html, { force = false, scroll } = {}) {
     const section = document.querySelector('[data-live-order]');
@@ -8,14 +9,15 @@ export function applyOrderSnapshot(html, { force = false, scroll } = {}) {
     if (Number(replacement.dataset.orderVersion) < Number(section.dataset.orderVersion)) return;
     section.dataset.orderVersion = replacement.dataset.orderVersion;
     const x = scroll?.x ?? window.scrollX, y = scroll?.y ?? window.scrollY;
-    for (const selector of ['.order-operational-summary', '.order-overview', '.order-information', '.order-focus-summary', '.shipment-progress', '.order-event-history', '.rider-assignment-card', '.order-workflow']) {
+    const previousJourney = journeyPosition(section);
+    for (const selector of ['.order-detail-status', '.order-operational-summary', '.order-overview', '.order-information', '.order-focus-summary', '.shipment-progress', '.order-event-history', '.rider-assignment-card', '.order-workflow']) {
         const current = section.querySelector(selector), next = replacement.querySelector(selector);
         if (!current || (!force && current.contains(document.activeElement))) continue;
         if (next) current.replaceWith(next);
         else current.remove();
     }
     const progress = section.querySelector('.shipment-progress');
-    if (progress) { progress.classList.remove('is-updated'); requestAnimationFrame(() => progress.classList.add('is-updated')); }
+    if (progress && !animateJourney(previousJourney, section)) { progress.classList.remove('is-updated'); requestAnimationFrame(() => progress.classList.add('is-updated')); }
     bindFinancialForms(section);
     document.dispatchEvent(new Event('ea:controls-updated'));
     window.scrollTo({ left: x, top: y, behavior: 'instant' });

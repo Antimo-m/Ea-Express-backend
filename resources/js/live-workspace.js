@@ -1,6 +1,7 @@
 import { cancelToast, transientFeedback } from './toast-feedback';
 import { restoreOrderPreviews } from './operational-orders';
 import { applyOrderSnapshot } from './order-snapshot';
+import { animateJourney, journeyPosition } from './order-journey';
 import { connectWorkspace } from './workspace-realtime';
 import { observeMessageReceipts } from './message-receipts';
 import { createRefreshQueue } from './refresh-queue';
@@ -140,7 +141,7 @@ if (tracking) {
   window.addEventListener('ea:workspace-updated', async () => {
     if (refreshing) return;
     refreshing = true;
-    try { const response = await fetch(location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' } }); if (!response.ok) return; const fresh = new DOMParser().parseFromString(await response.text(), 'text/html').querySelector('.tracking-document'); if (fresh) tracking.querySelector('.tracking-document').replaceWith(fresh); }
+    try { const response = await fetch(location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' } }); if (!response.ok) return; const fresh = new DOMParser().parseFromString(await response.text(), 'text/html').querySelector('.tracking-document'); if (fresh) { const previous = journeyPosition(tracking); tracking.querySelector('.tracking-document').replaceWith(fresh); animateJourney(previous, tracking); } }
     finally { refreshing = false; }
   });
 }

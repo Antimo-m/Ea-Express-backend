@@ -6,9 +6,10 @@
     @endphp
     <nav class="page-back" aria-label="Navigazione pagina"><x-ui.icon-button action="back" :href="$operationsReturn ?: route($returnRoute)" label="Torna indietro" text /></nav>
     <header class="page-heading order-detail-heading">
-        <div><span class="eyebrow text-break">Ordine: {{ $order->reference }}</span><h1>{{ $order->displayName() }}</h1><p>{{ $order->sender_type === 'private' ? 'Privato' : ($order->sender_type === 'online_shop' ? 'Shop online' : ($order->business_type ?: 'Attività commerciale')) }} · {{ $order->pickup_city }} → {{ $order->delivery_city }}</p></div>
-        <div class="row-actions"><x-ui.status-badge :status="$order->status" />@if($order->receipt_voided_at)<span class="status-pill tone-danger">Incasso stornato</span>@endif<x-ui.icon-button action="message" :href="route('messages.show', $order)" label="Apri messaggi del cliente" /><x-ui.icon-button action="print" data-label-availability :aria-disabled="$order->parcel_count > 0 ? 'false' : 'true'" href="{{ route('labels.index', ['ids' => [$order->slug]]) }}" label="Stampa etichetta" target="_blank" rel="noopener" /></div>
+        <div><span class="eyebrow text-break">Ordine · {{ $order->reference }}</span><h1>{{ $order->displayName() }}</h1><p class="order-detail-meta"><span><x-ui.icon name="shop" /> {{ $order->sender_type === 'private' ? 'Privato' : ($order->sender_type === 'online_shop' ? 'Shop online' : ($order->business_type ?: 'Attività commerciale')) }}</span><span><x-ui.icon name="signpost-split" /> {{ $order->pickup_city }} → {{ $order->delivery_city }}</span><span><x-ui.icon name="box-seam" /> {{ $order->parcel_count }} {{ $order->parcel_count === 1 ? 'collo' : 'colli' }}</span></p></div>
+        <div class="row-actions"><span class="order-detail-status"><x-ui.status-badge :status="$order->status" />@if($order->receipt_voided_at)<span class="status-pill tone-danger">Incasso stornato</span>@endif</span><x-ui.icon-button action="message" :href="route('messages.show', $order)" label="Apri messaggi del cliente" /><x-ui.icon-button action="print" data-label-availability :aria-disabled="$order->parcel_count > 0 ? 'false' : 'true'" href="{{ route('labels.index', ['ids' => [$order->slug]]) }}" label="Stampa etichetta" target="_blank" rel="noopener" /></div>
     </header>
+    <x-orders.progress :progress="$progress" :from="$order->pickup_city" :to="$order->delivery_city" />
     <div class="order-workflow">
         @can('update', $order)
             @if(count($transitions) && ($order->status !== \App\OrderStatus::Rejected || $order->recoverable()))
@@ -26,11 +27,35 @@
     <div class="order-detail-layout">
         <div class="order-data-stack">
             <section class="surface order-route-sheet" id="order-route" aria-labelledby="order-route-title">
-                <header class="section-heading"><div><span class="eyebrow">PERCORSO E CONTATTI</span><h2 id="order-route-title">Dal mittente al destinatario</h2></div><span>{{ $order->parcel_count }} {{ $order->parcel_count === 1 ? 'collo' : 'colli' }}</span></header>
-                <div class="order-route-stops">
-                    <div><span class="order-stop-marker" aria-hidden="true"><x-ui.icon name="box-seam" /></span><div><span class="data-label">Ritiro · {{ $order->pickup_date->format('d/m/Y') }} · {{ substr($order->pickup_from, 0, 5) }}–{{ substr($order->pickup_to, 0, 5) }}</span><h3>{{ $order->displayName() }}</h3><p>{{ $order->pickup_address }} {{ $order->pickup_street_number }}<br>{{ $order->pickup_postal_code }} {{ $order->pickup_city }}</p><span class="register-note">Contatto mittente: {{ $order->contact_email ?: 'Non indicato' }}</span>@if($order->business_description)<p class="register-note">{{ $order->business_description }}</p>@endif</div></div>
-                    <div><span class="order-stop-marker" aria-hidden="true"><x-ui.icon name="geo-alt" /></span><div><span class="data-label">Consegna · {{ $order->delivery_province }} / {{ $order->delivery_region }}</span><h3><x-orders.recipient-name :name="$order->recipient_name" :risk="$recipientRisk" /></h3><p>{{ $order->delivery_address }} {{ $order->delivery_street_number }}<br>{{ $order->delivery_postal_code }} {{ $order->delivery_city }}</p><span class="register-note">Telefono destinatario: {{ $order->recipient_phone }}</span><span class="register-note">Preferenza oraria: {{ $order->delivery_window ?: 'Nessuna preferenza' }}</span><span class="register-note">Orario previsto: {{ $order->estimated_at?->timezone('Europe/Rome')->format('d/m/Y H:i') ?: 'Non disponibile' }}</span></div></div>
-                </div>
+                <header class="section-heading"><div><span class="eyebrow">PERCORSO E CONTATTI</span><h2 id="order-route-title">Dal mittente al destinatario</h2></div><span class="order-route-count"><x-ui.icon name="box-seam" /> {{ $order->parcel_count }} {{ $order->parcel_count === 1 ? 'collo' : 'colli' }}</span></header>
+                <ol class="order-route-stops">
+                    <li class="order-route-stop order-route-stop--pickup">
+                        <span class="order-stop-marker" aria-hidden="true"><x-ui.icon name="box-arrow-up" /></span>
+                        <div class="order-stop-body">
+                            <span class="order-stop-role">Mittente · Ritiro</span>
+                            <h3 class="order-stop-name">{{ $order->displayName() }}</h3>
+                            <address class="order-stop-address"><strong>{{ $order->pickup_address }} {{ $order->pickup_street_number }}</strong><span>{{ $order->pickup_postal_code }} {{ $order->pickup_city }}</span></address>
+                            <dl class="order-stop-facts">
+                                <div><dt>Ritiro</dt><dd>{{ $order->pickup_date->format('d/m/Y') }} · {{ substr($order->pickup_from, 0, 5) }}–{{ substr($order->pickup_to, 0, 5) }}</dd></div>
+                                <div><dt>Contatto mittente</dt><dd>{{ $order->contact_email ?: 'Non indicato' }}</dd></div>
+                            </dl>
+                            @if($order->business_description)<p class="register-note">{{ $order->business_description }}</p>@endif
+                        </div>
+                    </li>
+                    <li class="order-route-stop order-route-stop--delivery">
+                        <span class="order-stop-marker" aria-hidden="true"><x-ui.icon name="geo-alt-fill" /></span>
+                        <div class="order-stop-body">
+                            <span class="order-stop-role">Destinatario · Consegna</span>
+                            <x-orders.recipient-name class="order-stop-name" tag="h3" :name="$order->recipient_name" :risk="$recipientRisk" />
+                            <address class="order-stop-address"><strong>{{ $order->delivery_address }} {{ $order->delivery_street_number }}</strong><span>{{ $order->delivery_postal_code }} {{ $order->delivery_city }}</span>@if($order->delivery_province || $order->delivery_region)<small>{{ collect([$order->delivery_province, $order->delivery_region])->filter()->unique()->implode(' · ') }}</small>@endif</address>
+                            <dl class="order-stop-facts">
+                                <div><dt>Telefono destinatario</dt><dd>@if($order->recipient_phone)<a href="tel:{{ preg_replace('/[^+\d]/', '', $order->recipient_phone) }}">{{ $order->recipient_phone }}</a>@else Non indicato @endif</dd></div>
+                                <div><dt>Preferenza oraria</dt><dd>{{ $order->delivery_window ?: 'Nessuna preferenza' }}</dd></div>
+                                <div><dt>Orario previsto</dt><dd>{{ $order->estimated_at?->timezone('Europe/Rome')->format('d/m/Y H:i') ?: 'Non disponibile' }}</dd></div>
+                            </dl>
+                        </div>
+                    </li>
+                </ol>
                 @if($order->customer_notes)<div class="operational-note"><strong>Istruzioni del cliente</strong><p>{{ $order->customer_notes }}</p></div>@endif
             </section>
             <section class="surface order-information" id="order-information" aria-labelledby="order-information-title">
@@ -48,7 +73,6 @@
                 @if($order->packages)<details class="order-package-details"><summary>Peso e dimensioni · {{ count($order->packages) }} {{ count($order->packages) === 1 ? 'pacco' : 'pacchi' }}</summary><div class="package-summary">@foreach($order->packages as $package)<p><strong>Pacco {{ $loop->iteration }}</strong> · {{ $package['weight_kg'] }} kg · {{ $package['length_cm'] }} × {{ $package['width_cm'] }} × {{ $package['height_cm'] }} cm</p>@endforeach</div></details>@endif
                 @if($order->notes)<div class="operational-note internal"><strong>Note interne · solo operatori</strong><p>{{ $order->notes }}</p></div>@endif
             </section>
-            <x-orders.progress :progress="$progress" />
         </div>
         <aside class="order-support" aria-label="Tariffa e strumenti operativi">
             @if(auth()->user()->role === \App\UserRole::Admin)
