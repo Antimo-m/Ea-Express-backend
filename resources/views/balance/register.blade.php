@@ -10,7 +10,7 @@
                     <strong class="money-row-amount"><x-ui.signed-money :amount="$movement['amount']" /></strong>
                     <span class="money-row-state">{{ $movement['state'] }}</span><span class="money-row-expand" aria-hidden="true">⌄</span>
                 </summary>
-                <div class="money-row-detail">
+                <div class="money-row-detail"><div class="movement-card">
                     <dl><div><dt>Tipo di operazione</dt><dd>{{ $movement['type'] }}</dd></div><div><dt>Data</dt><dd>{{ $movement['date']->format('d/m/Y H:i') }}</dd></div>
                         <div><dt>{{ $movement['cash'] > 0 ? 'Importo ricevuto' : 'Effetto sulla cassa' }}</dt><dd><x-ui.signed-money :amount="$movement['cash']" /></dd></div>
                         <div><dt>Effetto sul risultato economico</dt><dd><x-ui.signed-money :amount="$movement['economic']" /></dd></div>
@@ -19,29 +19,35 @@
                         @if($movement['reason'])<div class="money-detail-wide"><dt>Motivo della differenza</dt><dd>{{ $movement['reason'] }}</dd></div>@endif
                         @if($movement['note'])<div class="money-detail-wide"><dt>Note</dt><dd>{{ $movement['note'] }}</dd></div>@endif
                     </dl>
-                    <div class="register-actions">
-                        @if($movement['order'])<a class="btn btn-outline-primary btn-sm" href="{{ route('orders.show', $movement['order']) }}">Apri ordine</a>@endif
-                        @if(auth()->user()->role === \App\UserRole::Admin)
-                            <a class="btn btn-outline-secondary btn-sm" href="{{ route('audits.index', ['type' => $movement['audit_type'], 'slug' => $movement['slug']]) }}">Audit del movimento</a>
-                            @if($movement['original'])<a class="btn btn-outline-secondary btn-sm" href="{{ route('audits.index', ['type' => 'payment_entries', 'slug' => $movement['original']->slug]) }}">Movimento originale</a>@endif
-                            @if($movement['account'])<a class="btn btn-outline-secondary btn-sm" href="{{ route('pending.index', ['slug' => $movement['account']->slug]) }}">Posizione e pagamenti</a>@endif
-                        @endif
-                        @php($entry = $movement['model'])
-                        @if($movement['source'] === 'payment' && auth()->user()->role === \App\UserRole::Admin)
-                            @php($order = $entry->order)
-                            @if(in_array($entry->kind, ['receipt', 'recollection']) || $entry->kind === null)@include('balance.receipt-actions')@endif
-                            <a class="btn btn-outline-secondary btn-sm" href="{{ route('audits.index', ['type' => 'orders', 'slug' => $order->slug]) }}">Storico incasso, storno e ripristino</a>
-                            @if($entry->kind === 'refund' && ! $entry->audits->contains(fn ($audit) => in_array($audit->action, ['payment.refund_verified', 'payment.refund_disputed']) || ($audit->after['cash_confirmation'] ?? null) === 'explicit_payment'))<button type="button" class="btn btn-outline-secondary" data-dialog-open="verify-refund-{{ $entry->slug }}" aria-controls="verify-refund-{{ $entry->slug }}" aria-haspopup="dialog">Riconcilia rimborso storico</button>@endif
-                        @endif
-                        @if($movement['source'] === 'expense' && ! $entry->voided_at && ! $entry->pending_settlement_id)
-                            <x-ui.icon-button action="edit" label="Modifica spesa" :data-dialog-open="'expense-edit-'.$entry->slug" :aria-controls="'expense-edit-'.$entry->slug" aria-haspopup="dialog" />
-                            <form method="post" action="{{ route('expenses.destroy', $entry) }}" data-financial-form data-confirm="Annulla spesa" data-confirm-name="{{ $entry->description }}">@csrf @method('delete')<x-ui.icon-button action="delete" label="Annulla registrazione" type="submit" /></form>
-                        @elseif($movement['source'] === 'manual' && ! $entry->voided_at)
-                            <x-ui.icon-button action="edit" label="Modifica movimento" :data-dialog-open="'cash-edit-'.$entry->slug" :aria-controls="'cash-edit-'.$entry->slug" aria-haspopup="dialog" />
-                            <form method="post" action="{{ route('movements.destroy', $entry) }}" data-financial-form data-confirm="Annulla movimento" data-confirm-name="{{ $entry->description }}">@csrf @method('delete')<input type="hidden" name="version" value="{{ $entry->version }}"><x-ui.icon-button action="delete" label="Annulla movimento" type="submit" /></form>
-                        @endif
-                    </div>
-                </div>
+                    @php($entry = $movement['model'])
+                    @php($isAdmin = auth()->user()->role === \App\UserRole::Admin)
+                    @php($hasReceiptMenu = $movement['source'] === 'payment' && (in_array($entry->kind, ['receipt', 'recollection']) || $entry->kind === null))
+                    <footer class="register-actions movement-actions">
+                        <div class="movement-actions-main">
+                            @if($movement['order'])<x-ui.icon-button action="open" label="Apri ordine" :href="route('orders.show', $movement['order'])" />@endif
+                            @if($isAdmin)
+                                <x-ui.icon-button action="history" icon="journal-check" label="Audit del movimento" :href="route('audits.index', ['type' => $movement['audit_type'], 'slug' => $movement['slug']])" />
+                                @if($movement['source'] === 'payment' && ! $hasReceiptMenu)<x-ui.icon-button action="history" icon="clock-history" label="Storico incasso, storno e ripristino" :href="route('audits.index', ['type' => 'orders', 'slug' => $entry->order->slug])" />@endif
+                                @if($movement['original'])<a class="btn btn-outline-secondary btn-sm" href="{{ route('audits.index', ['type' => 'payment_entries', 'slug' => $movement['original']->slug]) }}">Movimento originale</a>@endif
+                                @if($movement['account'])<a class="btn btn-outline-secondary btn-sm" href="{{ route('pending.index', ['slug' => $movement['account']->slug]) }}">Posizione e pagamenti</a>@endif
+                            @endif
+                        </div>
+                        <div class="movement-actions-side">
+                            @if($movement['source'] === 'payment' && $isAdmin)
+                                @php($order = $entry->order)
+                                @if($hasReceiptMenu)@include('balance.receipt-actions')@endif
+                                @if($entry->kind === 'refund' && ! $entry->audits->contains(fn ($audit) => in_array($audit->action, ['payment.refund_verified', 'payment.refund_disputed']) || ($audit->after['cash_confirmation'] ?? null) === 'explicit_payment'))<button type="button" class="btn btn-outline-secondary" data-dialog-open="verify-refund-{{ $entry->slug }}" aria-controls="verify-refund-{{ $entry->slug }}" aria-haspopup="dialog">Riconcilia rimborso storico</button>@endif
+                            @endif
+                            @if($movement['source'] === 'expense' && ! $entry->voided_at && ! $entry->pending_settlement_id)
+                                <x-ui.icon-button action="edit" label="Modifica spesa" :data-dialog-open="'expense-edit-'.$entry->slug" :aria-controls="'expense-edit-'.$entry->slug" aria-haspopup="dialog" />
+                                <form method="post" action="{{ route('expenses.destroy', $entry) }}" data-financial-form data-confirm="Annulla spesa" data-confirm-name="{{ $entry->description }}">@csrf @method('delete')<x-ui.icon-button action="delete" label="Annulla registrazione" type="submit" /></form>
+                            @elseif($movement['source'] === 'manual' && ! $entry->voided_at)
+                                <x-ui.icon-button action="edit" label="Modifica movimento" :data-dialog-open="'cash-edit-'.$entry->slug" :aria-controls="'cash-edit-'.$entry->slug" aria-haspopup="dialog" />
+                                <form method="post" action="{{ route('movements.destroy', $entry) }}" data-financial-form data-confirm="Annulla movimento" data-confirm-name="{{ $entry->description }}">@csrf @method('delete')<input type="hidden" name="version" value="{{ $entry->version }}"><x-ui.icon-button action="delete" label="Annulla movimento" type="submit" /></form>
+                            @endif
+                        </div>
+                    </footer>
+                </div></div>
             </details>
         @empty<p class="register-empty">Nessun movimento in questa categoria nel periodo.</p>@endforelse
     </div>

@@ -1,4 +1,22 @@
-<x-ui.modal id="pending-create" title="Registra sospeso" description="Registra un credito o un debito e i riferimenti utili per seguirlo."><div class="modal-content-area"><form method="post" action="{{ route('pending.store') }}" class="form-stack mt-3" data-financial-form>@csrf<div class="field-grid"><div><label class="form-label" for="customer_id">Cliente / Account *</label><select class="form-select" id="customer_id" name="customer_id" required><option value="">Seleziona un cliente</option>@foreach($customers as $customer)<option value="{{ $customer->slug }}">{{ $customer->name }} · {{ $customer->email }}@if($customer->business_type) · {{ $customer->business_type }}@endif @unless($customer->is_active) · Disattivato @endunless</option>@endforeach</select></div><x-ui.field name="subject" label="Soggetto" required maxlength="150"/><div><label for="direction" class="form-label">Direzione</label><select class="form-select" name="direction" id="direction"><option value="incoming">Entrata · il cliente deve pagare EA-Express</option><option value="outgoing">Uscita · EA-Express deve pagare il cliente</option></select></div><x-ui.field name="amount" label="Importo (€)" inputmode="decimal" required/><x-ui.field name="description" label="Descrizione" required maxlength="500"/><x-ui.field name="occurred_on" label="Data" type="date" :value="now('Europe/Rome')->toDateString()" required/><x-ui.field name="due_on" label="Scadenza" type="date"/><x-ui.field name="order_id" label="Riferimento ordine (facoltativo)" help="Per un ordine consegnato, inserisci il residuo esatto. Il saldo verrà registrato anche nei suoi incassi."/></div><x-ui.field name="notes" label="Note" maxlength="4000"/><x-ui.icon-button action="add" label="Registra sospeso" type="submit" /></form></div></x-ui.modal>
+<x-ui.modal id="pending-create" title="Registra sospeso" description="Registra un credito o un debito e i riferimenti utili per seguirlo."><div class="modal-content-area"><form method="post" action="{{ route('pending.store') }}" class="form-stack pending-create-form mt-3" data-financial-form>@csrf
+    <fieldset class="pending-form-group"><legend>Cliente e importo</legend>
+        <div class="pending-form-grid pending-form-grid--amount">
+            <div class="pending-span-full"><label class="form-label" for="customer_id">Cliente / Account <span class="required-marker" aria-hidden="true">*</span></label><select class="form-select" id="customer_id" name="customer_id" required><option value="">Seleziona un cliente</option>@foreach($customers as $customer)<option value="{{ $customer->slug }}">{{ $customer->name }} · {{ $customer->email }}@if($customer->business_type) · {{ $customer->business_type }}@endif @unless($customer->is_active) · Disattivato @endunless</option>@endforeach</select></div>
+            <div><label for="direction" class="form-label">Direzione</label><select class="form-select" name="direction" id="direction"><option value="incoming">Entrata · il cliente deve pagare EA-Express</option><option value="outgoing">Uscita · EA-Express deve pagare il cliente</option></select></div>
+            <x-ui.field name="amount" label="Importo (€)" inputmode="decimal" required/>
+            <div class="pending-span-full"><x-ui.field name="subject" label="Soggetto" required maxlength="150"/></div>
+            <div class="pending-span-full"><x-ui.field name="description" label="Descrizione" required maxlength="500"/></div>
+        </div>
+    </fieldset>
+    <fieldset class="pending-form-group"><legend>Date e riferimenti</legend>
+        <div class="pending-form-grid">
+            <x-ui.field name="occurred_on" label="Data" type="date" :value="now('Europe/Rome')->toDateString()" required/>
+            <x-ui.field name="due_on" label="Scadenza" type="date"/>
+            <div class="pending-span-full"><x-ui.field name="order_id" label="Riferimento ordine (facoltativo)" help="Per un ordine consegnato, inserisci il residuo esatto. Il saldo verrà registrato anche nei suoi incassi."/></div>
+            <div class="pending-span-full"><x-ui.field name="notes" label="Note" maxlength="4000"/></div>
+        </div>
+    </fieldset>
+    <x-ui.icon-button action="add" label="Registra sospeso" type="submit" /></form></div></x-ui.modal>
 @foreach($accounts as $account)
     @php($customerLabel = ($account->customer ? $account->customer->name.' · '.$account->customer->email : 'Cliente non associato · visibile solo all’amministratore').' · '.$account->subject)
     @unless($account->customer_id)
@@ -29,7 +47,7 @@
                 <x-ui.field :id="'edit-description-'.$account->slug" name="description" label="Descrizione" :value="$account->description" maxlength="500" required />
                 <x-ui.field :id="'edit-due-'.$account->slug" name="due_on" label="Scadenza" type="date" :value="$account->due_on?->toDateString()" />
                 <x-ui.field :id="'edit-notes-'.$account->slug" name="notes" label="Note" :value="$account->notes" maxlength="4000" />
-                <div class="row-actions"><x-ui.icon-button action="confirm" label="Salva dati" type="submit" name="action" value="update" text />@unless($account->settled_cents)<x-ui.icon-button action="delete" label="Annulla sospeso" type="submit" name="action" value="cancel" data-confirm="Annulla sospeso" :data-confirm-name="$account->subject" />@endunless</div>
+                <footer class="modal-actions pending-edit-actions"><x-ui.icon-button action="back" label="Torna indietro" data-dialog-close /><x-ui.icon-button action="confirm" label="Salva dati" type="submit" name="action" value="update" text />@unless($account->settled_cents)<x-ui.icon-button action="delete" label="Annulla sospeso" type="submit" name="action" value="cancel" data-confirm="Annulla sospeso" :data-confirm-name="$account->subject" />@endunless</footer>
             </form>
         </div></x-ui.modal>
     @endif
