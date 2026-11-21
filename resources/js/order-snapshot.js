@@ -1,5 +1,6 @@
 import { bindFinancialForms } from './financial-forms';
 import { animateJourney, journeyPosition } from './order-journey';
+import { markStatusChange, statusSignature } from './status-badges';
 
 export function applyOrderSnapshot(html, { force = false, scroll } = {}) {
     const section = document.querySelector('[data-live-order]');
@@ -10,12 +11,15 @@ export function applyOrderSnapshot(html, { force = false, scroll } = {}) {
     section.dataset.orderVersion = replacement.dataset.orderVersion;
     const x = scroll?.x ?? window.scrollX, y = scroll?.y ?? window.scrollY;
     const previousJourney = journeyPosition(section);
+    const previousStatus = statusSignature(section.querySelector('.order-detail-status .status-badge'));
     for (const selector of ['.order-detail-status', '.order-operational-summary', '.order-overview', '.order-information', '.order-focus-summary', '.shipment-progress', '.order-event-history', '.rider-assignment-card', '.order-workflow']) {
         const current = section.querySelector(selector), next = replacement.querySelector(selector);
         if (!current || (!force && current.contains(document.activeElement))) continue;
         if (next) current.replaceWith(next);
         else current.remove();
     }
+    const status = section.querySelector('.order-detail-status .status-badge');
+    if (previousStatus && statusSignature(status) !== previousStatus) markStatusChange(status);
     const progress = section.querySelector('.shipment-progress');
     if (progress && !animateJourney(previousJourney, section)) { progress.classList.remove('is-updated'); requestAnimationFrame(() => progress.classList.add('is-updated')); }
     bindFinancialForms(section);

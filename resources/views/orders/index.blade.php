@@ -37,7 +37,7 @@
         <div class="history-print-controls" hidden>
             <p>Scegli una giornata intera oppure una singola spedizione. I filtri attivi vengono mantenuti.</p>
             <p role="status" data-history-print-status>Nessuna etichetta selezionata</p>
-            <div class="action-pair"><button type="button" class="btn btn-outline-secondary" data-history-print-cancel>Annulla selezione</button><x-ui.icon-button action="print" label="Conferma stampa" data-history-print-confirm aria-disabled="true" text /></div>
+            <div class="action-pair"><button type="button" class="btn btn-danger" data-history-print-cancel><x-ui.icon name="x-circle" /> Annulla selezione</button><x-ui.icon-button action="print" label="Conferma stampa" data-history-print-confirm aria-disabled="true" text /></div>
         </div>
         <p role="status" data-label-status></p>
     </section>

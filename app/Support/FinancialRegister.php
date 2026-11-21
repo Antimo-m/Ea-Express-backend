@@ -47,7 +47,7 @@ class FinancialRegister
             ->paginate(10, ['*'], 'movements_page')->withQueryString();
         $ids = $page->getCollection()->groupBy('source')->map(fn ($rows) => $rows->pluck('id'));
         $models = [
-            'payment' => PaymentEntry::whereIn('id', $ids['payment'] ?? [])->with(['order' => fn ($q) => $q->withDisplayIdentity()->withReceiptLedger()->with('payments'), 'user', 'originalEntry', 'reversal', 'audits'])->get()->keyBy('id'),
+            'payment' => PaymentEntry::whereIn('id', $ids['payment'] ?? [])->with(['order' => fn ($q) => $q->withDisplayIdentity()->withReceiptLedger()->with(['payments', 'rider:id,slug,name', 'deliveryEvent.rider:id,slug,name']), 'user', 'originalEntry', 'reversal', 'audits'])->get()->keyBy('id'),
             'settlement' => PendingSettlement::whereIn('id', $ids['settlement'] ?? [])->with(['account.customer', 'user'])->get()->keyBy('id'),
             'expense' => Expense::whereIn('id', $ids['expense'] ?? [])->with(['pendingSettlement.account.customer', 'user'])->get()->keyBy('id'),
             'manual' => FinancialMovement::whereIn('id', $ids['manual'] ?? [])->with(['customer', 'order', 'user'])->get()->keyBy('id'),

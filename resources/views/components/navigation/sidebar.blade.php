@@ -5,7 +5,7 @@
         @if(auth()->user()->role === \App\UserRole::Admin)<x-ui.icon-button action="add" href="{{ route('orders.create') }}" label="Nuova richiesta" class="sidebar-create " text />@endif
         <nav aria-label="Navigazione principale">
             @foreach (config('navigation') as $group => $items)
-                @php($items = collect($items)->filter(fn ($item) => !($item['admin'] ?? false) || auth()->user()->role === \App\UserRole::Admin))
+                @php($items = collect($items)->filter(fn ($item) => (!($item['admin'] ?? false) || auth()->user()->role === \App\UserRole::Admin) && (!($item['rider'] ?? false) || auth()->user()->role === \App\UserRole::Rider)))
                 @if($items->isNotEmpty())
                 <div class="nav-group"><p class="nav-group-label">{{ $group }}</p>@foreach ($items as $item)<x-navigation.link :item="$item" />@endforeach</div>
                 @endif

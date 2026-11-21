@@ -20,7 +20,16 @@ class CustomerLabelController extends Controller
             $count = (clone $query)->count();
             abort_if($count > 1000 || (clone $query)->sum('parcel_count') > 1000, 422, 'Il documento supera 1000 etichette. Restringi i filtri.');
             if ($request->boolean('preview')) {
-                return response()->json(['count' => $count, 'day' => $data['day']]);
+                // Elenco compatto della giornata per la scelta delle singole etichette: solo i campi mostrati nella selezione.
+                $orders = (clone $query)->orderBy('pickup_from')->orderBy('id')->get(['slug', 'reference', 'store_name', 'pickup_address', 'pickup_street_number', 'pickup_city', 'recipient_name', 'delivery_address', 'delivery_street_number', 'delivery_city', 'parcel_count', 'pickup_from', 'pickup_to']);
+
+                return response()->json(['count' => $count, 'day' => $data['day'], 'orders' => $orders->map(fn (Order $order): array => [
+                    'slug' => $order->slug, 'reference' => $order->reference, 'store_name' => $order->store_name,
+                    'pickup' => trim(trim($order->pickup_address.' '.$order->pickup_street_number).', '.$order->pickup_city, ', '),
+                    'recipient_name' => $order->recipient_name,
+                    'delivery' => trim(trim($order->delivery_address.' '.$order->delivery_street_number).', '.$order->delivery_city, ', '),
+                    'parcel_count' => $order->parcel_count, 'pickup_from' => substr((string) $order->pickup_from, 0, 5), 'pickup_to' => substr((string) $order->pickup_to, 0, 5),
+                ])->values()]);
             }
             abort_if($count === 0, 422, 'Al momento non ci sono ordini da stampare');
 

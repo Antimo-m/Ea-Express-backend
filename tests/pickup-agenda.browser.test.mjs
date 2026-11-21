@@ -54,7 +54,7 @@ test('Agenda: account SQL separati dagli ordini, apertura limitata e aggiornamen
   const check=async label=>{const result=await evaluate('return {width:innerWidth,scroll:document.documentElement.scrollWidth,overflow:[...document.querySelectorAll("main *")].filter(node=>{const r=node.getBoundingClientRect();return r.width&&r.right>innerWidth+1&&getComputedStyle(node).position!=="fixed";}).slice(0,5).map(node=>node.className)};');assert.ok(result.scroll<=result.width+1,label+' '+JSON.stringify(result));};
   const ordersCalls=()=>calls.filter(call=>call.path.includes('/accounts/'));
   const openFirst=async()=>{await evaluate('document.querySelector("[data-pickup-account] > summary").click();');await waitFor('document.querySelector("[data-pickup-account][open] [data-pickup-orders-page]") && !document.querySelector("[data-pickup-orders][aria-busy=true]")');};
-  const currentIds=()=>evaluate("return [...document.querySelectorAll(\"[data-pickup-account][open] input[name='ids[]']\")].map(input=>input.value);");
+  const currentIds=()=>evaluate("return [...document.querySelectorAll(\"[data-pickup-account][open] input[type=checkbox][name='ids[]']\")].map(input=>input.value);");
   const dayUrl='/pickups/day?date='+manifest.date+'&page=1&per_page=10';
   const singleUrl='/pickups/day?date='+manifest.single.date+'&page=1&per_page=10';
   for(const width of[320,375,390,430,768,1024,1440])await t.test(width+'px: calendario, 10 account chiusi e ordini senza overflow',async()=>{
@@ -72,8 +72,9 @@ test('Agenda: account SQL separati dagli ordini, apertura limitata e aggiornamen
    const first=await currentIds();assert.equal(first.length,20);assert.ok(first.every(id=>/^[0-9a-f-]{36}$/.test(id)));
    await evaluate('document.querySelector(".pickup-orders-pagination a[rel=next]").click();');await waitFor("document.querySelector(\"[data-pickup-orders-page='2']\")");
    const second=await currentIds();assert.equal(second.length,20);assert.equal(second.filter(id=>first.includes(id)).length,0);
-   const print=await evaluate('const form=document.querySelector(".pickup-print-form");return {path:new URL(form.action).pathname,ids:new FormData(form).getAll("ids[]")};');assert.equal(print.path,'/labels');assert.deepEqual(print.ids,second);
-   await evaluate('document.querySelector("[data-select-labels]").click();');assert.equal(await evaluate('return new FormData(document.querySelector(".pickup-print-form")).getAll("ids[]").length;'),0);
+   const print=await evaluate('const form=document.querySelector(".pickup-print-form");return {path:new URL(form.action).pathname,ids:new FormData(form).getAll("ids[]")};');assert.equal(print.path,'/labels');assert.equal(print.ids.length,40,'la selezione della pagina 1 resta valida sulla pagina 2');assert.equal(new Set(print.ids).size,40,'nessun duplicato');assert.deepEqual([...print.ids].sort(),[...first,...second].sort());
+   assert.equal(await evaluate('return document.querySelector("[data-label-count]").textContent;'),'40 etichette selezionate su 47 ordini');
+   await evaluate('document.querySelector("[data-select-labels]").click();');await new Promise(resolve=>setTimeout(resolve,30));assert.deepEqual((await evaluate('return new FormData(document.querySelector(".pickup-print-form")).getAll("ids[]");')).sort(),[...first].sort());
    await evaluate('document.querySelector("[data-select-labels]").click();');
    await evaluate('document.querySelector(".pickup-orders-pagination a[rel=next]").click();');await waitFor("document.querySelector(\"[data-pickup-orders-page='3']\")");const third=await currentIds();assert.equal(third.length,7);assert.equal(new Set([...first,...second,...third]).size,47);
    const requested=ordersCalls().length;await evaluate('document.querySelector(".pickup-orders-pagination a[rel=prev]").click();');await waitFor("document.querySelector(\"[data-pickup-orders-page='2']\")");assert.equal(ordersCalls().length,requested);
@@ -98,7 +99,7 @@ test('Agenda: account SQL separati dagli ordini, apertura limitata e aggiornamen
   });
   await t.test('mutazione reale invalida cache, aggiorna i conteggi a 46 e conserva espansione selezione e scroll',async()=>{
    failure=0;await navigate(singleUrl);await openFirst();const previous=await currentIds();
-   await evaluate("const boxes=document.querySelectorAll(\"input[name='ids[]']\");boxes[1].checked=false;boxes[1].dispatchEvent(new Event(\"change\",{bubbles:true}));window.scrollTo({top:850,behavior:\"instant\"});");
+   await evaluate("const boxes=document.querySelectorAll(\"input[type=checkbox][name='ids[]']\");boxes[1].checked=false;boxes[1].dispatchEvent(new Event(\"change\",{bubbles:true}));window.scrollTo({top:850,behavior:\"instant\"});");
    const scroll=await evaluate('return scrollY;'),before=ordersCalls().length;mode='changed';
    await evaluate('window.dispatchEvent(new CustomEvent("ea:workspace-updated",{detail:{kind:"order"}}));');
    await waitFor("document.querySelector(\"[data-pickup-day-total]\")?.textContent===\"46\" && document.querySelector(\"[data-pickup-orders-total='46']\")");

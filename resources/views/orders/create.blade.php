@@ -32,13 +32,7 @@
                 </div>
                 <div class="booking-grid booking-business identity-business" data-business-fields @if(old('sender_type')==='private' ) hidden @endif>
                     <x-ui.field width="business" name="business_type" label="Tipologia attività" :value="old('business_type')" maxlength="100" list="business-types" placeholder="Scegli o scrivi liberamente" />
-                    <datalist id="business-types">
-                        <option value="Abbigliamento">
-                        <option value="Fiorista">
-                        <option value="Artigianato">
-                        <option value="E-commerce">
-                        <option value="Alimentari">
-                    </datalist>
+                    <datalist id="business-types">@foreach(\App\Support\CustomerIdentity::BusinessTypes as $businessType)<option value="{{ $businessType }}">@endforeach</datalist>
                     <x-ui.field width="description" name="business_description" label="Di cosa si occupa? (facoltativo)" :value="old('business_description')" maxlength="500" />
                 </div>
                 <div class="booking-grid booking-address">

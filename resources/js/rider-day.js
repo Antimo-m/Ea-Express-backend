@@ -1,11 +1,15 @@
+/**
+ * Pagina operativa Rider: periodi rapidi, mese, anno e intervallo libero aggiornano filtri e risultati senza
+ * ricaricare la pagina. Gli eventi sono delegati alla pagina perché filtri e risultati vengono sostituiti.
+ */
 for (const page of document.querySelectorAll('[data-rider-day]')) {
-    const form = page.querySelector('[data-rider-day-period]');
     const results = page.querySelector('[data-rider-day-results]');
+    const filters = page.querySelector('[data-rider-day-filters]');
     const feedback = page.querySelector('[data-rider-day-error]');
     let controller, generation = 0;
-    const updateBounds = () => { form.elements.to.min = form.elements.from.value || ''; };
-    form.addEventListener('input', updateBounds);
-    form.addEventListener('change', updateBounds);
+    const updateBounds = form => { if (form?.elements.from && form.elements.to) form.elements.to.min = form.elements.from.value || ''; };
+    page.querySelectorAll('[data-rider-day-period]').forEach(updateBounds);
+    page.addEventListener('input', event => updateBounds(event.target.closest('[data-rider-day-period]')));
 
     async function load(url) {
         controller?.abort();
@@ -16,20 +20,13 @@ for (const page of document.querySelectorAll('[data-rider-day]')) {
         try {
             const response = await fetch(url, { signal: controller.signal, credentials: 'same-origin', headers: { Accept: 'text/html', 'X-Requested-With': 'XMLHttpRequest' } });
             if (!response.ok || response.redirected) throw new Error('Periodo non disponibile. Verifica le date e riprova.');
-            const document = new DOMParser().parseFromString(await response.text(), 'text/html');
-            const fresh = document.querySelector('[data-rider-day]');
+            const fresh = new DOMParser().parseFromString(await response.text(), 'text/html').querySelector('[data-rider-day]');
             if (!fresh?.querySelector('[data-rider-day-results]')) throw new Error('Aggiornamento non disponibile. Riprova.');
             if (ticket !== generation) return;
             results.replaceChildren(...fresh.querySelector('[data-rider-day-results]').childNodes);
+            if (filters) filters.replaceChildren(...fresh.querySelector('[data-rider-day-filters]').childNodes);
             page.querySelector('[data-rider-day-caption]').textContent = fresh.querySelector('[data-rider-day-caption]').textContent;
-            page.querySelector('.rider-day-context').replaceChildren(...fresh.querySelector('.rider-day-context').childNodes);
-            const nextForm = fresh.querySelector('[data-rider-day-period]');
-            for (const input of [...form.querySelectorAll('input')]) {
-                const next = nextForm.elements.namedItem(input.name);
-                if (next) input.value = next.value;
-                else if (input.type === 'hidden') input.remove();
-            }
-            updateBounds();
+            page.querySelectorAll('[data-rider-day-period]').forEach(updateBounds);
             history.replaceState(null, '', url);
             feedback.hidden = true;
             document.dispatchEvent(new Event('ea:controls-updated'));
@@ -42,7 +39,9 @@ for (const page of document.querySelectorAll('[data-rider-day]')) {
             if (ticket === generation) results.removeAttribute('aria-busy');
         }
     }
-    form.addEventListener('submit', event => {
+    page.addEventListener('submit', event => {
+        const form = event.target.closest('[data-rider-day-period]');
+        if (!form) return;
         event.preventDefault();
         if (!form.reportValidity()) return;
         const url = new URL(form.action);
@@ -50,7 +49,7 @@ for (const page of document.querySelectorAll('[data-rider-day]')) {
         load(url);
     });
     page.addEventListener('click', event => {
-        const link = event.target.closest('[data-rider-day-reset], .rider-day-tabs a, .workspace-pagination a');
+        const link = event.target.closest('[data-rider-day-reset], [data-rider-period-link], .rider-day-tabs a, .workspace-pagination a');
         if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
         event.preventDefault();
         load(new URL(link.href));

@@ -1,7 +1,9 @@
 <div class="pickup-account-body" data-pickup-orders data-pickup-orders-page="{{ $orders->currentPage() }}" data-pickup-orders-last-page="{{ $orders->lastPage() }}" data-pickup-orders-total="{{ $orders->total() }}" data-pickup-orders-parcels="{{ $accountSummary->parcel_count }}" data-pickup-account-slug="{{ $accountSlug }}" data-pickup-date="{{ $date->toDateString() }}" data-pickup-kind="{{ $kind }}">
     <p class="pickup-orders-caption">{{ $orders->firstItem() ?? 0 }}–{{ $orders->lastItem() ?? 0 }} di {{ $orders->total() }} ritiri · Pagina {{ $orders->currentPage() }} di {{ $orders->lastPage() }}</p>
     <form method="get" action="{{ route('labels.index') }}" target="_blank" class="pickup-print-form" data-label-selection>
-        <div class="pickup-print-actions"><button type="button" class="btn btn-outline-secondary" data-select-labels>Seleziona pagina / nessuno</button><x-ui.icon-button action="print-multiple" type="submit" data-label-availability :aria-disabled="$orders->isEmpty() ? 'true' : 'false'" label="Stampa etichette selezionate" text /></div>
+        <div class="pickup-print-actions"><button type="button" class="btn btn-outline-secondary" data-select-labels>Seleziona pagina / nessuno</button><a class="btn btn-outline-secondary" href="{{ route('labels.index', ['scope' => 'pickup', 'date' => $date->toDateString(), 'account' => $accountSlug, 'kind' => $kind]) }}" target="_blank" rel="noopener" data-print-day><x-ui.icon name="calendar-check" /> Stampa tutta la giornata</a><x-ui.icon-button action="print-multiple" type="submit" data-label-availability :aria-disabled="$orders->isEmpty() ? 'true' : 'false'" label="Stampa etichette selezionate" text /></div>
+        <p class="pickup-print-count" role="status" data-label-count data-label-total="{{ $orders->total() }}">{{ $orders->count() }} {{ $orders->count() === 1 ? 'etichetta selezionata' : 'etichette selezionate' }} su {{ $orders->total() }} {{ $orders->total() === 1 ? 'ordine' : 'ordini' }}</p>
+        <div data-label-carry hidden></div>
         <div class="pickup-day-orders">
         @forelse($orders as $order)
             <article class="surface pickup-order-card" data-operational-order="{{ $order->slug }}" data-order-state="{{ $order->status->value }}" aria-labelledby="pickup-order-{{ $order->slug }}">
@@ -28,7 +30,7 @@
             </article>
         @empty<p>Nessun ordine in questa pagina.</p>@endforelse
         </div>
-        <p class="small text-secondary mb-0">La stampa include soltanto gli ordini selezionati nella pagina visualizzata.</p>
+        <p class="small text-secondary mb-0">La stampa della selezione include gli ordini spuntati in tutte le pagine già aperte. «Stampa tutta la giornata» include ogni ordine dell’account per questa data.</p>
     </form>
     <div class="pickup-orders-pagination">{{ $orders->links('components.ui.pagination', ['descriptive' => true]) }}</div>
 </div>

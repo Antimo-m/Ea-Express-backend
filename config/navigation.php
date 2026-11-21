@@ -7,6 +7,7 @@ return [
         ['label' => 'Ordini in entrata', 'route' => 'orders.incoming', 'icon' => 'inbox', 'admin' => true],
         ['label' => 'Spedizioni in corso', 'route' => 'orders.in-progress', 'icon' => 'truck'],
         ['label' => 'Storico ordini', 'route' => 'orders.history', 'icon' => 'clock-history'],
+        ['label' => 'La mia pagina operativa', 'route' => 'rider-operations.mine', 'icon' => 'speedometer2', 'rider' => true],
     ],
     'Rider e clienti' => [
         ['label' => 'Rider', 'route' => 'users.index', 'icon' => 'people', 'admin' => true],

@@ -138,7 +138,7 @@ test('Rider workspace: ranges, status sorting, stable state and mobile controls'
             for (const width of [320, 375, 390, 430, 768, 1440]) {
                 await viewport(width); await navigate(dayPath + range);
                 assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'), true, `${width}: rider day fits`);
-                const bounds = await evaluate(`(() => {const buttons=[...document.querySelector('.rider-range-actions').children].map(node=>node.getBoundingClientRect());return buttons.map(node=>({x:node.x,right:node.right,y:node.y}));})()`);
+                const bounds = await evaluate(`(() => {const buttons=[...document.querySelector('.rider-period-actions').children].map(node=>node.getBoundingClientRect());return buttons.map(node=>({x:node.x,right:node.right,y:node.y}));})()`);
                 assert.ok(bounds[1].x > bounds[0].x && Math.abs(bounds[0].y - bounds[1].y) < 2, `${width}: search is on the far right`);
             }
             await evaluate('window.__riderDocumentMarker="retained";window.scrollTo({top:300,behavior:"instant"});window.__riderScroll=scrollY;');
@@ -149,20 +149,20 @@ test('Rider workspace: ranges, status sorting, stable state and mobile controls'
             await evaluate('[...document.querySelectorAll(".rider-day-tabs a")].find(node=>node.textContent.includes("Completate")).click()');
             await until('location.search.includes("state=completed") && !document.querySelector("[data-rider-day-results]").hasAttribute("aria-busy")');
             assert.equal(await evaluate('document.querySelectorAll("[data-rider-delivery]").length'), 1);
-            await change('[data-rider-day-period] [name=from]', '2026-09-17');
-            await change('[data-rider-day-period] [name=to]', '2026-09-17');
-            await evaluate('document.querySelector("[data-rider-day-period]").requestSubmit()');
+            await change('.rider-period-range [name=from]', '2026-09-17');
+            await change('.rider-period-range [name=to]', '2026-09-17');
+            await evaluate('document.querySelector(".rider-period-range").requestSubmit()');
             await until('new URL(location.href).searchParams.get("from")==="2026-09-17" && !document.querySelector("[data-rider-day-results]").hasAttribute("aria-busy")');
-            assert.equal(await evaluate('document.querySelector("[data-rider-day-caption]").textContent.trim()'), '17/09/2026');
+            assert.equal(await evaluate('document.querySelector("[data-rider-day-caption]").textContent.trim()'), 'giovedì 17 settembre 2026');
             failedRange = true;
-            await change('[data-rider-day-period] [name=from]', '2026-09-15');
-            await evaluate('document.querySelector("[data-rider-day-period]").requestSubmit()'); await until('!document.querySelector("[data-rider-day-error]").hidden');
+            await change('.rider-period-range [name=from]', '2026-09-15');
+            await evaluate('document.querySelector(".rider-period-range").requestSubmit()'); await until('!document.querySelector("[data-rider-day-error]").hidden');
             assert.equal(await evaluate('new URL(location.href).searchParams.get("from")'), '2026-09-17', 'failure retains the last successful URL and results');
             await evaluate('document.querySelector("[data-rider-day-reset]").click()');
-            await until('!location.search && document.querySelector("[data-rider-day-caption]").textContent.trim()==="06/11/2026"');
-            assert.deepEqual(await evaluate('[...document.querySelectorAll("[data-rider-day-period] input[type=date]")].map(node=>({value:node.value,label:node.nextElementSibling.textContent.trim()}))'), [{ value: '2026-11-06', label: '06/11/2026' }, { value: '2026-11-06', label: '06/11/2026' }]);
-            assert.equal(await evaluate('document.querySelector("[data-rider-day-period] [name=state]").value'), 'all');
-            assert.equal(await evaluate('document.querySelector("[data-rider-day-period] [name=to]").min'), '2026-11-06');
+            await until('!location.search && document.querySelector("[data-rider-day-caption]").textContent.trim()==="Oggi · venerdì 6 novembre 2026"');
+            assert.deepEqual(await evaluate('[...document.querySelectorAll(".rider-period-range input[type=date]")].map(node=>({value:node.value,label:node.nextElementSibling.textContent.trim()}))'), [{ value: '2026-11-06', label: '06/11/2026' }, { value: '2026-11-06', label: '06/11/2026' }]);
+            assert.equal(await evaluate('document.querySelector(".rider-day-tabs a[aria-current]").textContent.trim().startsWith("Tutte")'), true);
+            assert.equal(await evaluate('document.querySelector(".rider-period-range [name=to]").min'), '2026-11-06');
             assert.equal(await evaluate(`document.querySelector('a[aria-label="Torna ai Rider"]').getAttribute('href')`), '/settings/users');
             assert.equal(await evaluate('window.__riderDocumentMarker'), 'retained');
             const before = dayRequests;

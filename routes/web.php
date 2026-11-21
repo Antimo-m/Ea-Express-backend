@@ -57,6 +57,7 @@ Route::middleware(['auth', 'auth.session', EnsureStaff::class, EnsureEmailVerifi
     Route::get('/rider-operations/zone-orders', [RiderOperationsController::class, 'zoneOrders'])->middleware([EnsureAdmin::class, 'throttle:60,1'])->name('rider-operations.zone-orders');
     Route::get('/rider-operations/detail', [RiderOperationsController::class, 'detail'])->middleware([EnsureAdmin::class, 'throttle:60,1'])->name('rider-operations.detail');
     Route::get('/rider-operations/{rider}', [RiderOperationsController::class, 'show'])->middleware(EnsureAdmin::class)->name('rider-operations.show');
+    Route::get('/my-operations', [RiderOperationsController::class, 'mine'])->name('rider-operations.mine');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     Route::get('/orders', fn () => redirect()->route(auth()->user()->role === UserRole::Rider ? 'orders.in-progress' : 'orders.incoming'))->name('orders.index');

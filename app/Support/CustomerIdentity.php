@@ -9,6 +9,20 @@ use Illuminate\Validation\ValidationException;
 
 class CustomerIdentity
 {
+    /**
+     * Suggerimenti per la tipologia di attività (stesso elenco del portale clienti).
+     * Il campo resta un testo libero: gli account già registrati con altre diciture restano validi.
+     *
+     * @var list<string>
+     */
+    public const array BusinessTypes = [
+        'Abbigliamento e moda', 'Calzature', 'Accessori e pelletteria', 'Gioielleria e orologeria', 'Elettronica',
+        'Informatica e telefonia', 'Cosmetica e profumeria', 'Farmacia e parafarmacia', 'Alimentari', 'Gastronomia e pasticceria',
+        'Enoteca e bevande', 'Libreria e cartoleria', 'Articoli sportivi', 'Articoli per la casa', 'Arredamento',
+        'Ferramenta e bricolage', 'Fiori e piante', 'Articoli per animali', 'Ricambi e accessori auto', 'E-commerce',
+        'Documenti e servizi', 'Artigianato', 'Altro',
+    ];
+
     /** @return array{sender_type: string, business_type: ?string, business_description: ?string} */
     public static function profile(User $customer): array
     {

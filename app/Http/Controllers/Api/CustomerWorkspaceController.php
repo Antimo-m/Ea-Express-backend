@@ -13,8 +13,11 @@ use App\Rules\UnchangedAccountEmail;
 use App\Support\AccountSessionRevocation;
 use App\Support\CustomerIdentity;
 use App\Support\NotificationInbox;
+use App\Support\OrderStatistics;
 use App\Support\PasswordPolicy;
 use App\Support\PortalTextPolicy;
+use App\Support\ReportingPeriod;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -32,7 +35,28 @@ class CustomerWorkspaceController extends Controller
             'delivered' => (clone $base)->where('status', OrderStatus::Delivered)->count(),
             'attention' => (clone $base)->whereIn('status', ['delivery_issue', 'delivery_attempted', 'rejected'])->count(),
             'unread' => $request->user()->unreadNotifications()->count(),
-        ], 'live_order' => ($liveOrder = (clone $active)->withDisplayIdentity()->withReceiptStatus()->with('rider')->whereNotNull('rider_id')->latest('updated_at')->orderByDesc('id')->first()) ? new CustomerOrderResource($liveOrder) : null, 'recent' => CustomerOrderResource::collection((clone $base)->withDisplayIdentity()->withReceiptStatus()->with('rider')->latest()->orderByDesc('id')->limit(3)->get()), 'next_pickups' => CustomerOrderResource::collection((clone $active)->withDisplayIdentity()->withReceiptStatus()->with('rider')->whereDoesntHave('events', fn ($q) => $q->where('status', OrderStatus::PickedUp))->orderBy('pickup_date')->orderBy('pickup_from')->orderBy('id')->limit(3)->get())]);
+        ], 'month_recap' => $this->monthRecap($base), 'live_order' => ($liveOrder = (clone $active)->withDisplayIdentity()->withReceiptStatus()->with('rider')->whereNotNull('rider_id')->latest('updated_at')->orderByDesc('id')->first()) ? new CustomerOrderResource($liveOrder) : null, 'recent' => CustomerOrderResource::collection((clone $base)->withDisplayIdentity()->withReceiptStatus()->with('rider')->latest()->orderByDesc('id')->limit(3)->get()), 'next_pickups' => CustomerOrderResource::collection((clone $active)->withDisplayIdentity()->withReceiptStatus()->with('rider')->whereDoesntHave('events', fn ($q) => $q->where('status', OrderStatus::PickedUp))->orderBy('pickup_date')->orderBy('pickup_from')->orderBy('id')->limit(3)->get())]);
+    }
+
+    /**
+     * Riepilogo del mese per la panoramica: stessi conteggi della pagina Statistiche (richieste create nel mese,
+     * di cui consegnate), più i cinque mesi precedenti per il grafico.
+     *
+     * @return array{month: string, shipments: int, delivered: int, months: list<array{month: string, shipments: int, delivered: int}>}
+     */
+    private function monthRecap(Builder $orders): array
+    {
+        $now = now('Europe/Rome');
+        $period = new ReportingPeriod($now->copy()->startOfMonth()->subMonthsNoOverflow(5), $now->copy()->endOfMonth());
+        $volumes = collect(app(OrderStatistics::class)->customerReport(clone $orders, $period)['months'])->keyBy('month');
+        $months = [];
+        for ($month = $period->start->copy(); $month->lte($period->end); $month->addMonthNoOverflow()) {
+            $key = $month->format('Y-m');
+            $months[] = ['month' => $key, 'shipments' => (int) ($volumes[$key]['shipments'] ?? 0), 'delivered' => (int) ($volumes[$key]['delivered'] ?? 0)];
+        }
+        $current = end($months);
+
+        return ['month' => $current['month'], 'shipments' => $current['shipments'], 'delivered' => $current['delivered'], 'months' => $months];
     }
 
     public function notifications(Request $request): JsonResponse

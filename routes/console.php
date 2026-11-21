@@ -12,6 +12,10 @@ Schedule::command('orders:remind-pickups')->dailyAt('08:00')->timezone('Europe/R
 
 Schedule::command('orders:dispatch-mail')->everyMinute()->withoutOverlapping();
 
+// Promemoria email dei ritiri: la sera per quelli di domani, la mattina per quelli di oggi non ancora ricordati.
+Schedule::command('orders:queue-pickup-reminders evening')->dailyAt('18:00')->timezone('Europe/Rome')->withoutOverlapping(30);
+Schedule::command('orders:queue-pickup-reminders morning')->dailyAt('07:30')->timezone('Europe/Rome')->withoutOverlapping(30);
+
 Schedule::call(fn () => cache()->put('scheduler:last_seen_at', now()->timestamp, now()->addDays(2)))->name('scheduler-heartbeat')->everyMinute();
 
 if (config('backup.enabled')) {

@@ -33,6 +33,8 @@ Segui la spedizione
 
 Il collegamento è riservato a questa spedizione. Il tracking si attiva quando il rider parte per il ritiro.
 
+_{{ \App\Support\MailLinkAdvice::Text }}_
+
 Grazie,
 
 **EA-Express**

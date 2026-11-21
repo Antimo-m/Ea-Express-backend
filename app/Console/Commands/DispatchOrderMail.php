@@ -22,7 +22,8 @@ class DispatchOrderMail extends Command
         }
         DB::table('order_mail_deliveries')->where('state', 'sending')->where('attempted_at', '<', now()->subMinutes(5))->update(['state' => 'uncertain', 'error' => 'WorkerInterrupted', 'updated_at' => now()]);
         DB::table('order_mail_deliveries')->where('state', 'pending')->orderBy('id')->limit(100)->get(['id'])->each(fn (object $row) => SendOrderMail::dispatch($row->id));
-        $uncertain = DB::table('order_mail_deliveries')->where('state', 'uncertain')->count();
+        DB::table('pickup_reminder_deliveries')->where('state', 'sending')->where('attempted_at', '<', now()->subMinutes(5))->update(['state' => 'uncertain', 'error' => 'WorkerInterrupted', 'updated_at' => now()]);
+        $uncertain = DB::table('order_mail_deliveries')->where('state', 'uncertain')->count() + DB::table('pickup_reminder_deliveries')->where('state', 'uncertain')->count();
         if ($uncertain) {
             Log::warning('Email ordine da verificare presso il provider.', ['count' => $uncertain]);
             $this->warn($uncertain.' invii con esito incerto: nessun reinvio automatico.');

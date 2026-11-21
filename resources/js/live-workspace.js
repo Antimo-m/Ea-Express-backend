@@ -6,6 +6,7 @@ import { connectWorkspace } from './workspace-realtime';
 import { observeMessageReceipts } from './message-receipts';
 import { createRefreshQueue } from './refresh-queue';
 import { bindFinancialForms } from './financial-forms';
+import { markStatusChange } from './status-badges';
 
 const regions = createRefreshQueue(async () => {
   if (document.querySelector('.order-archive, [data-pickup-agenda]')) return;
@@ -18,6 +19,7 @@ const regions = createRefreshQueue(async () => {
     if (region.querySelector('dialog[open], form[aria-busy="true"], .ea-picker-trigger[aria-expanded="true"]') || (region.contains(document.activeElement) && document.activeElement.matches('input,select,textarea,.ea-picker-trigger'))) continue;
     if (replacement) {
       const oldRows = new Map([...region.querySelectorAll('[data-operational-order]')].map(row => [row.dataset.operationalOrder, row.dataset.orderState]));
+      const oldProgress = new Map([...region.querySelectorAll('[data-progress-key]')].map(bar => [bar.dataset.progressKey, bar.style.getPropertyValue('--value')]));
       const openSlugs = [...region.querySelectorAll('[data-order-preview-toggle][aria-expanded="true"]')].map(button => button.closest('[data-operational-order]').dataset.operationalOrder);
       const focused = document.activeElement;
       const focusedConversation = focused?.closest('[data-conversation-link]')?.dataset.conversationLink;
@@ -37,9 +39,14 @@ const regions = createRefreshQueue(async () => {
       if (conversationScroll !== undefined) region.querySelector('[data-scroll-key="conversations"]').scrollTop = conversationScroll;
       if (focusedConversation) [...region.querySelectorAll('[data-conversation-link]')].find(link => link.dataset.conversationLink === focusedConversation)?.focus({ preventScroll: true });
       restoreOrderPreviews(region, openSlugs);
+      // La barra riparte dal valore mostrato prima dell'aggiornamento: si riempie solo della differenza reale.
+      for (const bar of region.querySelectorAll('[data-progress-key]')) {
+        const previous = oldProgress.get(bar.dataset.progressKey);
+        if (previous) bar.style.setProperty('--from', previous);
+      }
       for (const row of region.querySelectorAll('[data-operational-order]')) {
         const previous = oldRows.get(row.dataset.operationalOrder);
-        if (previous !== undefined && previous !== row.dataset.orderState) row.classList.add('is-updated');
+        if (previous !== undefined && previous !== row.dataset.orderState) { row.classList.add('is-updated'); markStatusChange(row.querySelector('.status-badge')); }
         if (previous === undefined) row.classList.add('is-new');
         if (row.dataset.operationalOrder === focusSlug) row.querySelector(focusPreview ? '[data-order-preview-toggle]' : '[data-order-link]')?.focus({ preventScroll: true });
       }

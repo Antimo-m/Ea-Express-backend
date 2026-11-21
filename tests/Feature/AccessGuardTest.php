@@ -6,6 +6,8 @@ use App\Models\Order;
 use App\Models\User;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
+use Psr\Log\AbstractLogger;
 use Tests\TestCase;
 
 /**
@@ -131,6 +133,37 @@ class AccessGuardTest extends TestCase
         $gate('203.0.113.10')->getJson('/accesso-negato')->assertStatus(429)->assertJsonPath('retry_after', fn (int $seconds): bool => $seconds > 290);
 
         $gate('198.51.100.20')->get('/accesso-negato')->assertForbidden();
+    }
+
+    public function test_gate_counts_page_openings_but_not_the_icons_and_files_they_load(): void
+    {
+        $logger = new class extends AbstractLogger
+        {
+            public int $denials = 0;
+
+            public function log($level, string|\Stringable $message, array $context = []): void
+            {
+                $this->denials += (int) ($message === 'security.access_denied');
+            }
+        };
+        Log::shouldReceive('channel')->with('security')->andReturn($logger);
+        $gate = fn (array $server = []) => $this->withServerVariables(['EA_ACCESS_GATE' => 'app.ea-express.it', 'EA_ACCESS_GATE_PATH' => '/dashboard', 'REMOTE_ADDR' => '203.0.113.40', ...$server]);
+
+        foreach (['image', 'style', 'script', 'font', 'manifest'] as $destination) {
+            $gate()->get('/accesso-negato', ['Sec-Fetch-Dest' => $destination])->assertForbidden()->assertContent('');
+        }
+        foreach (['/favicon.ico', '/assets/index-3f2a.js', '/assets/index-3f2a.css', '/brand.svg', '/manifest.webmanifest'] as $file) {
+            $gate(['EA_ACCESS_GATE_PATH' => $file])->get('/accesso-negato')->assertForbidden()->assertContent('');
+        }
+        $this->assertSame(0, $logger->denials, 'I file caricati dalla pagina non sono tentativi di accesso.');
+
+        foreach (range(1, 4) as $page) {
+            $gate()->get('/accesso-negato', ['Sec-Fetch-Dest' => 'document'])->assertForbidden()->assertSee('Pagina non disponibile');
+        }
+        $gate()->getJson('/accesso-negato', ['Sec-Fetch-Dest' => 'empty'])->assertStatus(429);
+        $this->assertSame(5, $logger->denials, 'Pagine e richieste di dati restano conteggiate: la pausa scatta come prima.');
+        $gate()->get('/accesso-negato', ['Sec-Fetch-Dest' => 'image'])->assertForbidden()->assertContent('');
+        $gate()->get('/accesso-negato')->assertStatus(429);
     }
 
     public function test_inline_scripts_run_only_with_the_per_request_csp_nonce(): void

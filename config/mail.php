@@ -3,6 +3,9 @@
 return [
     'order_lifecycle_enabled' => env('ORDER_MAIL_ENABLED', false),
 
+    /* Promemoria dei ritiri (sera prima e mattina): attivi solo se lo sono anche le email ordine. */
+    'pickup_reminders_enabled' => env('PICKUP_REMINDER_MAIL_ENABLED', true),
+
     /*
     |--------------------------------------------------------------------------
     | Default Mailer

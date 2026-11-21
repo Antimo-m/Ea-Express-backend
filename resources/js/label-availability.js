@@ -11,7 +11,7 @@ function notify(control) {
     status.textContent = message;
 }
 function sync(form) {
-    const available = !!form.querySelector('input[name="ids[]"]:checked');
+    const available = !!form.querySelector('input[name="ids[]"]:checked, input[type="hidden"][name="ids[]"]');
     form.querySelector('[data-label-availability]')?.setAttribute('aria-disabled', String(!available));
     return available;
 }

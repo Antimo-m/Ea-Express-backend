@@ -187,7 +187,7 @@ class BalanceController extends Controller
             'earned' => (int) $delivered->earned, 'completedCount' => (int) $delivered->completed_count,
             'cancelledCount' => (clone $orders)->where('status', OrderStatus::Cancelled)->whereBetween('updated_at', $period->utcRange())->count(),
             'outstanding' => $outstanding, 'generalReceipts' => (int) $generalReceipts, 'cash' => $cash, 'spent' => $spent, 'net' => $cash - $spent,
-            'orders' => (clone $completed)->whereNull('paid_at')->whereNull('receipt_voided_at')->withDisplayIdentity()->withReceiptLedger()->orderBy($receiptColumn, $receiptDirection)->orderByDesc('id')->paginate(10, ['*'], 'orders_page')->withQueryString(),
+            'orders' => (clone $completed)->whereNull('paid_at')->whereNull('receipt_voided_at')->withDisplayIdentity()->withReceiptLedger()->with(['rider:id,slug,name', 'deliveryEvent.rider:id,slug,name'])->orderBy($receiptColumn, $receiptDirection)->orderByDesc('id')->paginate(10, ['*'], 'orders_page')->withQueryString(),
             'reversedOrders' => (clone $orders)->where('status', OrderStatus::Delivered)->where('receipt_voided_at', '<=', $cutoff)->whereDoesntHave('receiptReversals')->withDisplayIdentity()->withReceiptLedger()->latest('receipt_voided_at')->orderByDesc('id')->paginate(10, ['*'], 'reversed_page')->withQueryString(),
         ]);
     }

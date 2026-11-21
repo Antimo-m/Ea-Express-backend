@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\OrderStatus;
 use App\Support\Money;
 use App\Support\RecipientRisk;
+use App\Support\RiderOperations;
 use App\UserRole;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -23,6 +24,10 @@ class DashboardController extends Controller
         $requests = $incoming->latest()->orderByDesc('id')->limit(3)->get();
         $shipments = $active->latest()->orderByDesc('id')->limit(3)->get();
         $recipientRisks = $request->user()->role === UserRole::Rider ? app(RecipientRisk::class)->forOrders($shipments) : [];
+        // Stesso calcolo de «Il punto della giornata» della pagina operativa: ritiri programmati oggi, esclusi annullati e rifiutati.
+        $operations = app(RiderOperations::class);
+        $today = $now->copy()->startOfDay();
+        $dayProgress = $operations->dailyCounts($request->user()->role === UserRole::Rider ? $operations->dailyWorkload($today, $request->user()->id) : $operations->query($today));
 
         return view($request->user()->role === UserRole::Rider ? 'dashboard.rider' : 'dashboard.index', [
             'metrics' => [
@@ -31,7 +36,7 @@ class DashboardController extends Controller
                 ['label' => 'Completati oggi', 'value' => (clone $completed)->count(), 'note' => 'Consegnati oggi', 'icon' => 'check2-circle', 'tone' => 'green'],
                 $request->user()->role === UserRole::Rider ? ['label' => 'Consegne in uscita', 'value' => (clone $base)->where('status', OrderStatus::OutForDelivery)->count(), 'note' => 'In consegna', 'icon' => 'geo-alt', 'tone' => 'orange'] : ['label' => 'Importi in corso', 'value' => Money::format((int) (clone $active)->sum('price_cents')), 'note' => 'Tariffe concordate, ancora da consegnare', 'icon' => 'wallet2', 'tone' => 'orange'],
             ],
-            'recipientRisks' => $recipientRisks, 'requests' => $requests,
+            'recipientRisks' => $recipientRisks, 'requests' => $requests, 'dayProgress' => $dayProgress,
             'shipments' => $shipments,
             'greeting' => match (true) {
                 $now->hour < 12 => 'Buongiorno', $now->hour < 18 => 'Buon pomeriggio', default => 'Buonasera'

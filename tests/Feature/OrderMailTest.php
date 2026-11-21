@@ -10,8 +10,10 @@ use App\Mail\OrderLifecycle;
 use App\Models\Order;
 use App\Models\ShippingRate;
 use App\Models\User;
+use App\Notifications\PasswordResetLink;
 use App\OrderStatus;
 use App\Support\CheckoutReview;
+use App\Support\MailLinkAdvice;
 use App\Support\ShippingQuote;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -79,6 +81,21 @@ class OrderMailTest extends TestCase
         $this->assertStringNotContainsString('<img src=x', $html);
         $this->assertStringNotContainsString('<script>', $html);
         $this->assertStringNotContainsString('href="javascript:', $html);
+    }
+
+    public function test_tracking_and_password_reset_mails_suggest_the_usual_browser_as_advice(): void
+    {
+        $order = Order::factory()->create(['contact_email' => 'customer@example.test']);
+        app(RecordOrderMail::class)->handle($order, 'scheduled');
+        $tracking = (new OrderLifecycle(json_decode(DB::table('order_mail_deliveries')->sole()->snapshot, true), 'scheduled'))->render();
+        $customer = User::factory()->create(['role' => UserRole::Customer]);
+        $reset = (string) (new PasswordResetLink('token-di-prova'))->toMail($customer)->render();
+
+        foreach ([$tracking, $reset] as $html) {
+            $this->assertStringContainsString(e(MailLinkAdvice::Text), $html);
+            $this->assertStringContainsString('ti consigliamo', $html);
+        }
+        $this->assertLessThan(strpos($reset, e(MailLinkAdvice::Text)), strpos($reset, 'Scegli una nuova password'), 'Il consiglio segue il pulsante.');
     }
 
     public function test_mail_transport_failure_does_not_change_order_and_is_not_blindly_retried(): void

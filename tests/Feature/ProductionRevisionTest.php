@@ -165,6 +165,25 @@ class ProductionRevisionTest extends TestCase
         $this->getJson('/api/v1/customer/orders/labels?ids[]='.$orders->first()->slug)->assertJsonCount(1, 'data');
     }
 
+    public function test_customer_day_preview_lists_each_owned_order_once_for_individual_selection(): void
+    {
+        $customer = User::factory()->create(['role' => UserRole::Customer]);
+        $orders = Order::factory()->count(13)->create(['customer_id' => $customer->id, 'pickup_date' => '2026-11-21']);
+        $foreign = Order::factory()->create(['customer_id' => User::factory()->state(['role' => UserRole::Customer]), 'pickup_date' => '2026-11-21']);
+        $url = '/api/v1/customer/orders/labels?scope=filtered&day=2026-11-21&preview=1';
+
+        $response = $this->actingAs($customer, 'customer')->getJson($url)->assertOk()->assertJsonPath('count', 13)->assertJsonCount(13, 'orders');
+        $slugs = collect($response->json('orders'))->pluck('slug');
+        $this->assertSame(13, $slugs->unique()->count());
+        $this->assertEqualsCanonicalizing($orders->pluck('slug')->all(), $slugs->all());
+        $this->assertNotContains($foreign->slug, $slugs);
+        $this->assertSame(['slug', 'reference', 'store_name', 'pickup', 'recipient_name', 'delivery', 'parcel_count', 'pickup_from', 'pickup_to'], array_keys($response->json('orders.0')));
+
+        $selected = $orders->take(10)->pluck('slug')->map(fn (string $slug): string => 'ids[]='.$slug)->implode('&');
+        $this->getJson('/api/v1/customer/orders/labels?'.$selected)->assertOk()->assertJsonCount(10, 'data');
+        $this->getJson('/api/v1/customer/orders/labels?ids[]='.$orders->first()->slug.'&ids[]='.$foreign->slug)->assertNotFound();
+    }
+
     public function test_revision_browser_fixtures(): void
     {
         $this->travelTo(Carbon::parse('2026-11-10 12:00', 'Europe/Rome'));

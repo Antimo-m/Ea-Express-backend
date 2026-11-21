@@ -6,7 +6,7 @@
                 <summary>
                     <time datetime="{{ $movement['date']->toIso8601String() }}">{{ $movement['date']->format('d/m/Y') }}</time>
                     <span class="money-row-cause"><strong>{{ $movement['type'] }}</strong><span>{{ $movement['description'] }}</span></span>
-                    <span class="money-row-party">{{ $movement['customer'] ?? 'Attività generale' }}</span>
+                    <span class="money-row-party">{{ $movement['customer'] ?? 'Attività generale' }}@if($movement['source'] === 'payment' && $movement['order'])@php($order = $movement['order'])@include('balance.delivery-rider')@endif</span>
                     <strong class="money-row-amount"><x-ui.signed-money :amount="$movement['amount']" /></strong>
                     <span class="money-row-state">{{ $movement['state'] }}</span><span class="money-row-expand" aria-hidden="true">⌄</span>
                 </summary>
@@ -14,7 +14,8 @@
                     <dl><div><dt>Tipo di operazione</dt><dd>{{ $movement['type'] }}</dd></div><div><dt>Data</dt><dd>{{ $movement['date']->format('d/m/Y H:i') }}</dd></div>
                         <div><dt>{{ $movement['cash'] > 0 ? 'Importo ricevuto' : 'Effetto sulla cassa' }}</dt><dd><x-ui.signed-money :amount="$movement['cash']" /></dd></div>
                         <div><dt>Effetto sul risultato economico</dt><dd><x-ui.signed-money :amount="$movement['economic']" /></dd></div>
-                        <div><dt>Cliente / riferimento</dt><dd>{{ $movement['customer'] ?? 'Attività generale' }}</dd></div><div><dt>Operatore</dt><dd>{{ $movement['operator'] ?? 'Non disponibile' }}</dd></div>
+                        <div><dt>Cliente / riferimento</dt><dd>{{ $movement['customer'] ?? 'Attività generale' }}</dd></div>
+                        @if($movement['source'] === 'payment' && $movement['order'])<div><dt>Rider</dt><dd>@php($order = $movement['order'])@include('balance.delivery-rider')</dd></div><div><dt>Tariffa spedizione</dt><dd>{{ $movement['order']->price_cents === null ? 'Non concordata' : \App\Support\Money::format($movement['order']->price_cents) }}</dd></div>@endif<div><dt>Operatore</dt><dd>{{ $movement['operator'] ?? 'Non disponibile' }}</dd></div>
                         <div><dt>Stato</dt><dd>{{ $movement['state'] }}</dd></div>
                         @if($movement['reason'])<div class="money-detail-wide"><dt>Motivo della differenza</dt><dd>{{ $movement['reason'] }}</dd></div>@endif
                         @if($movement['note'])<div class="money-detail-wide"><dt>Note</dt><dd>{{ $movement['note'] }}</dd></div>@endif

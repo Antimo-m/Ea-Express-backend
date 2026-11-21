@@ -349,7 +349,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 await navigate('rider-detail.html');
                 assert.equal(await evaluate(`document.querySelector('.rider-order-events')`),null);
                 assert.equal(await evaluate(`document.querySelectorAll('[data-rider-delivery]').length`),1);
-                assert.ok(await evaluate(`document.querySelector('.rider-day-accounting').textContent.includes('Contabilità del periodo')`));
+                assert.ok(await evaluate(`document.querySelector('.rider-day-accounting').textContent.includes('Resoconto contabile')`));
             }
         });
         await scenario('operational periods preserve Rider perspective, selection and navigation context without reloading', async () => {
@@ -1219,12 +1219,12 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             for (const width of [320,360,375,390,430,768,1024,1440]) {
                 await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<600});
                 await navigate('dashboard');
-                for(let attempt=0;attempt<100;attempt++){if(await evaluate(`!!document.querySelector('.order-row')`))break;await new Promise(resolve=>setTimeout(resolve,20));}
+                for(let attempt=0;attempt<100;attempt++){if(await evaluate(`!!document.querySelector('.shipment-card')`))break;await new Promise(resolve=>setTimeout(resolve,20));}
                 if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`portal-dashboard-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true})).data,'base64'));
                 await assertButtonShapes(`portal buttons ${width}`);
                 assert.equal(await evaluate(`document.querySelector('.brand-wordmark').getAttribute('aria-label')`),'EA-Express');
                 assert.ok(await evaluate(`!!document.querySelector('.dashboard-actions [href="/pickups/new"]')`));
-                assert.equal(await evaluate(`document.querySelector('.order-row').getAttribute('href')`),'/shipments/24369069-5868-49fd-b04c-3709fa3b5a81');
+                assert.equal(await evaluate(`document.querySelector('.shipment-card').getAttribute('href')`),'/shipments/24369069-5868-49fd-b04c-3709fa3b5a81');
                 assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`), `portal overflow at ${width}`);
                 assert.ok(await evaluate(`document.querySelector('.sidebar').getBoundingClientRect().width>0 || document.querySelector('.menu-toggle').getBoundingClientRect().width>0`));
                 if(width<992){

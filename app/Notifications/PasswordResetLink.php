@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\User;
+use App\Support\MailLinkAdvice;
 use App\UserRole;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
@@ -47,6 +48,7 @@ class PasswordResetLink extends Notification implements ShouldBeEncrypted, Shoul
             ->line('Abbiamo ricevuto una richiesta di ripristino della password per il tuo account EA-Express.')
             ->action('Scegli una nuova password', $this->url($notifiable))
             ->line('Il link scade tra '.config('auth.passwords.users.expire').' minuti e funziona una sola volta. Una nuova richiesta annulla quella precedente.')
+            ->line(MailLinkAdvice::Text)
             ->line('Se non hai richiesto tu il ripristino, ignora questa email: la password resta invariata.');
     }
 }

@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Support\OrderSelection;
+use App\Support\PickupAgenda;
+use App\Support\PublicReferences;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -25,6 +27,19 @@ class OrderLabelController extends Controller
             }
 
             return view('orders.labels', compact('orders'));
+        }
+        if ($request->input('scope') === 'pickup') {
+            // Giornata di ritiro di un account nell'agenda: stessa visibilità dell'agenda (il Rider vede solo i propri ritiri).
+            $data = $request->validate(['date' => ['required', 'date_format:Y-m-d'], 'account' => ['required', 'uuid'], 'kind' => ['required', 'in:customer,manual']]);
+            $reference = $data['kind'] === 'manual' ? 'order_id' : 'customer_id';
+            $referenceId = PublicReferences::ids([$reference => $data['account']])[$reference] ?? null;
+            abort_unless($referenceId, 404);
+            $date = Carbon::createFromFormat('!Y-m-d', $data['date'], 'Europe/Rome');
+            $orders = app(PickupAgenda::class)->account($request->user(), $date, (int) $referenceId, $data['kind'])['query']
+                ->where('parcel_count', '>', 0)->reorder()->orderBy('pickup_from')->orderBy('id')->limit(1001)->get();
+            abort_if($orders->count() > 1000 || $orders->sum('parcel_count') > 1000, 422, 'Il documento supera 1000 etichette. Restringi i filtri.');
+
+            return $orders->isEmpty() ? $this->empty($request) : view('orders.labels', compact('orders'));
         }
         if ($request->filled('scope')) {
             $request->validate(['scope' => ['required', 'in:all,filtered']]);

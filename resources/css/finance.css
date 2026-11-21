@@ -115,3 +115,4 @@
 @media (max-width: 575px) {
   .pending-form-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
 }
+.delivery-rider { display: flex; align-items: center; gap: 5px; margin-top: 3px; font-size: .74rem; font-weight: 400; color: var(--ea-muted); overflow-wrap: anywhere; } .delivery-rider b { color: var(--ea-ink); font-weight: 600; } .delivery-rider.is-uncertain { font-style: italic; } dd > .delivery-rider { margin-top: 0; font-size: inherit; }

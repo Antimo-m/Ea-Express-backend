@@ -1,0 +1,148 @@
+/* Pagina operativa Rider: periodo, situazione attuale, attività del periodo, valore tariffario, spedizioni. */
+.rider-page { display: grid; gap: 22px; min-width: 0; }
+.rider-page [data-rider-day-results] { display: grid; gap: 30px; min-width: 0; }
+.rider-page [data-rider-day-results][aria-busy="true"] { opacity: .6; transition: opacity .2s ease; }
+.rider-page-back { display: flex; }
+.rider-page-heading { display: grid; gap: 4px; }
+.rider-page-heading h1 { margin: 2px 0 0; overflow-wrap: anywhere; }
+.rider-page-heading p { margin: 0; color: var(--ea-muted); font-size: .9rem; }
+
+.rider-period { display: grid; gap: 14px; padding: 16px 18px; border: 1px solid var(--ea-line); border-radius: var(--ea-radius-card); background: var(--ea-surface); }
+.rider-period-presets { display: flex; flex-wrap: wrap; gap: 8px; }
+.rider-period-presets a { display: inline-flex; align-items: center; min-height: 38px; padding: 6px 14px; border: 1px solid var(--ea-line); border-radius: var(--ea-radius-button); color: var(--ea-ink); font-size: .85rem; font-weight: 600; text-decoration: none; transition: background-color .15s ease, border-color .15s ease; }
+.rider-period-presets a:hover { border-color: var(--ea-control-border); background: var(--ea-surface-muted); }
+.rider-period-presets a[aria-current] { background: var(--ea-graphite); border-color: var(--ea-graphite); color: var(--ea-canvas); }
+.rider-period-forms { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 22px; padding-top: 14px; border-top: 1px solid var(--ea-line); }
+.rider-period-form { display: flex; align-items: flex-end; gap: 8px; margin: 0; }
+.rider-period-form label { display: grid; gap: 4px; font-size: .75rem; font-weight: 600; color: var(--ea-muted); }
+.rider-period-form input, .rider-period-form select { inline-size: 160px; min-height: 42px; padding: 6px 12px; border: 1px solid var(--ea-control-border); border-radius: var(--ea-radius-control); background: var(--ea-surface); color: var(--ea-ink); font-size: .9rem; }
+.rider-period-form select { inline-size: 110px; }
+.rider-period-range { gap: 8px; margin-inline-start: auto; }
+.rider-period-actions { display: inline-flex; gap: 6px; }
+
+.rider-section-title { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 12px; }
+.rider-section-title h2 { margin: 0; font-size: 1.15rem; }
+.rider-section-title > span { font-size: .78rem; color: var(--ea-muted); }
+
+.rider-now-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.rider-now-card { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--ea-line); border-radius: 18px; background: var(--ea-surface); }
+.rider-now-card dt { display: flex; align-items: center; gap: 7px; font-size: .76rem; font-weight: 600; color: var(--ea-muted); line-height: 1.3; }
+.rider-now-card dt .bi { flex: none; color: var(--ea-info); }
+.rider-now-card dd { margin: 0; font-size: 1.6rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.rider-now-card--late:not(.is-zero) { border-color: color-mix(in srgb, var(--ea-danger) 45%, var(--ea-line)); background: color-mix(in srgb, var(--ea-danger) 6%, var(--ea-surface)); }
+.rider-now-card--late:not(.is-zero) dt, .rider-now-card--late:not(.is-zero) dt .bi { color: var(--ea-danger); }
+.rider-now-card--issues:not(.is-zero) dt .bi { color: var(--ea-warning); }
+.rider-now-card.is-zero dd { color: var(--ea-muted); }
+
+.rider-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0 0 12px; }
+.rider-kpis > div { display: grid; gap: 4px; padding: 14px 16px; border-radius: 18px; background: var(--ea-surface); border: 1px solid var(--ea-line); }
+.rider-kpis dt { font-size: .8rem; font-weight: 600; }
+.rider-kpis dd { margin: 0; font-size: 1.8rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.rider-kpis small { font-size: .72rem; color: var(--ea-muted); }
+.rider-kpis .rider-kpi--delivered dd { color: var(--ea-success); }
+.rider-progress-card { display: grid; gap: 10px; padding: 16px 18px; border-radius: var(--ea-radius-card); background: var(--ea-graphite); color: var(--ea-canvas); }
+.rider-progress-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.rider-progress-heading h3 { margin: 0; font-size: .95rem; color: inherit; }
+.rider-progress-heading strong { font-size: 1.8rem; color: var(--ea-signal); font-variant-numeric: tabular-nums; }
+.rider-progress-heading strong small { font-size: .9rem; }
+.rider-progress-card p { margin: 0; font-size: .8rem; color: var(--ea-shell-muted); }
+.rider-distribution { display: flex; gap: 3px; block-size: 10px; border-radius: 999px; overflow: hidden; }
+.rider-distribution > span { flex: var(--share) 1 0; min-inline-size: 6px; border-radius: 2px; transform-origin: left; animation: rider-share 0.9s cubic-bezier(.2, .8, .2, 1) both; }
+.rider-distribution-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; padding: 0; list-style: none; font-size: .76rem; color: var(--ea-shell-muted); }
+.rider-distribution-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.rider-distribution-legend li > span { inline-size: 8px; block-size: 8px; border-radius: 50%; }
+.rider-distribution-legend b { color: var(--ea-canvas); font-variant-numeric: tabular-nums; }
+.rider-distribution--todo, .rider-distribution-legend .rider-distribution--todo > span { background: var(--ea-signal); }
+.rider-distribution--active, .rider-distribution-legend .rider-distribution--active > span { background: #74b5fa; }
+.rider-distribution--completed, .rider-distribution-legend .rider-distribution--completed > span { background: #77d0a7; }
+.rider-distribution--issues, .rider-distribution-legend .rider-distribution--issues > span { background: #ff958e; }
+.rider-distribution--closed, .rider-distribution-legend .rider-distribution--closed > span { background: #8a98a3; }
+.rider-distribution-legend li[class] { background: none; }
+@keyframes rider-share { from { transform: scaleX(0); } }
+
+.rider-tariff-totals { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 10px; }
+.rider-tariff-totals > div { display: grid; gap: 4px; padding: 16px 18px; border-radius: 18px; border: 1px solid var(--ea-line); background: var(--ea-surface); }
+.rider-tariff-totals span { font-size: .8rem; font-weight: 600; color: var(--ea-muted); }
+.rider-tariff-totals strong { font-size: 1.7rem; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.rider-tariff-totals small { font-size: .74rem; color: var(--ea-muted); }
+.rider-tariff-main { background: linear-gradient(135deg, color-mix(in srgb, var(--ea-success) 9%, var(--ea-surface)), var(--ea-surface)) !important; }
+.rider-tariff-main strong { color: var(--ea-success); }
+.rider-tariff-chart { margin: 12px 0 0; padding: 14px 16px 10px; border: 1px solid var(--ea-line); border-radius: 18px; background: var(--ea-surface); }
+.rider-tariff-chart figcaption { font-size: .75rem; font-weight: 600; color: var(--ea-muted); margin-bottom: 10px; }
+.rider-tariff-chart ol { display: grid; grid-template-columns: repeat(var(--buckets), minmax(0, 1fr)); align-items: end; gap: clamp(2px, .6vw, 8px); block-size: 120px; margin: 0; padding: 0; list-style: none; }
+.rider-tariff-chart li { display: grid; grid-template-rows: 1fr auto; justify-items: center; gap: 4px; block-size: 100%; min-width: 0; }
+.rider-tariff-bar { align-self: end; inline-size: min(100%, 34px); block-size: var(--height); border-radius: 6px 6px 2px 2px; background: color-mix(in srgb, var(--ea-success) 70%, var(--ea-surface)); transform-origin: bottom; animation: rider-bar .8s cubic-bezier(.2, .8, .2, 1) both; }
+.rider-tariff-chart li:hover .rider-tariff-bar { background: var(--ea-success); }
+.rider-tariff-chart small { font-size: .65rem; color: var(--ea-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-inline-size: 100%; }
+@keyframes rider-bar { from { transform: scaleY(0); } }
+.rider-tariff-table { margin-top: 12px; border: 1px solid var(--ea-line); border-radius: 18px; background: var(--ea-surface); overflow: hidden; }
+.rider-tariff-table summary { padding: 12px 16px; font-size: .85rem; font-weight: 600; cursor: pointer; }
+.rider-tariff-table table { margin: 0; font-size: .82rem; }
+.rider-tariff-table th, .rider-tariff-table td { padding: 8px 16px; font-variant-numeric: tabular-nums; }
+.rider-tariff-table td:last-child, .rider-tariff-table th:last-child { text-align: right; }
+.rider-tariff-table td:nth-child(2), .rider-tariff-table th:nth-child(2) { text-align: center; }
+.rider-tariff-table tr.is-empty { color: var(--ea-muted); }
+.rider-tariff-table tfoot th, .rider-tariff-table tfoot td { font-weight: 700; border-top: 2px solid var(--ea-line); }
+
+.rider-page-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
+.rider-page-layout--admin { grid-template-columns: minmax(0, 1fr) minmax(285px, 340px); }
+.rider-delivery-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 12px; }
+.rider-stop-card { position: relative; display: grid; gap: 14px; padding: 16px 18px; border: 1px solid var(--ea-line); border-inline-start: 4px solid var(--ea-info); border-radius: 20px; background: var(--ea-surface); color: var(--ea-ink); text-decoration: none; transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
+.rider-stop-card:hover { color: var(--ea-ink); transform: translateY(-2px); box-shadow: 0 10px 24px color-mix(in srgb, var(--ea-graphite) 9%, transparent); }
+.rider-stop-card:focus-visible { outline: 3px solid var(--ea-focus); outline-offset: 2px; }
+.rider-stop-card--green, .rider-stop-card--teal { border-inline-start-color: var(--ea-success); }
+.rider-stop-card--orange, .rider-stop-card--purple { border-inline-start-color: var(--ea-signal); }
+.rider-stop-card--danger { border-inline-start-color: var(--ea-danger); }
+.rider-stop-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.rider-stop-heading > div { display: grid; gap: 4px; min-width: 0; }
+.rider-stop-heading h3 { margin: 0; font-size: .98rem; line-height: 1.35; overflow-wrap: anywhere; }
+.rider-stop-heading .status-badge { flex: none; }
+.rider-stop-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: .74rem; color: var(--ea-muted); }
+.rider-stop-meta .shipment-card-reference { font-size: .72rem; }
+.rider-stop-meta time { display: inline-flex; align-items: center; gap: 5px; }
+.rider-stop-route { position: relative; display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.rider-stop-route::before { content: ""; position: absolute; inset-block: 12px 26px; inset-inline-start: 5px; border-inline-start: 2px dotted color-mix(in srgb, var(--ea-muted) 45%, transparent); }
+.rider-stop-point { position: relative; display: grid; gap: 1px; padding-inline-start: 22px; min-width: 0; }
+.rider-stop-point::before { content: ""; position: absolute; inset-inline-start: 0; top: 3px; inline-size: 12px; block-size: 12px; border-radius: 50%; border: 2px solid var(--ea-signal); background: var(--ea-surface); }
+.rider-stop-point--delivery::before { border-color: var(--ea-success); background: var(--ea-success); }
+.rider-stop-label { font-size: .7rem; font-weight: 600; color: var(--ea-muted); text-transform: uppercase; letter-spacing: .03em; overflow-wrap: anywhere; }
+.rider-stop-point strong { font-size: .9rem; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; }
+.rider-stop-point > span:last-child { font-size: .8rem; color: var(--ea-muted); overflow-wrap: anywhere; }
+.rider-stop-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding-top: 10px; border-top: 1px solid var(--ea-line); font-size: .8rem; color: var(--ea-muted); }
+.rider-stop-footer b { color: var(--ea-ink); font-variant-numeric: tabular-nums; }
+.rider-stop-open { margin-inline-start: auto; transition: transform .16s ease; }
+.rider-stop-card:hover .rider-stop-open { transform: translate(2px, -2px); color: var(--ea-info); }
+.rider-page .rider-day-tabs { margin-bottom: 14px; }
+.rider-accounting-range { margin: 4px 0 0; font-size: .85rem !important; font-weight: 600; color: var(--ea-ink) !important; }
+.rider-page .rider-day-accounting header h2 { margin: 0; font-size: 1.15rem; line-height: 1.35; }
+
+@media (max-width: 1199px) {
+  .rider-now-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .rider-page-layout--admin { grid-template-columns: minmax(0, 1fr); }
+  .rider-page .rider-day-accounting { position: static; }
+}
+@media (max-width: 991px) {
+  .rider-period-range { margin-inline-start: 0; }
+  .rider-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .rider-page { gap: 18px; }
+  .rider-period { padding: 14px; }
+  .rider-period-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rider-period-presets a { justify-content: center; }
+  .rider-period-forms { display: grid; gap: 14px; }
+  .rider-period-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .rider-period-form input, .rider-period-form select { inline-size: 100%; }
+  .rider-period-range { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rider-period-range .rider-period-actions { grid-column: 1 / -1; justify-content: flex-end; }
+  .rider-now-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rider-now-card { padding: 12px; }
+  .rider-tariff-totals { grid-template-columns: minmax(0, 1fr); }
+  .rider-tariff-chart ol { block-size: 96px; }
+  .rider-tariff-table th, .rider-tariff-table td { padding: 8px 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rider-distribution > span, .rider-tariff-bar { animation: none; }
+  .rider-stop-card, .rider-stop-open { transition: none; }
+  .rider-stop-card:hover { transform: none; }
+}

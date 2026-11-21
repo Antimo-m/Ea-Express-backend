@@ -25,7 +25,7 @@ class ShipmentCardInformationTest extends TestCase
             'incoming' => ['/orders/incoming', 'operational-order-main', OrderStatus::Received, false],
             'in-progress' => ['/orders/in-progress', 'operational-order-main', OrderStatus::Accepted, false],
             'archive' => ['/orders/history', 'history-order', OrderStatus::Delivered, false],
-            'rider-day' => ['/rider-operations/{rider}', 'rider-delivery-card', OrderStatus::Accepted, false],
+            'rider-day' => ['/rider-operations/{rider}', 'rider-stop-card', OrderStatus::Accepted, false],
             'operation-detail' => ['/rider-operations/detail?rider={rider}', 'operation-mini-card', OrderStatus::Accepted, false],
             'pickup-agenda' => ['/pickups/accounts/{customer}/orders?date=2026-11-09', 'pickup-order-card', OrderStatus::Accepted, false],
         ];

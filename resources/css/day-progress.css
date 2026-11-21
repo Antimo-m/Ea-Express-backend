@@ -1,0 +1,17 @@
+/* Avanzamento della giornata nella dashboard: la barra si riempie al caricamento e a ogni nuova consegna. */
+.day-progress { display: grid; gap: 14px; margin-block: 0 24px; padding: 20px 22px; border-radius: var(--ea-radius-card, 22px); background: linear-gradient(135deg, color-mix(in srgb, var(--ea-success) 8%, var(--ea-surface)), var(--ea-surface) 65%); }
+.day-progress-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; }
+.day-progress-heading h2 { margin: 4px 0 0; font-size: clamp(1.25rem, 2.2vw, 1.55rem); line-height: 1.25; }
+.day-progress-heading h2 strong { color: var(--ea-success); font-variant-numeric: tabular-nums; }
+.day-progress-percent { font: 700 clamp(1.6rem, 3vw, 2.1rem)/1 var(--ea-font-display, inherit); color: var(--ea-ink); font-variant-numeric: tabular-nums; }
+.day-progress-percent small { font-size: .55em; font-weight: 600; color: var(--ea-muted); }
+.day-progress-track { block-size: 12px; border-radius: 999px; background: color-mix(in srgb, var(--ea-muted) 16%, transparent); overflow: hidden; }
+.day-progress-fill { display: block; block-size: 100%; inline-size: var(--value); border-radius: inherit; background: linear-gradient(90deg, var(--ea-signal, #e6a23d), var(--ea-success)); animation: day-progress-fill 1.1s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes day-progress-fill { from { inline-size: var(--from, 0%); } }
+.day-progress-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.day-progress-facts div { padding: 10px 12px; border: 1px solid var(--ea-line); border-radius: 14px; background: var(--ea-surface); }
+.day-progress-facts dt { font-size: .75rem; font-weight: 600; color: var(--ea-muted); }
+.day-progress-facts dd { margin: 2px 0 0; font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.day-progress-note { margin: 0; font-size: .8125rem; color: var(--ea-muted); }
+@media (max-width: 575px) { .day-progress { padding: 16px; } .day-progress-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) { .day-progress-fill { animation: none; } }

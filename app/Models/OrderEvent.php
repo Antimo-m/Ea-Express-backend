@@ -32,6 +32,12 @@ class OrderEvent extends Model
         return $this->belongsTo(Order::class);
     }
 
+    /** Rider registrato sull'evento al momento della transizione. */
+    public function rider(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'rider_id');
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

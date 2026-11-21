@@ -69,3 +69,4 @@
   .pickup-print-actions { gap: 10px; }
   .pickup-print-actions > .btn, .pickup-print-actions > button { width: 100%; justify-content: center; }
 }
+.pickup-print-count { margin: 10px 0 0; text-align: center; font-weight: 600; font-size: .875rem; }

@@ -7,6 +7,9 @@ import '../css/rider-day.css';
 import '../css/staff-auth-revision.css';
 import '../css/order-workspace-revision.css';
 import '../css/order-detail-revision.css';
+import '../css/status-badges.css';
+import '../css/day-progress.css';
+import '../css/rider-page.css';
 import './order-history';
 import '../css/pickup-agenda.css';
 import './pickup-agenda';
@@ -142,7 +145,7 @@ for (const conversation of document.querySelectorAll('[data-conversation-list]')
 document.addEventListener('click', event => {
     const button = event.target.closest('[data-select-labels]');
     if (!button) return;
-    const boxes = [...button.closest('form').querySelectorAll('input[name="ids[]"]')];
+    const boxes = [...button.closest('form').querySelectorAll('input[type="checkbox"][name="ids[]"]')];
     const checked = !boxes.every(box => box.checked);
     boxes.forEach(box => { box.checked = checked; });
 });

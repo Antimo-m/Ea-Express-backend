@@ -31,6 +31,28 @@ function remember(group) {
     }
     states(date).set(identity(group), { ...previous, open: group.open, url: group.dataset.pickupCurrentUrl || previous.url || group.dataset.pickupOrdersUrl, checks });
 }
+/**
+ * Selezione delle etichette dell'account su tutte le pagine già aperte: le spunte restano valide cambiando pagina
+ * e gli ordini scelti nelle altre pagine vengono inviati come campi nascosti, senza duplicati.
+ */
+function syncLabelSelection(group) {
+    const form = group?.querySelector('[data-label-selection]');
+    if (!form) return;
+    remember(group);
+    const checks = states(dateOf(group)).get(identity(group))?.checks || {};
+    const selected = new Set();
+    for (const page of Object.values(checks)) for (const [slug, checked] of Object.entries(page)) if (checked) selected.add(slug);
+    const visible = [...form.querySelectorAll('input[type="checkbox"][name="ids[]"]')];
+    for (const input of visible) { if (input.checked) selected.add(input.value); else selected.delete(input.value); }
+    const onPage = new Set(visible.map(input => input.value));
+    form.querySelector('[data-label-carry]')?.replaceChildren(...[...selected].filter(slug => !onPage.has(slug)).map(slug => Object.assign(document.createElement('input'), { type: 'hidden', name: 'ids[]', value: slug })));
+    const status = form.querySelector('[data-label-count]');
+    if (status) {
+        const total = Number(status.dataset.labelTotal || 0);
+        status.textContent = `${selected.size} ${selected.size === 1 ? 'etichetta selezionata' : 'etichette selezionate'} su ${total} ${total === 1 ? 'ordine' : 'ordini'}`;
+    }
+    form.dispatchEvent(new Event('change', { bubbles: true }));
+}
 function rememberAll() { root()?.querySelectorAll('[data-pickup-account]').forEach(remember); }
 function abortAccounts() { for (const controller of accountRequests.values()) controller.abort(); accountRequests.clear(); }
 function errorNotice(container, message, retry) {
@@ -59,6 +81,7 @@ function applyOrders(group, content, url) {
     group.querySelector('[data-pickup-account-orders-count]').textContent = content.dataset.pickupOrdersTotal;
     group.querySelector('[data-pickup-account-parcel-count]').textContent = content.dataset.pickupOrdersParcels;
     remember(group);
+    syncLabelSelection(group);
 }
 async function loadOrders(group, target, { force = false, normalized = false } = {}) {
     if (!group.isConnected || !group.open) return;
@@ -191,6 +214,13 @@ document.addEventListener('click', event => {
         event.preventDefault(); group.open = true; loadOrders(group, new URL(link.href)); return;
     }
     if (link.matches('[data-pickup-date], [data-pickup-groups-first]') || link.closest('.pickup-calendar-navigation, .pickup-accounts-pagination, .page-back')) { event.preventDefault(); navigateAgenda(new URL(link.href)); }
+});
+document.addEventListener('change', event => {
+    if (event.target.matches?.('[data-pickup-account] input[type="checkbox"][name="ids[]"]')) syncLabelSelection(event.target.closest('[data-pickup-account]'));
+});
+document.addEventListener('click', event => {
+    const toggle = event.target.closest('[data-pickup-account] [data-select-labels]');
+    if (toggle) setTimeout(() => syncLabelSelection(toggle.closest('[data-pickup-account]')));
 });
 document.addEventListener('keydown', event => {
     const day = event.target.closest('[data-pickup-agenda] [data-pickup-date]');
