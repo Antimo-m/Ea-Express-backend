@@ -1,7 +1,7 @@
 import { cancelToast, transientFeedback } from './toast-feedback';
 import { restoreOrderPreviews } from './operational-orders';
 import { applyOrderSnapshot } from './order-snapshot';
-import { animateJourney, journeyPosition } from './order-journey';
+import { animateJourney, celebrateJourney, journeyPosition } from './order-journey';
 import { connectWorkspace } from './workspace-realtime';
 import { observeMessageReceipts } from './message-receipts';
 import { createRefreshQueue } from './refresh-queue';
@@ -136,12 +136,29 @@ document.addEventListener('close', event => { if (event.target.closest('[data-li
 const tracking = document.querySelector('[data-public-tracking]');
 if (tracking) {
   connectWorkspace((path, options) => staffRequest(location.pathname + path, options));
-  window.addEventListener('ea:realtime-status', event => { tracking.querySelector('[data-realtime-state]').textContent = event.detail === 'connected' ? 'Aggiornamenti in tempo reale attivi' : 'Riconnessione agli aggiornamenti…'; });
+  window.addEventListener('ea:realtime-status', event => {
+    const connected = event.detail === 'connected';
+    tracking.dataset.realtime = connected ? 'connected' : 'offline';
+    tracking.querySelector('[data-realtime-state]').textContent = connected ? 'Aggiornamenti in tempo reale attivi' : 'Riconnessione agli aggiornamenti…';
+  });
+  // "Ultimo aggiornamento 5 minuti fa": il server invia l'orario esatto, qui si traduce in tempo relativo.
+  const relative = new Intl.RelativeTimeFormat('it', { numeric: 'auto' });
+  const refreshTimes = () => {
+    for (const time of tracking.querySelectorAll('time[data-relative-time]')) {
+      const seconds = Math.round((Date.parse(time.dateTime) - Date.now()) / 1000);
+      if (!Number.isFinite(seconds)) continue;
+      const minutes = Math.round(seconds / 60), hours = Math.round(seconds / 3600), days = Math.round(seconds / 86400);
+      time.textContent = Math.abs(seconds) < 60 ? 'pochi secondi fa' : Math.abs(minutes) < 60 ? relative.format(minutes, 'minute') : Math.abs(hours) < 24 ? relative.format(hours, 'hour') : relative.format(days, 'day');
+    }
+  };
+  refreshTimes();
+  window.setInterval(refreshTimes, 30000);
+  celebrateJourney(tracking);
   let refreshing = false;
   window.addEventListener('ea:workspace-updated', async () => {
     if (refreshing) return;
     refreshing = true;
-    try { const response = await fetch(location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' } }); if (!response.ok) return; const fresh = new DOMParser().parseFromString(await response.text(), 'text/html').querySelector('.tracking-document'); if (fresh) { const previous = journeyPosition(tracking); tracking.querySelector('.tracking-document').replaceWith(fresh); animateJourney(previous, tracking); } }
+    try { const response = await fetch(location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' } }); if (!response.ok) return; const fresh = new DOMParser().parseFromString(await response.text(), 'text/html').querySelector('.tracking-document'); if (fresh) { const previous = journeyPosition(tracking); tracking.querySelector('.tracking-document').replaceWith(fresh); refreshTimes(); if (!animateJourney(previous, tracking)) celebrateJourney(tracking); } }
     finally { refreshing = false; }
   });
 }

@@ -1,4 +1,4 @@
-@props(['progress', 'from' => null, 'to' => null, 'fallbackNote' => 'Consulta le azioni operative e la cronologia per i dettagli.'])
+@props(['progress', 'from' => null, 'to' => null, 'fallbackNote' => 'Consulta le azioni operative e la cronologia per i dettagli.', 'celebrate' => null])
 @php
     $steps = $progress['steps'];
     $stopCount = count($steps);
@@ -10,7 +10,7 @@
 @endphp
 {{-- Il camion si posiziona solo in base allo stato registrato: nessun avanzamento a tempo, nessuna posizione geografica. --}}
 <section {{ $attributes->merge(['class' => 'surface shipment-progress journey']) }} aria-labelledby="order-progress-title" aria-live="polite"
-    data-journey data-journey-position="{{ $position }}" data-journey-state="{{ $journeyState }}" style="--journey-stops: {{ $stopCount }}; --journey-at: {{ $position }};">
+    data-journey data-journey-position="{{ $position }}" data-journey-state="{{ $journeyState }}" @if($celebrate) data-journey-celebrate="{{ $celebrate }}" @endif style="--journey-stops: {{ $stopCount }}; --journey-at: {{ $position }};">
     <header class="journey-heading">
         <div><span class="eyebrow">AVANZAMENTO SPEDIZIONE</span><h2 id="order-progress-title">Il percorso dell’ordine</h2></div>
         <p class="journey-now"><span class="journey-now-label">{{ $exception ? 'Spedizione interrotta' : ($journeyState === 'arrived' ? 'Spedizione completata' : 'Fase attuale') }}</span><strong>{{ $headline }}</strong><span class="journey-now-count">Tappa {{ $position + 1 }} di {{ $stopCount }} · solo passaggi registrati</span></p>
@@ -18,11 +18,11 @@
     <div class="journey-scene" aria-hidden="true">
         <div class="journey-road">
             <span class="journey-road-fill"></span>
-            @if($from)<span class="journey-place journey-place--from"><x-ui.icon name="circle-fill" /> {{ $from }}</span>@endif
-            @if($to)<span class="journey-place journey-place--to">{{ $to }} <x-ui.icon name="geo-alt-fill" /></span>@endif
             @foreach($steps as $step)
                 <span @class(['journey-stop', 'is-'.$step['state'], 'is-destination' => $loop->last]) style="--stop: {{ $loop->index }};">@if($loop->last)<x-ui.icon name="flag-fill" />@endif</span>
             @endforeach
+            @if($journeyState === 'arrived')<span class="journey-arrived">Consegnato!</span>@endif
+            @if($celebrate)<span class="journey-confetti"></span>@endif
             <span class="journey-vehicle">
                 @if($exception)<span @class(['journey-signal', 'is-stopped' => $terminal])><x-ui.icon :name="$terminal ? 'x-lg' : 'exclamation-lg'" /></span>@endif
                 <svg class="journey-truck" viewBox="0 0 112 60" focusable="false">
@@ -39,6 +39,12 @@
                 </svg>
             </span>
         </div>
+        @if($from || $to)
+            <div class="journey-places">
+                @if($from)<span class="journey-place journey-place--from"><x-ui.icon name="circle-fill" /><span>{{ $from }}</span></span>@endif
+                @if($to)<span class="journey-place journey-place--to"><span>{{ $to }}</span><x-ui.icon name="geo-alt-fill" /></span>@endif
+            </div>
+        @endif
     </div>
     @if($progress['pricing'])<p class="progress-pricing"><x-ui.icon name="currency-euro" /> {{ $progress['pricing'] }} · la proposta economica non conferma la presa in carico.</p>@endif
     @if($exception)<div @class(['progress-exception', 'is-stopped' => $terminal]) role="status"><strong>{{ $exception['label'] }}</strong>@if($exception['at'])<time datetime="{{ $exception['at']->toIso8601String() }}">{{ $exception['at']->timezone('Europe/Rome')->format('d/m/Y H:i') }}</time>@endif<p>{{ $exception['note'] ?: $fallbackNote }}</p>@if($exception['last'])<small>Ultimo passaggio registrato: {{ $exception['last'] }}</small>@endif</div>@endif

@@ -62,4 +62,46 @@ class ShipmentJourneyTest extends TestCase
 
         $this->actingAs($customer, 'customer')->getJson('/api/v1/customer/orders')->assertOk()->assertJsonMissingPath('data.0.progress');
     }
+
+    public function test_journey_shows_full_city_names_below_the_road_only_for_staff(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $order = Order::factory()->create(['status' => OrderStatus::InTransit, 'tracking_started_at' => now(), 'pickup_city' => 'San Giuseppe Vesuviano', 'delivery_city' => 'Giugliano in Campania']);
+
+        $this->actingAs($admin)->get(route('orders.show', $order))->assertOk()
+            ->assertSeeInOrder(['class="journey-road"', 'class="journey-places"', '<span>San Giuseppe Vesuviano</span>', '<span>Giugliano in Campania</span>'], false);
+
+        auth()->logout();
+        $this->get('/track/'.$order->tracking_token)->assertOk()
+            ->assertDontSee('journey-places')->assertDontSee('Giugliano in Campania');
+    }
+
+    public function test_delivered_tracking_celebrates_once_and_shows_how_fresh_the_updates_are(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $order = Order::factory()->create(['status' => OrderStatus::Delivered, 'tracking_started_at' => now()]);
+        $order->events()->create(['status' => OrderStatus::Delivered, 'user_id' => $admin->id]);
+        $latest = $order->events()->latest()->value('created_at');
+
+        $this->get('/track/'.$order->tracking_token)->assertOk()
+            ->assertSee('data-journey-state="arrived"', false)
+            ->assertSee('data-journey-celebrate="'.$order->reference.'"', false)
+            ->assertSee('<span class="journey-arrived">Consegnato!</span>', false)
+            ->assertSee('class="journey-confetti"', false)
+            ->assertSee('data-realtime="connecting"', false)
+            ->assertSee('datetime="'.$latest->toIso8601String().'" data-relative-time', false);
+
+        $this->actingAs($admin)->get(route('orders.show', $order))->assertOk()
+            ->assertSee('<span class="journey-arrived">Consegnato!</span>', false)
+            ->assertDontSee('journey-confetti')->assertDontSee('data-journey-celebrate');
+    }
+
+    public function test_journey_in_progress_shows_neither_badge_nor_confetti(): void
+    {
+        $order = Order::factory()->create(['status' => OrderStatus::OutForDelivery, 'tracking_started_at' => now()]);
+
+        $this->get('/track/'.$order->tracking_token)->assertOk()
+            ->assertDontSee('journey-arrived')
+            ->assertSee('class="journey-confetti"', false);
+    }
 }
