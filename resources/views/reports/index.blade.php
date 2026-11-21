@@ -1,18 +1,33 @@
 <x-app-layout title="Resoconti">
     <header class="page-heading"><div><span class="eyebrow">LA TUA ATTIVITÀ, IN NUMERI</span><h1>Resoconti</h1><p>{{ $customPeriod ? $period->start->format('d/m/Y').' — '.$period->end->format('d/m/Y') : $period->start->locale('it')->translatedFormat('F Y') }} · {{ auth()->user()->role === \App\UserRole::Admin ? 'Tutta l’attività' : 'Le richieste create, rifiutate o assegnate a te' }}</p></div><x-ui.status-badge class="status-pill tone-blue"><x-ui.icon name="calendar3" /> {{ $customPeriod ? 'Periodo personalizzato' : 'Vista mensile' }}</x-ui.status-badge></header>
-    <x-ui.filters layout="date" compact accent="orange" :reset="route('reports.index')"><x-ui.field name="month" label="Mese" type="month" size="small" :value="request('month', $period->start->format('Y-m'))" /><x-ui.field name="from" label="Da" type="date" data-inline-label="Da" data-required-when="to" :value="request('from')" /><x-ui.field name="to" label="Al" type="date" data-inline-label="Al" data-required-when="from" :value="request('to')" /></x-ui.filters>
-    <p class="small text-secondary">Seleziona entrambe le date per un periodo personalizzato di massimo un anno, oppure lasciale vuote per consultare il mese.</p>
+    <x-ui.filters layout="date" compact accent="orange" :reset="route('reports.index')" class="report-filters">
+        <div class="report-filter-group" role="group" aria-labelledby="report-filter-month">
+            <span class="report-filter-label" id="report-filter-month"><x-ui.icon name="calendar3" />Vista mensile</span>
+            <x-ui.field name="month" label="Mese" type="month" size="small" :value="request('month', $period->start->format('Y-m'))" />
+        </div>
+        <span class="report-filter-or" aria-hidden="true">oppure</span>
+        <div class="report-filter-group report-filter-range" role="group" aria-labelledby="report-filter-range" aria-describedby="report-filter-help">
+            <span class="report-filter-label" id="report-filter-range"><x-ui.icon name="calendar-range" />Periodo personalizzato</span>
+            <div class="report-filter-dates">
+                <x-ui.field name="from" label="Dal" type="date" data-required-when="to" :value="request('from')" />
+                <x-ui.icon name="arrow-right" class="report-filter-arrow" />
+                <x-ui.field name="to" label="Al" type="date" data-required-when="from" :value="request('to')" />
+            </div>
+            <small id="report-filter-help">Entrambe le date, massimo un anno. Vuote: si consulta il mese.</small>
+        </div>
+    </x-ui.filters>
+    <p class="report-shipping-split"><span><x-ui.icon name="geo-alt" />Regionali <strong>{{ $shippingCounts['regional'] ?? 0 }}</strong></span><span><x-ui.icon name="globe2" />Fuori regione <strong>{{ $shippingCounts['external'] ?? 0 }}</strong></span></p>
     <section class="report-kpis" aria-label="Indicatori del periodo">
         <x-ui.metric label="Richieste ricevute" :value="$received" icon="inbox" :note="($growth === null ? 'Nessuna base di confronto' : ($growth > 0 ? '+' : '').number_format($growth, 1, ',', '.').'%').' · '.($customPeriod ? 'periodo precedente equivalente: ' : 'mese precedente intero: ').$previous" />
         <x-ui.metric label="Consegne completate" :value="$delivered" icon="truck" note="In base alla data effettiva di consegna" />
         <x-ui.metric label="Incassi clienti" :value="\App\Support\Money::format($cash)" icon="cash-coin" tone="positive" note="Inclusi i pagamenti dei sospesi, denaro effettivamente ricevuto, al netto dei soli rimborsi pagati" />
         <x-ui.metric label="Netto contabile operativo" :value="\App\Support\Money::format($operatingNet)" icon="wallet2" :tone="$operatingNet < 0 ? 'negative' : 'attention'" note="Incassi lordi − storni + ripristini − spese + saldo amministrativo, esclusi i contanti aggiuntivi" />
     </section>
-    <p class="small text-secondary">Richieste regionali: {{ $shippingCounts['regional'] ?? 0 }} · Fuori regione: {{ $shippingCounts['external'] ?? 0 }}</p><div class="report-chart-grid">
+    <div class="report-chart-grid">
         <x-reports.trend id="orders-trend" title="Andamento delle richieste" description="Richieste create ogni giorno del periodo, in ora italiana." :points="$trend" />
         <x-reports.trend id="cash-trend" kind="cash" title="Movimenti contabili" description="Incassi e rettifiche alla data di registrazione; spese e movimenti amministrativi alla data contabile. Rimborsi di cassa e ripristini non duplicano entrate o spese." :points="$trend" />
     </div>
-    <section class="surface report-totals"><div><span>Entrate e compensazioni del periodo</span><x-ui.signed-money :amount="$incomingTotal" /></div><div><span>Uscite e storni</span><x-ui.signed-money :amount="-$outgoingTotal" /></div><div><span>Spese valide</span><strong>{{ \App\Support\Money::format($spent) }}</strong></div><div><span>Tariffe maturate</span><strong>{{ \App\Support\Money::format($earned) }}</strong><small>Non si sommano agli incassi</small></div></section>
+    <section class="surface report-totals"><div class="report-total report-total--in"><x-ui.icon name="arrow-down-left" /><span>Entrate e compensazioni del periodo</span><x-ui.signed-money :amount="$incomingTotal" /></div><div class="report-total report-total--out"><x-ui.icon name="arrow-up-right" /><span>Uscite e storni</span><x-ui.signed-money :amount="-$outgoingTotal" /></div><div class="report-total report-total--expense"><x-ui.icon name="receipt" /><span>Spese valide</span><strong>{{ \App\Support\Money::format($spent) }}</strong></div><div class="report-total report-total--earned"><x-ui.icon name="tags" /><span>Tariffe maturate</span><strong>{{ \App\Support\Money::format($earned) }}</strong><small>Non si sommano agli incassi</small></div></section>
     <div class="report-detail-grid">
         <section class="surface workspace-section"><header class="section-heading"><div><span class="eyebrow">DISTRIBUZIONE</span><h2>Stato delle richieste</h2></div><span class="count-badge">{{ $accepted }} accettate</span></header><p class="small text-secondary">Stato attuale delle richieste create nel periodo; gli esiti possono ancora cambiare.</p>
             @foreach(\App\OrderStatus::cases() as $state)

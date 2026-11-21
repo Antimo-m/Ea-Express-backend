@@ -25,6 +25,10 @@ for (const panel of document.querySelectorAll('[data-rider-operations]')) {
         for (const button of panel.querySelectorAll('[data-operations-view]')) button.setAttribute('aria-pressed',String(button.dataset.operationsView === view));
     }
     const node = (tag, value = '', className = '') => { const element = document.createElement(tag); element.textContent = value; element.className = className; return element; };
+    // Badge numerico e badge Rider: ogni Rider ha sempre lo stesso colore, ricavato dal suo nome.
+    const counted = (value, label, className = '') => { const item = node('span', '', className); item.append(node('b', String(value), 'operations-count-badge'), document.createTextNode(` ${label}`)); return item; };
+    const riderHue = name => [...name].reduce((hash, char) => (hash * 31 + char.codePointAt(0)) % 360, 7);
+    const riderChip = (name, tag = 'span') => { const chip = node(tag, name, 'rider-chip'); chip.style.setProperty('--rider-hue', riderHue(name)); return chip; };
     const groups = () => (view === 'zone' ? latest.zones : latest.riders).filter(group => group.name.toLocaleLowerCase('it').includes(search.value.toLocaleLowerCase('it')) && (filter.value === 'all' || group.active > 0)).sort((a, b) => (sort.value !== 'name' ? (b[sort.value] || 0) - (a[sort.value] || 0) : 0) || a.name.localeCompare(b.name, 'it'));
     function feedback(message = '') { const box = panel.querySelector('[data-zone-error]'); box.hidden = !message; box.textContent = message; }
     async function loadOrders(url) {
@@ -71,7 +75,8 @@ for (const panel of document.querySelectorAll('[data-rider-operations]')) {
         const assignments = node('div', '', 'explorer-assignments');
         assignments.append(node('span', view === 'zone' ? 'Rider assegnati' : 'Zone della giornata', 'data-label'));
         for (const item of view === 'zone' ? group.riders : group.zones) {
-            const name = node(view === 'zone' && item.url ? 'a' : 'span', view === 'zone' ? item.name : `${item.name} · ${item.count}`, 'assignment-name');
+            const name = view === 'zone' ? riderChip(item.name, item.url ? 'a' : 'span') : node('span', `${item.name} · ${item.count}`, 'assignment-name');
+            name.classList.add('assignment-name');
             if (name.tagName === 'A') { const target = new URL(item.url, location.origin); target.searchParams.set('zone', group.key); name.href = target; }
             assignments.append(name);
         }
@@ -98,14 +103,15 @@ for (const panel of document.querySelectorAll('[data-rider-operations]')) {
             button.style.setProperty('--done', `${group.total - group.closed_unfulfilled > 0 ? Math.round(group.delivered / (group.total - group.closed_unfulfilled) * 100) : 0}%`); button.type = 'button'; button.dataset.operationsKey = group.key; button.setAttribute('aria-pressed', String(group.key === selected));
             const heading = node('span', '', 'explorer-item-heading'); heading.append(node('strong', group.name), node('span', group.total, 'explorer-volume')); button.append(heading);
             const status = node('span', '', 'explorer-item-status');
-            status.append(node('span', `${group.delivered} consegnate`, 'operations-completed'), node('span', `${group.pending} da consegnare`), node('span', `${group.unassigned} da assegnare`));
+            status.append(counted(group.delivered, 'consegnate', 'operations-completed'), counted(group.pending, 'da consegnare'), counted(group.unassigned, 'da assegnare'));
             button.append(status);
             const bar = node('span', '', 'explorer-item-bar'); bar.setAttribute('aria-hidden', 'true'); bar.append(node('span', '', 'explorer-item-bar-fill')); button.append(bar);
             if (view === 'zone' && group.riders.length) {
                 const names = group.riders.slice(0, 3).map(rider => rider.name);
                 const more = group.riders.length - names.length;
-                const summary = node('span', names.join(' · '), 'explorer-rider-summary');
-                if (more > 0) { const extra = node('span', ` · +${more}`); extra.setAttribute('aria-label', `${more} altri Rider: apri il dettaglio della zona`); summary.append(extra); }
+                const summary = node('span', '', 'explorer-rider-summary');
+                names.forEach(name => summary.append(riderChip(name)));
+                if (more > 0) { const extra = node('span', `+${more}`, 'rider-chip rider-chip--more'); extra.setAttribute('aria-label', `${more} altri Rider: apri il dettaglio della zona`); summary.append(extra); }
                 button.append(summary);
             }
             list.append(button);
@@ -176,7 +182,11 @@ for (const panel of document.querySelectorAll('[data-rider-operations]')) {
         search.value=parameters.get('q') || ''; filter.value=parameters.get('filter') || 'all'; sort.value=parameters.get('sort') || 'name';
         changePeriod(url, { preserveContext: false, resetPage: false });
     });
-    panel.querySelector('[data-operations-refresh]')?.addEventListener('click', () => queue.refresh());
+    panel.querySelector('[data-operations-refresh]')?.addEventListener('click', () => {
+        // Reset: ricerca, «Mostra» e «Ordina» tornano ai valori iniziali e i dati del periodo vengono ricaricati.
+        search.value = ''; filter.value = 'all'; sort.value = 'name'; page = 1;
+        render(); queue.refresh();
+    });
     window.addEventListener('pagehide', event => { if(event.persisted)return; queue.dispose(); controller?.abort(); }, { once: true });
     render();
 }

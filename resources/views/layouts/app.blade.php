@@ -19,7 +19,7 @@
     <p class="confirmation-summary" data-confirm-summary></p>
     <p class="confirmation-summary" data-confirm-description></p>
     <p role="alert" data-modal-error></p>
-    <footer class="modal-actions"><button type="button" class="btn modal-back" data-dialog-close><x-ui.icon name="arrow-left"/> Torna indietro</button><x-ui.icon-button action="confirm" label="Conferma operazione" data-confirm-action /></footer>
+    <footer class="modal-actions"><button type="button" class="btn modal-back modal-back-icon icon-button action-back" data-dialog-close aria-label="Torna indietro" data-tooltip="Torna indietro"><x-ui.icon name="arrow-left"/></button><x-ui.icon-button action="confirm" label="Conferma operazione" data-confirm-action /></footer>
 </x-ui.modal>
 </body>
 </html>

@@ -1,5 +1,5 @@
 <x-app-layout title="Rider">
-    <header class="page-heading"><div><span class="eyebrow">IL TEAM SUL TERRITORIO</span><h1>Rider</h1><p>Persone, carichi di lavoro e accessi del tuo team.</p></div><a class="btn btn-primary" href="{{ route('users.create') }}">Aggiungi</a></header>
+    <header class="page-heading"><div><span class="eyebrow">IL TEAM SUL TERRITORIO</span><h1>Rider</h1><p>Persone, carichi di lavoro e accessi del tuo team.</p></div><x-ui.icon-button action="add" :href="route('users.create')" label="Aggiungi Rider" class="users-add" /></header>
     @if($users->isNotEmpty())
     <x-ui.directory label="Team Rider" search-label="Cerca nome o email in questa pagina" class="rider-directory">
         <x-slot:summary><p>{{ $users->total() }} account Rider</p></x-slot:summary>
@@ -37,11 +37,11 @@
                                     @endif
                                     <button type="submit" name="action" value="revoke-devices" class="btn access-action access-action--revoke" data-confirm="Revoca sessione dai dispositivi" data-confirm-name="{{ $rider->name }}"><span class="access-device-icon" aria-hidden="true"><x-ui.icon name="phone" /><x-ui.icon name="box-arrow-right" /></span><span>Revoca sessione dai dispositivi<small>Chiude ogni accesso attivo e i dispositivi autorizzati</small></span></button>
                                     @if($rider->email_verified_at)
-                                        <button type="submit" name="action" value="reset-email" class="btn access-action access-action--neutral" data-confirm="Ripristina verifica email" data-confirm-name="{{ $rider->name }}"><x-ui.icon name="envelope-exclamation" /><span>Ripristina verifica email<small>Al prossimo accesso servirà di nuovo il codice via email</small></span></button>
+                                        <button type="submit" name="action" value="reset-email" class="btn access-action access-action--verify" data-confirm="Ripristina verifica email" data-confirm-name="{{ $rider->name }}"><x-ui.icon name="envelope-exclamation" /><span>Ripristina verifica email<small>Al prossimo accesso servirà di nuovo il codice via email</small></span></button>
                                     @endif
                                 </div>
                                 <footer class="modal-actions access-manage-footer">
-                                    <button type="button" class="btn modal-back access-back" data-dialog-close aria-label="Torna indietro" data-tooltip="Torna indietro"><x-ui.icon name="arrow-left" /></button>
+                                    <button type="button" class="btn modal-back access-back modal-back-icon icon-button action-back" data-dialog-close aria-label="Torna indietro" data-tooltip="Torna indietro"><x-ui.icon name="arrow-left" /></button>
                                     @if($rider->is_active && ! $rider->email_verified_at)
                                         <button type="submit" name="action" value="send-activation" class="btn access-send" aria-label="Invia nuovo link di attivazione" data-tooltip="Invia nuovo link di attivazione (crea password, valido 48 ore)" data-confirm-name="{{ $rider->name }}"><x-ui.icon name="send" /></button>
                                     @endif

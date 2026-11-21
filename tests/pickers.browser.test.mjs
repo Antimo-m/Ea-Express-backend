@@ -699,6 +699,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 for(const node of document.querySelectorAll('button,.btn,.button,.icon-button,.page-arrow,.page-number,.back-link,.password-toggle,.portal-mobile-nav .mobile-create,.topbar .account,.period-options a,.workspace-tabs a,.section-jump a')) {
                     const rect=node.getBoundingClientRect(),style=getComputedStyle(node);
                     if(!rect.width||!rect.height||style.visibility==='hidden'||node.matches('.nav-backdrop'))continue;
+                    if(node.matches('.explorer-item')){if(parseFloat(style.borderRadius)<12||parseFloat(style.borderRadius)>rect.height/3)result.push({label:'Explorer cards keep rounded card corners',class:node.className,radius:style.borderRadius});continue;}
                     const icon=node.matches(icons);
                     if(icon&&node.matches('.account-button,.account')&&getComputedStyle(node.querySelector('.avatar')).borderRadius!=='50%')result.push({label:'Account avatar must follow the circular button'});
                     if(icon ? Math.abs(rect.width-rect.height)>1 || style.borderRadius!=='50%' : !node.matches('.sound-toggle,.account-button') && style.borderRadius!=='9999px')result.push({label:node.getAttribute('aria-label')||node.textContent.trim().slice(0,40),class:node.className,width:rect.width,height:rect.height,radius:style.borderRadius});
@@ -791,7 +792,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
             for(let i=0;i<100;i++){if(await evaluate(`!document.querySelector('.message-composer button').disabled&&document.querySelector('.conversation-list').textContent.includes('Messaggio in partenza')`))break;await new Promise(resolve=>setTimeout(resolve,20));}
             assert.equal(chatWrites,before+3);
             assert.equal(await evaluate(`document.querySelector('#body').value`),'Bozza successiva');
-            await evaluate(`document.querySelector('[data-chat-refresh]').click()`);
+            await evaluate(`window.dispatchEvent(new CustomEvent('ea:workspace-updated',{detail:{kind:'messages'}}))`);
             for(let i=0;i<100;i++){if(await evaluate(`document.querySelector('[data-conversation-list]').getAttribute('aria-busy')!=='true'`))break;await new Promise(resolve=>setTimeout(resolve,20));}
             assert.equal(await evaluate(`document.querySelector('#body').value`),'Bozza successiva');
             assert.ok(chatReceipts.some(receipt=>receipt.state==='delivered'&&receipt.ids.every(id=>/^[0-9a-f-]{36}$/.test(id))));
@@ -1475,7 +1476,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 assert.ok(await evaluate(`const s=document.querySelector('[name="customer_id"]'),a=JSON.parse(s.selectedOptions[0].dataset.identity);document.querySelector('[name="store_name"]').value===a.name && document.querySelector('[name="sender_type"]:checked').value===a.sender_type`));
                 await navigate('checkout.html');
                 assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`));
-                assert.equal(await evaluate(`document.querySelector('.checkout-actions button').textContent.trim()`),'Torna indietro');
+                assert.deepEqual(await evaluate(`(()=>{const b=document.querySelector('.checkout-actions button');return [b.getAttribute('aria-label'),b.textContent.trim()];})()`),['Torna indietro','']);
                 assert.ok(await evaluate(`document.querySelector('.checkout-continue').offsetWidth<350`));
                 await evaluate(`document.querySelector('.checkout-actions').scrollIntoView({behavior:'instant'});`);
                 if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`checkout-actions-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));

@@ -154,7 +154,7 @@ test('Collaudo produzione: selezione stampa, badge, azioni e Rider a tutte le la
             await waitFor('document.querySelector("#cancel-order[open]")');
             const cancellation=await evaluate('const button=document.querySelector("#cancel-order .action-delete"),back=document.querySelector("#cancel-order .modal-back");return {label:button.textContent.trim(),color:getComputedStyle(button).backgroundColor,left:button.getBoundingClientRect().left,back:back.getBoundingClientRect().left};');
             assert.equal(cancellation.label, 'Annulla compilazione');
-            assert.ok(cancellation.left < cancellation.back, JSON.stringify(cancellation));
+            assert.ok(cancellation.back < cancellation.left, JSON.stringify(cancellation));
             await checkBounds('annullamento @'+width);
             } catch (error) { process.stderr.write(error.stack+'\n'); throw error; }
         });

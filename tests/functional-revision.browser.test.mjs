@@ -108,7 +108,7 @@ test('Revisione funzionale: mobile, cassa touch, validazione contestuale e stamp
                 await click('.money-register form[data-confirm] button');
                 await waitFor('document.querySelector("#action-confirmation[open]")');
                 const actions = await evaluate('const back=document.querySelector("#action-confirmation .modal-back").getBoundingClientRect(),confirm=document.querySelector("#action-confirmation [data-confirm-action]").getBoundingClientRect();return {back:back.x,confirm:confirm.x};');
-                assert.ok(actions.confirm < actions.back);
+                assert.ok(actions.back < actions.confirm, "Torna indietro a sinistra, conferma a destra");
                 await click('#action-confirmation [data-dialog-close]');
             }
             await click('[data-dialog-open="balance-add"]');

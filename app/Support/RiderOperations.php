@@ -106,23 +106,24 @@ class RiderOperations
 
     /**
      * Resoconto economico del Rider (stessa vista per Rider e Admin):
-     * - netto finale disponibile = contanti degli incassi registrati dall'Admin nel periodo per le consegne attribuite
-     *   al Rider, al netto di storni e rimborsi pagati (stessa regola di cassa del Bilancio);
+     * - entrate finali = incassi registrati dall'Admin nel periodo per le consegne attribuite al Rider, con ogni metodo
+     *   di pagamento (contanti compresi), al netto di storni e ripristini (stessa regola del ricavo nel Bilancio);
+     * - di cui contanti = quota in contanti delle stesse entrate, al netto dei rimborsi pagati;
      * - spese = spese registrate dal Rider nel periodo (non annullate);
-     * - saldo disponibile = netto finale disponibile − spese. Il netto non contiene spese, quindi non vengono sottratte due volte.
-     * Le conferme d'incasso inviate dal Rider sono segnalazioni: restano fuori dal saldo finché l'Admin non registra l'incasso.
+     * - saldo disponibile = entrate finali − spese. Le entrate non contengono spese, quindi non vengono sottratte due volte.
+     * Le conferme d'incasso inviate dal Rider sono segnalazioni: restano fuori finché l'Admin non registra l'incasso.
      *
-     * @return array{net_cash: int, expenses: int, available: int, declared_cents: int, declared_count: int}
+     * @return array{income: int, cash: int, expenses: int, available: int, declared_cents: int, declared_count: int}
      */
     public function riderBalance(ReportingPeriod $period, int $riderId): array
     {
         $attributed = fn (Builder $orders): Builder => $this->attributedToRider($this->assignedConstraints($orders, null, null), $riderId);
-        $cash = app(ReceiptLedger::class)->totals(PaymentEntry::whereHas('order', $attributed)->whereBetween('created_at', $period->utcRange()))['cash'];
+        $totals = app(ReceiptLedger::class)->totals(PaymentEntry::whereHas('order', $attributed)->whereBetween('created_at', $period->utcRange()));
         $expenses = (int) Expense::whereNull('voided_at')->where('user_id', $riderId)
             ->where('spent_on', '>=', $period->start->toDateString())->where('spent_on', '<', $period->end->copy()->addDay()->toDateString())->sum('amount_cents');
         $declared = ReceiptDeclaration::where('rider_id', $riderId)->where('state', 'pending')->toBase()->selectRaw('COUNT(*) AS total, COALESCE(SUM(amount_cents), 0) AS cents')->first();
 
-        return ['net_cash' => $cash, 'expenses' => $expenses, 'available' => $cash - $expenses, 'declared_cents' => (int) $declared->cents, 'declared_count' => (int) $declared->total];
+        return ['income' => $totals['net'], 'cash' => $totals['cash'], 'expenses' => $expenses, 'available' => $totals['net'] - $expenses, 'declared_cents' => (int) $declared->cents, 'declared_count' => (int) $declared->total];
     }
 
     /** Consegne attribuite al Rider con incasso non ancora registrato dall'Admin. */

@@ -14,10 +14,9 @@
             <div class="pickup-account-body" data-pickup-orders><p class="text-secondary">Gli ordini vengono caricati soltanto quando apri questo account.</p><a class="btn btn-outline-secondary" data-pickup-load href="{{ $account->orders_url }}">Carica i ritiri</a></div>
         </details>
     @empty
-        <div class="surface pickup-day-empty"><x-ui.icon name="calendar2-check" />
-            @if($totalOrders > 0)<h2>Nessun account in questa pagina</h2><p>La lista è cambiata. Sono presenti {{ $totalOrders }} ritiri nella giornata.</p><a class="btn btn-outline-secondary mt-3" data-pickup-groups-first href="{{ route('pickups.day', ['date' => $date->toDateString(), 'per_page' => $groups->perPage()]) }}">Torna alla prima pagina</a>
-            @else<h2>Nessun ritiro in questa data</h2><p>Per questa data non risultano richieste di ritiro.</p>@endif
+        @if($totalOrders > 0)<div class="surface pickup-day-empty"><x-ui.icon name="calendar2-check" /><h2>Nessun account in questa pagina</h2><p>La lista è cambiata. Sono presenti {{ $totalOrders }} ritiri nella giornata.</p><a class="btn btn-outline-secondary mt-3" data-pickup-groups-first href="{{ route('pickups.day', ['date' => $date->toDateString(), 'per_page' => $groups->perPage()]) }}">Torna alla prima pagina</a>
         </div>
+        @else<x-ui.empty-scene class="pickup-day-empty" title="Nessun ritiro in questa data" tagline="Restiamo pronti al prossimo ritiro." message="Per questa data non risultano richieste di ritiro." />@endif
     @endforelse
     </div>
     <div class="pickup-accounts-pagination">{{ $groups->links('components.ui.pagination', ['descriptive' => true]) }}</div>

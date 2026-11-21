@@ -6,8 +6,16 @@
 /* Filtri: un unico blocco, controlli alti 44px, testo uniforme. */
 .rider-operations-page .operations-period-filter { padding: 14px 16px; border: 1px solid var(--ea-line); border-radius: var(--ea-radius-card); background: var(--ea-surface); gap: 12px; align-items: center; }
 .rider-operations-page .operations-period-filter .period-options { gap: 8px; }
-.rider-operations-page .operations-period-filter .period-options a, .rider-operations-page .operations-period-filter [data-custom-period] { min-height: 44px; padding-inline: 16px; font-size: .9rem; font-weight: 600; }
-.rider-operations-page .operations-period-filter input[type="date"], .rider-operations-page .operations-period-filter .ea-picker-trigger { min-height: 44px; font-size: .9rem; }
+@media (min-width: 576px) {
+  .rider-operations-page .operations-period-filter .period-options a, .rider-operations-page .operations-period-filter [data-custom-period] { min-height: 44px; padding-inline: 16px; font-size: .9rem; font-weight: 600; }
+  .rider-operations-page .operations-period-filter input[type="date"], .rider-operations-page .operations-period-filter .ea-picker-trigger { min-height: 44px; font-size: .9rem; }
+}
+/* Telefono: le date restano affiancate e dentro il riquadro (i periodi seguono la disposizione esistente). */
+@media (max-width: 575px) {
+  .rider-operations-page .operations-period-filter { overflow: hidden; }
+  .rider-operations-page .operations-period-filter .filter-range-dates { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; min-width: 0; }
+  .rider-operations-page .operations-period-filter .filter-range-dates > *, .rider-operations-page .operations-period-filter .filter-range-dates input, .rider-operations-page .operations-period-filter .filter-range-dates .ea-picker-trigger { inline-size: 100%; min-width: 0; max-inline-size: 100%; font-size: .8rem; }
+}
 .rider-operations-page .operations-period-filter .filter-period-caption { font-size: .8rem; color: var(--ea-muted); font-family: var(--zones-font); }
 
 /* Indicatori del periodo. */
@@ -75,3 +83,31 @@
 .rider-operations-page .operations-share { margin: 14px 0 8px; }
 .rider-operations-page .rider-operations > .data-caption { margin: 0 0 18px; }
 .rider-operations-page .explorer-list .explorer-item[aria-pressed="true"] { border-inline-start-width: 1px !important; }
+
+/* Conteggi in badge, Rider come badge colorati (colore stabile per nome), nomi senza sottolineatura. */
+.rider-operations-page .explorer-item-status > span { display: inline-flex; align-items: center; gap: 5px; }
+.rider-operations-page .explorer-item-status .operations-completed .operations-count-badge { background: color-mix(in srgb, var(--ea-success) 14%, var(--ea-surface)); color: var(--ea-success); border-color: color-mix(in srgb, var(--ea-success) 35%, transparent); }
+.rider-chip { display: inline-flex; align-items: center; max-inline-size: 100%; padding: 3px 10px; border-radius: 999px; font-size: .75rem; font-weight: 650; line-height: 1.3; text-decoration: none !important; overflow-wrap: anywhere; background: hsl(var(--rider-hue, 210) 70% 92%); color: hsl(var(--rider-hue, 210) 55% 28%) !important; border: 1px solid hsl(var(--rider-hue, 210) 50% 80%); }
+:root[data-ea-theme=dark] .rider-chip { background: hsl(var(--rider-hue, 210) 35% 24%); color: hsl(var(--rider-hue, 210) 70% 85%) !important; border-color: hsl(var(--rider-hue, 210) 35% 34%); }
+a.rider-chip:hover { filter: brightness(.96); }
+.rider-chip--more { background: var(--ea-surface-muted); color: var(--ea-muted) !important; border-color: var(--ea-line); }
+.rider-operations-page .explorer-rider-summary { display: flex; flex-wrap: wrap; gap: 5px; }
+.rider-operations-page .explorer-assignments .assignment-name.rider-chip { padding: 4px 10px; }
+.rider-operations-page .assignment-name[href] { text-decoration: none !important; color: inherit; }
+/* Card dell'elenco: nomi lunghi (es. Giugliano in Campania) vanno a capo senza toccare i bordi. */
+.rider-operations-page .explorer-item { padding: 14px 20px !important; }
+.rider-operations-page .explorer-item-heading { align-items: flex-start; }
+.rider-operations-page .explorer-item-heading strong { min-width: 0; overflow-wrap: anywhere; line-height: 1.3; }
+.rider-operations-page .explorer-item-heading .explorer-volume { flex: none; }
+.rider-operations-page .explorer-list .explorer-item { padding: 16px 28px !important; }
+
+/* P2 · Le voci dell'elenco sono card di selezione su più righe, non pulsanti d'azione: angoli da card, non ellissi. */
+.rider-operations-page .explorer-list .explorer-item { border-radius: 20px !important; padding: 14px 18px !important; }
+.rider-operations-page .explorer-list .explorer-item:hover { transform: translateY(-1px); box-shadow: var(--card-shadow); }
+.rider-operations-page .explorer-list .explorer-item[aria-pressed="true"] { box-shadow: inset 4px 0 0 var(--ea-info), var(--card-shadow) !important; }
+.rider-operations-page .explorer-item-heading strong { font-size: .92rem; }
+.rider-operations-page .explorer-item .rider-chip { justify-self: start; }
+@media (prefers-reduced-motion: reduce) { .rider-operations-page .explorer-list .explorer-item:hover { transform: none; } }
+.rider-operations-page .explorer-search { min-block-size: 46px; height: auto; border-radius: 9999px; padding-inline: 16px; }
+.rider-operations-page .explorer-search input { border: 0 !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; padding-inline: 0 !important; }
+.rider-operations-page .explorer-search:focus-within { outline: 0; border-color: var(--ea-info); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ea-info) 16%, transparent); }

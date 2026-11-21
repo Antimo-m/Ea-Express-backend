@@ -75,7 +75,8 @@ class ReviseShippingRate
                     $data['territory_review_required'] = false;
                 } else {
                     $hint = app(PostalCodeResolver::class)->hint($data['city'], $selectedCodes);
-                    throw ValidationException::withMessages(['city' => trim('Comune non identificato con certezza. Usa il nome ufficiale e, per i comuni omonimi, aggiungi la sigla della provincia tra parentesi (es. Samone (TO)). '.$hint)]);
+                    // Le frazioni non sono comuni: si indicano come zona del comune di appartenenza (es. Lanzara → Castel San Giorgio).
+                    throw ValidationException::withMessages(['city' => trim('Comune non identificato con certezza. Usa il nome ufficiale e, per i comuni omonimi, aggiungi la sigla della provincia tra parentesi (es. Samone (TO)). Se è una frazione, inserisci il comune di appartenenza e scrivi la frazione nel campo Zona (es. comune «Castel San Giorgio», zona «Lanzara»). '.$hint)]);
                 }
             }
             foreach (['zone', 'street'] as $field) {

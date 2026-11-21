@@ -82,7 +82,21 @@ class RiderEconomicsTest extends TestCase
         $this->actingAs($this->admin)->post(route('rider-operations.receipts.declare', $mine), ['amount' => '5'])->assertNotFound();
     }
 
-    public function test_available_balance_is_net_cash_minus_rider_expenses_without_declarations(): void
+    public function test_final_income_includes_non_cash_receipts_and_reports_the_cash_share(): void
+    {
+        $cashOrder = $this->delivered($this->rider, 500);
+        $transferOrder = $this->delivered($this->rider, 800);
+        $this->actingAs($this->admin)->postJson(route('payments.store', $cashOrder), ['action' => 'receive', 'version' => $cashOrder->fresh()->version])->assertOk();
+        // Incasso registrato con un metodo diverso dai contanti (nessuna quota di cassa).
+        $entry = new PaymentEntry;
+        $entry->forceFill(['order_id' => $transferOrder->id, 'user_id' => $this->admin->id, 'amount_cents' => 800, 'cash_amount_cents' => 0, 'kind' => 'receipt', 'method' => 'transfer', 'note' => '', 'operation_key' => 'test-transfer'])->save();
+
+        $this->actingAs($this->rider)->get(route('rider-operations.mine'))->assertOk()
+            ->assertViewHas('balance', fn (array $balance): bool => $balance['income'] === 1300 && $balance['cash'] === 500 && $balance['available'] === 1300)
+            ->assertSee('€ 13,00')->assertSee('di cui € 5,00 in contanti', false);
+    }
+
+    public function test_available_balance_is_final_income_minus_rider_expenses_without_declarations(): void
     {
         $paid = $this->delivered($this->rider, 12500);
         $declared = $this->delivered($this->rider, 700);
@@ -92,8 +106,8 @@ class RiderEconomicsTest extends TestCase
         Expense::factory()->create(['user_id' => $this->admin->id, 'amount_cents' => 999, 'spent_on' => '2026-11-21']);
 
         $response = $this->get(route('rider-operations.mine'))->assertOk()
-            ->assertViewHas('balance', fn (array $balance): bool => $balance['net_cash'] === 12500 && $balance['expenses'] === 2000 && $balance['available'] === 10500 && $balance['declared_cents'] === 700)
-            ->assertSeeInOrder(['Netto finale disponibile', '€ 125,00', 'Spese', '€ 20,00', 'Saldo disponibile', '€ 105,00'])
+            ->assertViewHas('balance', fn (array $balance): bool => $balance['income'] === 12500 && $balance['expenses'] === 2000 && $balance['available'] === 10500 && $balance['declared_cents'] === 700)
+            ->assertSeeInOrder(['Entrate finali', '€ 125,00', 'Spese', '€ 20,00', 'Saldo disponibile', '€ 105,00'])->assertDontSee('Netto finale disponibile')
             ->assertSee('1 conferma d’incasso in attesa dell’Admin', false)
             ->assertDontSee('Ancora da regolarizzare')->assertDontSee('Sospesi in entrata')->assertDontSee('Incassi da registrare')
             ->assertSee('data-workspace-region="rider-wallet"', false)->assertDontSee('La spesa viene registrata a tuo nome');

@@ -1,0 +1,333 @@
+/* Redesign delle pagine P2: singolo cliente, Sospesi, Resoconti. Solo presentazione, nessuna logica. */
+
+/* ── Singolo cliente ───────────────────────────────────────────────────────── */
+.customer-hero {
+  position: relative; isolation: isolate; overflow: hidden; margin: 4px 0 24px; padding: clamp(18px, 3vw, 28px);
+  border: 1px solid var(--ea-line); border-radius: var(--ea-radius-card); background: var(--ea-surface); box-shadow: var(--card-shadow);
+}
+.customer-hero::before {
+  content: ""; position: absolute; z-index: -1; inset: -120px -80px auto auto; inline-size: 320px; block-size: 320px; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--ea-signal) 16%, transparent), transparent 68%); pointer-events: none;
+}
+.customer-hero-main { display: flex; align-items: flex-start; gap: clamp(14px, 2.4vw, 22px); }
+.customer-avatar {
+  flex: none; display: grid; place-items: center; inline-size: clamp(56px, 8vw, 72px); block-size: clamp(56px, 8vw, 72px); border-radius: 22px;
+  background: linear-gradient(135deg, var(--ea-signal), color-mix(in srgb, var(--ea-signal) 55%, var(--ea-danger))); color: #1d1608;
+  font-family: var(--ea-font-display); font-size: clamp(1.25rem, 2.6vw, 1.6rem); font-weight: 700; letter-spacing: -.02em;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--ea-signal) 30%, transparent); transform: rotate(-4deg); transition: transform .35s cubic-bezier(.3, 1.6, .5, 1);
+}
+.customer-hero:hover .customer-avatar { transform: rotate(0) scale(1.04); }
+.customer-hero-title { flex: 1; min-inline-size: 0; }
+.customer-hero-title h1 { margin: 4px 0 10px; font-size: clamp(1.6rem, 3.2vw, 2.3rem); line-height: 1.1; overflow-wrap: anywhere; }
+.customer-hero-tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.customer-tag {
+  display: inline-flex; align-items: center; gap: 6px; min-block-size: 30px; padding: 4px 12px; border-radius: 999px;
+  border: 1px solid var(--ea-line); background: var(--ea-surface-muted); color: var(--ea-ink); font-size: .78rem; font-weight: 600;
+}
+.customer-tag .bi { color: var(--ea-muted); }
+.customer-tag-dot { inline-size: 8px; block-size: 8px; border-radius: 50%; background: currentColor; }
+.customer-tag--active { color: var(--ea-success); border-color: color-mix(in srgb, var(--ea-success) 35%, var(--ea-line)); background: color-mix(in srgb, var(--ea-success) 8%, var(--ea-surface)); }
+.customer-tag--active .customer-tag-dot { animation: customer-live 2.4s ease-in-out infinite; }
+.customer-tag--off { color: var(--ea-danger); border-color: color-mix(in srgb, var(--ea-danger) 35%, var(--ea-line)); background: color-mix(in srgb, var(--ea-danger) 7%, var(--ea-surface)); }
+@keyframes customer-live { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 45%, transparent); } 60% { box-shadow: 0 0 0 6px transparent; } }
+
+/* Azione sull'account: ridotta a un'icona nell'angolo della card, con conferma e tooltip. */
+.account-state-actions.customer-account-toggle { flex: none; display: block; margin: 0; }
+.customer-account-toggle .icon-button { opacity: .78; transition: opacity .2s ease, transform .2s ease; }
+.customer-account-toggle .icon-button:is(:hover, :focus-visible) { opacity: 1; }
+
+.customer-hero .customer-identity {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: clamp(18px, 2.6vw, 24px) 0 0; padding: 0;
+  border: 0; background: none; box-shadow: none; font-size: .86rem;
+}
+.customer-identity > div {
+  min-inline-size: 0; padding: 12px 14px; border-radius: 16px; background: var(--ea-surface-muted); border: 1px solid transparent;
+  transition: border-color .2s ease, background-color .2s ease;
+}
+.customer-identity > div:hover { border-color: color-mix(in srgb, var(--ea-signal) 40%, var(--ea-line)); background: color-mix(in srgb, var(--ea-signal) 5%, var(--ea-surface)); }
+.customer-identity dt { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; color: var(--ea-muted); font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.customer-identity dt .bi { color: var(--ea-signal); font-size: .9rem; }
+.customer-identity dd { margin: 0; color: var(--ea-ink); font-weight: 600; overflow-wrap: anywhere; }
+.customer-identity dd a { color: inherit; text-decoration: none; }
+.customer-identity dd a:hover { color: var(--ea-brand); text-decoration: underline; }
+.customer-identity dd small { display: block; margin-top: 4px; color: var(--ea-muted); font-weight: 400; }
+.customer-hero .account-retention-note { margin: 16px 0 0; }
+
+/* Valori per EA-Express: icona e accento di colore per significato. */
+.customer-value { --value-accent: var(--ea-signal); position: relative; overflow: hidden; }
+.customer-value--green { --value-accent: var(--ea-success); }
+.customer-value--blue { --value-accent: var(--ea-info); }
+.customer-value--orange { --value-accent: var(--ea-warning); }
+.customer-value::after { content: ""; position: absolute; inset: 0 auto 0 0; inline-size: 4px; background: var(--value-accent); }
+.customer-value .eyebrow { display: inline-flex; align-items: center; gap: 8px; }
+.customer-value .eyebrow .bi {
+  display: inline-grid; place-items: center; inline-size: 30px; block-size: 30px; border-radius: 10px; font-size: .95rem;
+  color: var(--value-accent); background: color-mix(in srgb, var(--value-accent) 12%, var(--ea-surface));
+  transition: transform .3s cubic-bezier(.3, 1.6, .5, 1);
+}
+.customer-value:hover .eyebrow .bi { transform: scale(1.12) rotate(-6deg); }
+.customer-value a { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; text-decoration: none; }
+.customer-value a .bi { transition: transform .2s ease; }
+.customer-value a:hover .bi { transform: translateX(3px); }
+
+/* Storico ordini: righe come piccole card con il colore dello stato. */
+.customer-orders-heading h2 { display: flex; align-items: center; gap: 10px; }
+.customer-orders-heading .count-badge { color: var(--ea-brand); background: color-mix(in srgb, var(--ea-signal) 16%, var(--ea-surface)); }
+#customer-orders .account-order-list { display: grid; gap: 10px; margin: 8px 0 16px; }
+#customer-orders .account-order-list li {
+  --row-accent: var(--ea-warning);
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 14px; padding: 12px 16px;
+  border: 1px solid var(--ea-line); border-radius: 16px; background: var(--ea-surface); box-shadow: inset 4px 0 0 var(--row-accent);
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+#customer-orders .account-order-list li[data-tone="green"] { --row-accent: var(--ea-success); }
+#customer-orders .account-order-list li[data-tone="danger"] { --row-accent: var(--ea-danger); }
+#customer-orders .account-order-list li[data-tone="blue"] { --row-accent: var(--ea-info); }
+#customer-orders .account-order-list li[data-tone="teal"] { --row-accent: color-mix(in srgb, var(--ea-success) 60%, var(--ea-info)); }
+#customer-orders .account-order-list li:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--row-accent) 45%, var(--ea-line)); box-shadow: inset 4px 0 0 var(--row-accent), var(--card-shadow); }
+#customer-orders .account-order-list li > div { min-inline-size: 0; }
+#customer-orders .account-order-list li > div a { font-family: var(--ea-font-mono); font-size: .8rem; font-weight: 600; color: var(--ea-ink); text-decoration: none; overflow-wrap: anywhere; }
+#customer-orders .account-order-list li > div a:hover { color: var(--ea-brand); text-decoration: underline; }
+#customer-orders .account-order-list li > strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.customer-order-icon {
+  display: grid; place-items: center; inline-size: 38px; block-size: 38px; border-radius: 12px;
+  color: var(--row-accent); background: color-mix(in srgb, var(--row-accent) 12%, var(--ea-surface));
+}
+#customer-orders .account-order-list li:not([data-order-state]) { display: block; box-shadow: none; text-align: center; color: var(--ea-muted); }
+
+@media (max-width: 991.98px) { .customer-hero .customer-identity { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+#customer-orders .account-order-list li > .status-badge { align-self: center; margin: 0; }
+.customer-orders-heading .count-badge { font-size: .8rem !important; }
+@media (max-width: 575.98px) {
+  .customer-hero .customer-identity { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .customer-hero .customer-identity > div:is(:first-child, :nth-child(3)) { grid-column: 1 / -1; }
+  .customer-identity > div { padding: 10px 12px; }
+  .customer-value-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px; }
+  .customer-value { padding: 14px; }
+  .customer-value > strong { font-size: 1.3rem; margin: 8px 0; }
+  .customer-value .eyebrow { font-size: .62rem; gap: 6px; }
+  .customer-value .eyebrow .bi { inline-size: 26px; block-size: 26px; }
+  #customer-orders .account-order-list li { grid-template-columns: minmax(0, 1fr) auto; row-gap: 8px; padding: 12px 14px; }
+  #customer-orders .customer-order-icon { display: none; }
+  #customer-orders .account-order-list li > div a { font-size: .74rem; }
+  #customer-orders .account-order-list li > .status-badge { grid-column: 1; grid-row: 2; justify-self: start; }
+  #customer-orders .account-order-list li > strong { grid-column: 2; grid-row: 1 / span 2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .customer-avatar, .customer-value .eyebrow .bi, #customer-orders .account-order-list li { transition: none; transform: none !important; }
+  .customer-tag--active .customer-tag-dot { animation: none; }
+}
+
+/* ── Sospesi ───────────────────────────────────────────────────────────────── */
+.pending-heading .row-actions { align-items: center; gap: 12px; }
+.pending-switch { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--ea-surface-muted); border: 1px solid var(--ea-line); }
+.pending-switch .btn {
+  display: inline-flex; align-items: center; gap: 6px; min-block-size: 36px; padding: 6px 14px; border: 0; border-radius: 9999px !important;
+  color: var(--ea-muted); background: transparent; font-size: .82rem; font-weight: 600; transition: background-color .2s ease, color .2s ease, box-shadow .2s ease;
+}
+.pending-switch .btn:hover { color: var(--ea-ink); }
+.pending-switch .btn.is-active { color: var(--ea-ink); background: var(--ea-surface); box-shadow: 0 2px 8px color-mix(in srgb, var(--ea-graphite) 10%, transparent); }
+.pending-switch .btn.is-active .bi { color: var(--ea-signal); }
+
+/* Filtri: contenitori dei campi tinti, accento arancione al passaggio e al focus. */
+main:has(.pending-accounts) .filter-bar :is(.form-control, .form-select, .ea-picker-trigger) {
+  background-color: color-mix(in srgb, var(--ea-signal) 5%, var(--ea-surface)); border-color: color-mix(in srgb, var(--ea-signal) 28%, var(--ea-line));
+  transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease;
+}
+main:has(.pending-accounts) .filter-bar :is(.form-control, .form-select, .ea-picker-trigger):is(:hover, :focus, :focus-visible) {
+  border-color: var(--ea-signal); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ea-signal) 16%, transparent);
+}
+
+/* Riepiloghi: due card piene, verde per gli incassi e rossa per i pagamenti. */
+.pending-metrics .metric-tile { position: relative; overflow: hidden; isolation: isolate; box-shadow: var(--card-shadow); transition: transform .22s ease, box-shadow .22s ease; }
+.pending-metrics .metric-tile:hover { transform: translateY(-2px); box-shadow: var(--card-shadow-hover); }
+.pending-metrics .metric-tile--positive { background: linear-gradient(135deg, color-mix(in srgb, var(--ea-money-in) 12%, var(--ea-surface)), var(--ea-surface) 70%); }
+.pending-metrics .metric-tile--negative { background: linear-gradient(135deg, color-mix(in srgb, var(--ea-money-out) 11%, var(--ea-surface)), var(--ea-surface) 70%); }
+.pending-metrics .metric-tile header .bi {
+  display: inline-grid; place-items: center; inline-size: 40px; block-size: 40px; border-radius: 14px; font-size: 1.1rem;
+  transition: transform .3s cubic-bezier(.3, 1.6, .5, 1);
+}
+.pending-metrics .metric-tile--positive header .bi { color: var(--ea-money-in); background: color-mix(in srgb, var(--ea-money-in) 14%, var(--ea-surface)); }
+.pending-metrics .metric-tile--negative header .bi { color: var(--ea-money-out); background: color-mix(in srgb, var(--ea-money-out) 13%, var(--ea-surface)); }
+.pending-metrics .metric-tile:hover header .bi { transform: scale(1.1) rotate(-8deg); }
+.pending-metrics .metric-tile--positive .metric-tile-value { color: var(--ea-money-in); }
+.pending-metrics .metric-tile--negative .metric-tile-value { color: var(--ea-money-out); }
+.pending-caption { display: flex; align-items: center; gap: 8px; }
+
+/* Card dei sospesi: direzione, residuo in evidenza, avanzamento del saldo e date come chip. */
+.pending-accounts { grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); align-items: start; }
+.pending-account-panel {
+  --pending-accent: var(--ea-money-in);
+  position: relative; overflow: hidden; isolation: isolate; box-shadow: var(--card-shadow);
+  transition: transform .22s cubic-bezier(.2, .8, .2, 1), box-shadow .22s ease, border-color .22s ease;
+}
+.pending-account-panel--outgoing { --pending-accent: var(--ea-money-out); }
+.pending-account-panel[data-pending-state="paid"] { --pending-accent: var(--ea-success); }
+.pending-account-panel[data-pending-state="cancelled"] { --pending-accent: var(--ea-muted); }
+.pending-account-panel::before { content: ""; position: absolute; inset: 0 0 auto; block-size: 4px; background: var(--pending-accent); }
+.pending-account-panel:hover { transform: translateY(-2px); box-shadow: var(--card-shadow-hover); border-color: color-mix(in srgb, var(--pending-accent) 40%, var(--ea-line)); }
+.pending-account-heading { flex-wrap: nowrap; align-items: flex-start; gap: 12px; border-bottom: 0; padding-bottom: 8px; }
+.pending-account-heading > div:not(.data-panel-actions) { flex: 1; min-inline-size: 0; overflow-wrap: anywhere; }
+.pending-account-heading h2 { font-size: 1.08rem; }
+.pending-direction-icon {
+  flex: none; display: grid; place-items: center; inline-size: 42px; block-size: 42px; border-radius: 14px; font-size: 1.15rem;
+  color: var(--pending-accent); background: color-mix(in srgb, var(--pending-accent) 13%, var(--ea-surface));
+  transition: transform .3s cubic-bezier(.3, 1.6, .5, 1);
+}
+.pending-account-panel:hover .pending-direction-icon { transform: scale(1.08) rotate(-8deg); }
+.pending-account-amounts {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px 16px; margin: 4px 20px 0; padding: 14px 16px;
+  border-radius: 16px; background: color-mix(in srgb, var(--pending-accent) 6%, var(--ea-surface-muted));
+}
+.pending-account-remaining span { display: block; color: var(--ea-muted); font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.pending-account-remaining strong { display: block; margin-top: 2px; color: var(--pending-accent); font-family: var(--ea-font-display); font-size: clamp(1.5rem, 2.4vw, 1.9rem); font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
+.pending-account-amounts .pending-account-facts { display: flex; gap: 18px; margin: 0; padding: 0; }
+.pending-account-amounts .pending-account-facts > div { display: grid; gap: 2px; padding: 0; border: 0; text-align: right; }
+.pending-account-amounts .pending-account-facts dt { font-size: .72rem; }
+.pending-account-amounts .pending-account-facts dd { max-inline-size: none; font-size: .92rem; font-variant-numeric: tabular-nums; }
+.pending-progress { grid-column: 1 / -1; block-size: 8px; border-radius: 999px; background: color-mix(in srgb, var(--pending-accent) 14%, var(--ea-surface)); overflow: hidden; }
+.pending-progress > span { display: block; inline-size: var(--settled); block-size: 100%; border-radius: inherit; background: linear-gradient(90deg, color-mix(in srgb, var(--pending-accent) 70%, var(--ea-surface)), var(--pending-accent)); animation: pending-fill .9s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes pending-fill { from { inline-size: 0; } }
+.pending-direction-note { display: flex; align-items: center; gap: 8px; margin: 12px 20px 0; color: var(--ea-muted); font-size: .8rem; }
+.pending-direction-note .bi { color: var(--pending-accent); }
+.pending-account-panel .pending-account-owner { flex-wrap: nowrap; justify-content: flex-start; gap: 12px; margin: 14px 20px 0; padding: 12px 14px; border: 1px solid var(--ea-line); border-radius: 16px; }
+.pending-account-owner > div { flex: 1; }
+.pending-account-owner > .btn { flex: none; }
+.pending-owner-avatar {
+  flex: none; display: grid; place-items: center; inline-size: 38px; block-size: 38px; border-radius: 50%;
+  color: var(--ea-brand); background: color-mix(in srgb, var(--ea-signal) 18%, var(--ea-surface)); font-weight: 700;
+}
+.pending-owner-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.pending-owner-tags > span { padding: 2px 10px; border-radius: 999px; background: var(--ea-surface-muted); font-size: .72rem; }
+.pending-owner-tags > .is-off { color: var(--ea-danger); background: color-mix(in srgb, var(--ea-danger) 9%, var(--ea-surface)); }
+.pending-account-dates { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 20px 0; padding: 0; list-style: none; }
+.pending-account-dates li {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: .78rem;
+  background: var(--ea-surface-muted); color: var(--ea-muted);
+}
+.pending-account-dates li .bi { color: var(--ea-info); }
+.pending-account-dates li strong { color: var(--ea-ink); }
+.pending-account-dates li.is-overdue { color: var(--ea-danger); background: color-mix(in srgb, var(--ea-danger) 9%, var(--ea-surface)); }
+.pending-account-dates li.is-overdue .bi, .pending-account-dates li.is-overdue strong { color: var(--ea-danger); }
+.pending-account-dates li em { font-style: normal; font-weight: 700; }
+.pending-account-panel .pending-account-notes { margin: 12px 20px 0; padding: 0; }
+.pending-account-notes :is(a, p) { display: flex; align-items: flex-start; gap: 8px; }
+.pending-account-notes a { font-weight: 600; text-decoration: none; }
+.pending-account-notes p { padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--ea-warning) 8%, var(--ea-surface)); color: var(--ea-ink); }
+.pending-account-notes p .bi { color: var(--ea-warning); }
+.pending-account-panel .data-panel-footer { margin-top: 16px; background: color-mix(in srgb, var(--ea-surface-muted) 60%, var(--ea-surface)); }
+.pending-account-footer .register-reference { max-inline-size: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .7; }
+.pending-empty { padding: 32px 20px; border: 1px dashed var(--ea-line); border-radius: var(--ea-radius-card); }
+
+/* Finestre dei sospesi: campi con contenitore tinto e focus coerente. */
+dialog[id^="pending-"] :is(.form-control, .form-select, .ea-picker-trigger) {
+  background-color: color-mix(in srgb, var(--ea-signal) 4%, var(--ea-surface)); border-color: color-mix(in srgb, var(--ea-signal) 24%, var(--ea-line));
+}
+dialog[id^="pending-"] :is(.form-control, .form-select, .ea-picker-trigger):focus { border-color: var(--ea-signal); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ea-signal) 16%, transparent); }
+dialog[id^="pending-"] .pending-form-group > legend { color: var(--ea-brand); }
+
+@media (max-width: 575.98px) {
+  .pending-heading .row-actions { inline-size: 100%; justify-content: space-between; }
+  .pending-switch .btn { padding-inline: 12px; }
+  .pending-account-heading { padding: 16px 16px 6px; }
+  .pending-account-amounts, .pending-direction-note, .pending-account-panel .pending-account-owner, .pending-account-dates, .pending-account-panel .pending-account-notes { margin-inline: 16px; }
+  .pending-account-amounts { grid-template-columns: minmax(0, 1fr); }
+  .pending-account-amounts .pending-account-facts > div { text-align: left; }
+  .pending-account-panel .pending-account-owner { flex-wrap: wrap; }
+  .pending-account-owner > .btn { flex-basis: 100%; }
+  .pending-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .pending-metrics .metric-tile { padding: 14px; }
+  .pending-metrics .metric-tile-value { font-size: 1.35rem; }
+  .pending-metrics .metric-tile header .bi { inline-size: 32px; block-size: 32px; font-size: .95rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pending-account-panel, .pending-metrics .metric-tile, .pending-direction-icon, .pending-metrics .metric-tile header .bi { transition: none; transform: none !important; }
+  .pending-progress > span { animation: none; }
+}
+
+/* ── Resoconti ─────────────────────────────────────────────────────────────── */
+.filter-bar.report-filters {
+  display: flex !important; flex-wrap: wrap; align-items: stretch; gap: 14px; margin-bottom: 18px; padding: 16px !important;
+  border: 1px solid color-mix(in srgb, var(--ea-signal) 30%, var(--ea-line)); border-radius: var(--ea-radius-card);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--ea-signal) 7%, var(--ea-surface)), var(--ea-surface) 60%);
+}
+.report-filters > .filter-primary { flex: 1 1 auto; display: flex !important; flex-wrap: wrap; align-items: stretch; gap: 12px; min-inline-size: 0; }
+.report-filter-group {
+  display: grid; align-content: start; gap: 8px; min-inline-size: 0; padding: 12px 14px; border-radius: 16px;
+  background: var(--ea-surface); border: 1px solid var(--ea-line); transition: border-color .2s ease, box-shadow .2s ease;
+}
+.report-filter-group:focus-within { border-color: var(--ea-signal); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ea-signal) 14%, transparent); }
+.report-filter-label { display: inline-flex; align-items: center; gap: 6px; color: var(--ea-ink); font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.report-filter-label .bi { color: var(--ea-signal); }
+.report-filter-group .field { margin: 0; }
+.report-filter-group .field > .form-label { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.report-filter-group .ea-picker-trigger { min-inline-size: 190px; }
+.report-filter-dates { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.report-filter-arrow { color: var(--ea-muted); }
+.report-filter-range small { color: var(--ea-muted); font-size: .74rem; }
+.report-filter-or { align-self: center; padding: 4px 10px; border-radius: 999px; background: var(--ea-surface-muted); color: var(--ea-muted); font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.report-filters > .filter-actions { align-self: center; margin-inline-start: auto; }
+
+.report-shipping-split { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 14px; }
+.report-shipping-split > span {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--ea-line);
+  background: var(--ea-surface); color: var(--ea-muted); font-size: .8rem;
+}
+.report-shipping-split .bi { color: var(--ea-info); }
+.report-shipping-split strong { color: var(--ea-ink); font-variant-numeric: tabular-nums; }
+
+.report-kpis .metric-tile { box-shadow: var(--card-shadow); transition: transform .22s ease, box-shadow .22s ease; }
+.report-kpis .metric-tile:hover { transform: translateY(-2px); box-shadow: var(--card-shadow-hover); }
+.report-kpis .metric-tile header .bi {
+  display: inline-grid; place-items: center; inline-size: 36px; block-size: 36px; border-radius: 12px;
+  color: var(--ea-signal); background: color-mix(in srgb, var(--ea-signal) 13%, var(--ea-surface)); transition: transform .3s cubic-bezier(.3, 1.6, .5, 1);
+}
+.report-kpis .metric-tile--positive header .bi { color: var(--ea-money-in); background: color-mix(in srgb, var(--ea-money-in) 13%, var(--ea-surface)); }
+.report-kpis .metric-tile--negative header .bi { color: var(--ea-money-out); background: color-mix(in srgb, var(--ea-money-out) 13%, var(--ea-surface)); }
+.report-kpis .metric-tile:hover header .bi { transform: scale(1.1) rotate(-8deg); }
+
+.report-totals { gap: 12px !important; padding: 12px !important; }
+.report-total {
+  --total-accent: var(--ea-info);
+  display: grid !important; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 12px; row-gap: 2px; padding: 12px 14px; border-radius: 16px;
+  background: color-mix(in srgb, var(--total-accent) 6%, var(--ea-surface));
+}
+.report-total--in { --total-accent: var(--ea-money-in); }
+.report-total--out { --total-accent: var(--ea-money-out); }
+.report-total--expense { --total-accent: var(--ea-warning); }
+.report-total > .bi {
+  grid-row: span 3; display: grid; place-items: center; inline-size: 38px; block-size: 38px; border-radius: 12px;
+  color: var(--total-accent); background: color-mix(in srgb, var(--total-accent) 14%, var(--ea-surface));
+}
+.report-total > :not(.bi) { grid-column: 2; }
+.report-total > span:not(.signed-money), .report-total > small { color: var(--ea-muted); font-size: .75rem; line-height: 1.35; }
+.report-total strong, .report-total .signed-money { font-family: var(--ea-font-display); font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+
+.report-detail-grid .workspace-section { box-shadow: var(--card-shadow); }
+.report-detail-grid .distribution-row meter { block-size: 10px; }
+.report-detail-grid .distribution-row meter::-webkit-meter-bar { border-radius: 999px; }
+.report-detail-grid .distribution-row meter::-webkit-meter-optimum-value { border-radius: 999px; background: linear-gradient(90deg, color-mix(in srgb, var(--ea-info) 65%, var(--ea-surface)), var(--ea-info)); }
+.report-detail-grid .distribution-row meter::-moz-meter-bar { border-radius: 999px; background: var(--ea-info); }
+.report-detail-grid .rank-row { padding: 12px 10px; border-radius: 12px; transition: background-color .2s ease; }
+.report-detail-grid .rank-row:hover { background: color-mix(in srgb, var(--ea-signal) 8%, var(--ea-surface)); }
+.report-detail-grid .rank-row .rank-number { display: inline-grid; place-items: center; inline-size: 28px; block-size: 28px; border-radius: 50%; color: var(--ea-brand); background: color-mix(in srgb, var(--ea-signal) 16%, var(--ea-surface)); font-weight: 700; font-size: .78rem; }
+.report-detail-grid .rank-row > .bi { transition: transform .2s ease; }
+.report-detail-grid .rank-row:hover > .bi { transform: translate(2px, -2px); }
+
+@media (max-width: 767.98px) {
+  .filter-bar.report-filters { flex-direction: column; }
+  .report-filters > .filter-primary { flex-direction: column; }
+  .report-filter-or { align-self: flex-start; }
+  .report-filter-group .ea-picker-trigger { min-inline-size: 0; inline-size: 100%; }
+  .report-filter-dates { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+  .report-filters > .filter-actions { margin-inline-start: 0; align-self: flex-end; }
+}
+@media (max-width: 575.98px) {
+  .report-totals { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; padding: 8px !important; }
+  .report-total { grid-template-columns: minmax(0, 1fr); padding: 10px 12px; }
+  .report-total > .bi { grid-row: auto; inline-size: 30px; block-size: 30px; margin-bottom: 4px; }
+  .report-total > :not(.bi) { grid-column: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .report-kpis .metric-tile, .report-kpis .metric-tile header .bi, .report-detail-grid .rank-row > .bi { transition: none; transform: none !important; }
+}

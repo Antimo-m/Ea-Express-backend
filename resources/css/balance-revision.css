@@ -47,3 +47,4 @@
 .finance-liquidity .cash-flow-bar { grid-column: 1 / -1; margin: 0; }
 .cash-flow-in { background: var(--ea-money-in); }
 .cash-flow-out { background: var(--ea-money-out); }
+.finance-workspace > .page-heading { display: block; } .finance-workspace > .page-heading > div:first-child { inline-size: 100%; }

@@ -30,3 +30,13 @@
 .ea-app .ea-modal .access-manage-footer > .access-send:hover { background: var(--ea-info); color: var(--ea-on-color); }
 @media (max-width: 420px) { .access-card-actions { flex-direction: column; align-items: stretch; } .access-card-actions .rider-account-delete { margin-inline-start: 0; } .access-card-actions .rider-account-delete .icon-button, .access-card-actions .access-manage-open { inline-size: 100%; justify-content: center; } }
 @media (prefers-reduced-motion: reduce) { .access-manage-actions .access-action { transition: none; } .access-manage-actions .access-action:hover { transform: none; } }
+/* Disabilita: interamente rosso. Verifica email: verde. Stessa altezza e struttura per tutte le azioni. */
+.access-manage-actions .access-action--disable { background: var(--ea-danger) !important; border-color: var(--ea-danger) !important; color: #fff !important; }
+.access-manage-actions .access-action--disable small { color: color-mix(in srgb, #fff 82%, transparent) !important; }
+.access-manage-actions .access-action--disable > .bi { background: color-mix(in srgb, #fff 18%, transparent) !important; color: #fff !important; }
+.access-manage-actions .access-action--disable:hover { background: color-mix(in srgb, var(--ea-danger) 88%, black) !important; }
+.access-manage-actions .access-action--verify { background: var(--ea-success) !important; border-color: var(--ea-success) !important; color: #fff !important; }
+.access-manage-actions .access-action--verify small { color: color-mix(in srgb, #fff 82%, transparent) !important; }
+.access-manage-actions .access-action--verify > .bi { background: color-mix(in srgb, #fff 18%, transparent); color: #fff; }
+.access-manage-actions .access-action--verify:hover { background: color-mix(in srgb, var(--ea-success) 88%, black) !important; }
+.access-manage-actions .access-action { min-height: 68px; }

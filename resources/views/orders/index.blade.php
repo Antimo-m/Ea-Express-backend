@@ -56,7 +56,7 @@
                     @endif
                 </details>
             @empty
-                <div class="surface empty-state"><x-ui.icon name="archive" /><h2>Nessuna spedizione nello storico</h2><p>Modifica i filtri per cercare altre richieste concluse negli ultimi 12 mesi.</p></div>
+                <x-ui.empty-scene title="Nessuna spedizione nello storico" tagline="Le consegne concluse si archivieranno qui." message="Modifica i filtri per cercare altre richieste concluse negli ultimi 12 mesi." />
             @endforelse
             <div class="archive-days-pagination" aria-label="Navigazione tra giornate">{{ $archiveDays->links('components.ui.pagination') }}</div>
         </section>
@@ -66,7 +66,13 @@
 
 @forelse($orders as $order)
 <x-orders.operational-row :order="$order" :incoming="$section === 'orders.incoming'" :recipient-risk="$recipientRisks[$order->id] ?? null" />
-@empty<div class="surface p-5 text-center"><x-ui.icon name="inbox" class="display-6 text-secondary" /><h2 class="h5 mt-3">Nessun ordine trovato</h2><p class="text-secondary mb-0">{{ auth()->user()->role === \App\UserRole::Rider ? 'Qui trovi le spedizioni assegnate al tuo account. Prova a modificare i filtri.' : 'Le richieste compariranno qui. Puoi crearne una o modificare i filtri.' }}</p></div>@endforelse</section>
+@empty
+@php($isFiltered = collect(request()->except(['page']))->filter(fn ($value) => filled($value))->isNotEmpty())
+@php($isRider = auth()->user()->role === \App\UserRole::Rider)
+@php($emptyTitle = $section === 'orders.incoming' ? 'Nessun ordine in entrata' : ($isRider ? 'Nessuna spedizione assegnata' : 'Nessuna spedizione in corso'))
+@php($emptyTagline = $section === 'orders.incoming' || $isRider ? 'Restiamo pronti al prossimo pacco in arrivo.' : 'Il furgone è pronto per la prossima partenza.')
+@php($emptyMessage = $isFiltered ? 'Nessun risultato con i filtri selezionati: prova a modificarli o ripristinarli.' : ($section === 'orders.incoming' ? 'Le nuove richieste dei clienti compariranno qui appena arrivano.' : ($isRider ? 'Qui trovi le spedizioni assegnate al tuo account.' : 'Le spedizioni accettate e in consegna compariranno qui.')))
+<x-ui.empty-scene :title="$emptyTitle" :tagline="$emptyTagline" :message="$emptyMessage" />@endforelse</section>
     @endif
     @if($section !== 'orders.history')<div class="mt-4">{{ $orders->links('components.ui.pagination') }}</div>@endif
 </div></div></x-app-layout>

@@ -131,7 +131,9 @@ test('Rider workspace: ranges, status sorting, stable state and mobile controls'
             assert.equal(await evaluate('new URL(location.href).searchParams.get("selected")'), 'Napoli');
             await evaluate('document.querySelector("[data-operations-refresh]").click()'); await until('!document.querySelector("[data-zone-error]").textContent');
             for (let count = 0; count < 100 && feedRequests === before; count++) await wait(20);
-            assert.equal(feedRequests, before + 1); assert.equal(await evaluate('document.querySelector("[data-operations-search]").value'), 'Nap');
+            // Reset: ricarica i dati e riporta ricerca, «Mostra» e «Ordina» ai valori iniziali.
+            assert.equal(feedRequests, before + 1); assert.equal(await evaluate('document.querySelector("[data-operations-search]").value'), '');
+            assert.equal(await evaluate('document.querySelector("[data-operations-filter]").value + "/" + document.querySelector("[data-operations-sort]").value'), 'all/name');
         });
 
         await t.test('rider date ranges, pagination, state, same-day and reset update through AJAX without reload', async () => {

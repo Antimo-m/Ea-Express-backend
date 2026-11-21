@@ -1,0 +1,60 @@
+/* Stati vuoti illustrati: un'unica scena condivisa, colori dai token del tema, animazioni leggere solo su transform e opacity. */
+.empty-scene {
+  display: grid; justify-items: center; gap: 6px; padding: clamp(24px, 5vw, 44px) 20px; text-align: center;
+  border: 1px dashed color-mix(in srgb, var(--ea-signal) 35%, var(--ea-line)); border-radius: var(--ea-radius-card);
+  background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--ea-signal) 7%, var(--ea-surface)), var(--ea-surface) 70%);
+}
+.empty-scene-art { inline-size: min(300px, 82%); block-size: auto; margin-bottom: 8px; overflow: visible; }
+.empty-scene .empty-scene-title { margin: 0; font-size: clamp(1.05rem, 2vw, 1.25rem); color: var(--ea-ink); }
+.empty-scene .empty-scene-tagline { margin: 0; color: var(--ea-ink); font-weight: 600; font-size: .95rem; }
+.empty-scene .empty-scene-message { margin: 0; max-inline-size: 52ch; color: var(--ea-muted); font-size: .85rem; }
+.empty-scene > .btn, .empty-scene > a.btn { margin-top: 10px; }
+
+.empty-scene-road line { stroke: var(--ea-line); stroke-width: 3; stroke-linecap: round; }
+.empty-scene-road .empty-scene-dash { stroke-width: 2; stroke-dasharray: 10 14; opacity: .7; }
+.empty-scene-body { fill: var(--ea-surface); stroke: var(--ea-graphite); stroke-width: 3; }
+.empty-scene-stripe { fill: var(--ea-signal); }
+.empty-scene-brand { fill: var(--ea-graphite); font: 700 22px var(--ea-font-display, sans-serif); letter-spacing: -.02em; }
+.empty-scene-cab { fill: var(--ea-signal); stroke: var(--ea-graphite); stroke-width: 3; stroke-linejoin: round; }
+.empty-scene-window { fill: color-mix(in srgb, var(--ea-info) 30%, var(--ea-surface)); }
+.empty-scene-door rect { fill: var(--ea-surface); stroke: var(--ea-graphite); stroke-width: 3; }
+.empty-scene-hold { fill: color-mix(in srgb, var(--ea-graphite) 14%, var(--ea-surface)); }
+.empty-scene-wheel { fill: var(--ea-graphite); }
+.empty-scene-hub { fill: var(--ea-surface-muted); }
+.empty-scene-head { fill: #e9b98f; }
+.empty-scene-cap { fill: var(--ea-signal); }
+.empty-scene-torso { fill: var(--ea-info); }
+.empty-scene-legs { fill: var(--ea-graphite); }
+.empty-scene-box { fill: #c98b4b; stroke: color-mix(in srgb, #c98b4b 60%, #000); stroke-width: 2; }
+.empty-scene-tape { stroke: #f3dcb6; stroke-width: 3; fill: none; }
+.empty-scene-arm { stroke: var(--ea-info); stroke-width: 6; stroke-linecap: round; fill: none; }
+.empty-scene-sparks circle { fill: var(--ea-signal); opacity: 0; }
+
+/* Porte che si aprono una volta, poi respiro lento del pacco e scintille di attesa. */
+.empty-scene-door { transform-box: fill-box; transform-origin: 100% 50%; animation: empty-door-open .9s cubic-bezier(.3, 1.4, .5, 1) .15s both; }
+.empty-scene-door--bottom { animation-delay: .3s; }
+.empty-scene-parcel { transform-box: fill-box; transform-origin: 50% 100%; animation: empty-parcel 3.2s ease-in-out 1s infinite; }
+.empty-scene-rider { transform-box: fill-box; transform-origin: 50% 100%; animation: empty-rider-in .7s cubic-bezier(.2, .8, .2, 1) both; }
+.empty-scene-truck { animation: empty-truck-idle 2.6s ease-in-out infinite; }
+.empty-scene-sparks circle { animation: empty-spark 3.2s ease-in-out 1.2s infinite; }
+.empty-scene-sparks circle:nth-child(2) { animation-delay: 1.7s; }
+.empty-scene-sparks circle:nth-child(3) { animation-delay: 2.2s; }
+.empty-scene-dash { animation: empty-road 1.6s linear infinite paused; }
+.empty-scene:hover .empty-scene-dash { animation-play-state: running; }
+
+@keyframes empty-door-open { from { transform: scaleX(1) translateX(22px); } to { transform: scaleX(.35) translateX(0); } }
+@keyframes empty-parcel { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes empty-rider-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+@keyframes empty-truck-idle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(.8px); } }
+@keyframes empty-spark { 0%, 100% { opacity: 0; transform: translateY(4px); } 40% { opacity: .9; } 70% { opacity: 0; transform: translateY(-8px); } }
+@keyframes empty-road { to { stroke-dashoffset: -24; } }
+
+:root[data-ea-theme="dark"] .empty-scene-body, :root[data-ea-theme="dark"] .empty-scene-door rect { fill: color-mix(in srgb, var(--ea-surface) 80%, #fff); }
+:root[data-ea-theme="dark"] :is(.empty-scene-body, .empty-scene-door rect, .empty-scene-cab) { stroke: color-mix(in srgb, var(--ea-ink) 70%, transparent); }
+:root[data-ea-theme="dark"] .empty-scene-brand { fill: var(--ea-ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  .empty-scene-door { animation: none; transform: scaleX(.35); }
+  .empty-scene-parcel, .empty-scene-rider, .empty-scene-truck, .empty-scene-sparks circle, .empty-scene-dash { animation: none; }
+  .empty-scene-sparks circle { opacity: .6; }
+}

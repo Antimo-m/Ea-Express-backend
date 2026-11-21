@@ -25,12 +25,10 @@
             </nav>
             <form method="get" action="{{ $pageUrl() }}" class="rider-period-form rider-period-range" data-rider-day-period aria-label="Scegli il periodo">
                 <input type="hidden" name="period" value="custom">@if($zone)<input type="hidden" name="zone" value="{{ $zone }}">@endif
-                <label>Mese<input type="month" data-period-month value="{{ $selection['shortcut'] === 'month' ? $selection['month'] : '' }}" max="{{ now('Europe/Rome')->format('Y-m') }}" aria-describedby="rider-period-help"></label>
-                <label>Anno<select data-period-year aria-describedby="rider-period-help"><option value="">—</option>@foreach(range(now('Europe/Rome')->year, 2025) as $year)<option value="{{ $year }}" @selected($selection['shortcut'] === 'year' && $selection['year'] === $year)>{{ $year }}</option>@endforeach</select></label>
+                <label>Mese<input type="month" data-period-month value="{{ $selection['shortcut'] === 'month' ? $selection['month'] : '' }}" max="{{ now('Europe/Rome')->format('Y-m') }}"></label>
                 <label>Data iniziale<input type="date" name="from" value="{{ $period->start->toDateString() }}" required></label>
                 <label>Data finale<input type="date" name="to" value="{{ $period->end->toDateString() }}" min="{{ $period->start->toDateString() }}" required></label>
                 <span class="rider-period-actions"><x-ui.icon-button action="reset" :href="$pageUrl(array_filter(['zone' => $zone]))" label="Torna a oggi" data-rider-day-reset /><x-ui.icon-button action="search" type="submit" label="Applica il periodo" /></span>
-                <p class="rider-period-help" id="rider-period-help">Mese e anno compilano le date: la ricerca usa sempre data iniziale e finale.</p>
             </form>
         </section>
         <p class="small text-danger" role="alert" data-rider-day-error hidden></p>
@@ -130,11 +128,11 @@
                         @unless($selection['single_day'])<p class="rider-accounting-range">Dal {{ $shortDate($period->start) }} al {{ $shortDate($period->end) }}</p>@endunless
                     </header>
                     <dl class="rider-wallet-lines">
-                        <div class="rider-wallet-line is-income"><dt><span class="money-arrow" aria-hidden="true"><x-ui.icon name="arrow-down-left" /></span>Netto finale disponibile<small>Incassi in contanti registrati dall’Admin, al netto di storni e rimborsi</small></dt><dd @class(['money', 'money-in', 'is-zero' => ! $balance['net_cash']])>{{ $money($balance['net_cash']) }}</dd></div>
+                        <div class="rider-wallet-line is-income"><dt><span class="money-arrow" aria-hidden="true"><x-ui.icon name="arrow-down-left" /></span>Entrate finali<small>Incassi registrati dall’Admin per {{ $admin ? 'le consegne del Rider' : 'le tue consegne' }}, al netto di storni@if($balance['cash']) · di cui {{ $money($balance['cash']) }} in contanti@endif</small></dt><dd @class(['money', 'money-in', 'is-zero' => ! $balance['income']])>{{ $money($balance['income']) }}</dd></div>
                         <div class="rider-wallet-line is-expense"><dt><span class="money-arrow" aria-hidden="true"><x-ui.icon name="arrow-up-right" /></span>Spese<small>Spese registrate {{ $admin ? 'dal Rider' : 'da te' }} nel periodo</small></dt><dd @class(['money', 'money-out', 'is-zero' => ! $balance['expenses']])>@if($balance['expenses'])− @endif{{ $money($balance['expenses']) }}</dd></div>
                     </dl>
-                    <div @class(['rider-wallet-total', 'is-negative' => $balance['available'] < 0])><span>Saldo disponibile</span><strong data-money-value="{{ $balance['available'] }}">{{ $money($balance['available']) }}</strong><small>Netto finale disponibile − Spese</small></div>
-                    @if($balance['declared_count'])<p class="rider-wallet-pending"><x-ui.icon name="hourglass-split" /> {{ $balance['declared_count'] }} {{ $plural($balance['declared_count'], 'conferma d’incasso', 'conferme d’incasso') }} in attesa dell’Admin · {{ $money($balance['declared_cents']) }}. Entreranno nel netto quando l’Admin registrerà l’incasso.</p>@endif
+                    <div @class(['rider-wallet-total', 'is-negative' => $balance['available'] < 0])><span>Saldo disponibile</span><strong data-money-value="{{ $balance['available'] }}">{{ $money($balance['available']) }}</strong><small>Entrate finali − Spese</small></div>
+                    @if($balance['declared_count'])<p class="rider-wallet-pending"><x-ui.icon name="hourglass-split" /> {{ $balance['declared_count'] }} {{ $plural($balance['declared_count'], 'conferma d’incasso', 'conferme d’incasso') }} in attesa dell’Admin · {{ $money($balance['declared_cents']) }}. Entreranno nelle entrate finali quando l’Admin registrerà l’incasso.</p>@endif
                     @if($admin)
                         <a class="rider-day-balance-link" href="{{ route('balance.index', ['from' => $period->start->toDateString(), 'to' => $period->end->toDateString()]) }}">Apri il bilancio generale <x-ui.icon name="arrow-up-right" /></a>
                     @else

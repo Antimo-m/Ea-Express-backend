@@ -6,6 +6,8 @@
     if ($action === 'confirm') { $icon = 'check-lg'; $text = false; $variant = 'success'; }
     if ($action === 'add') { $icon = 'plus-lg'; }
     if (in_array($action, ['message', 'add'], true)) { $text = false; }
+    // Regola globale: «Torna indietro» è sempre la sola freccia, con l'etichetta accessibile e il tooltip.
+    if ($action === 'back') { $text = false; }
     $tag = $href ? 'a' : (in_array($as, ['button', 'summary'], true) ? $as : 'button');
 @endphp
 <{{ $tag }} @if($tag === 'button') type="{{ $type }}" @disabled($disabled || $loading) @elseif($tag === 'a' && !$disabled && !$loading) href="{{ $href }}" @endif

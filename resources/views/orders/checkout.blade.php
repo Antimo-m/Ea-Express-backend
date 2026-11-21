@@ -1,5 +1,5 @@
 <x-app-layout title="Checkout ritiro">
-    <header class="mb-4"><span class="eyebrow">NUOVO RITIRO</span><h1>Checkout ritiro</h1><p class="text-secondary">Verifica i dati e la tariffa prima di confermare la richiesta.</p></header>
+    <header class="page-heading mb-4"><div><span class="eyebrow">NUOVO RITIRO</span><h1>Checkout ritiro</h1><p class="text-secondary">Verifica i dati e la tariffa prima di confermare la richiesta.</p></div></header>
     <nav class="form-progress mb-3" aria-label="Avanzamento prenotazione"><span>1. Dati del ritiro</span><span aria-hidden="true"> → </span><strong>2. Riepilogo e conferma</strong></nav>
     <section class="surface p-4 mb-4">
         <h2 class="h5">Riepilogo spedizione</h2>
@@ -28,7 +28,7 @@
                     @foreach($value as $index => $item)@foreach($item as $field => $number)<input type="hidden" name="{{ $name }}[{{ $index }}][{{ $field }}]" value="{{ $number }}">@endforeach @endforeach
                 @endif
             @endforeach
-            <button class="btn button-back" type="submit">Torna indietro</button>
+            <button class="btn button-back modal-back-icon icon-button action-back" type="submit" aria-label="Torna indietro" data-tooltip="Torna indietro"><x-ui.icon name="arrow-left" /></button>
         </form>
         @if($review['checkout_token'])
         <form method="post" action="{{ route('orders.store') }}">@csrf

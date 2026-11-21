@@ -15,16 +15,17 @@ export function confirmAction({ name, action = 'Elimina', description = '', clos
     const back = dialog.querySelector('.modal-back');
     if (back) back.hidden = closeOnly;
     const confirm = dialog.querySelector('[data-confirm-action]');
-    const destructive = /annull|elimina|rifiut|revoca|disattiv|disabil|storn|rimuov/iu.test(action);
+    const destructive = /annull|elimina|rifiut|revoca|disattiv|disabil|storn|rimuov|archivi/iu.test(action);
     confirm.classList.toggle('action-delete', destructive);
     confirm.classList.toggle('action-confirm', !destructive);
     confirm.classList.add('action-with-text');
     confirm.replaceChildren();
     // Disabilitare o revocare non equivale a eliminare: icone diverse dal cestino.
-    const iconName = /disabil|disattiv/iu.test(action) ? 'person-slash' : /revoca/iu.test(action) ? 'box-arrow-right' : destructive ? 'trash' : 'check-lg';
+    const iconName = /disabil/iu.test(action) ? 'person-slash' : /disattiv/iu.test(action) ? 'toggle-off' : /revoca/iu.test(action) ? 'box-arrow-right' : destructive ? 'trash3' : 'check-lg';
     const icon = document.createElement('i'); icon.className = `bi bi-${iconName}`; icon.setAttribute('aria-hidden', 'true');
     const text = document.createElement('span'); text.textContent = action; confirm.append(icon, text);
-    if (destructive) confirm.parentElement.prepend(confirm); else confirm.parentElement.append(confirm);
+    // «Torna indietro» sempre a sinistra, l'azione (anche distruttiva) sempre a destra.
+    confirm.parentElement.append(confirm);
     const label = action;
     confirm.setAttribute('aria-label', label); confirm.title = label; confirm.dataset.tooltip = label;
     openDialog(dialog);

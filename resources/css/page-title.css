@@ -1,0 +1,60 @@
+/*
+ * Sistema condiviso dei titoli di pagina EA-Express — «Tracciato».
+ * Lo stesso file vive nel gestionale (resources/css/page-title.css) e nel portale clienti (src/styles/page-title.css):
+ * modificali insieme. Si applica da solo a ogni intestazione con la struttura comune
+ * .page-heading | .dashboard-heading > div > (.eyebrow) + h1 + (p): nessun markup diverso per pagina.
+ *
+ * Linguaggio: il titolo è una tappa del percorso di una spedizione. Una linea verticale (il tracciato) parte da un
+ * nodo all'altezza dell'etichetta e accompagna titolo e descrizione; le azioni si allineano alla base del blocco.
+ */
+:is(.page-heading, .dashboard-heading) > div:first-child:has(> h1) {
+  --title-accent: var(--ea-signal);
+  position: relative; padding-inline-start: 24px;
+}
+:is(.page-heading, .dashboard-heading) > div:first-child:has(> h1)::before {
+  content: ""; position: absolute; inset-block: 9px 2px; inset-inline-start: 5px; inline-size: 3px; border-radius: 3px;
+  background: linear-gradient(to bottom, var(--title-accent), color-mix(in srgb, var(--title-accent) 8%, transparent));
+  transform-origin: top; animation: ea-title-route .7s cubic-bezier(.2, .8, .2, 1) both;
+}
+:is(.page-heading, .dashboard-heading) > div:first-child:has(> h1)::after {
+  content: ""; position: absolute; inset-block-start: 2px; inset-inline-start: 0; inline-size: 13px; block-size: 13px; box-sizing: border-box;
+  border-radius: 50%; border: 3px solid var(--title-accent); background: var(--ea-surface);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--title-accent) 18%, transparent);
+  animation: ea-title-node .5s cubic-bezier(.3, 1.6, .5, 1) both, ea-title-pulse 2.4s ease-in-out .8s 2;
+}
+/* Senza etichetta il nodo si allinea alla prima riga del titolo. */
+:is(.page-heading, .dashboard-heading) > div:first-child:has(> h1:first-child)::after { inset-block-start: .55em; }
+
+:is(.page-heading, .dashboard-heading) > div:first-child:has(> h1) > .eyebrow {
+  display: inline-flex; align-items: center; gap: 8px; margin: 0 0 8px; color: var(--ea-brand);
+  font-family: var(--ea-font-mono); font-size: .7rem; font-weight: 700; letter-spacing: .14em; line-height: 1.4; text-transform: uppercase;
+}
+:is(.page-heading, .dashboard-heading) > div:first-child:has(> h1) > h1 {
+  margin: 0 0 8px; font-family: var(--ea-font-display); font-size: clamp(1.7rem, 1.15rem + 1.7vw, 2.45rem); font-weight: 700;
+  letter-spacing: -.035em; line-height: 1.06; text-wrap: balance; color: var(--ea-ink);
+}
+:is(.page-heading, .dashboard-heading) > div:first-child:has(> h1) > p { margin: 0; max-inline-size: 62ch; color: var(--ea-muted); text-wrap: pretty; }
+:is(.page-heading, .dashboard-heading):has(> div:first-child > h1) { align-items: flex-end; }
+
+/* Variante centrata (es. profilo): il nodo sta sopra l'etichetta e il tracciato diventa un breve segno sotto il titolo. */
+:is(.page-heading, .dashboard-heading) > div.profile-heading:first-child:has(> h1) { padding-inline-start: 0; }
+:is(.page-heading, .dashboard-heading) > div.profile-heading:first-child:has(> h1)::after { position: static; order: -1; margin-bottom: 2px; }
+:is(.page-heading, .dashboard-heading) > div.profile-heading:first-child:has(> h1)::before {
+  position: static; order: 10; inline-size: 56px; block-size: 3px; margin-top: 6px; transform-origin: center;
+  background: linear-gradient(90deg, transparent, var(--title-accent), transparent); animation-name: ea-title-route-x;
+}
+
+@keyframes ea-title-route { from { transform: scaleY(0); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
+@keyframes ea-title-route-x { from { transform: scaleX(0); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
+@keyframes ea-title-node { from { transform: scale(0); } to { transform: scale(1); } }
+@keyframes ea-title-pulse { 0%, 100% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--title-accent) 18%, transparent); } 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--title-accent) 6%, transparent); } }
+
+@media (max-width: 575.98px) {
+  :is(.page-heading, .dashboard-heading) > div:first-child:has(> h1) { padding-inline-start: 20px; }
+  :is(.page-heading, .dashboard-heading) > div:first-child:has(> h1) > h1 { font-size: clamp(1.55rem, 7vw, 1.95rem); }
+  :is(.page-heading, .dashboard-heading):has(> div:first-child > h1) { align-items: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.page-heading, .dashboard-heading) > div:first-child:has(> h1)::before,
+  :is(.page-heading, .dashboard-heading) > div:first-child:has(> h1)::after { animation: none; }
+}

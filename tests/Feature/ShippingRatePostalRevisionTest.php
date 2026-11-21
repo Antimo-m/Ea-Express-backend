@@ -154,7 +154,7 @@ class ShippingRatePostalRevisionTest extends TestCase
 
         $this->postJson('/rates/'.$rate->slug, $this->payload(['city' => 'Casalnuovo', 'area' => 'Napoli / Nola', 'postal_code' => '80016', 'postal_codes' => ['80016']]))
             ->assertUnprocessable()->assertJsonValidationErrors('city')
-            ->assertJsonFragment(['city' => ['Comune non identificato con certezza. Usa il nome ufficiale e, per i comuni omonimi, aggiungi la sigla della provincia tra parentesi (es. Samone (TO)). Comuni corrispondenti: Casalnuovo di Napoli (NA, CAP 80013); Casalnuovo Monterotaro (FG, CAP 71033). Il CAP 80016 appartiene a Marano di Napoli (NA).']]);
+            ->assertJsonFragment(['city' => ['Comune non identificato con certezza. Usa il nome ufficiale e, per i comuni omonimi, aggiungi la sigla della provincia tra parentesi (es. Samone (TO)). Se è una frazione, inserisci il comune di appartenenza e scrivi la frazione nel campo Zona (es. comune «Castel San Giorgio», zona «Lanzara»). Comuni corrispondenti: Casalnuovo di Napoli (NA, CAP 80013); Casalnuovo Monterotaro (FG, CAP 71033). Il CAP 80016 appartiene a Marano di Napoli (NA).']]);
         $this->postJson('/rates/'.$rate->slug, $this->payload(['city' => 'Casalnuovo', 'area' => 'Napoli / Nola', 'postal_code' => '', 'postal_codes' => []]))
             ->assertUnprocessable()->assertJsonValidationErrors('city');
 
@@ -164,6 +164,21 @@ class ShippingRatePostalRevisionTest extends TestCase
         $this->getJson('/rates/quote?city=Casalnuovo di Napoli&province=NA&postal_code=80013')->assertJsonPath('available', true);
         $this->getJson('/rates/quote?city=Casalnuovo di Napoli&province=NA&postal_code=80016')->assertJsonPath('available', false);
         $this->assertNull($rate->fresh()->postal_code);
+    }
+
+    public function test_a_hamlet_cannot_be_activated_as_a_municipality_and_is_rated_as_a_zone_of_its_municipality(): void
+    {
+        $hamlet = ShippingRate::factory()->create(['city' => 'Lanzara', 'city_key' => 'lanzara', 'area' => 'Salerno', 'postal_code' => null, 'postal_codes' => null, 'territory_review_required' => true, 'active' => false, 'price_cents' => 800]);
+        $this->actingAs(User::factory()->create(['role' => UserRole::Admin]));
+
+        $blocked = $this->patchJson('/rates/'.$hamlet->slug.'/state', ['active' => true])->assertUnprocessable()->assertJsonValidationErrors('city');
+        $this->assertStringContainsString('Se è una frazione, inserisci il comune di appartenenza', $blocked->json('errors.city.0'));
+        $this->assertFalse($hamlet->fresh()->active);
+
+        $zone = $this->postJson('/rates', $this->payload(['city' => 'Castel San Giorgio', 'zone' => 'Lanzara', 'area' => 'Salerno', 'postal_code' => '84083', 'postal_codes' => ['84083'], 'price' => '8', 'active' => true]))
+            ->assertCreated()->assertJsonPath('data.city', 'Castel San Giorgio')->assertJsonPath('data.zone', 'lanzara')->assertJsonPath('data.active', true);
+        $this->getJson('/rates/quote?city=Castel San Giorgio&postal_code=84083&zone=Lanzara')->assertJsonPath('available', true)->assertJsonPath('price_cents', 800);
+        $this->assertNotNull($zone->json('data.slug'));
     }
 
     public function test_a_cap_alone_never_renames_a_destination_to_an_unrelated_municipality(): void

@@ -14,3 +14,46 @@ main .data-caption { font-family: var(--ea-font) !important; letter-spacing: nor
 .otp-actions { display: flex; justify-content: center; }
 .otp-actions .btn { min-width: 220px; justify-content: center; }
 .otp-actions .btn-link { min-width: 0; }
+
+/* Conferma operazione (es. Elimina account): «Torna indietro» a sinistra, azione a destra. */
+.ea-app #action-confirmation .modal-actions { justify-content: space-between; flex-wrap: nowrap; }
+.ea-app #action-confirmation .modal-actions > .modal-back { order: 1; margin-inline: 0 auto; }
+.ea-app #action-confirmation .modal-actions > [data-confirm-action] { order: 2; margin-inline: auto 0; }
+@media (max-width: 380px) { .ea-app #action-confirmation .modal-actions { flex-wrap: wrap; row-gap: 10px; } }
+
+/* Regola globale «Torna indietro»: sola freccia, sempre sul margine sinistro (pagine, modali, form, card). */
+.modal-back-icon { display: inline-grid !important; place-items: center; inline-size: 44px; min-inline-size: 44px; block-size: 44px; padding: 0 !important; border-radius: 50% !important; }
+.ea-app .ea-modal .modal-actions > .modal-back, .ea-app .ea-modal .modal-actions > .action-back { order: -2 !important; margin-inline: 0 auto !important; }
+.ea-app .ea-modal .modal-actions > .action-delete { order: 1; }
+.page-back { justify-content: flex-start !important; }
+
+/* Messaggi: freccia indietro e apertura ordine in alto, interlocutore sotto; invio a sola icona. */
+.inbox-thread-heading { display: grid !important; gap: 12px; }
+.inbox-thread-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.inbox-thread-nav .inbox-back { color: var(--ea-graphite); background: var(--ea-signal); border-color: var(--ea-signal); }
+.inbox-open-order.icon-button { --action-color: var(--ea-on-color); background: var(--ea-info) !important; border-color: var(--ea-info) !important; color: var(--ea-on-color) !important; }
+.inbox-open-order.icon-button:hover { background: color-mix(in srgb, var(--ea-info) 85%, black) !important; }
+.message-composer .inbox-send { display: inline-grid; place-items: center; inline-size: 48px; min-inline-size: 48px; block-size: 48px; padding: 0; border-radius: 50%; font-size: 1.1rem; }
+
+/* Regola globale dei contatori: badge circolare centrato, che si allarga a pillola per i numeri a più cifre. */
+.count-badge, .shipment-count, .rider-day-tabs a > span, .explorer-volume, .pickup-calendar-count, .inbox-unread-count, .notification-badge, .operations-count-badge {
+  display: inline-grid !important; place-items: center; box-sizing: border-box; min-inline-size: 1.9em; block-size: 1.9em; padding: 0 .5em !important;
+  border-radius: 999px !important; font-size: .72rem !important; font-weight: 700; line-height: 1 !important; text-align: center; font-variant-numeric: tabular-nums;
+  vertical-align: middle; white-space: nowrap; letter-spacing: 0;
+}
+.count-badge, .rider-day-tabs a > span, .explorer-volume, .operations-count-badge { background: var(--ea-surface-muted); color: var(--ea-ink); border: 1px solid var(--ea-line); }
+.rider-day-tabs a[aria-current] > span { background: var(--ea-graphite); color: var(--ea-canvas); border-color: var(--ea-graphite); }
+.rider-day-tabs a.is-cancelled > span { background: color-mix(in srgb, var(--ea-danger) 12%, var(--ea-surface)); border-color: color-mix(in srgb, var(--ea-danger) 30%, transparent); }
+
+/* Pagina Rider: «+» a destra e numeri allineati sulla stessa linea anche quando le etichette vanno a capo. */
+.page-heading:has(> .users-add) { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.page-heading > .users-add { margin-inline-start: auto; flex: none; }
+.profile-metrics { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; gap: 12px !important; }
+.profile-metrics > div { display: grid; grid-template-rows: 1fr auto; align-items: end; min-width: 0; padding: 12px 14px; border: 1px solid var(--ea-line); border-radius: 16px; background: var(--ea-surface); }
+.profile-metrics dt { align-self: start; line-height: 1.3; }
+.profile-metrics dd { margin: 8px 0 0 !important; line-height: 1 !important; }
+@media (max-width: 420px) { .profile-metrics dd { font-size: 1.6rem !important; } .profile-metrics > div { padding: 10px; } }
+.count-badge[hidden], .shipment-count[hidden], .pickup-calendar-count[hidden], .inbox-unread-count[hidden], .notification-badge[hidden], .operations-count-badge[hidden] { display: none !important; }
+.btn.button-back.modal-back-icon, .button-back.modal-back-icon { inline-size: 44px !important; width: 44px !important; min-inline-size: 44px !important; max-inline-size: 44px; flex: 0 0 44px !important; }
+.modal-back-icon[hidden], .modal-back[hidden] { display: none !important; }
+.btn.button-back.modal-back-icon, .button-back.modal-back-icon { block-size: 44px !important; height: 44px !important; min-block-size: 44px !important; min-height: 44px !important; max-height: 44px; }

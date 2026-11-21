@@ -47,9 +47,10 @@ for (const form of root.querySelectorAll('.ea-modal form')) {
     const footer = document.createElement('footer');
     footer.className = 'modal-actions';
     const back = document.createElement('button');
-    back.type = 'button'; back.className = 'btn modal-back'; back.dataset.dialogClose = '';
+    back.type = 'button'; back.className = 'btn modal-back modal-back-icon icon-button action-back'; back.dataset.dialogClose = '';
+    back.setAttribute('aria-label', 'Torna indietro'); back.dataset.tooltip = 'Torna indietro';
     const icon = document.createElement('i'); icon.className = 'bi bi-arrow-left'; icon.setAttribute('aria-hidden', 'true');
-    back.append(icon, document.createTextNode('Torna indietro'));
+    back.append(icon);
     for (const submit of submits) {
         if (submit.classList.contains('icon-button') && !submit.classList.contains('action-edit') && !submit.classList.contains('action-confirm') && !submit.classList.contains('action-with-text')) {
             submit.classList.add('action-with-text');
