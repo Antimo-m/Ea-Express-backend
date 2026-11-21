@@ -80,7 +80,7 @@ class StaffAccountClosureTest extends TestCase
 
         $this->actingAs($rider)->delete(route('users.destroy', $other))->assertForbidden();
         $this->delete('/profile', ['password' => 'password', 'confirmation' => 'ELIMINA'])->assertForbidden();
-        $this->get('/profile')->assertOk()->assertDontSee('Elimina il tuo account')->assertSee('rivolgiti all’amministratore');
+        $this->get('/profile')->assertOk()->assertDontSee('Elimina il tuo account')->assertDontSee('Gestione dell’account')->assertSee('Dati personali')->assertSee('Sicurezza');
         $this->assertNull($rider->fresh()->closed_at);
         $this->assertNull($other->fresh()->closed_at);
     }

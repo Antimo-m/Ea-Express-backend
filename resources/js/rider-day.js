@@ -10,6 +10,34 @@ for (const page of document.querySelectorAll('[data-rider-day]')) {
     const updateBounds = form => { if (form?.elements.from && form.elements.to) form.elements.to.min = form.elements.from.value || ''; };
     page.querySelectorAll('[data-rider-day-period]').forEach(updateBounds);
     page.addEventListener('input', event => updateBounds(event.target.closest('[data-rider-day-period]')));
+    // Mese e anno sono scorciatoie: compilano data iniziale e finale, che restano l'unico criterio della ricerca.
+    const pad = value => String(value).padStart(2, '0');
+    const setRange = (form, from, to) => {
+        form.dataset.periodShortcut = 'true';
+        for (const [name, value] of [['from', from], ['to', to]]) {
+            const input = form.elements[name];
+            input.value = value;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        delete form.dataset.periodShortcut;
+        updateBounds(form);
+    };
+    page.addEventListener('change', event => {
+        const form = event.target.closest('[data-rider-day-period]');
+        if (!form) return;
+        if (event.target.matches('[data-period-month]') && event.target.value) {
+            const [year, month] = event.target.value.split('-').map(Number);
+            setRange(form, `${year}-${pad(month)}-01`, `${year}-${pad(month)}-${pad(new Date(Date.UTC(year, month, 0)).getUTCDate())}`);
+            form.querySelector('[data-period-year]').value = '';
+        } else if (event.target.matches('[data-period-year]') && event.target.value) {
+            setRange(form, `${event.target.value}-01-01`, `${event.target.value}-12-31`);
+            form.querySelector('[data-period-month]').value = '';
+        } else if (event.target.matches('[name=from], [name=to]') && !form.dataset.periodShortcut) {
+            form.querySelector('[data-period-month]').value = '';
+            form.querySelector('[data-period-year]').value = '';
+        }
+    });
 
     async function load(url) {
         controller?.abort();

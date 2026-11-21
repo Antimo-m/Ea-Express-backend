@@ -167,6 +167,32 @@ document.addEventListener('click', event => {
     event.preventDefault();
     navigateFinancePage(url.href, { pageName: link.closest('[data-pagination-name]').dataset.paginationName });
 });
+// Categorie dei movimenti: aggiornano solo il registro, senza ricaricare la pagina né spostare lo scroll.
+function navigateLedger(url) {
+    const scroll = { left: window.scrollX, top: window.scrollY, behavior: 'instant' };
+    navigateFinancePage(url.href).then(() => {
+        window.scrollTo(scroll);
+        requestAnimationFrame(() => window.scrollTo(scroll));
+    });
+}
+document.addEventListener('submit', event => {
+    const form = event.target.closest('.finance-ledger .ledger-mobile-category');
+    if (!form || !financePath) return;
+    event.preventDefault();
+    const url = new URL(form.getAttribute('action') || location.pathname, location.href);
+    url.search = new URLSearchParams(new FormData(form)).toString();
+    navigateLedger(url);
+});
+document.addEventListener('click', event => {
+    if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    const link = event.target.closest('.finance-ledger .ledger-desktop-categories a');
+    if (!link || !financePath) return;
+    const url = new URL(link.href, location.href);
+    if (url.origin !== location.origin || url.pathname !== financePath) return;
+    event.preventDefault();
+    url.hash = '';
+    navigateLedger(url);
+});
 window.addEventListener('popstate', () => {
     if (financePath && location.pathname === financePath) navigateFinancePage(location.href, { push: false });
 });

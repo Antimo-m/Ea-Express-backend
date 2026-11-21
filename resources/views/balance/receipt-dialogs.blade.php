@@ -41,7 +41,7 @@
         </x-ui.modal>
         @endif
         <x-ui.modal :id="'receipt-state-'.$order->slug" :title="$order->receipt_voided_at ? 'Ripristina incasso' : 'Storna incasso'" :description="$order->reference">
-            <form method="post" action="{{ route('payments.store', $order) }}" data-financial-form class="form-stack">
+            <form method="post" action="{{ route('payments.store', $order) }}" data-financial-form class="form-stack receipt-state-form">
                 @csrf<input type="hidden" name="version" value="{{ $order->version }}"><input type="hidden" name="action" value="{{ $order->receipt_voided_at ? 'restore' : 'reverse' }}">
                 <p>{{ $order->receipt_voided_at ? 'Il ripristino rimuove lo storno attivo e riporta l’incasso Da registrare. Il totale lordo resta invariato fino alla nuova registrazione del pagamento.' : (($order->paid_at || (int) $order->payments_sum_amount_cents > 0) ? 'Lo storno rettifica il risultato economico. Il denaro resta in cassa e diventa un rimborso da effettuare: registralo separatamente soltanto dopo averlo restituito.' : 'Nessuna uscita di cassa verrà registrata: l’incasso non è stato ricevuto.') }}</p>
                 @unless($order->receipt_voided_at)<p class="register-note">Rettifica contabile: {{ \App\Support\Money::format((int) $order->payments_sum_amount_cents) }}. Il residuo non incassato viene annullato.</p>@endunless

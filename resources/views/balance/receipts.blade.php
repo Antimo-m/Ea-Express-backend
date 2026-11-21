@@ -4,7 +4,7 @@
     <tbody>@forelse($receipts as $order)<tr data-receipt="{{ $order->slug }}">
         <td><a class="register-primary" href="{{ route('orders.show', $order) }}">{{ $order->displayName() }}</a><span class="register-reference">{{ $order->reference }}</span></td>
         <td><time datetime="{{ $order->delivered_at->toIso8601String() }}">{{ $order->delivered_at->timezone('Europe/Rome')->format('d/m/Y') }}</time>@include('balance.delivery-rider')</td>
-        <td class="text-end register-amount">{{ \App\Support\Money::format($mode === 'recorded' ? (int) $order->payments_sum_amount_cents : ($mode === 'reversed' ? $order->price_cents : $order->price_cents - (int) $order->payments_sum_cash_cents)) }}@if($mode === 'recorded')<small>Tariffa: {{ \App\Support\Money::format($order->price_cents) }}</small>@endif</td>
+        <td class="text-end register-amount"><x-ui.money :amount="$mode === 'recorded' ? (int) $order->payments_sum_amount_cents : ($mode === 'reversed' ? $order->price_cents : $order->price_cents - (int) $order->payments_sum_cash_cents)" :tone="$mode === 'reversed' ? 'out' : 'in'" />@if($mode === 'recorded')<small>Tariffa: {{ \App\Support\Money::format($order->price_cents) }}</small>@endif</td>
         <td>@include('balance.receipt-status')</td>
         <td><div class="register-actions">@include('balance.receipt-actions')</div></td>
     </tr>@empty<tr><td colspan="5" class="register-empty">{{ $empty }}</td></tr>@endforelse</tbody>

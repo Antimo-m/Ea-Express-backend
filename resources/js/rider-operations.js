@@ -1,6 +1,7 @@
 import { staffRequest } from './live-workspace';
 import './rider-day';
 import '../css/rider-operations.css';
+import '../css/zones-revision.css';
 import { createRefreshQueue } from './refresh-queue';
 
 for (const panel of document.querySelectorAll('[data-rider-operations]')) {
@@ -66,7 +67,7 @@ for (const panel of document.querySelectorAll('[data-rider-operations]')) {
         const valid = group.total - group.closed_unfulfilled;
         if (valid) { const progress = node('progress'); progress.max = valid; progress.value = group.delivered; progress.setAttribute('aria-label', 'Spedizioni consegnate'); detail.append(progress); }
         else detail.append(node('p', 'Nessuna consegna prevista'));
-        if (group.closed_unfulfilled) detail.append(node('p', `${group.closed_unfulfilled} annullate o rifiutate · escluse dall’avanzamento`));
+        if (group.closed_unfulfilled) { const closed = node('p', '', 'explorer-closed'); closed.append(node('strong', String(group.closed_unfulfilled), 'count-cancelled'), document.createTextNode(' annullate o rifiutate · escluse dall’avanzamento')); detail.append(closed); }
         const assignments = node('div', '', 'explorer-assignments');
         assignments.append(node('span', view === 'zone' ? 'Rider assegnati' : 'Zone della giornata', 'data-label'));
         for (const item of view === 'zone' ? group.riders : group.zones) {
@@ -90,12 +91,16 @@ for (const panel of document.querySelectorAll('[data-rider-operations]')) {
         const visible = groups(), oldScroll = list.scrollTop, focusKey = list.contains(document.activeElement) ? document.activeElement.dataset.operationsKey : null;
         if (!visible.some(group => group.key === selected)) { selected = visible[0]?.key; page = 1; }
         list.replaceChildren(); list.setAttribute('aria-label', view === 'zone' ? 'Zone della giornata' : 'Rider della giornata');
+        const largest = Math.max(1, ...visible.map(group => group.total));
         for (const group of visible) {
-            const button = node('button', '', 'explorer-item'); button.type = 'button'; button.dataset.operationsKey = group.key; button.setAttribute('aria-pressed', String(group.key === selected));
+            const button = node('button', '', 'explorer-item');
+            button.style.setProperty('--volume', `${Math.round(group.total / largest * 100)}%`);
+            button.style.setProperty('--done', `${group.total - group.closed_unfulfilled > 0 ? Math.round(group.delivered / (group.total - group.closed_unfulfilled) * 100) : 0}%`); button.type = 'button'; button.dataset.operationsKey = group.key; button.setAttribute('aria-pressed', String(group.key === selected));
             const heading = node('span', '', 'explorer-item-heading'); heading.append(node('strong', group.name), node('span', group.total, 'explorer-volume')); button.append(heading);
             const status = node('span', '', 'explorer-item-status');
             status.append(node('span', `${group.delivered} consegnate`, 'operations-completed'), node('span', `${group.pending} da consegnare`), node('span', `${group.unassigned} da assegnare`));
             button.append(status);
+            const bar = node('span', '', 'explorer-item-bar'); bar.setAttribute('aria-hidden', 'true'); bar.append(node('span', '', 'explorer-item-bar-fill')); button.append(bar);
             if (view === 'zone' && group.riders.length) {
                 const names = group.riders.slice(0, 3).map(rider => rider.name);
                 const more = group.riders.length - names.length;
@@ -110,6 +115,8 @@ for (const panel of document.querySelectorAll('[data-rider-operations]')) {
         if (focusKey) [...list.querySelectorAll('button')].find(button => button.dataset.operationsKey === focusKey)?.focus({ preventScroll: true });
         panel.querySelector('[data-operations-count]').textContent = `${visible.length} ${view === 'zone' ? 'zone' : 'Rider'} · ${latest.date}${latest.to && latest.to !== latest.date ? ' – '+latest.to : ''}`;
         for (const [key, value] of Object.entries(latest.summary)) { const item = panel.querySelector(`[data-kpi="${key}"]`); if (item) item.textContent = value; }
+        const share = panel.querySelector('[data-operations-share]');
+        if (share) for (const key of ['delivered', 'pending', 'unassigned']) share.style.setProperty(`--${key}`, Math.max(0, latest.summary[key] || 0));
         const history = panel.querySelector('[data-operations-history]');
         history.hidden = !latest.schedule_history.length;
         const historyItems = history.querySelector('[data-operations-history-items]'); historyItems.replaceChildren();

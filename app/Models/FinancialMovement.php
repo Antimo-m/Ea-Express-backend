@@ -14,6 +14,9 @@ class FinancialMovement extends Model
     use HasFactory;
     use HasPublicSlug;
 
+    /** Correzioni contabili storiche: restano nei calcoli ma non se ne creano di nuove. */
+    public const array AdjustmentKinds = ['adjustment_in', 'adjustment_out'];
+
     public const array Kinds = ['cash' => 'Contanti', 'income' => 'Entrata aggiuntiva', 'extra_expense' => 'Spesa extra', 'adjustment_in' => 'Rettifica positiva', 'adjustment_out' => 'Rettifica negativa'];
 
     protected $attributes = ['version' => 1];

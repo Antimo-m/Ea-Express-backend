@@ -6,6 +6,7 @@ use App\Models\EconomicAudit;
 use App\Models\Order;
 use App\Models\PaymentEntry;
 use App\Models\PendingAccount;
+use App\Models\ReceiptDeclaration;
 use App\Models\ReceiptReversal;
 use App\Models\User;
 use App\OrderStatus;
@@ -57,8 +58,11 @@ class ManageReceipt
                 $this->entry($actor, $order, $economic === 0 ? 'recollection' : 'receipt', $economic, $economic, $amount, '', 'receive:'.$order->slug.':'.$order->version, $refundedReversal, $refundedReversal?->payments()->where('kind', 'refund')->latest('id')->first());
                 $order->paid_at = now();
                 $order->paid_by = $actor->id;
+                // La conferma del Rider era solo una segnalazione: ora l'incasso è registrato dall'Admin.
+                ReceiptDeclaration::where('order_id', $order->id)->where('state', 'pending')->update(['state' => 'confirmed', 'handled_by' => $actor->id, 'handled_at' => now(), 'updated_at' => now()]);
                 $message = $refundedReversal ? 'Nuovo incasso effettivo registrato dopo il rimborso, senza duplicare il ricavo.' : 'Movimento registrato nel bilancio.';
             } elseif ($action === 'reverse') {
+                ReceiptDeclaration::where('order_id', $order->id)->where('state', 'pending')->update(['state' => 'dismissed', 'handled_by' => $actor->id, 'handled_at' => now(), 'updated_at' => now()]);
                 abort_if(ReceiptReversal::where('order_id', $order->id)->whereNull('restored_at')->exists(), 409, 'Esiste già uno storno aperto.');
                 abort_if($order->paid_at && $net !== $order->price_cents, 409, 'L’incasso segnato come saldato non coincide con i movimenti: riconcilia lo storico.');
                 $reversal = new ReceiptReversal;

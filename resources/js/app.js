@@ -10,6 +10,11 @@ import '../css/order-detail-revision.css';
 import '../css/status-badges.css';
 import '../css/day-progress.css';
 import '../css/rider-page.css';
+import '../css/dashboard.css';
+import '../css/money.css';
+import '../css/balance-revision.css';
+import '../css/access-revision.css';
+import '../css/pages-revision.css';
 import './order-history';
 import '../css/pickup-agenda.css';
 import './pickup-agenda';
@@ -220,6 +225,7 @@ window.addEventListener('pageshow', event => {
 });
 
 import './rider-operations';
+import './count-up';
 
 
 

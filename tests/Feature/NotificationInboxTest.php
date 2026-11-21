@@ -105,6 +105,24 @@ class NotificationInboxTest extends TestCase
         $this->getJson('/api/v1/customer/notifications/feed')->assertOk()->assertJsonPath('unread', 3)->assertJsonCount(3, 'items');
     }
 
+    public function test_grouped_notifications_carry_the_current_order_priority(): void
+    {
+        $customer = User::factory()->create(['role' => UserRole::Customer]);
+        $urgent = Order::factory()->create(['customer_id' => $customer->id, 'urgency' => 'urgent', 'status' => OrderStatus::Accepted]);
+        $standard = Order::factory()->create(['customer_id' => $customer->id, 'urgency' => 'standard']);
+        foreach ([$standard, $urgent] as $minute => $order) {
+            $this->travelTo(now()->startOfDay()->addMinutes($minute));
+            $customer->notify(new OrderActivity($order->id, $order->reference, 'Aggiornamento'));
+        }
+        $this->travelBack();
+
+        $this->actingAs($customer, 'customer')->getJson('/api/v1/customer/notifications?grouped=1')->assertOk()
+            ->assertJsonPath('data.0.reference', $urgent->reference)->assertJsonPath('data.0.urgency', 'urgent')
+            ->assertJsonPath('data.1.urgency', 'standard');
+        $urgent->forceFill(['status' => OrderStatus::InTransit])->save();
+        $this->getJson('/api/v1/customer/notifications?grouped=1')->assertJsonPath('data.0.urgency', 'urgent');
+    }
+
     public function test_the_order_column_is_derived_from_the_stored_notification(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);

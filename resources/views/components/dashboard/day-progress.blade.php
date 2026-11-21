@@ -1,8 +1,8 @@
-@props(['counts', 'personal' => false])
+@props(['counts', 'personal' => false, 'date' => null])
 {{-- Avanzamento della giornata: si riempie a ogni aggiornamento in tempo reale della regione. --}}
 <section {{ $attributes->class(['surface', 'day-progress']) }} data-live-region="day-progress" aria-labelledby="day-progress-title">
     <div class="day-progress-heading">
-        <div><span class="eyebrow">{{ $personal ? 'LA TUA GIORNATA' : 'FINE GIORNATA' }}</span><h2 id="day-progress-title">Oggi <strong>{{ $counts['completed'] }}</strong> {{ $counts['completed'] === 1 ? 'consegna completata' : 'consegne completate' }}</h2></div>
+        <div><span class="day-progress-kicker"><span class="eyebrow">{{ $personal ? 'LA TUA GIORNATA' : 'FINE GIORNATA' }}</span>@if($date)<time class="day-progress-date" datetime="{{ now('Europe/Rome')->toDateString() }}"><x-ui.icon name="calendar3" />{{ $date }}</time>@endif</span><h2 id="day-progress-title">Oggi <strong>{{ $counts['completed'] }}</strong> {{ $counts['completed'] === 1 ? 'consegna completata' : 'consegne completate' }}</h2></div>
         <span class="day-progress-percent">@if($counts['valid']){{ $counts['progress'] }}<small>%</small>@else<small>Nessun ritiro in programma</small>@endif</span>
     </div>
     <div class="day-progress-track" role="progressbar" aria-label="Consegne completate tra i ritiri programmati oggi" aria-valuemin="0" aria-valuemax="{{ max(1, $counts['valid']) }}" aria-valuenow="{{ $counts['completed'] }}"><span class="day-progress-fill" data-progress-key="day" style="--value: {{ $counts['progress'] }}%"></span></div>

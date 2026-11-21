@@ -146,3 +146,87 @@
   .rider-stop-card, .rider-stop-open { transition: none; }
   .rider-stop-card:hover { transform: none; }
 }
+
+/* Filtro unico: scorciatoie mese/anno, date e un solo pulsante di ricerca. */
+.rider-period .rider-period-form.rider-period-range { display: grid; grid-template-columns: repeat(4, minmax(0, 170px)) auto; align-items: end; gap: 10px 12px; margin: 0; padding-top: 14px; border-top: 1px solid var(--ea-line); }
+.rider-period .rider-period-form input, .rider-period .rider-period-form select { inline-size: 100%; }
+.rider-period .rider-period-actions { justify-self: start; }
+.rider-period-help { grid-column: 1 / -1; margin: 0; font-size: .74rem; color: var(--ea-muted); }
+
+/* Avanzamento: la strada delle consegne. Il pacco si ferma alla percentuale reale di completamento. */
+.rider-track { display: grid; gap: 16px; padding: 18px 20px 16px; border-radius: var(--ea-radius-card); background: var(--ea-graphite); color: var(--ea-canvas); overflow: hidden; }
+.rider-track-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.rider-track-heading h3 { margin: 0; font-size: 1rem; color: inherit; }
+.rider-track-heading p { margin: 4px 0 0; font-size: .78rem; color: var(--ea-shell-muted); }
+.rider-track-percent { font-size: 2rem; line-height: 1; color: var(--ea-signal); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rider-track-percent small { font-size: .9rem; }
+.rider-track-road { position: relative; block-size: 34px; margin-inline: 14px; }
+.rider-track-lane { position: absolute; inset-inline: 0; top: 50%; block-size: 10px; translate: 0 -50%; border-radius: 999px; background: repeating-linear-gradient(90deg, #ffffff1f 0 14px, #ffffff0d 14px 22px); }
+.rider-track-fill { position: absolute; inset-inline-start: 0; top: 50%; block-size: 10px; translate: 0 -50%; inline-size: var(--done); border-radius: 999px; background: linear-gradient(90deg, var(--ea-signal), #77d0a7); animation: rider-track-grow 1.4s cubic-bezier(.2, .8, .2, 1) both; }
+.rider-track-parcel { position: absolute; top: 50%; inset-inline-start: var(--done); display: grid; place-items: center; inline-size: 30px; block-size: 30px; translate: -50% -50%; border-radius: 10px; background: var(--ea-signal); color: var(--ea-graphite); box-shadow: 0 6px 16px #0006; animation: rider-track-ride 1.4s cubic-bezier(.2, .8, .2, 1) both; }
+.rider-track-flag { position: absolute; inset-inline-end: -12px; top: 50%; translate: 0 -50%; color: #77d0a7; font-size: 1.05rem; }
+@keyframes rider-track-grow { from { inline-size: 0; } }
+@keyframes rider-track-ride { from { inset-inline-start: 0; } }
+.rider-track-stations { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.rider-station { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 10px; align-items: center; padding: 10px 12px; border-radius: 14px; background: #ffffff0d; border: 1px solid #ffffff14; transition: background-color .2s ease; }
+.rider-station:hover { background: #ffffff17; }
+.rider-station-icon { grid-row: span 2; display: grid; place-items: center; inline-size: 32px; block-size: 32px; border-radius: 10px; background: #ffffff14; font-size: .95rem; }
+.rider-station b { font-size: 1.3rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.rider-station small { font-size: .72rem; color: var(--ea-shell-muted); line-height: 1.25; }
+.rider-station--todo .rider-station-icon { color: var(--ea-signal); }
+.rider-station--active .rider-station-icon { color: #74b5fa; }
+.rider-station--completed .rider-station-icon { color: #77d0a7; }
+.rider-station--issues .rider-station-icon { color: #ffc46b; }
+.rider-station--closed .rider-station-icon { color: #ff958e; }
+.rider-station--closed b { color: #ff958e !important; }
+.rider-station.is-zero b { opacity: .6; }
+
+/* Resoconto: netto, spese e saldo disponibile in evidenza. */
+.rider-wallet { position: sticky; top: 20px; display: grid; gap: 14px; padding: 20px; border: 1px solid var(--ea-line); border-radius: var(--ea-radius-card); background: var(--ea-surface); }
+.rider-wallet header { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 12px; align-items: center; }
+.rider-wallet-icon { grid-row: span 2; display: grid; place-items: center; inline-size: 40px; block-size: 40px; border-radius: 13px; background: color-mix(in srgb, var(--ea-signal) 22%, var(--ea-surface)); color: var(--ea-warning); font-size: 1.1rem; }
+.rider-wallet header h2 { margin: 0; font-size: 1.05rem; line-height: 1.35; }
+.rider-wallet .rider-accounting-range { grid-column: 2; margin: 2px 0 0; }
+.rider-wallet-lines { display: grid; gap: 10px; margin: 0; }
+.rider-wallet-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 14px; background: var(--ea-surface-muted); }
+.rider-wallet-line dt { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: center; font-size: .85rem; font-weight: 600; }
+.rider-wallet-line dt small { grid-column: 2; font-size: .7rem; font-weight: 400; color: var(--ea-muted); line-height: 1.35; }
+.rider-wallet-line dt .money-arrow { grid-row: span 2; }
+.rider-wallet-line dd { margin: 0; font-size: 1.05rem; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rider-wallet-total { display: grid; gap: 2px; padding: 16px 18px; border-radius: 18px; background: var(--ea-graphite); color: var(--ea-canvas); }
+.rider-wallet-total span { font-size: .8rem; font-weight: 600; color: var(--ea-shell-muted); text-transform: uppercase; letter-spacing: .04em; }
+.rider-wallet-total strong { font-size: 2rem; line-height: 1.15; font-variant-numeric: tabular-nums; color: #9be3c4; }
+.rider-wallet-total.is-negative strong { color: #ff958e; }
+.rider-wallet-total small { font-size: .72rem; color: var(--ea-shell-muted); }
+.rider-wallet-pending { display: flex; gap: 8px; margin: 0; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--ea-signal) 14%, var(--ea-surface)); font-size: .78rem; }
+.rider-wallet-actions { display: flex; }
+.rider-wallet-actions .icon-button.action-with-text { inline-size: 100%; justify-content: center; }
+.rider-receipts { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--ea-line); }
+.rider-receipts h3 { margin: 0; font-size: .95rem; }
+.rider-receipts > p { margin: 0; font-size: .75rem; color: var(--ea-muted); }
+.rider-receipt { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--ea-line); border-radius: 14px; }
+.rider-receipt > div { display: grid; gap: 1px; min-width: 0; }
+.rider-receipt strong { font: 600 .76rem/1.35 var(--ea-font-mono, monospace); overflow-wrap: anywhere; }
+.rider-receipt span, .rider-receipt small { font-size: .74rem; color: var(--ea-muted); overflow-wrap: anywhere; }
+.rider-receipt-sent { display: inline-flex; align-items: center; gap: 5px; flex: none; padding: 4px 9px; border-radius: 999px; background: color-mix(in srgb, var(--ea-signal) 18%, var(--ea-surface)); color: var(--ea-warning) !important; font-weight: 600; }
+.rider-receipts-empty { display: flex; align-items: center; gap: 6px; margin: 0; font-size: .8rem; color: var(--ea-muted); }
+
+/* Stato vuoto centrato nell'intero elenco. */
+.rider-delivery-list > .rider-day-empty { grid-column: 1 / -1; display: grid; justify-items: center; align-content: center; gap: 6px; min-block-size: 200px; padding: 32px 20px; text-align: center; }
+.rider-delivery-list > .rider-day-empty h3, .rider-delivery-list > .rider-day-empty p { margin: 0; }
+.rider-delivery-list > .rider-day-empty > .bi { font-size: 1.8rem; }
+
+@media (max-width: 1199px) { .rider-wallet { position: static; order: -1; } }
+@media (max-width: 991px) { .rider-period .rider-period-form.rider-period-range { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rider-period .rider-period-actions { grid-column: 1 / -1; justify-self: end; } .rider-track-stations { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+  .rider-track { padding: 16px; }
+  .rider-track-heading { flex-direction: column; }
+  .rider-track-stations { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rider-station:last-child { grid-column: 1 / -1; }
+  .rider-wallet-total strong { font-size: 1.7rem; }
+}
+@media (prefers-reduced-motion: reduce) { .rider-track-fill, .rider-track-parcel { animation: none; } .rider-station { transition: none; } }
+.rider-receipt { flex-direction: column; align-items: stretch; }
+.rider-receipt .rider-receipt-confirm { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; border: 1px solid var(--ea-money-in, var(--ea-success)); background: color-mix(in srgb, var(--ea-success) 8%, var(--ea-surface)); color: var(--ea-money-in, var(--ea-success)); font-weight: 650; }
+.rider-receipt .rider-receipt-confirm:hover { background: var(--ea-success); color: var(--ea-on-color); }
+.rider-receipt .rider-receipt-sent { align-self: flex-start; }

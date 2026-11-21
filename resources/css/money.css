@@ -1,0 +1,9 @@
+/* Colori semantici degli importi: il colore segue il significato economico (entrata/uscita), non il segno. */
+:root { --ea-money-in: var(--ea-success); --ea-money-out: var(--ea-danger); }
+.money-in { color: var(--ea-money-in) !important; }
+.money-out { color: var(--ea-money-out) !important; }
+.money-in.is-zero, .money-out.is-zero, .money-zero { color: var(--ea-muted) !important; }
+.money-arrow { display: inline-grid; place-items: center; inline-size: 26px; block-size: 26px; border-radius: 9px; flex: none; font-size: .8rem; }
+.is-income .money-arrow { background: color-mix(in srgb, var(--ea-money-in) 14%, var(--ea-surface)); color: var(--ea-money-in); }
+.is-expense .money-arrow { background: color-mix(in srgb, var(--ea-money-out) 13%, var(--ea-surface)); color: var(--ea-money-out); }
+.count-cancelled, .is-cancelled > span, .rider-kpi--cancelled dd, .rider-station--closed b { color: var(--ea-money-out) !important; }

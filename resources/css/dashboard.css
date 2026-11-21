@@ -1,0 +1,52 @@
+/* Dashboard: indicatori compatti, data integrata nel riquadro di oggi, anteprime ordinate. */
+.metrics-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+.metrics-grid .metric-card { --metric: var(--ea-info); position: relative; display: grid; grid-template-columns: 42px minmax(0, 1fr); align-items: center; gap: 14px; min-height: 0; padding: 16px 18px; border: 1px solid var(--ea-line); border-radius: 20px; background: var(--ea-surface); overflow: hidden; transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
+.metrics-grid .metric-card::before { content: ""; position: absolute; inset-block: 14px; inset-inline-start: 0; inline-size: 3px; border-radius: 0 3px 3px 0; background: var(--metric); }
+.metrics-grid .metric-card--orange { --metric: var(--ea-signal); }
+.metrics-grid .metric-card--green { --metric: var(--ea-success); }
+.metrics-grid .metric-card--blue { --metric: var(--ea-info); }
+.metrics-grid .metric-card:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--metric) 40%, var(--ea-line)); box-shadow: 0 8px 22px color-mix(in srgb, var(--ea-graphite) 7%, transparent); }
+.metrics-grid .metric-icon { display: inline-grid; place-items: center; inline-size: 42px; block-size: 42px; margin: 0; border-radius: 14px; background: color-mix(in srgb, var(--metric) 14%, var(--ea-surface)); color: var(--metric); font-size: 1.1rem; }
+.metrics-grid .metric-body { display: grid; gap: 1px; min-width: 0; }
+.metrics-grid .metric-label { font-size: .78rem; font-weight: 600; color: var(--ea-muted); line-height: 1.3; }
+.metrics-grid .metric-value { margin: 0; font-size: 1.55rem; font-weight: 700; line-height: 1.15; color: var(--ea-ink); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.metrics-grid .metric-note { font-size: .74rem; color: var(--ea-muted); line-height: 1.35; }
+
+.day-progress-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.day-progress-date { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: var(--ea-surface); border: 1px solid var(--ea-line); font-size: .75rem; font-weight: 600; color: var(--ea-muted); }
+.day-progress-date .bi { color: var(--ea-info); }
+
+.dashboard-order-previews { display: grid; gap: 10px; }
+.dashboard-order-previews .dashboard-order-preview { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "head head" "parties route" "meta meta"; gap: 12px 20px; padding: 14px 16px; border: 1px solid var(--ea-line); border-radius: 18px; background: var(--ea-surface); color: var(--ea-ink); text-decoration: none; transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
+.dashboard-order-previews .dashboard-order-preview:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--ea-info) 40%, var(--ea-line)); box-shadow: 0 8px 22px color-mix(in srgb, var(--ea-graphite) 7%, transparent); color: var(--ea-ink); }
+.dashboard-order-previews .dashboard-order-preview:focus-visible { outline: 3px solid var(--ea-focus); outline-offset: 2px; }
+.dashboard-order-preview .preview-heading { grid-area: head; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-inline-end: 22px; min-width: 0; }
+.dashboard-order-preview .preview-heading .shipment-card-reference { font-size: .74rem; overflow-wrap: anywhere; min-width: 0; }
+.dashboard-order-preview .preview-heading .status-badge { flex: none; white-space: nowrap; }
+.dashboard-order-preview .dashboard-order-parties { grid-area: parties; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.dashboard-order-preview .dashboard-order-parties > div { display: grid; gap: 1px; min-width: 0; }
+.dashboard-order-preview .dashboard-order-parties strong { font-size: .95rem; overflow-wrap: anywhere; }
+.dashboard-order-preview .dashboard-order-parties span:not(.data-label) { overflow-wrap: anywhere; }
+.dashboard-order-preview .shipment-route { grid-area: route; min-width: 0; margin: 0; }
+.dashboard-order-preview .preview-meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; padding-top: 10px; border-top: 1px solid var(--ea-line); font-size: .76rem; color: var(--ea-muted); }
+.dashboard-order-preview .preview-meta > * { display: inline-flex; align-items: center; gap: 6px; }
+.dashboard-order-preview .preview-urgent { padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--ea-danger) 12%, var(--ea-surface)); color: var(--ea-danger); font-weight: 700; }
+.dashboard-order-preview .preview-open { position: absolute; top: 16px; inset-inline-end: 14px; color: var(--ea-muted); transition: transform .16s ease, color .16s ease; }
+.dashboard-order-preview:hover .preview-open { transform: translate(2px, -2px); color: var(--ea-info); }
+.dashboard-order-preview.is-urgent { border-inline-start: 4px solid var(--ea-danger); }
+
+/* Su tablet e telefono i dati operativi vengono prima dei collegamenti di servizio. */
+@media (max-width: 1199px) {
+  .dashboard-workspace-revision .control-registers { order: 1; }
+  .dashboard-workspace-revision .control-context { order: 2; }
+}
+@media (max-width: 991px) { .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 575px) {
+  .metrics-grid { gap: 10px; }
+  .metrics-grid .metric-card { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 14px; }
+  .metrics-grid .metric-icon { inline-size: 34px; block-size: 34px; border-radius: 11px; font-size: .95rem; }
+  .metrics-grid .metric-value { font-size: 1.35rem; }
+  .dashboard-order-previews .dashboard-order-preview { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "parties" "route" "meta"; gap: 10px; padding: 14px; }
+  .dashboard-order-preview .preview-heading { flex-direction: column; align-items: flex-start; gap: 6px; }
+}
+@media (prefers-reduced-motion: reduce) { .metrics-grid .metric-card, .dashboard-order-previews .dashboard-order-preview, .dashboard-order-preview .preview-open { transition: none; } .metrics-grid .metric-card:hover, .dashboard-order-previews .dashboard-order-preview:hover { transform: none; } }

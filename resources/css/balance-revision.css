@@ -1,0 +1,49 @@
+/* Bilancio: azione «+» sotto il titolo, colori semantici, flusso di cassa e card più curate. */
+.finance-heading-actions { display: flex; margin-top: 14px; }
+.signed-money.cash-in { color: var(--ea-money-in); }
+.signed-money.cash-out { color: var(--ea-money-out); }
+
+/* Storno e ripristino: «Torna indietro» a sinistra, conferma a destra. */
+.ea-app .ea-modal .receipt-state-form .modal-actions { justify-content: space-between; flex-wrap: nowrap; }
+.ea-app .ea-modal .receipt-state-form .modal-actions > .modal-back { order: 1; margin-inline: 0 auto; }
+.ea-app .ea-modal .receipt-state-form .modal-actions > .icon-button { order: 2; margin-inline-start: auto; }
+@media (max-width: 420px) { .ea-app .ea-modal .receipt-state-form .modal-actions { flex-wrap: wrap; } .ea-app .ea-modal .receipt-state-form .modal-actions > * { flex: 1 1 100%; justify-content: center; } .ea-app .ea-modal .receipt-state-form .modal-actions > .icon-button { order: 1; } .ea-app .ea-modal .receipt-state-form .modal-actions > .modal-back { order: 2; } }
+
+/* Saldi principali: card con accento e cifra in evidenza. */
+.finance-liquidity .balance-key { position: relative; overflow: hidden; border-radius: 20px; padding: 18px 20px; background: var(--ea-surface); border: 1px solid var(--ea-line); transition: transform .18s ease, box-shadow .18s ease; }
+.finance-liquidity .balance-key::after { content: ""; position: absolute; inset: auto -30px -30px auto; inline-size: 110px; block-size: 110px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--ea-money-in) 16%, transparent), transparent 70%); pointer-events: none; }
+.finance-liquidity .balance-key[data-balance="accounting"]::after { background: radial-gradient(circle, color-mix(in srgb, var(--ea-signal) 22%, transparent), transparent 70%); }
+.finance-liquidity .balance-key:hover { transform: translateY(-2px); box-shadow: 0 12px 26px color-mix(in srgb, var(--ea-graphite) 8%, transparent); }
+.finance-liquidity .balance-key strong { font-size: clamp(1.6rem, 3vw, 2.1rem); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.finance-liquidity .balance-key small { display: flex; flex-wrap: wrap; gap: 4px; font-variant-numeric: tabular-nums; }
+
+/* Flusso del periodo: quota di incassi (verde) e spese (rosso) sul totale movimentato. */
+.cash-flow-bar { display: flex; gap: 3px; block-size: 10px; margin: 14px 0 4px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--ea-muted) 14%, transparent); }
+.cash-flow-bar > span { display: block; block-size: 100%; transform-origin: left; animation: cash-flow-grow 1s cubic-bezier(.2, .8, .2, 1) both; }
+.cash-flow-in { flex: 0 0 var(--in); background: linear-gradient(90deg, color-mix(in srgb, var(--ea-money-in) 70%, white), var(--ea-money-in)); }
+.cash-flow-out { flex: 0 0 var(--out); background: linear-gradient(90deg, var(--ea-money-out), color-mix(in srgb, var(--ea-money-out) 70%, white)); animation-delay: .15s !important; }
+@keyframes cash-flow-grow { from { transform: scaleX(0); } }
+.liquidity-flows > div { align-items: center; }
+.liquidity-flows dt { display: inline-flex; align-items: center; gap: 8px; }
+.liquidity-flows dd, .statement-lines dd { font-variant-numeric: tabular-nums; }
+
+/* Righe dei prospetti: separatori leggeri e totale in evidenza. */
+.finance-economic .statement-lines > div, .finance-positions .statement-lines > div { transition: background-color .15s ease; border-radius: 10px; }
+.finance-economic .statement-lines > div:hover, .finance-positions .statement-lines > div:hover { background: var(--ea-surface-muted); }
+.statement-lines .balance-result dd { font-size: 1.1rem; }
+
+/* Incassi da registrare e registro: accento laterale e importo marcato. */
+.register-table tbody tr { transition: background-color .15s ease, box-shadow .15s ease; }
+.register-table tbody tr:hover { background: var(--ea-hover); box-shadow: inset 3px 0 0 var(--ea-money-in); }
+.register-table .register-amount .money { font-size: 1rem; font-weight: 700; }
+.money-row summary { transition: background-color .15s ease; }
+.money-row[open] summary, .money-row summary:hover { background: var(--ea-hover); }
+.money-row-amount { font-variant-numeric: tabular-nums; }
+.ledger-mobile-category { align-items: end; }
+.ledger-mobile-category .form-select { min-height: 44px; }
+.finance-ledger[aria-busy="true"] #cash-details { opacity: .55; transition: opacity .2s ease; }
+
+@media (prefers-reduced-motion: reduce) { .cash-flow-bar > span { animation: none; } .finance-liquidity .balance-key { transition: none; } .finance-liquidity .balance-key:hover { transform: none; } }
+.finance-liquidity .cash-flow-bar { grid-column: 1 / -1; margin: 0; }
+.cash-flow-in { background: var(--ea-money-in); }
+.cash-flow-out { background: var(--ea-money-out); }

@@ -204,6 +204,11 @@ class Order extends Model
         return $this->hasMany(OrderEvent::class)->whereNull('delay_action')->where(fn ($query) => $query->whereNotNull('schedule_change')->orWhere('status', OrderStatus::Rescheduled))->orderBy('created_at')->orderBy('id');
     }
 
+    public function receiptDeclarations(): HasMany
+    {
+        return $this->hasMany(ReceiptDeclaration::class);
+    }
+
     public function deliveryEvent(): HasOne
     {
         return $this->hasOne(OrderEvent::class)->ofMany(['created_at' => 'max', 'id' => 'max'], fn ($query) => $query->where('status', OrderStatus::Delivered)->whereNull('delay_action'));

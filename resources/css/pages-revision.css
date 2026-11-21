@@ -1,0 +1,11 @@
+/* Ritocchi di pagina: profilo, home del Rider e didascalie sotto i filtri. */
+.page-heading:has(> .profile-heading) { display: block; }
+.profile-heading { display: grid !important; justify-items: center; gap: 6px; inline-size: 100%; text-align: center; }
+.profile-heading h1 { margin: 0; }
+.profile-heading p { max-inline-size: 60ch; }
+
+/* Home Rider: il titolo «Prossime spedizioni» respira rispetto alla prima card. */
+.rider-next-shipments .rider-next-title { margin: 0 0 18px; }
+
+/* Testo sotto i filtri con il carattere normale dell'interfaccia, non quello monospaziato. */
+main .data-caption { font-family: var(--ea-font) !important; letter-spacing: normal; }

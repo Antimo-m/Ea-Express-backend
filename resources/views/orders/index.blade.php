@@ -1,6 +1,6 @@
 <x-app-layout :title="$title">
 <div @class(['order-workspace-revision', 'order-archive' => $section === 'orders.history'])>
-    <header class="dashboard-heading mb-4"><div><span class="eyebrow">{{ $section === 'orders.history' ? 'ARCHIVIO SPEDIZIONI' : 'CENTRO OPERATIVO' }}</span><h1>{{ $title }} @if($section==='orders.in-progress')<span data-live-region="current-count"><span class="shipment-count" aria-label="Spedizioni in corso">{{ $currentCount }}</span></span>@endif</h1><p class="text-secondary mb-0">{{ $section === 'orders.history' ? 'Ritrova una spedizione conclusa, consulta il suo percorso e apri lo storico delle operazioni.' : ($section === 'orders.incoming' ? 'Valuta le richieste, verifica la tariffa e assegna il prossimo ritiro.' : 'Segui il percorso delle spedizioni e intervieni dove serve.') }}</p></div><div class="row-actions">@if($section === 'orders.in-progress')<x-ui.icon-button action="print-multiple" data-label-availability :aria-disabled="$printableCount ? 'false' : 'true'" target="_blank" rel="noopener" href="{{ route('labels.index',[...request()->only(['q','zone','status','customer_id','rider_id','shipping_type','urgency','sender_type','from','to']),'scope'=>'filtered']) }}" label="Stampa etichette dei risultati filtrati" />@endif @if(auth()->user()->role === \App\UserRole::Admin)<x-ui.icon-button action="add" href="{{ route('orders.create') }}" label="Nuova richiesta" />@endif</div></header>
+    <header class="dashboard-heading mb-4"><div><span class="eyebrow">{{ $section === 'orders.history' ? 'ARCHIVIO SPEDIZIONI' : 'CENTRO OPERATIVO' }}</span><h1>{{ $title }} @if($section==='orders.in-progress')<span data-live-region="current-count"><span class="shipment-count" aria-label="Spedizioni in corso">{{ $currentCount }}</span></span>@endif</h1><p class="text-secondary mb-0">{{ $section === 'orders.history' ? 'Ritrova una spedizione conclusa, consulta il suo percorso e apri lo storico delle operazioni.' : ($section === 'orders.incoming' ? 'Valuta le richieste, verifica la tariffa e assegna il prossimo ritiro.' : 'Segui il percorso delle spedizioni e intervieni dove serve.') }}</p></div><div class="row-actions">@if($section === 'orders.history')<x-ui.icon-button action="print-multiple" label="Stampa etichette" data-history-print-start :aria-disabled="$archivePrintableTotal ? 'false' : 'true'" />@endif @if($section === 'orders.in-progress')<x-ui.icon-button action="print-multiple" data-label-availability :aria-disabled="$printableCount ? 'false' : 'true'" target="_blank" rel="noopener" href="{{ route('labels.index',[...request()->only(['q','zone','status','customer_id','rider_id','shipping_type','urgency','sender_type','from','to']),'scope'=>'filtered']) }}" label="Stampa etichette dei risultati filtrati" />@endif @if(auth()->user()->role === \App\UserRole::Admin)<x-ui.icon-button action="add" href="{{ route('orders.create') }}" label="Nuova richiesta" />@endif</div></header>
     <x-ui.filters :reset="route($section)">
         <x-slot:search><x-ui.field name="q" label="Cerca ordine" :value="request('q')" placeholder="Cerca ordine, cliente, destinatario…" /></x-slot:search>
         @if($section === 'orders.history')
@@ -32,14 +32,12 @@
         </x-slot:secondary>
     </x-ui.filters>
     @if($section === 'orders.history')
-    <section class="surface history-print-toolbar" data-history-print-toolbar data-label-url="{{ route('labels.index') }}" aria-label="Selezione etichette">
-        <div class="history-print-start"><x-ui.icon-button action="print-multiple" label="Stampa etichette" data-history-print-start :aria-disabled="$archivePrintableTotal ? 'false' : 'true'" text /></div>
-        <div class="history-print-controls" hidden>
-            <p>Scegli una giornata intera oppure una singola spedizione. I filtri attivi vengono mantenuti.</p>
-            <p role="status" data-history-print-status>Nessuna etichetta selezionata</p>
-            <div class="action-pair"><button type="button" class="btn btn-danger" data-history-print-cancel><x-ui.icon name="x-circle" /> Annulla selezione</button><x-ui.icon-button action="print" label="Conferma stampa" data-history-print-confirm aria-disabled="true" text /></div>
+    <p class="history-print-message" role="status" data-label-status></p>
+    <section class="surface history-print-toolbar" data-history-print-toolbar data-label-url="{{ route('labels.index') }}" aria-label="Selezione etichette" hidden>
+        <div class="history-print-controls">
+            <div class="history-print-summary"><p role="status" data-history-print-status>Nessuna etichetta selezionata</p><p class="history-print-hint">Spunta le giornate o i singoli ordini. Un secondo clic toglie la spunta; dentro una giornata puoi escludere singoli ordini.</p></div>
+            <div class="action-pair"><button type="button" class="btn btn-outline-secondary" data-history-print-clear disabled><x-ui.icon name="x-lg" /> Deseleziona tutte</button><button type="button" class="btn btn-danger" data-history-print-cancel><x-ui.icon name="x-circle" /> Annulla selezione</button><x-ui.icon-button action="print" label="Stampa selezione" data-history-print-confirm aria-disabled="true" text /></div>
         </div>
-        <p role="status" data-label-status></p>
     </section>
     @endif
     <div data-live-region="orders">
@@ -50,7 +48,7 @@
             @forelse($archiveDays as $day)
                 @php($date = $day['date'])
                 <details class="archive-day" id="archive-day-{{ $date }}" name="order-history-days" data-order-history-day="{{ $date }}" data-history-url="{{ route('orders.history', [...request()->except('day_page'), 'day' => $date, 'page' => $archiveDays->currentPage(), 'day_page' => $date === $selectedDate ? $orders->currentPage() : 1]) }}" @if($date === $selectedDate) open @endif>
-                    <summary class="archive-day-heading"><time datetime="{{ $date }}">{{ \Illuminate\Support\Carbon::parse($date, 'Europe/Rome')->locale('it')->translatedFormat('l j F Y') }}</time><span>{{ $day['total'] }} {{ $day['total'] === 1 ? 'ordine' : 'ordini' }}</span><label class="history-print-choice"><input type="radio" name="history-label-choice" value="day:{{ $date }}" data-history-label-day="{{ $date }}" data-label-count="{{ $day['printable'] }}" @disabled(!$day['printable'])> Stampa giornata · {{ $day['printable'] }} etichette</label><x-ui.icon name="chevron-down" /></summary>
+                    <summary class="archive-day-heading"><time datetime="{{ $date }}">{{ \Illuminate\Support\Carbon::parse($date, 'Europe/Rome')->locale('it')->translatedFormat('l j F Y') }}</time><span>{{ $day['total'] }} {{ $day['total'] === 1 ? 'ordine' : 'ordini' }}</span><label class="history-print-choice"><input type="checkbox" data-history-label-day="{{ $date }}" data-label-count="{{ $day['printable'] }}" @disabled(!$day['printable'])> Tutta la giornata · {{ $day['printable'] }} {{ $day['printable'] === 1 ? 'etichetta' : 'etichette' }}</label><x-ui.icon name="chevron-down" /></summary>
                     @if($date === $selectedDate)
                         @include('orders.history-day')
                     @else

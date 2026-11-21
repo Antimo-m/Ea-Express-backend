@@ -349,7 +349,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 await navigate('rider-detail.html');
                 assert.equal(await evaluate(`document.querySelector('.rider-order-events')`),null);
                 assert.equal(await evaluate(`document.querySelectorAll('[data-rider-delivery]').length`),1);
-                assert.ok(await evaluate(`document.querySelector('.rider-day-accounting').textContent.includes('Resoconto contabile')`));
+                assert.ok(await evaluate(`document.querySelector('.rider-wallet').textContent.includes('Resoconto contabile')`));
             }
         });
         await scenario('operational periods preserve Rider perspective, selection and navigation context without reloading', async () => {

@@ -100,13 +100,32 @@ class EconomicRevisionTest extends TestCase
         $this->postJson('/pending/'.$pending->slug.'/settlements', ['amount' => '2', 'method' => 'cash', 'submission_key' => (string) Str::uuid(), 'version' => 1])->assertOk();
         $this->postJson('/movements', ['kind' => 'income', 'description' => 'Entrata accessoria', 'amount' => '10', 'occurred_on' => now()->toDateString(), 'submission_key' => (string) Str::uuid()])->assertCreated();
         $this->postJson('/movements', ['kind' => 'extra_expense', 'description' => 'Costo straordinario', 'amount' => '3', 'occurred_on' => now()->toDateString(), 'submission_key' => (string) Str::uuid()])->assertCreated();
-        $this->postJson('/movements', ['kind' => 'adjustment_out', 'description' => 'Rettifica documentata', 'amount' => '1', 'occurred_on' => now()->toDateString(), 'submission_key' => (string) Str::uuid()])->assertCreated();
+        $this->postJson('/movements', ['kind' => 'adjustment_out', 'description' => 'Rettifica documentata', 'amount' => '1', 'occurred_on' => now()->toDateString(), 'submission_key' => (string) Str::uuid()])->assertUnprocessable()->assertJsonValidationErrors('kind');
+        // Le correzioni già registrate restano nei calcoli: qui ne esiste una storica da 1 €.
+        FinancialMovement::factory()->create(['user_id' => $admin->id, 'kind' => 'adjustment_out', 'amount_cents' => -100, 'description' => 'Rettifica documentata', 'occurred_on' => now()->toDateString()]);
         $this->postJson('/expenses', ['description' => 'Carburante', 'amount' => '1.50', 'spent_on' => now()->toDateString()])->assertCreated();
         $this->get('/balance')->assertOk()->assertViewHas('cash', 200)->assertViewHas('spent', 150)->assertViewHas('operatingNet', 650)->assertViewHas('pendingImpact', 300)->assertViewHas('cashBalance', 650)->assertViewHas('pendingIncoming', 300)->assertViewHas('pendingOutgoing', 0)->assertSee('Contanti');
         $this->postJson('/pending/'.$pending->slug.'/settlements', ['amount' => '3', 'method' => 'cash', 'submission_key' => (string) Str::uuid(), 'version' => 2])->assertOk();
         $this->get('/balance')->assertViewHas('cash', 500)->assertViewHas('pendingImpact', 0)->assertViewHas('operatingNet', 950)->assertViewHas('cashBalance', 950);
         $this->assertSame(500, (int) PaymentEntry::sum('amount_cents'));
         $this->get('/balance?customer_id='.$customer->slug)->assertViewHas('cash', 500)->assertViewHas('spent', 0)->assertViewHas('extraIncome', 0);
+    }
+
+    public function test_accounting_corrections_show_only_when_present_and_cannot_be_created_or_converted(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $this->actingAs($admin);
+        $this->get('/balance')->assertOk()->assertDontSee('Correzioni contabili')->assertDontSee('Rettifiche manuali');
+
+        $cash = FinancialMovement::factory()->create(['user_id' => $admin->id, 'kind' => 'cash', 'amount_cents' => 500, 'description' => 'Registrazione contanti']);
+        $this->patchJson('/movements/'.$cash->slug, ['kind' => 'adjustment_in', 'description' => 'Trasformata', 'amount' => '5', 'occurred_on' => now()->toDateString(), 'version' => $cash->version])->assertUnprocessable()->assertJsonValidationErrors('kind');
+        $this->assertSame('cash', $cash->fresh()->kind);
+        $this->get('/balance')->assertDontSee('<option value="adjustment_in"', false)->assertDontSee('<option value="adjustment_out"', false);
+
+        $historic = FinancialMovement::factory()->create(['user_id' => $admin->id, 'kind' => 'adjustment_in', 'amount_cents' => 250, 'description' => 'Correzione storica']);
+        $this->get('/balance')->assertOk()->assertSee('Correzioni contabili')->assertViewHas('adjustments', 250);
+        $this->patchJson('/movements/'.$historic->slug, ['kind' => 'adjustment_in', 'description' => 'Correzione storica documentata', 'amount' => '2,50', 'occurred_on' => now()->toDateString(), 'version' => $historic->version])->assertOk();
+        $this->assertSame('Correzione storica documentata', $historic->fresh()->description);
     }
 
     public function test_manual_crud_records_history_rejects_stale_writes_and_receipts_have_no_reason(): void

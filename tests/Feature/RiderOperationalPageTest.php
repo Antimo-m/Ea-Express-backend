@@ -51,7 +51,7 @@ class RiderOperationalPageTest extends TestCase
         $this->actingAs($this->rider)->get(route('rider-operations.mine'))->assertOk()
             ->assertSee('LA MIA PAGINA OPERATIVA')->assertSee('Mario Rossi')->assertDontSee('Luca Bianchi')
             ->assertSee('Tariffe delle spedizioni completate')
-            ->assertDontSee('Torna ai Rider')->assertDontSee('Resoconto contabile')->assertDontSee('Sospesi')
+            ->assertDontSee('Torna ai Rider')->assertSee('Resoconto contabile odierno di Mario Rossi')->assertSee('Saldo disponibile')->assertDontSee('Sospesi')
             ->assertDontSee('Incassi da registrare')->assertDontSee('Ancora da regolarizzare')->assertDontSee('Saldo contabile')->assertDontSee(route('balance.index'));
 
         $this->actingAs($this->rider)->get(route('rider-operations.show', $this->otherRider))->assertForbidden();
@@ -81,7 +81,7 @@ class RiderOperationalPageTest extends TestCase
     {
         $this->actingAs($this->admin)->get(route('rider-operations.show', $this->rider))->assertOk()
             ->assertSee('Torna ai Rider')->assertSee('Resoconto contabile odierno di Mario Rossi')->assertDontSee('SOLO ADMIN')->assertDontSee('Dal 21/11/2026 al 21/11/2026')
-            ->assertSee('Sospesi in entrata');
+            ->assertSee('Saldo disponibile')->assertDontSee('Sospesi in entrata')->assertDontSee('Ancora da regolarizzare');
         $this->get(route('rider-operations.show', [$this->rider, 'period' => 'custom', 'from' => '2026-11-18', 'to' => '2026-11-18']))->assertOk()
             ->assertSee('Resoconto contabile del 18/11/2026 di Mario Rossi')->assertDontSee('odierno');
         $response = $this->get(route('rider-operations.show', [$this->rider, 'period' => 'custom', 'from' => '2026-11-01', 'to' => '2026-11-21']))->assertOk()
@@ -110,16 +110,16 @@ class RiderOperationalPageTest extends TestCase
 
         $day = $this->actingAs($this->rider)->get(route('rider-operations.mine', ['period' => 'custom', 'from' => '2026-11-12', 'to' => '2026-11-12']))->assertOk();
         $html = $day->getContent();
-        $this->assertMatchesRegularExpression('/<dt>Consegnate<\/dt><dd>4<\/dd>/', $html);
-        $this->assertMatchesRegularExpression('/<dt>Annullate<\/dt><dd>1<\/dd>/', $html);
+        $this->assertMatchesRegularExpression('/<dt>Consegnate<\/dt><dd[^>]*>4<\/dd>/', $html);
+        $this->assertMatchesRegularExpression('/<dt>Annullate<\/dt><dd[^>]*>1<\/dd>/', $html);
         $day->assertSee('€ 15,00')->assertDontSee('€ 75,00')->assertSee('1 senza tariffa concordata, non conteggiate');
         $day->assertSee('Valore tariffario delle spedizioni in corso')->assertSee('€ 6,50');
-        $this->assertMatchesRegularExpression('/rider-now-card--late[^"]*"><dt>.*?In ritardo<\/dt><dd>1<\/dd>/s', $html);
+        $this->assertMatchesRegularExpression('/rider-now-card--late[^"]*"><dt>.*?In ritardo<\/dt><dd[^>]*>1<\/dd>/s', $html);
 
         $pickupDay = $this->get(route('rider-operations.mine', ['period' => 'custom', 'from' => '2026-11-10', 'to' => '2026-11-10']))->assertOk()->getContent();
-        $this->assertMatchesRegularExpression('/<dt>Spedizioni assegnate<\/dt><dd>1<\/dd>/', $pickupDay);
-        $this->assertMatchesRegularExpression('/<dt>Consegnate<\/dt><dd>0<\/dd>/', $pickupDay);
-        $this->assertMatchesRegularExpression('/<dt>Ritirate<\/dt><dd>1<\/dd>/', $pickupDay);
+        $this->assertMatchesRegularExpression('/<dt>Spedizioni assegnate<\/dt><dd[^>]*>1<\/dd>/', $pickupDay);
+        $this->assertMatchesRegularExpression('/<dt>Consegnate<\/dt><dd[^>]*>0<\/dd>/', $pickupDay);
+        $this->assertMatchesRegularExpression('/<dt>Ritirate<\/dt><dd[^>]*>1<\/dd>/', $pickupDay);
 
         $year = $this->get(route('rider-operations.mine', ['period' => 'year']))->assertOk()->assertSee('Anno 2026')->assertSee('Totale tariffario per mese')->assertSee('Nov 2026');
         $this->get(route('rider-operations.mine', ['period' => 'year_of', 'year' => 2025]))->assertOk()->assertSee('Anno 2025')->assertSee('€ 0,00');

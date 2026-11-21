@@ -1,10 +1,10 @@
 <x-app-layout title="Centro operativo">
     <header class="dashboard-heading">
-        <div><span class="eyebrow">EA-Express · OPERATIVITÀ</span><h1>Centro operativo<span class="brand-accent"> /</span></h1><p>{{ $greeting }}, {{ auth()->user()->name }}. Richieste, ritiri e consegne della tua attività.</p></div>
-        <div class="row-actions"><div class="date-chip"><x-ui.icon name="calendar3" />{{ $today }}</div><x-ui.icon-button action="add" href="{{ route('orders.create') }}" label="Nuova richiesta" text /></div>
+        <div><span class="eyebrow">EA-Express · OPERATIVITÀ</span><h1>Centro operativo</h1><p>{{ $greeting }}, {{ auth()->user()->name }}. Richieste, ritiri e consegne della tua attività.</p></div>
+        <div class="row-actions"><x-ui.icon-button action="add" href="{{ route('orders.create') }}" label="Nuova richiesta" text /></div>
     </header>
     <section class="metrics-grid" data-live-region="metrics" aria-label="Riepilogo della giornata">@foreach($metrics as $metric)<x-dashboard.metric :metric="$metric" />@endforeach</section>
-    <x-dashboard.day-progress :counts="$dayProgress" />
+    <x-dashboard.day-progress :counts="$dayProgress" :date="$today" />
     <div class="control-desk dashboard-workspace-revision">
         <aside class="control-context" aria-label="Strumenti operativi">
             <section class="control-panel"><span class="dashboard-section-icon" aria-hidden="true"><x-ui.icon name="box-seam" /><x-ui.icon name="arrow-right" /><x-ui.icon name="bicycle" /></span><h2>Ritiri e assegnazioni</h2><p>Programmazione, zone e carico di lavoro dei Rider.</p><nav class="control-links" aria-label="Coordinamento operativo"><a href="{{ route('pickups.index') }}">Pianifica ritiri <x-ui.icon name="arrow-up-right" /></a><a href="{{ route('rider-operations.index') }}">Rider per zona <x-ui.icon name="arrow-up-right" /></a><a href="{{ route('orders.in-progress', ['status' => 'delivery_issue']) }}">Problemi di consegna <x-ui.icon name="arrow-up-right" /></a><a href="{{ route('messages.index') }}">Messaggi <x-ui.icon name="arrow-up-right" /></a></nav></section>

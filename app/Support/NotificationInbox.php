@@ -57,7 +57,7 @@ class NotificationInbox
             $order = $names->get($orderId);
 
             return (object) ['reference' => $order?->reference, 'total' => (int) $group->total, 'unread' => (int) $group->unread, 'latest_at' => Carbon::parse($group->latest_at)->toIso8601String(),
-                'order_slug' => $order?->slug, 'customer_name' => $order?->displayName() ?? 'Cliente', 'urgency' => $order?->urgency ?? 'standard'];
+                'order_slug' => $order?->slug, 'customer_name' => $order?->displayName() ?? 'Cliente', 'urgency' => in_array($order?->urgency, ['standard', 'urgent'], true) ? $order->urgency : null];
         }, $orderIds);
 
         return (new Paginator($items, $total, $perPage, $page, ['path' => Paginator::resolveCurrentPath(), 'pageName' => 'page']))->withQueryString();

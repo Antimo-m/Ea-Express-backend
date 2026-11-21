@@ -1,5 +1,5 @@
 <x-app-layout title="Il mio profilo">
-    <x-slot name="header"><span class="eyebrow">IL TUO ACCOUNT</span><h1>Il mio profilo</h1><p class="text-secondary mb-0">Gestisci i tuoi dati e mantieni al sicuro l'accesso.</p></x-slot>
+    <x-slot name="header"><div class="profile-heading"><span class="eyebrow">IL TUO ACCOUNT</span><h1>Il mio profilo</h1><p class="text-secondary mb-0">Gestisci i tuoi dati e mantieni al sicuro l'accesso.</p></div></x-slot>
     <div class="profile-grid" data-workspace-region="profile">
         <section class="surface p-4">@include('profile.partials.update-profile-information-form')</section>
         <section class="surface p-4">@include('profile.partials.update-password-form')</section>
@@ -17,8 +17,6 @@
                 </form>
             </x-ui.action-dialog>
         </section>
-        @else
-        <section class="surface p-4"><h2 class="h5">Gestione dell’account</h2><p class="mb-0">Per chiudere l’account o per una richiesta sui tuoi dati personali, rivolgiti all’amministratore. Lo storico operativo e contabile viene conservato.</p></section>
         @endif
     </div>
 </x-app-layout>

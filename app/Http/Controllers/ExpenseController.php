@@ -8,6 +8,7 @@ use App\Models\Expense;
 use App\Models\User;
 use App\Support\AccountingPeriod;
 use App\Support\Money;
+use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -42,11 +43,13 @@ class ExpenseController extends Controller
             $expense->save();
             app(RecordEconomicAudit::class)->handle($request->user(), $expense, 'expense.created', null, $expense->toArray());
         }, 3);
+        // Il Rider torna alla propria pagina operativa: il Bilancio resta riservato all'Admin.
+        $target = $request->user()->role === UserRole::Admin ? route('balance.index') : route('rider-operations.mine');
         if ($request->expectsJson()) {
-            return response()->json(['message' => 'Spesa registrata.', 'redirect' => route('balance.index')], 201);
+            return response()->json(['message' => 'Spesa registrata.', 'redirect' => $target], 201);
         }
 
-        return redirect()->route('balance.index')->with('status', 'Spesa registrata.');
+        return redirect()->to($target)->with('status', 'Spesa registrata.');
     }
 
     public function update(ExpenseRequest $request, Expense $expense): RedirectResponse|JsonResponse

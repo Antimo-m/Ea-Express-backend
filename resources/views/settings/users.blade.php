@@ -20,9 +20,37 @@
             <section class="profile-section"><header><h3>Destinazioni delle spedizioni aperte</h3><x-ui.icon name="geo-alt" /></header>
                 <ul class="destination-list">@forelse($destinations->get($rider->id, collect()) as $destination)<li><span>{{ $destination->delivery_city ?: 'Località non indicata' }}</span><strong>{{ $destination->total }} <small>{{ (int) $destination->total === 1 ? 'spedizione' : 'spedizioni' }}</small></strong></li>@empty<li class="profile-empty">Nessuna spedizione aperta assegnata.</li>@endforelse</ul>
             </section>
-            <section class="profile-section profile-access"><header><h3>Accesso al gestionale</h3><x-ui.icon name="shield-check" /></header><p>{{ $rider->email_verified_at ? 'Email verificata' : 'Email da verificare al primo accesso' }}</p>
-            @can('update', $rider)<x-ui.action-dialog :id="'user-access-'.$rider->slug" title="Gestisci accesso" icon="shield-lock" :description="$rider->name" text><form method="post" action="{{ route('users.update', $rider) }}" class="form-stack mt-3">@csrf @method('patch')<p>La modifica disconnette il rider dalle sessioni precedenti.</p><div class="row-actions"><x-ui.icon-button type="submit" :action="$rider->is_active ? 'delete' : 'edit'" :label="$rider->is_active ? 'Disabilita account' : 'Riattiva account'" name="action" :value="$rider->is_active ? 'deactivate' : 'activate'" :data-confirm="$rider->is_active ? 'Disabilita account' : null" :data-confirm-name="$rider->name" text /><x-ui.icon-button type="submit" action="delete" label="Revoca dispositivi e sessioni" name="action" value="revoke-devices" data-confirm="Revoca dispositivi e sessioni" :data-confirm-name="$rider->name" text />@if($rider->email_verified_at)<x-ui.icon-button type="submit" action="confirm" label="Ripristina verifica email" name="action" value="reset-email" data-confirm="Ripristina verifica email" :data-confirm-name="$rider->name" text />@endif @if($rider->is_active && ! $rider->email_verified_at)<x-ui.icon-button type="submit" action="send" label="Invia nuovo link di attivazione" name="action" value="send-activation" :data-confirm-name="$rider->name" text />@endif</div></form></x-ui.action-dialog>@endcan
-            @can('delete', $rider)<form method="post" action="{{ route('users.destroy', $rider) }}" class="rider-account-delete" data-confirm="Elimina account" data-confirm-name="{{ $rider->name }}" data-confirm-description="L’account sarà eliminato definitivamente: il rider non potrà più accedere e dispositivi e sessioni saranno revocati. Spedizioni, contabilità e storico restano conservati.">@csrf @method('delete')<x-ui.icon-button type="submit" action="delete" label="Elimina account" text /></form>@endcan
+            <section class="profile-section profile-access" aria-labelledby="access-title-{{ $rider->slug }}">
+                <header><h3 id="access-title-{{ $rider->slug }}">Accesso al gestionale</h3><x-ui.icon name="shield-check" /></header>
+                <p @class(['access-state', 'is-pending' => ! $rider->email_verified_at, 'is-disabled' => ! $rider->is_active])><x-ui.icon :name="! $rider->is_active ? 'person-slash' : ($rider->email_verified_at ? 'patch-check' : 'hourglass-split')" />{{ ! $rider->is_active ? 'Account disabilitato' : ($rider->email_verified_at ? 'Email verificata · accesso attivo' : 'Email da verificare al primo accesso') }}</p>
+                <div class="access-card-actions">
+                    @can('update', $rider)
+                        <button type="button" class="btn access-manage-open" data-dialog-open="user-access-{{ $rider->slug }}" aria-controls="user-access-{{ $rider->slug }}" aria-haspopup="dialog"><x-ui.icon name="shield-lock" /> Gestisci accesso</button>
+                        <x-ui.modal :id="'user-access-'.$rider->slug" title="Gestisci accesso" :description="$rider->name">
+                            <form method="post" action="{{ route('users.update', $rider) }}" class="access-manage-form">@csrf @method('patch')
+                                <p class="access-manage-note">Ogni azione disconnette il rider dalle sessioni precedenti.</p>
+                                <div class="access-manage-actions">
+                                    @if($rider->is_active)
+                                        <button type="submit" name="action" value="deactivate" class="btn access-action access-action--disable" data-confirm="Disabilita account" data-confirm-name="{{ $rider->name }}"><x-ui.icon name="person-slash" /><span>Disabilita account<small>Blocca l’accesso senza eliminare dati e storico</small></span></button>
+                                    @else
+                                        <button type="submit" name="action" value="activate" class="btn access-action access-action--enable"><x-ui.icon name="person-check" /><span>Riattiva account<small>Il rider potrà accedere di nuovo</small></span></button>
+                                    @endif
+                                    <button type="submit" name="action" value="revoke-devices" class="btn access-action access-action--revoke" data-confirm="Revoca sessione dai dispositivi" data-confirm-name="{{ $rider->name }}"><span class="access-device-icon" aria-hidden="true"><x-ui.icon name="phone" /><x-ui.icon name="box-arrow-right" /></span><span>Revoca sessione dai dispositivi<small>Chiude ogni accesso attivo e i dispositivi autorizzati</small></span></button>
+                                    @if($rider->email_verified_at)
+                                        <button type="submit" name="action" value="reset-email" class="btn access-action access-action--neutral" data-confirm="Ripristina verifica email" data-confirm-name="{{ $rider->name }}"><x-ui.icon name="envelope-exclamation" /><span>Ripristina verifica email<small>Al prossimo accesso servirà di nuovo il codice via email</small></span></button>
+                                    @endif
+                                </div>
+                                <footer class="modal-actions access-manage-footer">
+                                    <button type="button" class="btn modal-back access-back" data-dialog-close aria-label="Torna indietro" data-tooltip="Torna indietro"><x-ui.icon name="arrow-left" /></button>
+                                    @if($rider->is_active && ! $rider->email_verified_at)
+                                        <button type="submit" name="action" value="send-activation" class="btn access-send" aria-label="Invia nuovo link di attivazione" data-tooltip="Invia nuovo link di attivazione (crea password, valido 48 ore)" data-confirm-name="{{ $rider->name }}"><x-ui.icon name="send" /></button>
+                                    @endif
+                                </footer>
+                            </form>
+                        </x-ui.modal>
+                    @endcan
+                    @can('delete', $rider)<form method="post" action="{{ route('users.destroy', $rider) }}" class="rider-account-delete" data-confirm="Elimina account" data-confirm-name="{{ $rider->name }}" data-confirm-description="L’account sarà eliminato definitivamente: il rider non potrà più accedere e dispositivi e sessioni saranno revocati. Spedizioni, contabilità e storico restano conservati.">@csrf @method('delete')<x-ui.icon-button type="submit" action="delete" label="Elimina account" text /></form>@endcan
+                </div>
             </section>
             <footer class="profile-footer"><button type="button" class="btn btn-outline-secondary directory-return" data-directory-return><x-ui.icon name="arrow-up" /> Elenco Rider</button><a class="btn btn-primary" href="{{ route('rider-operations.show', $rider) }}"><x-ui.icon name="calendar3" /> Dettaglio giornaliero</a></footer>
         </section>

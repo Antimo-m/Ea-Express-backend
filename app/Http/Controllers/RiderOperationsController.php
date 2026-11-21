@@ -105,18 +105,22 @@ class RiderOperationsController extends Controller
         $accounting = $admin ? $operations->dailyAccounting($period, $rider->id, $query, $zone) : null;
         $orders = $operations->filterDailyState(clone $query, $state)->withDisplayIdentity()->with('rider:id,slug,name')->orderBy('pickup_date')->orderBy('pickup_from')->orderBy('id')->paginate(20)->withQueryString();
         $current = $activity->current($rider->id);
+        $balance = $operations->riderBalance($period, $rider->id);
+        $toConfirm = $admin ? collect() : $operations->receiptsToConfirm($rider->id)->withDisplayIdentity()
+            ->with(['receiptDeclarations' => fn ($declarations) => $declarations->where('state', 'pending')])
+            ->latest('delivered_at')->orderByDesc('id')->limit(10)->get();
         $summary = $activity->period($rider->id, $period, $operations);
         $base = array_filter(['period' => $selection['mode'], 'from' => $selection['mode'] === 'custom' ? $period->start->toDateString() : null, 'to' => $selection['mode'] === 'custom' ? $period->end->toDateString() : null, 'month' => $selection['mode'] === 'month_of' ? $selection['month'] : null, 'year' => $selection['mode'] === 'year_of' ? $selection['year'] : null, 'zone' => $zone]);
         $pageUrl = fn (array $parameters = []): string => $admin ? route('rider-operations.show', ['rider' => $rider->slug, ...$parameters]) : route('rider-operations.mine', $parameters);
 
-        return view('rider-operations.show', compact('rider', 'admin', 'period', 'selection', 'zone', 'state', 'counts', 'accounting', 'orders', 'current', 'summary', 'base', 'pageUrl'));
+        return view('rider-operations.show', compact('rider', 'admin', 'period', 'selection', 'zone', 'state', 'counts', 'accounting', 'orders', 'current', 'summary', 'base', 'pageUrl', 'balance', 'toConfirm'));
     }
 
     /**
      * Periodo della pagina operativa: oggi, ultimi 7 giorni, mese o anno correnti, un mese o un anno passati,
      * oppure un intervallo libero (al massimo dieci anni).
      *
-     * @return array{ReportingPeriod, array{mode: string, month: string, year: int, label: string, single_day: bool, today: bool}}
+     * @return array{ReportingPeriod, array{mode: string, month: string, year: int, label: string, single_day: bool, today: bool, shortcut: ?string}}
      */
     private function riderPeriod(Request $request): array
     {
@@ -151,6 +155,15 @@ class RiderOperationsController extends Controller
             throw ValidationException::withMessages(['to' => 'Scegli un periodo di al massimo dieci anni.']);
         }
         $single = $period->start->isSameDay($period->end);
+        // Un intervallo che coincide con un mese o un anno interi viene mostrato come tale (scorciatoie del filtro).
+        $wholeMonth = $period->start->isSameDay($period->start->copy()->startOfMonth()) && $period->end->isSameDay($period->start->copy()->endOfMonth());
+        $wholeYear = $period->start->isSameDay($period->start->copy()->startOfYear()) && $period->end->isSameDay($period->start->copy()->endOfYear());
+        $shortcut = match (true) {
+            $wholeYear => 'year', $wholeMonth => 'month', default => null
+        };
+        if ($mode === 'custom' && $shortcut) {
+            $mode = $shortcut === 'year' ? 'year_of' : 'month_of';
+        }
         $short = fn (Carbon $date): string => $date->format('d/m/Y');
         $label = match ($mode) {
             'today' => 'Oggi · '.$period->start->copy()->locale('it')->translatedFormat('l j F Y'),
@@ -160,6 +173,6 @@ class RiderOperationsController extends Controller
             default => $single ? $period->start->copy()->locale('it')->translatedFormat('l j F Y') : 'Dal '.$short($period->start).' al '.$short($period->end),
         };
 
-        return [$period, ['mode' => $mode, 'month' => $period->start->format('Y-m'), 'year' => $period->start->year, 'label' => $label, 'single_day' => $single, 'today' => $single && $period->start->isSameDay($today)]];
+        return [$period, ['mode' => $mode, 'month' => $period->start->format('Y-m'), 'year' => $period->start->year, 'label' => $label, 'single_day' => $single, 'today' => $single && $period->start->isSameDay($today), 'shortcut' => $shortcut]];
     }
 }

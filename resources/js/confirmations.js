@@ -20,7 +20,9 @@ export function confirmAction({ name, action = 'Elimina', description = '', clos
     confirm.classList.toggle('action-confirm', !destructive);
     confirm.classList.add('action-with-text');
     confirm.replaceChildren();
-    const icon = document.createElement('i'); icon.className = destructive ? 'bi bi-trash' : 'bi bi-check-lg'; icon.setAttribute('aria-hidden', 'true');
+    // Disabilitare o revocare non equivale a eliminare: icone diverse dal cestino.
+    const iconName = /disabil|disattiv/iu.test(action) ? 'person-slash' : /revoca/iu.test(action) ? 'box-arrow-right' : destructive ? 'trash' : 'check-lg';
+    const icon = document.createElement('i'); icon.className = `bi bi-${iconName}`; icon.setAttribute('aria-hidden', 'true');
     const text = document.createElement('span'); text.textContent = action; confirm.append(icon, text);
     if (destructive) confirm.parentElement.prepend(confirm); else confirm.parentElement.append(confirm);
     const label = action;

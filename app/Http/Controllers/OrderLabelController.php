@@ -28,6 +28,30 @@ class OrderLabelController extends Controller
 
             return view('orders.labels', compact('orders'));
         }
+        if ($request->input('scope') === 'history-selection') {
+            // Selezione dello storico: giornate intere (meno gli ordini esclusi) più ordini scelti singolarmente.
+            $data = $request->validate([
+                'days' => ['nullable', 'array', 'max:62'], 'days.*' => ['date_format:Y-m-d', 'distinct'],
+                'exclude' => ['nullable', 'array', 'max:1000'], 'exclude.*' => ['uuid', 'distinct'],
+                'ids' => ['nullable', 'array', 'max:100'], 'ids.*' => ['uuid', 'distinct'],
+            ]);
+            abort_if(empty($data['days']) && empty($data['ids']), 422, 'Al momento non ci sono ordini da stampare');
+            $orders = app(OrderSelection::class)->query($request, 'orders.history')->where('parcel_count', '>', 0)
+                ->where(function ($selection) use ($data): void {
+                    foreach ($data['days'] ?? [] as $day) {
+                        $start = Carbon::parse($day, 'Europe/Rome')->startOfDay();
+                        $selection->orWhere(fn ($range) => $range->where('created_at', '>=', $start->copy()->utc())->where('created_at', '<', $start->copy()->addDay()->utc()));
+                    }
+                    if (! empty($data['ids'])) {
+                        $selection->orWhereIn('slug', $data['ids']);
+                    }
+                })
+                ->when(! empty($data['exclude']), fn ($query) => $query->whereNotIn('slug', $data['exclude']))
+                ->orderBy('created_at')->orderBy('id')->limit(1001)->get();
+            abort_if($orders->count() > 1000 || $orders->sum('parcel_count') > 1000, 422, 'Il documento supera 1000 etichette. Restringi i filtri.');
+
+            return $orders->isEmpty() ? $this->empty($request) : view('orders.labels', compact('orders'));
+        }
         if ($request->input('scope') === 'pickup') {
             // Giornata di ritiro di un account nell'agenda: stessa visibilità dell'agenda (il Rider vede solo i propri ritiri).
             $data = $request->validate(['date' => ['required', 'date_format:Y-m-d'], 'account' => ['required', 'uuid'], 'kind' => ['required', 'in:customer,manual']]);

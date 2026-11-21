@@ -109,3 +109,26 @@
   .pickup-order-card > .pickup-order-reference { padding-inline: 16px; }
   .shipment-card-assignment { flex-direction: column; }
 }
+
+/* Storico: stampa con sola icona nell'intestazione; barra di selezione visibile solo durante la scelta. */
+.history-print-message { margin: -8px 0 16px; font-size: .85rem; color: var(--ea-muted); text-align: right; }
+.history-print-message:empty { display: none; }
+.history-print-toolbar[hidden] { display: none !important; }
+.order-archive .history-print-toolbar { position: sticky; top: 10px; z-index: 6; padding: 14px 18px; margin-bottom: 16px; border: 1px solid color-mix(in srgb, var(--ea-success) 35%, var(--ea-line)); box-shadow: 0 10px 28px color-mix(in srgb, var(--ea-graphite) 10%, transparent); }
+.history-print-toolbar .history-print-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
+.history-print-summary { display: grid; gap: 2px; min-width: 0; }
+.history-print-summary p { margin: 0; }
+.history-print-summary [data-history-print-status] { font-weight: 700; font-variant-numeric: tabular-nums; }
+.history-print-hint { font-size: .78rem; color: var(--ea-muted); }
+.history-print-toolbar .action-pair { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.history-print-toolbar [data-history-print-confirm][aria-disabled="true"] { opacity: .5; }
+.order-archive .history-print-choice input { accent-color: var(--ea-success); cursor: pointer; }
+.order-archive .history-order { transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease; }
+.order-archive .history-order.is-label-selected { border-color: var(--ea-success); background: color-mix(in srgb, var(--ea-success) 6%, var(--ea-surface)); box-shadow: inset 4px 0 0 var(--ea-success); }
+@media (max-width: 575px) {
+  .order-archive .history-print-toolbar { padding: 12px 14px; }
+  .history-print-toolbar .action-pair { width: 100%; }
+  .history-print-toolbar .action-pair > * { flex: 1 1 auto; justify-content: center; }
+  .history-print-hint { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .order-archive .history-order { transition: none; } }

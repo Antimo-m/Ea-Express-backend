@@ -140,6 +140,8 @@ test('Rider workspace: ranges, status sorting, stable state and mobile controls'
                 assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'), true, `${width}: rider day fits`);
                 const bounds = await evaluate(`(() => {const buttons=[...document.querySelector('.rider-period-actions').children].map(node=>node.getBoundingClientRect());return buttons.map(node=>({x:node.x,right:node.right,y:node.y}));})()`);
                 assert.ok(bounds[1].x > bounds[0].x && Math.abs(bounds[0].y - bounds[1].y) < 2, `${width}: search is on the far right`);
+                assert.equal(await evaluate('document.querySelectorAll("[data-rider-day-filters] .action-search").length'), 1, `${width}: un solo pulsante di ricerca`);
+                assert.equal(await evaluate('[...document.querySelectorAll(".rider-period-range input, .rider-period-range select")].every(field => field.getBoundingClientRect().height >= 40 || !field.getClientRects().length)'), true, `${width}: campi comodi`);
             }
             await evaluate('window.__riderDocumentMarker="retained";window.scrollTo({top:300,behavior:"instant"});window.__riderScroll=scrollY;');
             await evaluate('document.querySelector(".workspace-pagination a[rel=next]").click()');

@@ -23,24 +23,15 @@
                     <a href="{{ $pageUrl(array_filter(['period' => $mode, 'zone' => $zone])) }}" data-rider-period-link @if($selection['mode'] === $mode) aria-current="true" @endif>{{ $label }}</a>
                 @endforeach
             </nav>
-            <div class="rider-period-forms">
-                <form method="get" action="{{ $pageUrl() }}" class="rider-period-form" data-rider-day-period aria-label="Scegli un mese">
-                    <input type="hidden" name="period" value="month_of">@if($zone)<input type="hidden" name="zone" value="{{ $zone }}">@endif
-                    <label>Mese<input type="month" name="month" value="{{ $selection['month'] }}" max="{{ now('Europe/Rome')->format('Y-m') }}" required></label>
-                    <x-ui.icon-button action="search" type="submit" label="Mostra il mese" />
-                </form>
-                <form method="get" action="{{ $pageUrl() }}" class="rider-period-form" data-rider-day-period aria-label="Scegli un anno">
-                    <input type="hidden" name="period" value="year_of">@if($zone)<input type="hidden" name="zone" value="{{ $zone }}">@endif
-                    <label>Anno<select name="year" required>@foreach(range(now('Europe/Rome')->year, 2025) as $year)<option value="{{ $year }}" @selected($selection['year'] === $year)>{{ $year }}</option>@endforeach</select></label>
-                    <x-ui.icon-button action="search" type="submit" label="Mostra l’anno" />
-                </form>
-                <form method="get" action="{{ $pageUrl() }}" class="rider-period-form rider-period-range" data-rider-day-period aria-label="Scegli un intervallo di date">
-                    <input type="hidden" name="period" value="custom">@if($zone)<input type="hidden" name="zone" value="{{ $zone }}">@endif
-                    <label>Data iniziale<input type="date" name="from" value="{{ $period->start->toDateString() }}" required></label>
-                    <label>Data finale<input type="date" name="to" value="{{ $period->end->toDateString() }}" min="{{ $period->start->toDateString() }}" required></label>
-                    <span class="rider-period-actions"><x-ui.icon-button action="reset" :href="$pageUrl(array_filter(['zone' => $zone]))" label="Torna a oggi" data-rider-day-reset /><x-ui.icon-button action="search" type="submit" label="Mostra il periodo" /></span>
-                </form>
-            </div>
+            <form method="get" action="{{ $pageUrl() }}" class="rider-period-form rider-period-range" data-rider-day-period aria-label="Scegli il periodo">
+                <input type="hidden" name="period" value="custom">@if($zone)<input type="hidden" name="zone" value="{{ $zone }}">@endif
+                <label>Mese<input type="month" data-period-month value="{{ $selection['shortcut'] === 'month' ? $selection['month'] : '' }}" max="{{ now('Europe/Rome')->format('Y-m') }}" aria-describedby="rider-period-help"></label>
+                <label>Anno<select data-period-year aria-describedby="rider-period-help"><option value="">—</option>@foreach(range(now('Europe/Rome')->year, 2025) as $year)<option value="{{ $year }}" @selected($selection['shortcut'] === 'year' && $selection['year'] === $year)>{{ $year }}</option>@endforeach</select></label>
+                <label>Data iniziale<input type="date" name="from" value="{{ $period->start->toDateString() }}" required></label>
+                <label>Data finale<input type="date" name="to" value="{{ $period->end->toDateString() }}" min="{{ $period->start->toDateString() }}" required></label>
+                <span class="rider-period-actions"><x-ui.icon-button action="reset" :href="$pageUrl(array_filter(['zone' => $zone]))" label="Torna a oggi" data-rider-day-reset /><x-ui.icon-button action="search" type="submit" label="Applica il periodo" /></span>
+                <p class="rider-period-help" id="rider-period-help">Mese e anno compilano le date: la ricerca usa sempre data iniziale e finale.</p>
+            </form>
         </section>
         <p class="small text-danger" role="alert" data-rider-day-error hidden></p>
 
@@ -57,20 +48,23 @@
             <section class="rider-period-summary" aria-labelledby="rider-period-title">
                 <div class="rider-section-title"><h2 id="rider-period-title">Nel periodo</h2><span>Ritiri, consegne e annullamenti contati alla data in cui sono avvenuti</span></div>
                 <dl class="rider-kpis">
-                    <div><dt>Spedizioni assegnate</dt><dd>{{ $summary['assigned'] }}</dd><small>con ritiro programmato nel periodo</small></div>
-                    <div><dt>Ritirate</dt><dd>{{ $summary['picked_up'] }}</dd><small>pacchi presi in carico</small></div>
-                    <div class="rider-kpi--delivered"><dt>Consegnate</dt><dd>{{ $summary['delivered'] }}</dd><small>consegne confermate</small></div>
-                    <div><dt>Annullate</dt><dd>{{ $summary['cancelled'] }}</dd><small>mentre erano affidate {{ $admin ? 'al Rider' : 'a te' }}</small></div>
+                    <div><dt>Spedizioni assegnate</dt><dd data-count-to="{{ $summary['assigned'] }}">{{ $summary['assigned'] }}</dd><small>con ritiro programmato nel periodo</small></div>
+                    <div><dt>Ritirate</dt><dd data-count-to="{{ $summary['picked_up'] }}">{{ $summary['picked_up'] }}</dd><small>pacchi presi in carico</small></div>
+                    <div class="rider-kpi--delivered"><dt>Consegnate</dt><dd data-count-to="{{ $summary['delivered'] }}">{{ $summary['delivered'] }}</dd><small>consegne confermate</small></div>
+                    <div class="rider-kpi--cancelled"><dt>Annullate</dt><dd data-count-to="{{ $summary['cancelled'] }}">{{ $summary['cancelled'] }}</dd><small>mentre erano affidate {{ $admin ? 'al Rider' : 'a te' }}</small></div>
                 </dl>
-                <div class="rider-progress-card">
-                    <div class="rider-progress-heading"><h3>Avanzamento delle spedizioni assegnate</h3><strong>@if($counts['valid']){{ $counts['progress'] }}<small>%</small>@else<small>Nessuna consegna prevista</small>@endif</strong></div>
-                    <p>{{ $counts['completed'] }} di {{ $counts['valid'] }} {{ $plural($counts['valid'], 'spedizione completata', 'spedizioni completate') }} · stato attuale delle spedizioni con ritiro nel periodo</p>
-                    @if($counts['total'])
-                        <div class="rider-distribution" role="img" aria-label="Distribuzione degli stati: @foreach($distribution as [$label, $value]){{ $label }} {{ $value }}{{ $loop->last ? '' : ', ' }}@endforeach">
-                            @foreach($distribution as $key => [$label, $value])@if($value)<span class="rider-distribution--{{ $key }}" style="--share: {{ $value }}"></span>@endif @endforeach
-                        </div>
-                        <ul class="rider-distribution-legend">@foreach($distribution as $key => [$label, $value])<li class="rider-distribution--{{ $key }}"><span aria-hidden="true"></span>{{ $label }} <b>{{ $value }}</b></li>@endforeach</ul>
-                    @endif
+                <div class="rider-track" style="--done: {{ $counts['valid'] ? $counts['progress'] : 0 }}%">
+                    <div class="rider-track-heading"><div><h3>Avanzamento delle spedizioni assegnate</h3><p>{{ $counts['completed'] }} di {{ $counts['valid'] }} {{ $plural($counts['valid'], 'spedizione completata', 'spedizioni completate') }} · stato attuale delle spedizioni con ritiro nel periodo</p></div><strong class="rider-track-percent">@if($counts['valid'])<span data-count-to="{{ $counts['progress'] }}">{{ $counts['progress'] }}</span><small>%</small>@else<small>Nessuna consegna prevista</small>@endif</strong></div>
+                    <div class="rider-track-road" role="progressbar" aria-label="Spedizioni completate" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $counts['valid'] ? $counts['progress'] : 0 }}">
+                        <span class="rider-track-lane" aria-hidden="true"></span><span class="rider-track-fill" aria-hidden="true"></span>
+                        <span class="rider-track-parcel" aria-hidden="true"><x-ui.icon name="box-seam-fill" /></span>
+                        <span class="rider-track-flag" aria-hidden="true"><x-ui.icon name="flag-fill" /></span>
+                    </div>
+                    <ol class="rider-track-stations" aria-label="Spedizioni per stato">
+                        @foreach(['todo' => ['Da effettuare', 'hourglass-split'], 'active' => ['In corso', 'truck'], 'completed' => ['Completate', 'check2-circle'], 'issues' => ['Da verificare', 'exclamation-triangle'], 'closed' => ['Annullate o rifiutate', 'x-circle']] as $key => [$label, $icon])
+                            <li @class(['rider-station', 'rider-station--'.$key, 'is-zero' => ! $counts[$key]])><span class="rider-station-icon" aria-hidden="true"><x-ui.icon :name="$icon" /></span><b data-count-to="{{ $counts[$key] }}">{{ $counts[$key] }}</b><small>{{ $label }}</small></li>
+                        @endforeach
+                    </ol>
                 </div>
             </section>
 
@@ -100,12 +94,12 @@
                 </details>
             </section>
 
-            <div @class(['rider-page-layout', 'rider-page-layout--admin' => $admin])>
+            <div class="rider-page-layout rider-page-layout--admin">
                 <section class="rider-deliveries" aria-labelledby="rider-deliveries-heading">
                     <div class="rider-section-title"><h2 id="rider-deliveries-heading">Le spedizioni del periodo</h2><span>{{ $orders->total() }} {{ $plural($orders->total(), 'spedizione', 'spedizioni') }} con ritiro programmato nel periodo</span></div>
                     <nav class="rider-day-tabs" aria-label="Filtra spedizioni per stato">
                         @foreach(['all' => ['Tutte', $counts['total']], 'todo' => ['Da effettuare', $counts['todo']], 'active' => ['In corso', $counts['active']], 'completed' => ['Completate', $counts['completed']], 'issues' => ['Da verificare', $counts['issues']]] + ($counts['closed'] ? ['closed' => ['Annullate o rifiutate', $counts['closed']]] : []) as $key => [$label, $count])
-                            <a href="{{ $pageUrl([...$base, 'state' => $key]) }}" @if($state === $key) aria-current="page" @endif>{{ $label }}<span>{{ $count }}</span></a>
+                            <a href="{{ $pageUrl([...$base, 'state' => $key]) }}" @class(['is-cancelled' => $key === 'closed']) @if($state === $key) aria-current="page" @endif>{{ $label }}<span>{{ $count }}</span></a>
                         @endforeach
                     </nav>
                     <div class="rider-delivery-list">
@@ -129,25 +123,58 @@
                     <p class="rider-day-footnote">L’elenco segue la data di ritiro programmata: una consegna conclusa in un giorno successivo resta nella giornata del ritiro, mentre i totali «Nel periodo» la contano nel giorno della consegna.</p>
                 </section>
 
-                @if($admin && $accounting)
-                    <aside class="rider-day-accounting" aria-labelledby="rider-accounting-heading">
-                        <header>
-                            <h2 id="rider-accounting-heading" tabindex="-1">@if($selection['single_day']){{ $selection['today'] ? 'Resoconto contabile odierno di '.$rider->name : 'Resoconto contabile del '.$shortDate($period->start).' di '.$rider->name }}@else Resoconto contabile di {{ $rider->name }}@endif</h2>
-                            @unless($selection['single_day'])<p class="rider-accounting-range">Dal {{ $shortDate($period->start) }} al {{ $shortDate($period->end) }}</p>@endunless
-                        </header>
-                        <dl class="rider-day-ledger">
-                            <div><dt>Incassi registrati</dt><dd>{{ $money($accounting['gross']) }}</dd></div>
-                            <div><dt>Storni contabili</dt><dd>− {{ $money($accounting['reversals']) }}</dd></div>
-                            @if($accounting['restorations'])<div><dt>Ripristini</dt><dd>+ {{ $money($accounting['restorations']) }}</dd></div>@endif
-                            <div><dt>Spese e uscite</dt><dd>− {{ $money($accounting['expenses']) }}</dd></div>
-                            <div class="rider-day-ledger-total"><dt>Saldo contabile</dt><dd>{{ $money($accounting['balance']) }}</dd></div>
-                        </dl>
-                        <dl class="rider-day-ledger rider-day-cash"><div><dt><x-ui.icon name="cash-stack" /> Variazione contanti</dt><dd>{{ $money($accounting['cash_change']) }}</dd></div>@if($accounting['refunds'])<div><dt>Di cui rimborsi pagati</dt><dd>{{ $money($accounting['refunds']) }}</dd></div>@endif</dl>
-                        <p class="rider-day-account-note">La variazione considera solo incassi e uscite effettivi. La disponibilità fisica richiede anche un saldo iniziale e i versamenti del Rider, non presenti nel registro.</p>
-                        <div class="rider-day-pending"><h3>Ancora da regolarizzare</h3><dl class="rider-day-ledger"><div><dt>Incassi da registrare</dt><dd>{{ $money($accounting['unrecorded']) }}</dd></div><div><dt>Sospesi in entrata</dt><dd>{{ $money($accounting['pending_incoming']) }}</dd></div><div><dt>Sospesi in uscita</dt><dd>{{ $money($accounting['pending_outgoing']) }}</dd></div></dl><p>I sospesi sono residui delle posizioni aperte nel periodo; possono riferirsi agli incassi da registrare. Sono esclusi dal saldo.</p></div>
+                <aside class="rider-wallet" aria-labelledby="rider-accounting-heading">
+                    <header>
+                        <span class="rider-wallet-icon" aria-hidden="true"><x-ui.icon name="wallet2" /></span>
+                        <h2 id="rider-accounting-heading" tabindex="-1">@if($selection['single_day']){{ $selection['today'] ? 'Resoconto contabile odierno di '.$rider->name : 'Resoconto contabile del '.$shortDate($period->start).' di '.$rider->name }}@else Resoconto contabile di {{ $rider->name }}@endif</h2>
+                        @unless($selection['single_day'])<p class="rider-accounting-range">Dal {{ $shortDate($period->start) }} al {{ $shortDate($period->end) }}</p>@endunless
+                    </header>
+                    <dl class="rider-wallet-lines">
+                        <div class="rider-wallet-line is-income"><dt><span class="money-arrow" aria-hidden="true"><x-ui.icon name="arrow-down-left" /></span>Netto finale disponibile<small>Incassi in contanti registrati dall’Admin, al netto di storni e rimborsi</small></dt><dd @class(['money', 'money-in', 'is-zero' => ! $balance['net_cash']])>{{ $money($balance['net_cash']) }}</dd></div>
+                        <div class="rider-wallet-line is-expense"><dt><span class="money-arrow" aria-hidden="true"><x-ui.icon name="arrow-up-right" /></span>Spese<small>Spese registrate {{ $admin ? 'dal Rider' : 'da te' }} nel periodo</small></dt><dd @class(['money', 'money-out', 'is-zero' => ! $balance['expenses']])>@if($balance['expenses'])− @endif{{ $money($balance['expenses']) }}</dd></div>
+                    </dl>
+                    <div @class(['rider-wallet-total', 'is-negative' => $balance['available'] < 0])><span>Saldo disponibile</span><strong data-money-value="{{ $balance['available'] }}">{{ $money($balance['available']) }}</strong><small>Netto finale disponibile − Spese</small></div>
+                    @if($balance['declared_count'])<p class="rider-wallet-pending"><x-ui.icon name="hourglass-split" /> {{ $balance['declared_count'] }} {{ $plural($balance['declared_count'], 'conferma d’incasso', 'conferme d’incasso') }} in attesa dell’Admin · {{ $money($balance['declared_cents']) }}. Entreranno nel netto quando l’Admin registrerà l’incasso.</p>@endif
+                    @if($admin)
                         <a class="rider-day-balance-link" href="{{ route('balance.index', ['from' => $period->start->toDateString(), 'to' => $period->end->toDateString()]) }}">Apri il bilancio generale <x-ui.icon name="arrow-up-right" /></a>
-                    </aside>
-                @endif
+                    @else
+                        <div class="rider-wallet-actions">
+                            <x-ui.action-dialog id="rider-expense" action="receive" icon="receipt" title="Registra una spesa" description="La spesa viene registrata a tuo nome e l’Admin la vede nel Bilancio." text>
+                                <form method="post" action="{{ route('rider-operations.expenses.store') }}" class="form-stack mt-3">@csrf<input type="hidden" name="submission_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
+                                    <x-ui.field name="description" id="rider-expense-description" label="Descrizione" maxlength="200" placeholder="Es. carburante" required />
+                                    <x-ui.field name="amount" id="rider-expense-amount" label="Importo (€)" inputmode="decimal" required />
+                                    <x-ui.field name="spent_on" id="rider-expense-date" label="Data della spesa" type="date" :value="now('Europe/Rome')->toDateString()" :max="now('Europe/Rome')->toDateString()" required />
+                                    <x-ui.icon-button action="confirm" type="submit" label="Registra spesa" />
+                                </form>
+                            </x-ui.action-dialog>
+                        </div>
+                        <section class="rider-receipts" aria-labelledby="rider-receipts-heading">
+                            <h3 id="rider-receipts-heading">Incassi da confermare</h3>
+                            <p>Segnala all’Admin i pagamenti che hai ricevuto: la registrazione nel Bilancio resta all’Admin.</p>
+                            @forelse($toConfirm as $order)
+                                @php($pendingDeclaration = $order->receiptDeclarations->first())
+                                <article class="rider-receipt">
+                                    <div><strong>{{ $order->reference }}</strong><span>{{ $order->displayName() }} · {{ $order->recipient_name }}</span><small>Tariffa {{ $money($order->price_cents) }}</small></div>
+                                    @if($pendingDeclaration)
+                                        <span class="rider-receipt-sent"><x-ui.icon name="hourglass-split" /> Inviata · {{ $money($pendingDeclaration->amount_cents) }}</span>
+                                    @else
+                                        <button type="button" class="btn rider-receipt-confirm" data-dialog-open="declare-{{ $order->slug }}" aria-controls="declare-{{ $order->slug }}" aria-haspopup="dialog"><x-ui.icon name="check2-circle" /> Conferma incasso</button>
+                                        <x-ui.modal :id="'declare-'.$order->slug" title="Conferma incasso ricevuto" :description="$order->reference.' · '.$order->recipient_name">
+                                            <form method="post" action="{{ route('rider-operations.receipts.declare', $order) }}" class="form-stack mt-3">@csrf
+                                                <p>L’Admin riceverà la tua conferma e registrerà l’incasso effettivo.</p>
+                                                <x-ui.field name="amount" :id="'declare-amount-'.$order->slug" label="Importo ricevuto (€)" inputmode="decimal" :value="number_format($order->price_cents / 100, 2, ',', '')" required />
+                                                <x-ui.field name="note" :id="'declare-note-'.$order->slug" label="Nota (facoltativa)" maxlength="300" />
+                                                <x-ui.icon-button action="confirm" type="submit" label="Invia conferma" />
+                                            </form>
+                                        </x-ui.modal>
+                                    @endif
+                                </article>
+                            @empty
+                                <p class="rider-receipts-empty"><x-ui.icon name="check2-circle" /> Nessun incasso da confermare.</p>
+                            @endforelse
+                        </section>
+                    @endif
+                </aside>
             </div>
         </div>
     </div>

@@ -126,7 +126,7 @@ class RiderDailyDashboardTest extends TestCase
 
         $this->actingAs($admin)->get('/rider-operations/'.$rider->slug)->assertOk()
             ->assertViewHas('accounting', fn ($data) => $data['gross'] === 1200 && $data['reversals'] === 400 && $data['net'] === 800 && $data['balance'] === 650 && $data['cash_change'] === 950 && $data['unrecorded'] === 600 && $data['pending_incoming'] === 600 && $data['pending_outgoing'] === 300)
-            ->assertDontSee('Registrazione contabile riservata')->assertSee('La disponibilità fisica richiede');
+            ->assertDontSee('Registrazione contabile riservata')->assertSee('Saldo disponibile')->assertDontSee('Ancora da regolarizzare');
         $this->get('/rider-operations/'.$rider->slug.'?state=completed')->assertViewHas('accounting', fn ($data) => $data['balance'] === 650 && $data['cash_change'] === 950 && $data['pending_incoming'] === 600);
     }
 
