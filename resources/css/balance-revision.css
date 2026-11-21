@@ -1,5 +1,5 @@
 /* Bilancio: azione «+» sotto il titolo, colori semantici, flusso di cassa e card più curate. */
-.finance-heading-actions { display: flex; margin-top: 14px; }
+.finance-heading-actions { display: flex; justify-content: flex-end; margin-top: 14px; }
 .signed-money.cash-in { color: var(--ea-money-in); }
 .signed-money.cash-out { color: var(--ea-money-out); }
 

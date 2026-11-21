@@ -123,7 +123,7 @@
                     <p class="rider-day-footnote">L’elenco segue la data di ritiro programmata: una consegna conclusa in un giorno successivo resta nella giornata del ritiro, mentre i totali «Nel periodo» la contano nel giorno della consegna.</p>
                 </section>
 
-                <aside class="rider-wallet" aria-labelledby="rider-accounting-heading">
+                <aside class="rider-wallet" aria-labelledby="rider-accounting-heading" data-workspace-region="rider-wallet">
                     <header>
                         <span class="rider-wallet-icon" aria-hidden="true"><x-ui.icon name="wallet2" /></span>
                         <h2 id="rider-accounting-heading" tabindex="-1">@if($selection['single_day']){{ $selection['today'] ? 'Resoconto contabile odierno di '.$rider->name : 'Resoconto contabile del '.$shortDate($period->start).' di '.$rider->name }}@else Resoconto contabile di {{ $rider->name }}@endif</h2>
@@ -139,7 +139,7 @@
                         <a class="rider-day-balance-link" href="{{ route('balance.index', ['from' => $period->start->toDateString(), 'to' => $period->end->toDateString()]) }}">Apri il bilancio generale <x-ui.icon name="arrow-up-right" /></a>
                     @else
                         <div class="rider-wallet-actions">
-                            <x-ui.action-dialog id="rider-expense" action="receive" icon="receipt" title="Registra una spesa" description="La spesa viene registrata a tuo nome e l’Admin la vede nel Bilancio." text>
+                            <x-ui.action-dialog id="rider-expense" action="receive" icon="receipt" title="Registra una spesa" text>
                                 <form method="post" action="{{ route('rider-operations.expenses.store') }}" class="form-stack mt-3">@csrf<input type="hidden" name="submission_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
                                     <x-ui.field name="description" id="rider-expense-description" label="Descrizione" maxlength="200" placeholder="Es. carburante" required />
                                     <x-ui.field name="amount" id="rider-expense-amount" label="Importo (€)" inputmode="decimal" required />

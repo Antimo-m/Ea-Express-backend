@@ -1,8 +1,8 @@
 <div class="register-table-wrap finance-desktop-register"><table class="table register-table accounting-table" data-table-static>
     <caption class="visually-hidden">{{ $caption }}</caption>
     <thead><tr><th scope="col">Cliente e ordine</th><th scope="col">Consegna</th><th scope="col" class="text-end">{{ match($mode) { 'recorded' => 'Incasso effettivo', 'reversed' => 'Tariffa esclusa', default => 'Da registrare' } }}</th><th scope="col">Stato</th><th scope="col">Operazioni</th></tr></thead>
-    <tbody>@forelse($receipts as $order)<tr data-receipt="{{ $order->slug }}">
-        <td><a class="register-primary" href="{{ route('orders.show', $order) }}">{{ $order->displayName() }}</a><span class="register-reference">{{ $order->reference }}</span></td>
+    <tbody>@forelse($receipts as $order)<tr data-receipt="{{ $order->slug }}" class="receipt-line receipt-line--{{ $mode }}">
+        <td><span class="receipt-chip" aria-hidden="true"><x-ui.icon :name="$mode === 'reversed' ? 'arrow-counterclockwise' : ($mode === 'recorded' ? 'check2-circle' : 'cash-coin')" /></span><a class="register-primary" href="{{ route('orders.show', $order) }}">{{ $order->displayName() }}</a><span class="register-reference">{{ $order->reference }}</span></td>
         <td><time datetime="{{ $order->delivered_at->toIso8601String() }}">{{ $order->delivered_at->timezone('Europe/Rome')->format('d/m/Y') }}</time>@include('balance.delivery-rider')</td>
         <td class="text-end register-amount"><x-ui.money :amount="$mode === 'recorded' ? (int) $order->payments_sum_amount_cents : ($mode === 'reversed' ? $order->price_cents : $order->price_cents - (int) $order->payments_sum_cash_cents)" :tone="$mode === 'reversed' ? 'out' : 'in'" />@if($mode === 'recorded')<small>Tariffa: {{ \App\Support\Money::format($order->price_cents) }}</small>@endif</td>
         <td>@include('balance.receipt-status')</td>
@@ -11,7 +11,7 @@
 </table></div>
 <div class="finance-mobile-list" aria-label="{{ $caption }}">
 @forelse($receipts as $order)
-    <details class="cash-movement" data-cash-receipt="{{ $order->slug }}">
+    <details class="cash-movement cash-movement--{{ $mode }}" data-cash-receipt="{{ $order->slug }}">
         <summary><span class="cash-movement-identity"><strong>{{ match($mode) { 'recorded' => 'Incasso registrato', 'reversed' => 'Incasso stornato', default => 'Da incassare' } }}</strong><span>{{ $order->reference }} · {{ $order->displayName() }}</span><time datetime="{{ $order->delivered_at->toIso8601String() }}">{{ $order->delivered_at->timezone('Europe/Rome')->format('d/m/Y — H:i') }}</time></span><span class="cash-movement-value">{{ \App\Support\Money::format($mode === 'recorded' ? (int) $order->payments_sum_amount_cents : ($mode === 'reversed' ? $order->price_cents : $order->price_cents - (int) $order->payments_sum_cash_cents)) }}<small>{{ match($mode) { 'recorded' => 'Entrata registrata', 'reversed' => 'Tariffa esclusa', default => 'Residuo da registrare' } }}</small></span></summary>
         <div class="cash-movement-detail"><dl>
             <div><dt>Cliente / mittente</dt><dd>{{ $order->displayName() }}</dd></div>

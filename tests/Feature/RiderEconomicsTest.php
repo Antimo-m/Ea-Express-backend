@@ -95,7 +95,8 @@ class RiderEconomicsTest extends TestCase
             ->assertViewHas('balance', fn (array $balance): bool => $balance['net_cash'] === 12500 && $balance['expenses'] === 2000 && $balance['available'] === 10500 && $balance['declared_cents'] === 700)
             ->assertSeeInOrder(['Netto finale disponibile', '€ 125,00', 'Spese', '€ 20,00', 'Saldo disponibile', '€ 105,00'])
             ->assertSee('1 conferma d’incasso in attesa dell’Admin', false)
-            ->assertDontSee('Ancora da regolarizzare')->assertDontSee('Sospesi in entrata')->assertDontSee('Incassi da registrare');
+            ->assertDontSee('Ancora da regolarizzare')->assertDontSee('Sospesi in entrata')->assertDontSee('Incassi da registrare')
+            ->assertSee('data-workspace-region="rider-wallet"', false)->assertDontSee('La spesa viene registrata a tuo nome');
         $this->actingAs($this->admin)->get(route('rider-operations.show', $this->rider))->assertOk()
             ->assertViewHas('balance', fn (array $balance): bool => $balance['available'] === 10500)
             ->assertSee('Saldo disponibile')->assertDontSee('Ancora da regolarizzare')->assertDontSee('Sospesi in entrata')->assertDontSee('Registra una spesa');

@@ -15,6 +15,8 @@ import '../css/money.css';
 import '../css/balance-revision.css';
 import '../css/access-revision.css';
 import '../css/pages-revision.css';
+import '../css/cards-revision.css';
+import './card-glow';
 import './order-history';
 import '../css/pickup-agenda.css';
 import './pickup-agenda';

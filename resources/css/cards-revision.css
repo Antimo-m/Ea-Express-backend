@@ -1,0 +1,64 @@
+/* Linguaggio comune delle card del gestionale: profondità, accento al passaggio, riflesso che segue il puntatore. */
+:root { --card-lift: -2px; --card-shadow: 0 1px 2px color-mix(in srgb, var(--ea-graphite) 5%, transparent), 0 8px 24px color-mix(in srgb, var(--ea-graphite) 5%, transparent); --card-shadow-hover: 0 2px 4px color-mix(in srgb, var(--ea-graphite) 6%, transparent), 0 18px 40px color-mix(in srgb, var(--ea-graphite) 11%, transparent); --card-glow: color-mix(in srgb, var(--ea-signal) 14%, transparent); --card-accent: var(--ea-info); }
+
+:is(.metric-card, .operational-order, .history-order, .pickup-order-card, .dashboard-order-preview, .rider-stop-card, .rider-now-card, .rider-kpis > div, .operations-kpis > div, .balance-key, .cash-movement, .control-panel, .day-progress-facts > div, .rider-receipt, .directory-profile, .profile-section) {
+  position: relative; isolation: isolate; box-shadow: var(--card-shadow);
+  transition: transform .22s cubic-bezier(.2, .8, .2, 1), box-shadow .22s ease, border-color .22s ease, background-color .22s ease;
+}
+:is(.metric-card, .operational-order, .history-order, .pickup-order-card, .dashboard-order-preview, .rider-stop-card, .rider-now-card, .rider-kpis > div, .operations-kpis > div, .balance-key, .cash-movement, .control-panel, .day-progress-facts > div, .rider-receipt):hover {
+  transform: translateY(var(--card-lift)); box-shadow: var(--card-shadow-hover); border-color: color-mix(in srgb, var(--card-accent) 45%, var(--ea-line));
+  background-image: radial-gradient(420px circle at var(--glow-x, 50%) var(--glow-y, 0%), var(--card-glow), transparent 45%);
+}
+:is(.operational-order, .history-order, .pickup-order-card, .dashboard-order-preview, .rider-stop-card, .rider-receipt, .cash-movement):active { transform: translateY(0) scale(.995); }
+:is(.metric-card, .rider-now-card, .rider-kpis > div, .operations-kpis > div, .control-panel, .dashboard-order-preview, .rider-stop-card) :is(.metric-icon, .rider-now-card dt > .bi, .operations-kpi-icon, .dashboard-section-icon, .preview-open, .rider-stop-open) { transition: transform .3s cubic-bezier(.3, 1.6, .5, 1), color .2s ease; }
+:is(.metric-card, .rider-now-card, .operations-kpis > div, .control-panel):hover :is(.metric-icon, .rider-now-card dt > .bi, .operations-kpi-icon, .dashboard-section-icon) { transform: scale(1.12) rotate(-6deg); }
+
+/* Accento per significato: verde chi chiude o incassa, arancione chi attende, rosso i problemi. */
+.metric-card--green, .operational-order[data-order-state="delivered"], .rider-stop-card--green, .rider-stop-card--teal { --card-accent: var(--ea-success); --card-glow: color-mix(in srgb, var(--ea-success) 12%, transparent); }
+.metric-card--orange, .rider-stop-card--orange, .rider-stop-card--purple { --card-accent: var(--ea-signal); }
+.rider-stop-card--danger, .operational-order[data-order-state="delivery_issue"], .operational-order[data-order-state="cancelled"] { --card-accent: var(--ea-danger); --card-glow: color-mix(in srgb, var(--ea-danger) 10%, transparent); }
+
+/* Card degli ordini: angolo decorativo e intestazione più leggibile. */
+.operational-order, .history-order, .pickup-order-card { overflow: hidden; }
+.operational-order::before, .history-order::before, .pickup-order-card::before { content: ""; position: absolute; z-index: -1; inset: -40px -40px auto auto; inline-size: 140px; block-size: 140px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--card-accent) 10%, transparent), transparent 70%); opacity: .7; transition: transform .4s ease, opacity .3s ease; pointer-events: none; }
+.operational-order:hover::before, .history-order:hover::before, .pickup-order-card:hover::before { transform: scale(1.25); opacity: 1; }
+
+/* Incassi da registrare: righe come card, icona d'incasso e importo marcato. */
+.register-table.accounting-table tbody td { transition: background-color .2s ease; }
+.register-table.accounting-table tbody td:first-child { box-shadow: inset 4px 0 0 var(--row-accent, var(--ea-money-in)); }
+.register-table.accounting-table tbody tr:hover td { background: color-mix(in srgb, var(--row-accent, var(--ea-money-in)) 6%, var(--ea-surface)); }
+.register-table.accounting-table tbody tr:hover { box-shadow: none; }
+.receipt-line--reversed { --row-accent: var(--ea-money-out); }
+.receipt-line--pending { --row-accent: var(--ea-signal); }
+.receipt-chip { display: inline-grid; place-items: center; float: inline-start; inline-size: 34px; block-size: 34px; margin: 2px 12px 8px 0; border-radius: 12px; background: color-mix(in srgb, var(--row-accent, var(--ea-money-in)) 14%, var(--ea-surface)); color: var(--row-accent, var(--ea-money-in)); font-size: 1rem; transition: transform .3s cubic-bezier(.3, 1.6, .5, 1); }
+.receipt-line--pending .receipt-chip { color: var(--ea-warning); }
+.register-table tbody tr:hover .receipt-chip { transform: scale(1.1) rotate(-8deg); }
+.cash-movement--pending { --card-accent: var(--ea-signal); border-inline-start: 4px solid var(--ea-signal) !important; }
+.cash-movement--recorded { --card-accent: var(--ea-success); border-inline-start: 4px solid var(--ea-money-in) !important; }
+.cash-movement--reversed { --card-accent: var(--ea-danger); border-inline-start: 4px solid var(--ea-money-out) !important; }
+.cash-movement .cash-movement-value { font-weight: 700; font-variant-numeric: tabular-nums; }
+.cash-movement--pending .cash-movement-value, .cash-movement--recorded .cash-movement-value { color: var(--ea-money-in); }
+.cash-movement--reversed .cash-movement-value { color: var(--ea-money-out); }
+
+/* Movimenti di cassa: ogni movimento è una card con verso del denaro. */
+.money-register { display: grid; gap: 8px; padding: 10px; }
+.money-register .money-row { border: 1px solid var(--ea-line); border-radius: 18px; background: var(--ea-surface); overflow: hidden; box-shadow: var(--card-shadow); transition: transform .22s cubic-bezier(.2, .8, .2, 1), box-shadow .22s ease, border-color .22s ease; }
+.money-register .money-row:last-child { border-bottom: 1px solid var(--ea-line); }
+.money-register .money-row:hover { transform: translateY(-1px); box-shadow: var(--card-shadow-hover); border-color: color-mix(in srgb, var(--row-accent, var(--ea-info)) 45%, var(--ea-line)); }
+.money-register .money-row > summary { background-image: radial-gradient(420px circle at var(--glow-x, 0%) var(--glow-y, 50%), color-mix(in srgb, var(--row-accent, var(--ea-info)) 9%, transparent), transparent 45%); box-shadow: inset 4px 0 0 var(--row-accent, var(--ea-line)); }
+.money-row--in { --row-accent: var(--ea-money-in); }
+.money-row--out { --row-accent: var(--ea-money-out); }
+.money-row-cause { display: grid !important; grid-template-columns: 34px minmax(0, 1fr); column-gap: 10px; align-items: center; }
+.money-row-cause > .money-row-icon { grid-row: span 2; display: grid; place-items: center; inline-size: 34px; block-size: 34px; border-radius: 11px; background: color-mix(in srgb, var(--row-accent, var(--ea-muted)) 14%, var(--ea-surface)); color: var(--row-accent, var(--ea-muted)); transition: transform .3s cubic-bezier(.3, 1.6, .5, 1); }
+.money-row:hover .money-row-icon { transform: scale(1.1); }
+.money-row--in .money-row-icon { animation: money-in-nudge 2.4s ease-in-out 1; }
+.money-row[open] { border-color: color-mix(in srgb, var(--row-accent, var(--ea-info)) 50%, var(--ea-line)); }
+.money-register .money-register-heading { border: 0; padding-block: 4px; }
+@keyframes money-in-nudge { 0%, 100% { translate: 0 0; } 40% { translate: -2px 2px; } }
+
+@media (hover: none) { :is(.metric-card, .operational-order, .history-order, .pickup-order-card, .dashboard-order-preview, .rider-stop-card, .rider-now-card, .rider-kpis > div, .operations-kpis > div, .balance-key, .cash-movement, .control-panel, .day-progress-facts > div, .rider-receipt):hover { transform: none; background-image: none; } }
+@media (prefers-reduced-motion: reduce) {
+  :is(.metric-card, .operational-order, .history-order, .pickup-order-card, .dashboard-order-preview, .rider-stop-card, .rider-now-card, .rider-kpis > div, .operations-kpis > div, .balance-key, .cash-movement, .control-panel, .day-progress-facts > div, .rider-receipt, .money-row) { transition: none !important; transform: none !important; }
+  .money-row--in .money-row-icon, .receipt-chip, .operational-order::before, .history-order::before, .pickup-order-card::before { animation: none !important; transition: none !important; }
+}
+.register-table.accounting-table thead th { background: var(--ea-surface); }

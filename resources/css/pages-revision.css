@@ -9,3 +9,8 @@
 
 /* Testo sotto i filtri con il carattere normale dell'interfaccia, non quello monospaziato. */
 main .data-caption { font-family: var(--ea-font) !important; letter-spacing: normal; }
+
+/* Verifica OTP dello staff: azioni centrate. */
+.otp-actions { display: flex; justify-content: center; }
+.otp-actions .btn { min-width: 220px; justify-content: center; }
+.otp-actions .btn-link { min-width: 0; }

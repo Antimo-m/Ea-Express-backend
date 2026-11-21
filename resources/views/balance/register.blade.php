@@ -2,10 +2,11 @@
     <div class="money-register" data-money-register="{{ $ledger }}">
         <div class="money-register-heading" aria-hidden="true"><span>Data</span><span>Causale</span><span>Cliente / riferimento</span><span>Importo</span><span>Stato</span><span>Dettagli</span></div>
         @forelse($registerEntries as $movement)
-            <details class="money-row" data-cash-movement="{{ $movement['slug'] }}">
+            @php($direction = $movement['amount'] > 0 ? 'in' : ($movement['amount'] < 0 ? 'out' : 'zero'))
+            <details class="money-row money-row--{{ $direction }}" data-cash-movement="{{ $movement['slug'] }}">
                 <summary>
                     <time datetime="{{ $movement['date']->toIso8601String() }}">{{ $movement['date']->format('d/m/Y') }}</time>
-                    <span class="money-row-cause"><strong>{{ $movement['type'] }}</strong><span>{{ $movement['description'] }}</span></span>
+                    <span class="money-row-cause"><span class="money-row-icon" aria-hidden="true"><x-ui.icon :name="$direction === 'in' ? 'arrow-down-left' : ($direction === 'out' ? 'arrow-up-right' : 'dash')" /></span><strong>{{ $movement['type'] }}</strong><span>{{ $movement['description'] }}</span></span>
                     <span class="money-row-party">{{ $movement['customer'] ?? 'Attività generale' }}@if($movement['source'] === 'payment' && $movement['order'])@php($order = $movement['order'])@include('balance.delivery-rider')@endif</span>
                     <strong class="money-row-amount"><x-ui.signed-money :amount="$movement['amount']" /></strong>
                     <span class="money-row-state">{{ $movement['state'] }}</span><span class="money-row-expand" aria-hidden="true">⌄</span>
