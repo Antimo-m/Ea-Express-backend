@@ -34,7 +34,8 @@ class CarrierMarginBalanceTest extends TestCase
     {
         $order = $this->externalOrder();
         $this->actingAs($this->admin)->get('/balance')->assertOk()->assertViewHas('outstanding', 100)
-            ->assertSee('Entra nel bilancio (margine)')->assertSee('Costo vettore');
+            ->assertSee('Margine da registrare nel bilancio')->assertSee('Registra margine € 1,00')->assertSee('Costo vettore')
+            ->assertDontSee('Importo effettivamente incassato');
 
         $this->postJson('/balance/'.$order->slug.'/payment', ['version' => 1, 'action' => 'receive', 'received_amount' => '7'])->assertOk();
 
@@ -96,5 +97,23 @@ class CarrierMarginBalanceTest extends TestCase
         $this->actingAs($this->admin)->get('/balance')->assertOk()->assertViewHas('cash', 100);
 
         $this->artisan('payments:allocate-carrier-share --apply')->doesntExpectOutputToContain('Corretto')->assertSuccessful();
+    }
+
+    public function test_rider_report_counts_only_the_margin_of_external_receipts(): void
+    {
+        $rider = User::factory()->create(['role' => UserRole::Rider]);
+        $order = $this->externalOrder();
+        $order->forceFill(['rider_id' => $rider->id])->save();
+        $this->actingAs($this->admin)->postJson(route('payments.store', $order), ['version' => $order->fresh()->version, 'action' => 'receive', 'received_amount' => '7'])->assertOk();
+
+        $this->get(route('rider-operations.show', $rider))->assertOk()
+            ->assertViewHas('balance', fn (array $balance): bool => $balance['income'] === 100 && $balance['cash'] === 100 && $balance['available'] === 100);
+    }
+
+    public function test_receive_dialog_warns_when_the_carrier_cost_is_missing(): void
+    {
+        $this->externalOrder()->forceFill(['carrier_cost_cents' => 0])->save();
+
+        $this->actingAs($this->admin)->get('/balance')->assertOk()->assertSee('Costo vettore non indicato')->assertDontSee('Registra margine');
     }
 }

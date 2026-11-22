@@ -107,7 +107,8 @@ class RiderOperations
     /**
      * Resoconto economico del Rider (stessa vista per Rider e Admin):
      * - entrate finali = incassi registrati dall'Admin nel periodo per le consegne attribuite al Rider, con ogni metodo
-     *   di pagamento (contanti compresi), al netto di storni e ripristini (stessa regola del ricavo nel Bilancio);
+     *   di pagamento (contanti compresi), al netto di storni e ripristini (stessa regola del ricavo nel Bilancio: per le
+     *   spedizioni fuori regione conta soltanto il margine, il costo vettore resta escluso);
      * - di cui contanti = quota in contanti delle stesse entrate, al netto dei rimborsi pagati;
      * - spese = spese registrate dal Rider nel periodo (non annullate);
      * - saldo disponibile = entrate finali − spese. Le entrate non contengono spese, quindi non vengono sottratte due volte.
@@ -118,7 +119,7 @@ class RiderOperations
     public function riderBalance(ReportingPeriod $period, int $riderId): array
     {
         $attributed = fn (Builder $orders): Builder => $this->attributedToRider($this->assignedConstraints($orders, null, null), $riderId);
-        $totals = app(ReceiptLedger::class)->totals(PaymentEntry::whereHas('order', $attributed)->whereBetween('created_at', $period->utcRange()));
+        $totals = app(ReceiptLedger::class)->shareTotals(PaymentEntry::whereHas('order', $attributed)->whereBetween('created_at', $period->utcRange()));
         $expenses = (int) Expense::whereNull('voided_at')->where('user_id', $riderId)
             ->where('spent_on', '>=', $period->start->toDateString())->where('spent_on', '<', $period->end->copy()->addDay()->toDateString())->sum('amount_cents');
         $declared = ReceiptDeclaration::where('rider_id', $riderId)->where('state', 'pending')->toBase()->selectRaw('COUNT(*) AS total, COALESCE(SUM(amount_cents), 0) AS cents')->first();

@@ -26,16 +26,27 @@
     @else
         @unless($order->paid_at || $order->receipt_voided_at || ($order->pendingAccount && $order->pendingAccount->state !== 'cancelled'))
             <x-ui.modal :id="'receipt-'.$order->slug" title="Registra incasso" :description="$order->reference">
+                @php($customerResidual = $order->price_cents - (int) $order->payments_sum_cash_cents)
+                @php($marginToRecord = \App\Support\ShippingEconomics::shareOfPrice($order) - (int) $order->payments_sum_share_cash_cents)
                 @if($order->shipping_type === 'external' && $order->carrier_cost_cents > 0)
-                    <div class="receipt-confirmation"><span>Entra nel bilancio (margine)</span><strong>{{ \App\Support\Money::format(\App\Support\ShippingEconomics::shareOfPrice($order) - (int) $order->payments_sum_share_cash_cents) }}</strong></div>
-                    <dl class="receipt-carrier-breakdown"><div><dt>Pagato dal cliente</dt><dd>{{ \App\Support\Money::format($order->price_cents - (int) $order->payments_sum_cash_cents) }}</dd></div><div><dt>Costo vettore</dt><dd>− {{ \App\Support\Money::format($order->carrier_cost_cents) }}</dd></div><div><dt>Margine EA-Express</dt><dd>{{ \App\Support\Money::format(\App\Support\ShippingEconomics::shareOfPrice($order)) }}</dd></div></dl>
+                    <div class="receipt-confirmation"><span>Margine da registrare nel bilancio</span><strong>{{ \App\Support\Money::format($marginToRecord) }}</strong></div>
+                    <dl class="receipt-carrier-breakdown"><div><dt>Pagato dal cliente</dt><dd>{{ \App\Support\Money::format($customerResidual) }}</dd></div><div><dt>Costo vettore (escluso)</dt><dd>− {{ \App\Support\Money::format($order->carrier_cost_cents) }}</dd></div><div><dt>Margine EA-Express</dt><dd>{{ \App\Support\Money::format(\App\Support\ShippingEconomics::shareOfPrice($order)) }}</dd></div></dl>
+                    <p class="register-note">Nel bilancio entra soltanto il margine: la quota del vettore non viene contata come incasso.</p>
+                @elseif($order->shipping_type === 'external')
+                    <div class="receipt-confirmation"><span>Residuo da registrare</span><strong>{{ \App\Support\Money::format($customerResidual) }}</strong></div>
+                    <p class="register-note receipt-carrier-missing">Costo vettore non indicato: verrebbe registrata l’intera tariffa. Per incassare solo il margine, imposta prima il costo vettore nel dettaglio dell’ordine.</p>
                 @else
-                    <div class="receipt-confirmation"><span>Residuo da registrare</span><strong>{{ \App\Support\Money::format($order->price_cents - (int) $order->payments_sum_cash_cents) }}</strong></div>
+                    <div class="receipt-confirmation"><span>Residuo da registrare</span><strong>{{ \App\Support\Money::format($customerResidual) }}</strong></div>
                 @endif
                 <form method="post" action="{{ route('payments.store', $order) }}" data-financial-form class="form-stack">
                     @csrf<input type="hidden" name="version" value="{{ $order->version }}"><input type="hidden" name="action" value="receive">
-                    @if($order->shipping_type === 'external')<x-ui.field name="received_amount" :id="'received-amount-'.$order->slug" label="Importo effettivamente incassato (€)" :value="number_format(($order->price_cents - (int) $order->payments_sum_cash_cents) / 100, 2, '.', '')" inputmode="decimal" pattern="[0-9]{1,6}([.,][0-9]{1,2})?" required help="Importo pagato dal cliente: salda il residuo. Il costo vettore viene escluso dal bilancio. Per importi parziali usa Sospesi." />@endif
+                    {{-- Fuori regione l'incasso diretto salda sempre il residuo pagato dal cliente (i parziali passano dai Sospesi): il margine è calcolato dal server. --}}
+                    @if($order->shipping_type === 'external')<input type="hidden" name="received_amount" value="{{ number_format($customerResidual / 100, 2, '.', '') }}">@endif
+                    @if($order->shipping_type === 'external' && $order->carrier_cost_cents > 0)
+                    <x-ui.icon-button type="submit" action="receive" :label="'Registra margine '.\App\Support\Money::format($marginToRecord)" text />
+                    @else
                     <x-ui.icon-button type="submit" action="receive" label="Registra incasso" text />
+                    @endif
                 </form>
             </x-ui.modal>
         @endunless

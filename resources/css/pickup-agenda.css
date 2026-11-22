@@ -70,3 +70,12 @@
   .pickup-print-actions > .btn, .pickup-print-actions > button { width: 100%; justify-content: center; }
 }
 .pickup-print-count { margin: 10px 0 0; text-align: center; font-weight: 600; font-size: .875rem; }
+
+/* Calendario: da tablet in su il contatore è una pillola su una sola riga («12 ritiri»), non il cerchio dei badge globali. */
+@media (min-width: 576px) {
+  .pickup-calendar-day .pickup-calendar-count {
+    display: inline-flex !important; align-items: center; gap: .35em; block-size: auto; min-block-size: 1.9em; max-inline-size: 100%;
+    padding: .3em .75em !important; font-size: .78rem !important;
+  }
+  .pickup-calendar-day .pickup-calendar-count small { font: 500 .7rem/1 var(--ea-font); opacity: .85; }
+}

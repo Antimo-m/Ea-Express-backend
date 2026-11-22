@@ -22,11 +22,14 @@
 .ea-app .history-card-party .register-note { display: block; margin: 0; font-size: .95rem; font-weight: 600; }
 
 .ea-app .history-card-route {
-  position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 40px; padding: 12px; border-radius: 14px;
+  position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 26px minmax(0, 1fr); align-items: start; gap: 10px 16px; padding: 12px; border-radius: 14px;
   background: var(--ea-surface-muted);
 }
+.ea-app .history-card-route > .history-card-stop:first-child { grid-column: 1; grid-row: 1; }
+.ea-app .history-card-route > .history-card-stop:last-child { grid-column: 3; grid-row: 1; }
+/* La freccia occupa una colonna propria: stessa distanza da ritiro e consegna, mai sopra gli indirizzi lunghi. */
 .ea-app .history-card-route::after {
-  content: "\2192"; position: absolute; left: 50%; top: 50%; display: grid; place-items: center; inline-size: 26px; block-size: 26px; transform: translate(-50%, -50%);
+  content: "\2192"; grid-column: 2; grid-row: 1; align-self: center; display: grid; place-items: center; inline-size: 26px; block-size: 26px;
   border-radius: 50%; background: var(--ea-surface); border: 1px solid var(--ea-line); color: var(--ea-muted); font-size: .9rem; font-weight: 700;
 }
 .ea-app .history-card-stop { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: start; min-width: 0; }
@@ -60,6 +63,7 @@
 }
 @media (max-width: 479.98px) {
   .ea-app .history-card-route { grid-template-columns: minmax(0, 1fr); }
+  .ea-app .history-card-route > .history-card-stop:first-child, .ea-app .history-card-route > .history-card-stop:last-child { grid-column: 1; grid-row: auto; }
   .ea-app .history-card-route::after { content: none; }
   .ea-app .history-card-stop:last-child { padding-left: 0; }
   .ea-app .history-card-parties { grid-template-columns: minmax(0, 1fr); }
