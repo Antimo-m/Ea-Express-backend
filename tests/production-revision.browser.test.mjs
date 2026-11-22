@@ -140,7 +140,8 @@ test('Collaudo produzione: selezione stampa, badge, azioni e Rider a tutte le la
             assert.equal(await evaluate('return document.querySelectorAll(".explorer-assignments .assignment-name").length;'), 6);
             await checkBounds('zona con sei Rider @'+width);
             if (process.env.EA_REVISION_SCREENSHOTS && [375,1440].includes(width)) writeFileSync(join(process.env.EA_REVISION_SCREENSHOTS, `zona-${width}.png`), Buffer.from((await send('Page.captureScreenshot', {format:'png',captureBeyondViewport:false})).data,'base64'));
-            const alignment=await evaluate('const search=document.querySelector(".operations-period-filter .filter-submit").getBoundingClientRect(),period=document.querySelector(".operations-period-filter .period-options a").getBoundingClientRect();return Math.abs(search.top-period.top);');
+            // Dal tablet Search sta sulla riga del selettore dei periodi; sul telefono sulla riga dell'etichetta del periodo, sotto la griglia 2×2.
+            const alignment=await evaluate('const search=document.querySelector(".operations-period-filter .filter-submit").getBoundingClientRect(),anchor=document.querySelector(innerWidth < 576 ? ".operations-period-filter .filter-period-caption" : ".operations-period-filter .period-options").getBoundingClientRect();return Math.abs((search.top+search.bottom)/2-(anchor.top+anchor.bottom)/2);');
             assert.ok(alignment < 3, 'Search allineato al periodo: '+alignment);
             await navigate('revision-create.html');
             await waitFor('document.querySelector("input[list] + .ea-picker-trigger")');

@@ -60,15 +60,15 @@
             </section>
             <section class="surface order-information" id="order-information" aria-labelledby="order-information-title">
                 <header class="section-heading"><div><span class="eyebrow">LA SPEDIZIONE</span><h2 id="order-information-title">Dati e contenuto</h2></div>@if($order->shipping_type === 'external' && !in_array($order->status->value, \App\OrderStatus::closed(), true))@can('update', $order)<x-ui.action-dialog :id="'carrier-data-'.$order->slug" title="Dati del vettore (facoltativi)"><x-orders.carrier :order="$order" /></x-ui.action-dialog>@endcan @endif</header>
-                <dl class="operation-facts">
-                    <div><dt>Servizio</dt><dd>{{ $order->shipping_type === 'external' ? 'Fuori regione' : 'Regionale' }}</dd></div>
-                    <div><dt>Contenuto</dt><dd>{{ \App\Support\OrderContent::label($order->category, $order->content_description) }}</dd></div>
-                    <div><dt>Tipo pacco</dt><dd>{{ $order->package_type === 'fragile' ? 'FRAGILE' : ($order->package_type === 'other' ? $order->package_description : 'Pacco standard') }}</dd></div>
-                    <div><dt>Priorità</dt><dd>{{ $order->urgency === 'urgent' ? 'Urgente' : 'Standard' }}</dd></div>
-                    <div><dt>Tariffa prevista</dt><dd>{{ \App\Support\Money::format($order->price_cents) }}</dd></div>
-                    <div><dt>Valore merce dichiarato</dt><dd>{{ $order->parcel_value_cents === null ? 'Non dichiarato' : \App\Support\Money::format($order->parcel_value_cents) }}</dd></div>
-                    <div><dt>Rider</dt><dd>{{ $order->rider?->name ?: 'Da assegnare' }}</dd></div>
-                    @if(auth()->user()->role === \App\UserRole::Admin)<div><dt>{{ $receipt['label'] }}</dt><dd>{{ \App\Support\Money::format($receipt['amount_cents']) }}@if($receipt['state'] === 'partial')<small>Residuo: {{ \App\Support\Money::format($receipt['remaining_cents']) }}</small>@endif</dd></div>@endif
+                <dl class="operation-facts order-fact-tiles">
+                    <div><dt><x-ui.icon name="signpost-split" />Servizio</dt><dd>{{ $order->shipping_type === 'external' ? 'Fuori regione' : 'Regionale' }}</dd></div>
+                    <div><dt><x-ui.icon name="box2-heart" />Contenuto</dt><dd>{{ \App\Support\OrderContent::label($order->category, $order->content_description) }}</dd></div>
+                    <div @class(['is-alert' => $order->package_type === 'fragile'])><dt><x-ui.icon :name="$order->package_type === 'fragile' ? 'exclamation-triangle' : 'box-seam'" />Tipo pacco</dt><dd>{{ $order->package_type === 'fragile' ? 'FRAGILE' : ($order->package_type === 'other' ? $order->package_description : 'Pacco standard') }}</dd></div>
+                    <div @class(['is-alert' => $order->urgency === 'urgent'])><dt><x-ui.icon name="lightning-charge" />Priorità</dt><dd>{{ $order->urgency === 'urgent' ? 'Urgente' : 'Standard' }}</dd></div>
+                    <div><dt><x-ui.icon name="tag" />Tariffa prevista</dt><dd>{{ \App\Support\Money::format($order->price_cents) }}</dd></div>
+                    <div><dt><x-ui.icon name="shield-check" />Valore merce dichiarato</dt><dd>{{ $order->parcel_value_cents === null ? 'Non dichiarato' : \App\Support\Money::format($order->parcel_value_cents) }}</dd></div>
+                    <div><dt><x-ui.icon name="bicycle" />Rider</dt><dd>{{ $order->rider?->name ?: 'Da assegnare' }}</dd></div>
+                    @if(auth()->user()->role === \App\UserRole::Admin)<div class="is-money"><dt><x-ui.icon name="cash-coin" />{{ $receipt['label'] }}</dt><dd>{{ \App\Support\Money::format($receipt['amount_cents']) }}@if($receipt['state'] === 'partial')<small>Residuo: {{ \App\Support\Money::format($receipt['remaining_cents']) }}</small>@endif</dd></div>@endif
                 </dl>
                 @if($order->packages)<details class="order-package-details"><summary>Peso e dimensioni · {{ count($order->packages) }} {{ count($order->packages) === 1 ? 'pacco' : 'pacchi' }}</summary><div class="package-summary">@foreach($order->packages as $package)<p><strong>Pacco {{ $loop->iteration }}</strong> · {{ $package['weight_kg'] }} kg · {{ $package['length_cm'] }} × {{ $package['width_cm'] }} × {{ $package['height_cm'] }} cm</p>@endforeach</div></details>@endif
                 @if($order->notes)<div class="operational-note internal"><strong>Note interne · solo operatori</strong><p>{{ $order->notes }}</p></div>@endif

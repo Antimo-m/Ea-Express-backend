@@ -1,0 +1,68 @@
+/* Storico ordini · card della spedizione: testata (stato, riferimento, prezzo), parti e percorso, chip dei dettagli. */
+.ea-app .history-order.history-card {
+  position: relative; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 16px 18px; margin: 0;
+  border: 1px solid var(--ea-line); border-radius: 18px; background: var(--ea-surface); cursor: pointer;
+  transition: border-color .2s, box-shadow .2s, transform .2s;
+}
+.ea-app .history-order.history-card > div { display: grid; align-items: stretch; gap: 0; }
+.ea-app .history-order.history-card:hover { border-color: color-mix(in srgb, var(--ea-info) 35%, var(--ea-line)); box-shadow: 0 16px 32px -26px color-mix(in srgb, var(--ea-ink) 70%, transparent); transform: translateY(-1px); background: var(--ea-surface); }
+.ea-app .history-order.history-card:focus-visible { outline: 3px solid var(--ea-focus); outline-offset: 2px; }
+
+.ea-app .history-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.ea-app .history-card-status { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.ea-app .history-card .shipment-card-reference { color: var(--ea-muted); font: 500 .74rem/1.4 var(--ea-font-mono, monospace); overflow-wrap: anywhere; }
+.ea-app .history-card-price { margin-left: auto; font-family: var(--ea-font-display, inherit); font-size: 1.25rem; line-height: 1; color: var(--ea-ink); font-variant-numeric: tabular-nums; }
+
+.ea-app .history-order.history-card > .history-card-body { grid-template-columns: minmax(0, .9fr) minmax(0, 1.4fr); gap: 14px; }
+.ea-app .history-card-parties { display: grid; gap: 10px; align-content: start; grid-column: 1; grid-row: 1; order: 0; width: auto; }
+.ea-app .history-order.history-card .history-card-route { grid-column: 2; grid-row: 1; order: 0; width: auto; max-width: none; }
+.ea-app .history-card-party { display: grid; gap: 3px; min-width: 0; }
+.ea-app .history-card .data-label { display: inline-flex; align-items: center; gap: 6px; margin: 0; color: var(--ea-muted); font-size: .72rem; font-weight: 600; }
+.ea-app .history-card-party strong { color: var(--ea-ink); font-size: 1rem; font-weight: 700; overflow-wrap: anywhere; }
+.ea-app .history-card-party .register-note { display: block; margin: 0; font-size: .95rem; font-weight: 600; }
+
+.ea-app .history-card-route {
+  position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 40px; padding: 12px; border-radius: 14px;
+  background: var(--ea-surface-muted);
+}
+.ea-app .history-card-route::after {
+  content: "\2192"; position: absolute; left: 50%; top: 50%; display: grid; place-items: center; inline-size: 26px; block-size: 26px; transform: translate(-50%, -50%);
+  border-radius: 50%; background: var(--ea-surface); border: 1px solid var(--ea-line); color: var(--ea-muted); font-size: .9rem; font-weight: 700;
+}
+.ea-app .history-card-stop { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: start; min-width: 0; }
+.ea-app .history-card-stop > div { display: grid; gap: 2px; min-width: 0; }
+.ea-app .history-card-stop:last-child { padding-left: 0; }
+.ea-app .history-card-stop strong { color: var(--ea-ink); font-size: .9rem; font-weight: 700; overflow-wrap: anywhere; }
+.ea-app .history-card-stop > div > span:last-child { color: var(--ea-muted); font-size: .82rem; }
+.ea-app .history-card-pin { display: grid; place-items: center; inline-size: 30px; block-size: 30px; border-radius: 10px; font-size: .9rem; }
+.ea-app .history-card-pin.is-pickup { color: var(--ea-orange, var(--ea-warning)); background: color-mix(in srgb, var(--ea-orange, var(--ea-warning)) 15%, var(--ea-surface)); }
+.ea-app .history-card-pin.is-delivery { color: var(--ea-info); background: color-mix(in srgb, var(--ea-info) 13%, var(--ea-surface)); }
+
+.ea-app .history-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding-top: 12px; border-top: 1px dashed var(--ea-line); }
+.ea-app .history-card-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; flex: 1 1 auto; min-width: 0; }
+.ea-app .history-card-chips li {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 10px; border-radius: 999px;
+  background: var(--ea-surface-muted); color: var(--ea-ink); font-size: .78rem; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.ea-app .history-card-chips li .bi { color: var(--ea-muted); }
+.ea-app .history-card-chips li time { font-size: inherit; font-weight: inherit; }
+.ea-app .history-card-chips li.is-success { color: var(--ea-success); background: color-mix(in srgb, var(--ea-success) 10%, var(--ea-surface)); }
+.ea-app .history-card-chips li.is-success .bi { color: inherit; }
+.ea-app .history-card-chips li.is-alert { color: var(--ea-danger); background: color-mix(in srgb, var(--ea-danger) 10%, var(--ea-surface)); }
+.ea-app .history-card-chips li.is-alert .bi { color: inherit; }
+.ea-app .history-card .history-order-actions { display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 10px; margin-left: auto; }
+
+@media (max-width: 767.98px) {
+  .ea-app .history-order.history-card { padding: 14px; gap: 12px; }
+  .ea-app .history-order.history-card > .history-card-body { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .ea-app .history-card-parties { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ea-app .history-order.history-card .history-card-parties, .ea-app .history-order.history-card .history-card-route { grid-column: 1; grid-row: auto; }
+}
+@media (max-width: 479.98px) {
+  .ea-app .history-card-route { grid-template-columns: minmax(0, 1fr); }
+  .ea-app .history-card-route::after { content: none; }
+  .ea-app .history-card-stop:last-child { padding-left: 0; }
+  .ea-app .history-card-parties { grid-template-columns: minmax(0, 1fr); }
+  .ea-app .history-card-chips li { white-space: normal; }
+}
+@media (prefers-reduced-motion: reduce) { .ea-app .history-order.history-card:hover { transform: none; } }

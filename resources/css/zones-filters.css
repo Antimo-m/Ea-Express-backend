@@ -1,0 +1,68 @@
+/*
+ * Rider per zona · filtri del periodo (versione definitiva, sostituisce gli aggiustamenti precedenti).
+ * Desktop e tablet: selettore segmentato Oggi/Settimana/Mese, "Personalizzato" a parte, periodo come etichetta, azioni a destra.
+ * Telefono: griglia 2×2 di pulsanti comodi, poi periodo e azioni sulla stessa riga.
+ */
+.ea-app .rider-operations-page .operations-period-filter.filter-toolbar {
+  display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 12px 16px; padding: 12px 14px;
+  border: 1px solid var(--ea-line); border-radius: var(--ea-radius-card); background: var(--ea-surface); overflow: visible;
+}
+.ea-app .rider-operations-page .operations-period-filter.filter-toolbar .filter-primary { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: 10px 12px; min-width: 0; width: auto; }
+.ea-app .rider-operations-page .operations-period-filter.filter-toolbar .filter-range { display: contents; }
+.ea-app .rider-operations-page .operations-period-filter.filter-toolbar .filter-actions { flex: none; align-self: flex-start; display: flex; gap: 8px; }
+
+/* Selettore segmentato. */
+.ea-app .rider-operations-page .operations-period-filter.filter-toolbar .period-options {
+  display: inline-flex; flex-wrap: nowrap; gap: 2px; padding: 2px; border-radius: 999px; box-sizing: border-box; min-height: 44px;
+  background: var(--ea-surface-muted); border: 0; box-shadow: inset 0 0 0 1px var(--ea-line);
+}
+.ea-app .rider-operations-page .operations-period-filter.filter-toolbar .period-options a {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 0; width: auto; min-height: 40px; height: 40px; padding: 0 18px;
+  border: 0; border-radius: 999px; background: transparent; color: var(--ea-muted); font-size: .9rem; font-weight: 600; line-height: 1; white-space: nowrap;
+  box-shadow: none; transition: background-color .2s, color .2s, box-shadow .2s;
+}
+.ea-app .rider-operations-page .operations-period-filter.filter-toolbar .period-options a:hover { color: var(--ea-ink); background: color-mix(in srgb, var(--ea-surface) 70%, transparent); }
+.ea-app .rider-operations-page .operations-period-filter.filter-toolbar .period-options a.active {
+  color: #21140b; background: var(--ea-orange, var(--ea-signal)); box-shadow: 0 4px 12px -6px color-mix(in srgb, var(--ea-orange, var(--ea-signal)) 80%, transparent);
+}
+
+/* Personalizzato: azione distinta (apre le date). */
+.ea-app .rider-operations-page .operations-period-filter.filter-toolbar [data-custom-period] {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; width: auto; min-height: 44px; height: 44px; padding: 0 18px;
+  border-radius: 999px; font-size: .9rem; font-weight: 600; line-height: 1; white-space: nowrap;
+}
+.ea-app .rider-operations-page .operations-period-filter.filter-toolbar [data-custom-period] .bi { display: inline-block; font-size: 1rem; }
+
+/* Periodo selezionato come etichetta, allineata al centro della riga. */
+.ea-app .rider-operations-page .operations-period-filter.filter-toolbar .filter-period-caption {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0; min-height: 32px; padding: 0 12px; border-radius: 999px;
+  background: color-mix(in srgb, var(--ea-info) 8%, var(--ea-surface)); color: var(--ea-ink); font-size: .82rem; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.ea-app .rider-operations-page .operations-period-filter.filter-toolbar .filter-period-caption::before { content: ""; inline-size: 7px; block-size: 7px; border-radius: 50%; background: var(--ea-info); }
+
+/* Date personalizzate: riga dedicata sotto i periodi. */
+.ea-app .rider-operations-page .operations-period-filter.filter-toolbar .filter-range-dates { order: 10; flex: 1 0 100%; display: flex; flex-wrap: wrap; gap: 10px; margin: 0; }
+.ea-app .rider-operations-page .operations-period-filter.filter-toolbar .filter-range-dates[hidden] { display: none; }
+.ea-app .rider-operations-page .operations-period-filter.filter-toolbar .filter-range-dates > * { min-width: 0; margin: 0; }
+
+/* Telefono: 2×2 per i periodi, poi etichetta del periodo e azioni. */
+@media (max-width: 575.98px) {
+  .ea-app .rider-operations-page .operations-period-filter.filter-toolbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; gap: 8px; padding: 12px; }
+  .ea-app .rider-operations-page .operations-period-filter.filter-toolbar .filter-primary,
+  .ea-app .rider-operations-page .operations-period-filter.filter-toolbar .period-options { display: contents; }
+  .ea-app .rider-operations-page .operations-period-filter.filter-toolbar .period-options a,
+  .ea-app .rider-operations-page .operations-period-filter.filter-toolbar [data-custom-period] {
+    width: 100%; min-height: 44px; height: 44px; padding: 0 10px; border: 1px solid var(--ea-line); border-radius: 12px; background: var(--ea-surface); color: var(--ea-ink); font-size: .9rem;
+  }
+  .ea-app .rider-operations-page .operations-period-filter.filter-toolbar .period-options a.active { border-color: transparent; }
+  .ea-app .rider-operations-page .operations-period-filter.filter-toolbar [data-custom-period].active { border-color: var(--ea-ink); }
+  /* Posizioni esplicite: l'ordine non dipende dal posizionamento automatico della griglia. */
+  .ea-app .rider-operations-page .operations-period-filter.filter-toolbar .period-options a:nth-child(1) { grid-area: 1 / 1; }
+  .ea-app .rider-operations-page .operations-period-filter.filter-toolbar .period-options a:nth-child(2) { grid-area: 1 / 2; }
+  .ea-app .rider-operations-page .operations-period-filter.filter-toolbar .period-options a:nth-child(3) { grid-area: 2 / 1; }
+  .ea-app .rider-operations-page .operations-period-filter.filter-toolbar [data-custom-period] { grid-area: 2 / 2; }
+  .ea-app .rider-operations-page .operations-period-filter.filter-toolbar .filter-period-caption { grid-area: 3 / 1; justify-self: start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .ea-app .rider-operations-page .operations-period-filter.filter-toolbar .filter-actions { grid-area: 3 / 2; justify-self: end; }
+  .ea-app .rider-operations-page .operations-period-filter.filter-toolbar .filter-range-dates { grid-area: 4 / 1 / 5 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ea-app .rider-operations-page .operations-period-filter.filter-toolbar .active-filter-chips { grid-column: 1 / -1; }
+}
