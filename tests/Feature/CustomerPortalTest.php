@@ -104,6 +104,7 @@ class CustomerPortalTest extends TestCase
         $this->actingAs($rider, 'web')->get(route('messages.show', $order))->assertSee('Il pacco è pronto');
         $this->post(route('messages.store', $order), ['body' => 'Arrivo alle 10'])->assertSessionHasNoErrors();
         $this->actingAs($customer, 'customer')->getJson($this->api.'/orders/'.$order->slug.'/messages')->assertOk()->assertJsonPath('data.0.sender', 'team');
+        $this->getJson($this->api.'/orders?unread_messages=1')->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.slug', $order->slug);
         $this->patchJson($this->api.'/orders/'.$order->slug.'/messages/read')->assertOk();
         $this->assertNotNull($order->messages()->whereNotNull('user_id')->sole()->read_at);
         $this->assertNull($order->messages()->whereNull('user_id')->sole()->read_at);
@@ -153,6 +154,7 @@ class CustomerPortalTest extends TestCase
             ->assertJsonPath('data.0.messages_count', 2)->assertJsonPath('data.0.unread_messages_count', 1);
         $this->patchJson($this->api.'/orders/'.$order->slug.'/messages/read')->assertOk();
         $this->getJson($this->api.'/orders?has_messages=1')->assertJsonPath('data.0.unread_messages_count', 0);
+        $this->getJson($this->api.'/orders?unread_messages=1')->assertOk()->assertJsonPath('meta.total', 0);
         $this->getJson($this->api.'/orders?courier='.$rider->id)->assertUnprocessable()->assertJsonValidationErrors('courier');
         $this->getJson($this->api.'/orders?courier=invalid')->assertUnprocessable();
     }

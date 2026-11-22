@@ -26,6 +26,7 @@
         <section class="surface section-panel mt-4" data-operations-history @if(!count($day['schedule_history'])) hidden @endif><h2 class="h5">Programmazioni variate</h2><p class="small text-secondary">Ultime 20 variazioni che hanno interessato il periodo selezionato. Lo storico completo rimane nel relativo ordine.</p><div data-operations-history-items>@foreach($day['schedule_history'] as $change)<p class="small"><a href="{{ $change['url'] }}">{{ $change['reference'] }}</a> · {{ $change['before']['pickup_date'] }} → {{ $change['after']['pickup_date'] }} · {{ $change['operator'] }} · {{ $change['reason'] }}</p>@endforeach</div></section>
         @php($initial = \Illuminate\Support\Arr::except($day, ['orders']))
         <script type="application/json" data-zone-initial>@json($initial)</script>
+        <template data-operations-empty-scene><x-ui.empty-scene title="Non ci è stato ancora assegnato nessun ordine" class="operations-empty-scene" message="" /></template>
     </section>
     </div>
 </x-app-layout>

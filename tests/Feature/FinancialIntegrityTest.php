@@ -208,6 +208,39 @@ class FinancialIntegrityTest extends TestCase
         $this->get('/balance')->assertViewHas('operatingNet', -2000);
     }
 
+    public function test_report_operating_net_matches_balance_operating_result_and_keeps_open_pending_positions_separate(): void
+    {
+        $this->travelTo(now('Europe/Rome')->setDate(2026, 9, 22)->setTime(12, 0));
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $this->actingAs($admin);
+        $paid = Order::factory()->create(['status' => OrderStatus::Delivered, 'delivered_at' => now(), 'price_cents' => 10000]);
+        $this->postJson(route('payments.store', $paid), ['version' => 1, 'action' => 'receive', 'method' => 'cash'])->assertOk();
+        $linked = Order::factory()->create(['status' => OrderStatus::Delivered, 'delivered_at' => now(), 'price_cents' => 6000]);
+        $withOrder = PendingAccount::factory()->create(['created_by' => $admin->id, 'order_id' => $linked->id, 'amount_cents' => 6000]);
+        $this->postJson(route('pending.settle', $withOrder), ['version' => 1, 'amount' => '20', 'submission_key' => (string) Str::uuid()])->assertOk();
+        $general = PendingAccount::factory()->create(['created_by' => $admin->id, 'amount_cents' => 4000]);
+        $this->postJson(route('pending.settle', $general), ['version' => 1, 'amount' => '15', 'submission_key' => (string) Str::uuid()])->assertOk();
+        $owed = PendingAccount::factory()->create(['created_by' => $admin->id, 'direction' => 'outgoing', 'amount_cents' => 3000]);
+        $this->postJson(route('pending.settle', $owed), ['version' => 1, 'amount' => '10', 'submission_key' => (string) Str::uuid()])->assertOk();
+        PendingAccount::factory()->create(['created_by' => $admin->id, 'amount_cents' => 9900]);
+        Expense::factory()->create(['user_id' => $admin->id, 'amount_cents' => 2500, 'spent_on' => now()->toDateString()]);
+        FinancialMovement::factory()->create(['user_id' => $admin->id, 'kind' => 'income', 'amount_cents' => 700, 'occurred_on' => now()->toDateString()]);
+        FinancialMovement::factory()->create(['user_id' => $admin->id, 'kind' => 'cash', 'amount_cents' => 1200, 'occurred_on' => now()->toDateString()]);
+
+        // Incasso 100 + sospeso con ordine 20 + sospeso generale 15 + entrata 7 − spesa 25 − sospeso pagato in uscita 10 = 107.
+        // I contanti aggiuntivi (12) e le posizioni ancora aperte non entrano nel risultato.
+        $report = $this->get('/reports')->assertOk()->assertViewHas('operatingNet', 10700);
+        $balance = $this->get('/balance')->assertOk()->assertViewHas('operatingResult', 10700);
+        $this->assertSame($report->viewData('operatingNet'), $balance->viewData('operatingResult'));
+        $statement = $balance->viewData('statement');
+        $this->assertSame(10700 + 1200, $statement['available']);
+        // Saldo sospeso = (40 + 25 + 99 ancora aperti in entrata) − 20 ancora aperti in uscita.
+        $this->assertSame(16400, $balance->viewData('pendingIncoming'));
+        $this->assertSame(2000, $balance->viewData('pendingOutgoing'));
+        $this->assertSame(14400, $statement['pending']);
+        $this->assertSame($statement['available'] + 14400, $statement['accounting']);
+    }
+
     public function test_customer_sorting_is_applied_before_pagination_and_uses_account_names(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);

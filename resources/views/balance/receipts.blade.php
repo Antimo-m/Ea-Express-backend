@@ -1,4 +1,4 @@
-<div class="register-table-wrap finance-desktop-register"><table class="table register-table accounting-table" data-table-static>
+<div class="register-table-wrap finance-desktop-register"><table class="table register-table accounting-table register-table--{{ $mode ?? 'pending' }}" data-table-static>
     <caption class="visually-hidden">{{ $caption }}</caption>
     <thead><tr><th scope="col">Cliente e ordine</th><th scope="col">Consegna</th><th scope="col" class="text-end">{{ match($mode) { 'recorded' => 'Incasso effettivo', 'reversed' => 'Tariffa esclusa', default => 'Da registrare' } }}</th><th scope="col">Stato</th><th scope="col">Operazioni</th></tr></thead>
     <tbody>@forelse($receipts as $order)<tr data-receipt="{{ $order->slug }}" class="receipt-line receipt-line--{{ $mode }}">

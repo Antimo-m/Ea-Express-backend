@@ -30,6 +30,20 @@ for (const panel of document.querySelectorAll('[data-rider-operations]')) {
     const riderHue = name => [...name].reduce((hash, char) => (hash * 31 + char.codePointAt(0)) % 360, 7);
     const riderChip = (name, tag = 'span') => { const chip = node(tag, name, 'rider-chip'); chip.style.setProperty('--rider-hue', riderHue(name)); return chip; };
     const groups = () => (view === 'zone' ? latest.zones : latest.riders).filter(group => group.name.toLocaleLowerCase('it').includes(search.value.toLocaleLowerCase('it')) && (filter.value === 'all' || group.active > 0)).sort((a, b) => (sort.value !== 'name' ? (b[sort.value] || 0) - (a[sort.value] || 0) : 0) || a.name.localeCompare(b.name, 'it'));
+    // Stato vuoto illustrato: senza ordini nel periodo il furgone resta pronto; con ricerca o filtro attivi invita a modificarli.
+    function emptyScene() {
+        const template = panel.querySelector('[data-operations-empty-scene]') || document.querySelector('[data-operations-empty-scene]');
+        const all = view === 'zone' ? latest.zones : latest.riders;
+        const narrowed = all.length > 0;
+        if (!template) return node('p', narrowed ? 'Nessun risultato: modifica la ricerca o il filtro.' : 'Non ci è stato ancora assegnato nessun ordine.');
+        const scene = template.content.firstElementChild.cloneNode(true);
+        scene.dataset.emptyKey = `${view}:${narrowed}`;
+        scene.querySelector('.empty-scene-title').textContent = narrowed ? 'Nessun risultato per questa ricerca' : 'Non ci è stato ancora assegnato nessun ordine';
+        scene.querySelector('.empty-scene-tagline').textContent = narrowed ? 'I Rider sono in strada: prova con un altro nome o filtro.' : 'Restiamo pronti al prossimo pacco in arrivo.';
+        const message = scene.querySelector('.empty-scene-message') || scene.appendChild(node('p', '', 'empty-scene-message'));
+        message.textContent = narrowed ? 'Modifica la ricerca o il filtro «Mostra».' : (view === 'zone' ? 'Quando arrivano ordini per il periodo scelto, le zone compariranno qui.' : 'Quando un Rider riceve consegne nel periodo scelto, lo trovi qui.');
+        return scene;
+    }
     function feedback(message = '') { const box = panel.querySelector('[data-zone-error]'); box.hidden = !message; box.textContent = message; }
     async function loadOrders(url) {
         controller?.abort(); controller = new AbortController(); const ticket = ++generation;
@@ -55,12 +69,14 @@ for (const panel of document.querySelectorAll('[data-rider-operations]')) {
         url.searchParams.set('page', page); return url;
     }
     function renderDetail(group) {
+        const emptyKey = `${view}:${(view === 'zone' ? latest.zones : latest.riders).length > 0}`;
+        if (!group && detail.firstElementChild?.dataset.emptyKey === emptyKey) return;
         const focused = document.activeElement;
         const focusHref = detail.contains(focused) ? focused.href : null;
         openOrders = [...detail.querySelectorAll('[data-operation-order]:has(details[open])')].map(row => row.dataset.operationOrder);
         ordersScroll = detail.querySelector('[data-explorer-orders]')?.scrollTop || 0;
         detail.replaceChildren();
-        if (!group) { detail.append(node('h2', 'Nessun risultato'), node('p', 'Modifica la ricerca o seleziona un’altra giornata.')); return; }
+        if (!group) { detail.append(emptyScene()); return; }
         const heading = node('header', '', 'explorer-detail-heading');
         const title = node('div'); title.append(node('span', view === 'zone' ? 'ZONA SELEZIONATA' : 'RIDER SELEZIONATO', 'eyebrow'), node('h2', group.name)); heading.append(title);
         if (group.url) { const link = node('a', 'Dettaglio giornata', 'btn btn-outline-secondary btn-sm'); const url = new URL(group.url,location.origin); for (const [name,value] of new URL(location.href).searchParams) if (!['detail_page', 'date', 'from', 'to', 'period'].includes(name)) url.searchParams.set(name,value); link.href = url; heading.append(link); }

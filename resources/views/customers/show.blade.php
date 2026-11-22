@@ -3,7 +3,7 @@
     @php($initials = collect(preg_split('/\s+/', trim($customer->name)))->filter()->take(2)->map(fn ($word) => mb_strtoupper(mb_substr($word, 0, 1)))->join(''))
     <section class="customer-hero" aria-label="Profilo cliente">
         <div class="customer-hero-main">
-            <span class="customer-avatar" aria-hidden="true">{{ $initials }}</span>
+            <span class="customer-hero-avatar" aria-hidden="true">{{ $initials }}</span>
             <div class="customer-hero-title">
                 <span class="eyebrow">PROFILO CLIENTE</span>
                 <h1>{{ $customer->name }}</h1>

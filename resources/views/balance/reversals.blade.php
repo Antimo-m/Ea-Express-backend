@@ -1,5 +1,5 @@
 <x-ui.data-panel title="Ordini con storno attivo" :count="$reversalEntries->total()" description="Storni alla data di riferimento, anche precedenti al periodo. Lo storno non paga un rimborso. Ripristini e rettifiche rimangono nello Storico rettifiche.">
-    <div class="register-table-wrap finance-desktop-register"><table class="table register-table accounting-table" data-table-static>
+    <div class="register-table-wrap finance-desktop-register"><table class="table register-table accounting-table register-table--reversals" data-table-static>
         <caption class="visually-hidden">Storni contabili per data di registrazione</caption>
         <thead><tr><th scope="col">Cliente e ordine</th><th scope="col">Data e operatore</th><th scope="col" class="text-end">Importi</th><th scope="col">Effetto e stato</th><th scope="col">Operazioni</th></tr></thead>
         <tbody>@forelse($reversalEntries as $reversal)

@@ -8,10 +8,10 @@
     <label>Origine<select name="pending_origin" class="form-select">@foreach(['all' => 'Tutte le posizioni', 'prior' => 'Preesistenti al periodo', 'period' => 'Sorte nel periodo'] as $value => $label)<option value="{{ $value }}" @selected(request('pending_origin', 'all') === $value)>{{ $label }}</option>@endforeach</select></label><button class="btn btn-outline-secondary" type="submit">Applica</button></form>
 
     <x-ui.data-panel title="Sospesi" :count="$pendingEntries->total()" description="Situazione alla data finale selezionata, comprese le posizioni sorte nei mesi precedenti. I pagamenti effettivi compaiono una sola volta negli Incassi o nelle Spese.">
-        <div class="register-table-wrap finance-desktop-register"><table class="table register-table accounting-table" data-table-static>
+        <div class="register-table-wrap finance-desktop-register"><table class="table register-table accounting-table register-table--pending" data-table-static>
             <caption class="visually-hidden">Situazione sospesi alla data di riferimento</caption>
             <thead><tr><th scope="col">Posizione e cliente</th><th scope="col">Data e scadenza</th><th scope="col">Direzione e stato</th><th scope="col" class="text-end">Residuo aperto</th><th scope="col">Operazioni</th></tr></thead>
-            <tbody>@forelse($pendingEntries as $account)<tr>
+            <tbody>@forelse($pendingEntries as $account)<tr data-direction="{{ $account->direction }}">
                 <td><strong class="register-primary">{{ $account->subject }}</strong><span class="register-note">{{ $account->description }}</span>@if($account->customer)<small class="register-note">{{ $account->customer->name }}</small>@endif @if($account->order)<a class="register-reference" href="{{ route('orders.show', $account->order) }}">{{ $account->order->reference }}</a>@endif</td>
                 <td>{{ $account->occurred_on->format('d/m/Y') }} · {{ $account->occurred_on->lessThan($period->start) ? 'Preesistente' : 'Sorto nel periodo' }}@if($account->due_on)<small class="register-note">Scadenza {{ $account->due_on->format('d/m/Y') }}</small>@endif</td>
                 <td><span class="status-pill {{ $account->direction === 'incoming' ? 'tone-green' : 'tone-orange' }}">{{ $account->direction === 'incoming' ? 'In entrata' : 'In uscita' }}</span><small class="register-note">{{ $account->snapshot_reliable ? $account->statusLabel() : 'Storico da verificare' }} · nessun effetto automatico sulla cassa</small></td>

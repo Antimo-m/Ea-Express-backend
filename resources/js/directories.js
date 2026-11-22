@@ -65,7 +65,13 @@ if (inbox) {
             link.hidden = !link.dataset.inboxName.toLocaleLowerCase('it').includes(term) || (filter === 'unread' && Number(link.dataset.inboxUnread) === 0);
             if (!link.hidden) visible++;
         }
-        inbox.querySelector('[data-inbox-empty]').hidden = visible > 0 || !inbox.querySelector('[data-conversation-link]');
+        const empty = inbox.querySelector('[data-inbox-empty]');
+        empty.hidden = visible > 0 || !inbox.querySelector('[data-conversation-link]');
+        // Messaggio adatto al motivo: «Da leggere» vuoto è una buona notizia, la ricerca senza risultati no.
+        const unreadOnly = filter === 'unread' && !term;
+        const icon = document.createElement('i'); icon.className = `bi bi-${unreadOnly ? 'check2-all' : 'search'}`; icon.setAttribute('aria-hidden', 'true');
+        empty.classList.toggle('is-all-read', unreadOnly);
+        empty.replaceChildren(icon, document.createTextNode(unreadOnly ? 'Nessuna conversazione da leggere per ora.' : 'Nessuna conversazione corrisponde ai filtri in questa pagina.'));
     }
     search.addEventListener('input', applyFilters);
     inbox.addEventListener('click', event => {

@@ -75,15 +75,19 @@
                 @endif
                 <footer class="data-panel-footer">
                     <div class="pending-account-footer">
-                        <div class="row-actions">
+                        <div class="row-actions pending-actions-main">
                             @if(in_array($account->state, ['open', 'partially_paid']))
                                 <x-ui.icon-button action="receive" label="Registra pagamento" :data-dialog-open="'pending-settle-'.$account->slug" :aria-controls="'pending-settle-'.$account->slug" aria-haspopup="dialog" />
+                            @endif
+                            <span class="register-reference" title="{{ $account->slug }}">{{ $account->slug }}</span>
+                        </div>
+                        <div class="row-actions pending-actions-side">
+                            <x-ui.icon-button action="history" label="Storico pagamenti" :data-dialog-open="'pending-history-'.$account->slug" :aria-controls="'pending-history-'.$account->slug" aria-haspopup="dialog" />
+                            @if(in_array($account->state, ['open', 'partially_paid']))
                                 <x-ui.icon-button action="edit" label="Modifica sospeso" :data-dialog-open="'pending-edit-'.$account->slug" :aria-controls="'pending-edit-'.$account->slug" aria-haspopup="dialog" />
                             @endif
-                            <x-ui.icon-button action="history" label="Storico pagamenti" :data-dialog-open="'pending-history-'.$account->slug" :aria-controls="'pending-history-'.$account->slug" aria-haspopup="dialog" />
-                            <a class="audit-link" href="{{ route('audits.index', ['type' => 'pending_accounts', 'slug' => $account->slug]) }}">Cronologia</a>
+                            <x-ui.icon-button action="open" icon="journal-text" label="Cronologia" :href="route('audits.index', ['type' => 'pending_accounts', 'slug' => $account->slug])" class="pending-audit-link" />
                         </div>
-                        <span class="register-reference">{{ $account->slug }}</span>
                     </div>
                 </footer>
             </section>

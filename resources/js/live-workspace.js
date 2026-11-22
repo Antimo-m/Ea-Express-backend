@@ -7,6 +7,7 @@ import { observeMessageReceipts } from './message-receipts';
 import { createRefreshQueue } from './refresh-queue';
 import { bindFinancialForms } from './financial-forms';
 import { markStatusChange } from './status-badges';
+import { isUnchangedEmptyState } from './empty-scene';
 
 const regions = createRefreshQueue(async () => {
   if (document.querySelector('.order-archive, [data-pickup-agenda]')) return;
@@ -17,6 +18,7 @@ const regions = createRefreshQueue(async () => {
   for (const region of document.querySelectorAll('[data-live-region]')) {
     const replacement = fresh.querySelector(`[data-live-region="${region.dataset.liveRegion}"]`);
     if (region.querySelector('dialog[open], form[aria-busy="true"], .ea-picker-trigger[aria-expanded="true"]') || (region.contains(document.activeElement) && document.activeElement.matches('input,select,textarea,.ea-picker-trigger'))) continue;
+    if (replacement && isUnchangedEmptyState(region, replacement)) { bindFinancialForms(region); continue; }
     if (replacement) {
       const oldRows = new Map([...region.querySelectorAll('[data-operational-order]')].map(row => [row.dataset.operationalOrder, row.dataset.orderState]));
       const oldProgress = new Map([...region.querySelectorAll('[data-progress-key]')].map(bar => [bar.dataset.progressKey, bar.style.getPropertyValue('--value')]));

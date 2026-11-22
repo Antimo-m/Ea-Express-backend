@@ -48,3 +48,83 @@
 .cash-flow-in { background: var(--ea-money-in); }
 .cash-flow-out { background: var(--ea-money-out); }
 .finance-workspace > .page-heading { display: block; } .finance-workspace > .page-heading > div:first-child { inline-size: 100%; }
+
+/* ── Bilancio · proporzioni e card (revisione pre-deploy) ─────────────────── */
+/* Saldi del periodo: due card affiancate e i quattro flussi in una riga di mini-card, senza spazi vuoti. */
+.finance-liquidity { grid-template-columns: minmax(0, 1fr) !important; gap: 14px !important; padding: 18px !important; border-radius: 22px; }
+.finance-liquidity .balance-key-heading { margin: 0; font-size: .95rem; }
+.finance-liquidity .balance-key-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.finance-liquidity .balance-key { padding: 14px 18px; }
+.finance-liquidity .balance-key strong { font-size: clamp(1.45rem, 2.4vw, 1.85rem); }
+.finance-liquidity .liquidity-flows { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.finance-liquidity .liquidity-flows > div { flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 4px; min-width: 0; padding: 10px 14px; border: 1px solid var(--ea-line); border-radius: 14px; background: var(--ea-surface); }
+.finance-liquidity .liquidity-flows dt { font-size: .78rem; }
+.finance-liquidity .liquidity-flows dd { font-size: 1.05rem; }
+.finance-liquidity .balance-explanation { margin: 0; }
+@media (max-width: 767.98px) { .finance-liquidity .liquidity-flows { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 479.98px) { .finance-liquidity { padding: 12px !important; } .finance-liquidity .balance-key-figures { grid-template-columns: minmax(0, 1fr); } }
+
+/* Saldo finale (effettivo, bordo pieno) e Ancora da regolare (sospesi, bordo tratteggiato): due card distinguibili. */
+.finance-overview-secondary { gap: 16px !important; align-items: start; }
+.finance-economic, .finance-positions {
+  position: relative; overflow: hidden; padding: 18px 20px !important; border: 1px solid var(--ea-line) !important; border-radius: 22px;
+  background: var(--ea-surface); box-shadow: var(--card-shadow); transition: box-shadow .22s ease, transform .22s ease;
+}
+.finance-economic { --finance-accent: var(--ea-info); }
+.finance-positions { --finance-accent: var(--ea-warning); border-style: dashed !important; background: linear-gradient(180deg, color-mix(in srgb, var(--ea-warning) 5%, var(--ea-surface)), var(--ea-surface) 45%); }
+.finance-economic::before, .finance-positions::before { content: ""; position: absolute; inset: 0 0 auto; block-size: 4px; background: var(--finance-accent); }
+.finance-economic:hover, .finance-positions:hover { transform: translateY(-2px); box-shadow: var(--card-shadow-hover); }
+.finance-card-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.finance-card-heading .eyebrow { margin: 0; }
+.finance-card-heading h3 { margin: 2px 0 0; font-size: 1.1rem; }
+.finance-card-icon { flex: none; display: grid; place-items: center; inline-size: 40px; block-size: 40px; border-radius: 13px; font-size: 1.1rem; color: var(--finance-accent); background: color-mix(in srgb, var(--finance-accent) 13%, var(--ea-surface)); transition: transform .3s cubic-bezier(.3, 1.6, .5, 1); }
+:is(.finance-economic, .finance-positions):hover .finance-card-icon { transform: scale(1.08) rotate(-6deg); }
+.finance-overview-secondary .statement-lines > div { padding: 9px 10px !important; }
+.finance-overview-secondary .statement-lines .balance-result { margin-top: 6px; padding: 12px 14px !important; border: 0 !important; border-radius: 14px; background: var(--ea-surface-muted); }
+.finance-overview-secondary .statement-lines .balance-result dd { font-family: var(--ea-font-display); font-size: 1.25rem !important; }
+.finance-overview-secondary .register-note { margin: 10px 0 0; }
+
+/* Movimenti di cassa: anche le tabelle (incassi da registrare, storni, sospesi) usano righe a card con il colore del significato. */
+.register-table.accounting-table { border-collapse: separate !important; border-spacing: 0 8px; }
+.finance-desktop-register.register-table-wrap { padding: 0 10px 4px; }
+.register-table.accounting-table tbody td { background: var(--ea-surface); border-top: 1px solid var(--ea-line) !important; border-bottom: 1px solid var(--ea-line) !important; }
+.register-table.accounting-table tbody td:first-child { border-left: 1px solid var(--ea-line); border-radius: 16px 0 0 16px; }
+.register-table.accounting-table tbody td:last-child { border-right: 1px solid var(--ea-line); border-radius: 0 16px 16px 0; }
+.register-table.accounting-table tbody td:only-child { border-radius: 16px; }
+.register-table--pending tbody tr { --row-accent: var(--ea-signal); }
+.register-table--pending tbody tr[data-direction="incoming"] { --row-accent: var(--ea-money-in); }
+.register-table--pending tbody tr[data-direction="outgoing"], .register-table--reversals tbody tr, .register-table--reversed tbody tr { --row-accent: var(--ea-money-out); }
+.register-table.accounting-table tbody tr:hover td { border-color: color-mix(in srgb, var(--row-accent) 40%, var(--ea-line)) !important; }
+
+/* Filtri dei sospesi nel registro: un riquadro ordinato con «Applica» a destra. */
+.pending-snapshot-filters { margin: 0 0 12px; padding: 14px 16px !important; border: 1px solid var(--ea-line); border-radius: 18px; background: var(--ea-surface); }
+.pending-snapshot-filters > .btn { margin-inline-start: auto; }
+@media (prefers-reduced-motion: reduce) { .finance-economic, .finance-positions, .finance-card-icon { transition: none; transform: none !important; } }
+
+/* Tablet (768–1199px): le tabelle a cinque colonne non entrano; incassi da registrare, storni e sospesi usano la lista a card
+   già prevista per il telefono, su due colonne. Le regole ricalcano quelle del telefono in functional-revision.css. */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  .finance-workspace .finance-desktop-register { display: none; }
+  .finance-workspace .finance-mobile-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px; padding: 12px; }
+  .cash-movement { min-width: 0; border: 1px solid var(--ea-line); border-radius: 18px; background: var(--ea-surface); box-shadow: var(--card-shadow); }
+  .cash-movement > summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 10px; padding: 14px; cursor: pointer; list-style: none; }
+  .cash-movement > summary::-webkit-details-marker { display: none; }
+  .cash-movement > summary:focus-visible { outline: 3px solid var(--ea-focus); outline-offset: 2px; }
+  .cash-movement-identity { display: grid; gap: 5px; min-width: 0; }
+  .cash-movement-identity strong, .cash-movement-identity span { overflow-wrap: anywhere; }
+  .cash-movement-identity small, .cash-movement-identity time { font-size: .75rem; color: var(--ea-muted); }
+  .cash-movement-value { font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; text-align: end; overflow-wrap: anywhere; }
+  .cash-movement-value small { display: block; font-size: .7rem; font-weight: 500; margin-top: 5px; }
+  .cash-movement > summary::after { content: 'Mostra dettagli ↓'; grid-column: 1 / -1; justify-self: end; color: var(--ea-info); font-size: .75rem; }
+  .cash-movement[open] > summary::after { content: 'Nascondi dettagli ↑'; }
+  .cash-movement-detail { padding: 0 14px 14px; border-top: 1px solid var(--ea-line); }
+  .cash-movement-detail dl { display: grid; gap: 10px; margin: 14px 0; }
+  .cash-movement-detail dl > div { min-width: 0; }
+  .cash-movement-detail dt { color: var(--ea-muted); font-size: .75rem; }
+  .cash-movement-detail dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+  .cash-movement-detail .register-actions { flex-wrap: wrap; gap: 12px; }
+  .finance-workspace .finance-mobile-list > .register-empty { grid-column: 1 / -1; }
+}
+.finance-liquidity .liquidity-flows dt { flex-wrap: wrap; row-gap: 2px; }
+.finance-liquidity .liquidity-flows dt small { flex-basis: 100%; }
+.money-row-detail .movement-actions .btn { white-space: nowrap; }

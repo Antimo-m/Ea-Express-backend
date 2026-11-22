@@ -57,3 +57,19 @@ main .data-caption { font-family: var(--ea-font) !important; letter-spacing: nor
 .btn.button-back.modal-back-icon, .button-back.modal-back-icon { inline-size: 44px !important; width: 44px !important; min-inline-size: 44px !important; max-inline-size: 44px; flex: 0 0 44px !important; }
 .modal-back-icon[hidden], .modal-back[hidden] { display: none !important; }
 .btn.button-back.modal-back-icon, .button-back.modal-back-icon { block-size: 44px !important; height: 44px !important; min-block-size: 44px !important; min-height: 44px !important; max-height: 44px; }
+
+/* Messaggi · «Apri ordine» vive nella fascia della spedizione, accanto a codice e stato dell'ordine a cui porta. */
+.inbox-thread-nav { justify-content: flex-start; }
+.inbox-shipment { flex-wrap: nowrap !important; justify-content: flex-start !important; }
+.inbox-shipment > .inbox-shipment-ref { flex: 1 1 auto; min-width: 0; font-family: var(--ea-font-mono); color: var(--ea-ink); font-weight: 600; overflow-wrap: anywhere; }
+.inbox-shipment > .status-badge { flex: none; }
+.inbox-shipment > .inbox-open-order { flex: none; }
+.inbox-empty-list { display: flex; align-items: center; justify-content: center; gap: 8px; text-align: center; }
+.inbox-empty-list.is-all-read { color: var(--ea-success); font-weight: 600; }
+.inbox-empty-list.is-all-read > .bi { font-size: 1.2rem; }
+.inbox-shipment-ref > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inbox-shipment > .inbox-shipment-ref { overflow-wrap: normal; }
+@media (max-width: 575.98px) {
+  .inbox-shipment { gap: 8px !important; }
+  .inbox-shipment > .inbox-shipment-ref { font-size: .72rem; }
+}

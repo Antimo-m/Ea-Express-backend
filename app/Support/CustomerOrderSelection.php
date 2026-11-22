@@ -14,7 +14,7 @@ class CustomerOrderSelection
 {
     public function query(Request $request): Builder
     {
-        $data = $request->validate(['shipping_type' => ['nullable', 'in:regional,external'], 'sender_type' => ['nullable', Rule::enum(SenderType::class)], 'q' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', Rule::enum(OrderStatus::class)], 'kind' => ['nullable', 'in:pickup'], 'courier' => ['prohibited'], 'has_messages' => ['nullable', 'boolean'], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d'], 'page' => ['nullable', 'integer', 'min:1']]);
+        $data = $request->validate(['shipping_type' => ['nullable', 'in:regional,external'], 'sender_type' => ['nullable', Rule::enum(SenderType::class)], 'q' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', Rule::enum(OrderStatus::class)], 'kind' => ['nullable', 'in:pickup'], 'courier' => ['prohibited'], 'has_messages' => ['nullable', 'boolean'], 'unread_messages' => ['nullable', 'boolean'], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d'], 'page' => ['nullable', 'integer', 'min:1']]);
         $query = Order::where('customer_id', $request->user()->id);
         if (! empty($data['shipping_type'])) {
             $query->where('shipping_type', $data['shipping_type']);
@@ -27,6 +27,9 @@ class CustomerOrderSelection
         }
         if ($request->boolean('has_messages')) {
             $query->whereHas('messages');
+        }
+        if ($request->boolean('unread_messages')) {
+            $query->whereHas('messages', fn ($q) => $q->whereNotNull('user_id')->whereNull('read_at'));
         }
         if (! empty($data['status'])) {
             $query->where('status', $data['status']);

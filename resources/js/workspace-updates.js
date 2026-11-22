@@ -1,4 +1,5 @@
 import { cancelToast, expireToast } from './toast-feedback';
+import { isUnchangedEmptyState } from './empty-scene';
 
 let refresh = Promise.resolve();
 
@@ -98,6 +99,7 @@ export function applyWorkspaceSnapshot(page, { form } = {}) {
         const editing = region.querySelector('dialog[open], form[aria-busy="true"]');
         if (editing && !region.contains(form)) continue;
         if (region.contains(document.activeElement) && document.activeElement.matches('input,textarea,select,.ea-picker-trigger') && !region.contains(form)) continue;
+        if (isUnchangedEmptyState(region, next)) continue;
         region.replaceWith(next);
         updated++;
     }

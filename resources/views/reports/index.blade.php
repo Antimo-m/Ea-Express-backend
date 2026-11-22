@@ -13,15 +13,15 @@
                 <x-ui.icon name="arrow-right" class="report-filter-arrow" />
                 <x-ui.field name="to" label="Al" type="date" data-required-when="from" :value="request('to')" />
             </div>
-            <small id="report-filter-help">Entrambe le date, massimo un anno. Vuote: si consulta il mese.</small>
         </div>
+        <small id="report-filter-help" class="report-filter-help">Per un periodo personalizzato scegli entrambe le date (massimo un anno); lasciale vuote per consultare il mese.</small>
     </x-ui.filters>
     <p class="report-shipping-split"><span><x-ui.icon name="geo-alt" />Regionali <strong>{{ $shippingCounts['regional'] ?? 0 }}</strong></span><span><x-ui.icon name="globe2" />Fuori regione <strong>{{ $shippingCounts['external'] ?? 0 }}</strong></span></p>
     <section class="report-kpis" aria-label="Indicatori del periodo">
         <x-ui.metric label="Richieste ricevute" :value="$received" icon="inbox" :note="($growth === null ? 'Nessuna base di confronto' : ($growth > 0 ? '+' : '').number_format($growth, 1, ',', '.').'%').' · '.($customPeriod ? 'periodo precedente equivalente: ' : 'mese precedente intero: ').$previous" />
         <x-ui.metric label="Consegne completate" :value="$delivered" icon="truck" note="In base alla data effettiva di consegna" />
         <x-ui.metric label="Incassi clienti" :value="\App\Support\Money::format($cash)" icon="cash-coin" tone="positive" note="Inclusi i pagamenti dei sospesi, denaro effettivamente ricevuto, al netto dei soli rimborsi pagati" />
-        <x-ui.metric label="Netto contabile operativo" :value="\App\Support\Money::format($operatingNet)" icon="wallet2" :tone="$operatingNet < 0 ? 'negative' : 'attention'" note="Incassi lordi − storni + ripristini − spese + saldo amministrativo, esclusi i contanti aggiuntivi" />
+        <x-ui.metric label="Risultato operativo" :value="\App\Support\Money::format($operatingNet)" icon="wallet2" :tone="$operatingNet > 0 ? 'positive' : ($operatingNet < 0 ? 'negative' : 'neutral')" note="Stesso valore del Bilancio: entrate registrate al netto di storni e ripristini − spese ± movimenti amministrativi. Esclusi sospesi aperti e contanti aggiuntivi." />
     </section>
     <div class="report-chart-grid">
         <x-reports.trend id="orders-trend" title="Andamento delle richieste" description="Richieste create ogni giorno del periodo, in ora italiana." :points="$trend" />
@@ -39,7 +39,7 @@
             @forelse($zones as $zone)<div class="distribution-row"><div><span>{{ $zone->delivery_city }}</span><strong>{{ $zone->total }}</strong></div><meter min="0" max="{{ max($received,1) }}" value="{{ $zone->total }}" aria-label="{{ $zone->delivery_city }}: {{ $zone->total }} richieste"></meter></div>@empty<p class="empty-note">Nessuna destinazione nel periodo.</p>@endforelse
         </section>
         <section class="surface workspace-section"><header class="section-heading"><div><span class="eyebrow">ACCOUNT CLIENTI</span><h2>Clienti più attivi</h2></div><x-ui.icon name="people" /></header><p class="small text-secondary">Richieste create nel periodo, raggruppate per account cliente.</p>
-            @forelse($topCustomers as $customer)<a class="rank-row" href="{{ route('customers.show',['customer'=>$customer->customer?->slug,'period'=>'custom','from'=>$period->start->toDateString(),'to'=>$period->end->toDateString()]) }}"><span class="rank-number">{{ $loop->iteration }}</span><span>{{ $customer->customer?->name ?? 'Account non disponibile' }}</span><strong>{{ $customer->shipments }}</strong><x-ui.icon name="arrow-up-right" /></a>@empty<p class="empty-note">Nessun account cliente con richieste nel periodo.</p>@endforelse
+            @forelse($topCustomers as $customer)<a class="rank-row" href="{{ route('customers.show',['customer'=>$customer->customer?->slug,'period'=>'custom','from'=>$period->start->toDateString(),'to'=>$period->end->toDateString()]) }}"><span class="rank-number">{{ $loop->iteration }}</span><span>{{ $customer->customer?->name ?? 'Account non disponibile' }}</span><span class="rank-count"><strong>{{ $customer->shipments }}</strong><x-ui.icon name="truck" /></span></a>@empty<p class="empty-note">Nessun account cliente con richieste nel periodo.</p>@endforelse
         </section>
     </div>
 <x-reports.shipping-economics :summary="$shippingEconomics" :receipts="$receiptEconomics"/>
