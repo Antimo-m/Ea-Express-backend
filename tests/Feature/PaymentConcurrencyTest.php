@@ -145,7 +145,8 @@ CODE;
             $this->assertFileExists($database.'.locked1');
             $this->assertDatabaseCount('payment_entries', $entryCount);
             $this->assertSame($net, (int) PaymentEntry::sum('amount_cents'));
-            $this->assertSame($net, (int) PaymentEntry::sum('ea_amount_cents'));
+            // Fuori regione la quota EA-Express di un nuovo incasso è il margine (10,00 € − 4,00 € di costo vettore).
+            $this->assertSame($action === 'receive' ? 600 : $net, (int) PaymentEntry::sum('ea_amount_cents'));
             $this->assertSame($cash, (int) PaymentEntry::sum('cash_amount_cents'));
             $this->assertSame($action === 'receive', $order->fresh()->paid_at !== null);
             $this->assertSame($version + 1, $order->fresh()->version);

@@ -1,0 +1,41 @@
+/* Centro messaggi dell'admin: autore dei messaggi, rider della conversazione, filtro per rider e riepilogo della chat. */
+.ea-app .message-author-role {
+  display: inline-flex; align-items: center; margin-left: 6px; padding: 1px 7px; border-radius: 999px; vertical-align: 1px;
+  font-size: .64rem; font-weight: 700; letter-spacing: .02em; color: var(--ea-muted); background: color-mix(in srgb, var(--ea-ink) 7%, transparent);
+}
+.ea-app .message-by-rider .message-author-role { color: var(--ea-info); background: color-mix(in srgb, var(--ea-info) 12%, var(--ea-surface)); }
+.ea-app .message-by-admin .message-author-role { color: var(--ea-success); background: color-mix(in srgb, var(--ea-success) 12%, var(--ea-surface)); }
+.ea-app .inbox-thread .message-bubble.message-team.message-by-admin { background: color-mix(in srgb, var(--ea-success) 9%, var(--ea-surface)); }
+
+.ea-app .inbox-rider-filter { display: grid; gap: 4px; margin: 0 0 10px; }
+.ea-app .inbox-rider-filter label { display: inline-flex; align-items: center; gap: 6px; margin: 0; color: var(--ea-muted); font-size: .74rem; font-weight: 700; }
+.ea-app .inbox-rider-filter .form-select, .ea-app .inbox-rider-filter .ea-picker-trigger { width: 100%; min-height: 42px; border-radius: 12px; }
+
+.ea-app .inbox-rider-chip {
+  display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 1px 8px; border-radius: 999px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: .68rem; font-weight: 700; color: var(--ea-info); background: color-mix(in srgb, var(--ea-info) 11%, var(--ea-surface));
+}
+.ea-app .inbox-rider-chip.is-unassigned { color: var(--ea-muted); background: var(--ea-surface-muted); }
+
+.ea-app .inbox-oversight {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 12px clamp(12px, 2.5vw, 24px) 4px; padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--ea-info) 25%, var(--ea-line)); border-radius: 14px;
+  background: color-mix(in srgb, var(--ea-info) 5%, var(--ea-surface));
+}
+.ea-app .inbox-oversight-rider { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ea-app .inbox-oversight-rider > div { display: grid; line-height: 1.2; min-width: 0; }
+.ea-app .inbox-oversight-rider span { color: var(--ea-muted); font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.ea-app .inbox-oversight-rider strong { color: var(--ea-ink); font-size: .95rem; overflow-wrap: anywhere; }
+.ea-app .inbox-oversight-icon { display: grid; place-items: center; inline-size: 36px; block-size: 36px; border-radius: 50%; background: var(--ea-surface-muted); color: var(--ea-muted); }
+.ea-app .inbox-oversight-stats { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 0 auto; padding: 0; list-style: none; }
+.ea-app .inbox-oversight-stats li {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 10px; border-radius: 999px;
+  background: var(--ea-surface); border: 1px solid var(--ea-line); color: var(--ea-muted); font-size: .76rem; white-space: nowrap;
+}
+.ea-app .inbox-oversight-stats li strong { color: var(--ea-ink); }
+.ea-app .inbox-oversight-stats li.is-waiting { color: var(--ea-warning); border-color: color-mix(in srgb, var(--ea-warning) 40%, var(--ea-line)); background: color-mix(in srgb, var(--ea-warning) 10%, var(--ea-surface)); }
+.ea-app .inbox-oversight-stats li.is-waiting strong { color: inherit; }
+@media (max-width: 767.98px) {
+  .ea-app .inbox-oversight-stats { margin-left: 0; }
+  .ea-app .inbox-oversight-stats li { white-space: normal; }
+}

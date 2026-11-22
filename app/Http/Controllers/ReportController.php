@@ -55,7 +55,7 @@ class ReportController extends Controller
         // La chiave esterna garantisce che ogni incasso abbia un ordine: il controllo serve solo quando filtra per Rider.
         $payments = PaymentEntry::query()->when(! $isAdmin, fn ($q) => $q->whereHas('order', fn ($q) => $q->financialFor($request->user())))->whereBetween('created_at', $period->utcRange());
         $general = PendingSettlement::whereHas('account', fn ($q) => $q->where('direction', 'incoming')->whereNull('order_id'))->when($request->user()->role !== UserRole::Admin, fn ($q) => $q->where('user_id', $request->user()->id))->whereBetween('created_at', $period->utcRange());
-        $ledgerTotals = app(ReceiptLedger::class)->totals($payments);
+        $ledgerTotals = app(ReceiptLedger::class)->shareTotals($payments);
         $generalTotal = (int) (clone $general)->sum('amount_cents');
         $cash = $ledgerTotals['cash'] + $generalTotal;
         $expenses = Expense::visibleTo($request->user())->whereNull('voided_at')->whereDate('spent_on', '>=', $period->start->toDateString())->whereDate('spent_on', '<=', $period->end->toDateString());
@@ -74,8 +74,8 @@ class ReportController extends Controller
             $cashDays[$day]['incoming'] += (int) $row->incoming;
             $cashDays[$day]['outgoing'] += (int) $row->outgoing;
         };
-        foreach ([$payments, $general] as $receipts) {
-            foreach ((clone $receipts)->toBase()->selectRaw("{$hour} AS utc_hour, ".$flows('amount_cents'))->groupByRaw($hour)->get() as $row) {
+        foreach ([[$payments, ReceiptLedger::ShareExpression], [$general, 'amount_cents']] as [$receipts, $amount]) {
+            foreach ((clone $receipts)->toBase()->selectRaw("{$hour} AS utc_hour, ".$flows($amount))->groupByRaw($hour)->get() as $row) {
                 $addFlows(Carbon::parse($row->utc_hour, 'UTC')->timezone('Europe/Rome')->toDateString(), $row);
             }
         }

@@ -1,0 +1,17 @@
+/* Creazione ordine: azioni del modale "Annulla" sempre affiancate in due colonne uguali; checkout con conferma a sola icona. */
+.ea-app .ea-modal .modal-actions.cancel-order-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; justify-content: stretch; align-items: stretch; }
+.ea-app .ea-modal .modal-actions.cancel-order-actions > * {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-width: 0; max-width: none; min-height: 48px; margin: 0;
+  padding: 8px 12px; white-space: normal; text-align: center; line-height: 1.2; order: 0;
+}
+.ea-app .ea-modal .modal-actions.cancel-order-actions > * > .action-icon, .ea-app .ea-modal .modal-actions.cancel-order-actions > * > .bi { flex: none; }
+
+.ea-app .checkout-actions .icon-button.action-confirm.checkout-continue { --ea-icon-size: 44px; padding: 0; border-radius: 50%; font-size: 1.25rem; box-shadow: 0 10px 22px -12px color-mix(in srgb, var(--ea-success) 80%, transparent); transition: transform .2s, box-shadow .2s; }
+.ea-app .checkout-actions .icon-button.action-confirm.checkout-continue:hover { transform: translateY(-1px) scale(1.04); }
+@media (prefers-reduced-motion: reduce) { .ea-app .checkout-actions .icon-button.action-confirm.checkout-continue:hover { transform: none; } }
+/* Telefoni stretti: senza icone il testo dei due pulsanti va a capo solo tra le parole. */
+@media (max-width: 374.98px) {
+  .ea-app .ea-modal .modal-actions.cancel-order-actions > * { padding: 8px; }
+  .ea-app .ea-modal .modal-actions.cancel-order-actions > * > .action-icon, .ea-app .ea-modal .modal-actions.cancel-order-actions > * > .bi { display: none; }
+}
+.ea-app .ea-modal .modal-actions.cancel-order-actions > * { overflow-wrap: normal; word-break: normal; hyphens: manual; }

@@ -83,8 +83,9 @@ class StaffCheckoutAndReceiptsTest extends TestCase
         $this->assertSame(1000, $order->fresh()->price_cents);
         $this->assertSame(1000, $order->fresh()->quoted_price_cents);
         $this->assertSame(600, $order->fresh()->carrier_cost_cents);
-        $this->get('/balance')->assertOk()->assertViewHas('cash', $cents)->assertViewHas('operatingNet', $cents)->assertViewHas('cashBalance', $cents)->assertDontSee('Quote vettori sugli incassi');
-        $this->get('/reports')->assertOk()->assertViewHas('operatingNet', $cents)->assertViewHas('incomingTotal', $cents);
+        $this->assertSame(400, PaymentEntry::sole()->ea_amount_cents);
+        $this->get('/balance')->assertOk()->assertViewHas('cash', 400)->assertViewHas('operatingNet', 400)->assertViewHas('cashBalance', 400)->assertDontSee('Quote vettori sugli incassi');
+        $this->get('/reports')->assertOk()->assertViewHas('operatingNet', 400)->assertViewHas('incomingTotal', 400);
         $this->get('/orders/'.$order->slug)->assertOk()->assertSee('Incasso effettivo registrato');
         $this->postJson($path, ['version' => $order->fresh()->version, 'action' => 'reverse', 'note' => 'Errore di registrazione'])->assertOk();
         $this->assertSame(0, (int) PaymentEntry::sum('amount_cents'));
@@ -118,7 +119,7 @@ class StaffCheckoutAndReceiptsTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $order = Order::factory()->create(['rider_id' => $admin->id, 'status' => OrderStatus::Delivered, 'delivered_at' => now(), 'price_cents' => 1000]);
         $entry = new PaymentEntry;
-        $entry->forceFill(['order_id' => $order->id, 'user_id' => $admin->id, 'amount_cents' => 1000, 'ea_amount_cents' => 200, 'method' => 'cash', 'note' => 'Incasso storico'])->save();
+        $entry->forceFill(['order_id' => $order->id, 'user_id' => $admin->id, 'amount_cents' => 1000, 'ea_amount_cents' => null, 'method' => 'cash', 'note' => 'Incasso storico'])->save();
         Expense::factory()->create(['user_id' => $admin->id, 'amount_cents' => 300, 'spent_on' => now()]);
         PendingAccount::factory()->has(PendingSettlement::factory()->state(['amount_cents' => 100]), 'settlements')->create(['direction' => 'incoming', 'amount_cents' => 500, 'settled_cents' => 100, 'state' => 'partially_paid', 'occurred_on' => now()]);
         PendingAccount::factory()->create(['direction' => 'outgoing', 'amount_cents' => 200, 'settled_cents' => 0, 'occurred_on' => now()]);

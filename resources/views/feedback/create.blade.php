@@ -35,10 +35,11 @@
                     <label class="feedback-dropzone" data-feedback-dropzone aria-describedby="feedback-files-help">
                         <input type="file" name="attachments[]" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.heic,.pdf,.txt,image/*,application/pdf,text/plain" data-max-files="{{ \App\Http\Requests\FeedbackReportRequest::MaxFiles }}" data-max-file-kb="{{ \App\Http\Requests\FeedbackReportRequest::MaxFileKilobytes }}" data-max-total-kb="{{ \App\Http\Requests\FeedbackReportRequest::MaxTotalKilobytes }}" aria-labelledby="feedback-files-label">
                         <span class="feedback-dropzone-icon" aria-hidden="true"><x-ui.icon name="cloud-arrow-up" /></span>
-                        <strong>Trascina qui foto o file</strong>
-                        <span>oppure <u>scegli dal dispositivo</u></span>
+                        <span class="feedback-dropzone-preview" data-feedback-preview hidden></span>
+                        <strong data-feedback-title>Trascina qui foto o file</strong>
+                        <span data-feedback-hint>oppure <u>scegli dal dispositivo</u> · puoi selezionarne più di uno</span>
                     </label>
-                    <div id="feedback-files-help" class="form-text">Fino a {{ \App\Http\Requests\FeedbackReportRequest::MaxFiles }} file: immagini, PDF o TXT, massimo {{ \App\Http\Requests\FeedbackReportRequest::MaxFileKilobytes / 1024 }} MB ciascuno ({{ \App\Http\Requests\FeedbackReportRequest::MaxTotalKilobytes / 1024 }} MB in totale).@if($errors->any()) Se l’invio non è riuscito, seleziona di nuovo gli allegati.@endif</div>
+                    <div id="feedback-files-help" class="form-text">Fino a {{ \App\Http\Requests\FeedbackReportRequest::MaxFiles }} file: immagini, PDF o TXT, massimo {{ \App\Http\Requests\FeedbackReportRequest::MaxFileKilobytes / 1024 }} MB ciascuno ({{ \App\Http\Requests\FeedbackReportRequest::MaxTotalKilobytes / 1024 }} MB in totale). Le foto vengono alleggerite automaticamente per un invio più rapido.@if($errors->any()) Se l’invio non è riuscito, seleziona di nuovo gli allegati.@endif</div>
                     <p class="invalid-feedback d-block" role="alert" data-feedback-files-error @if(! $errors->has('attachments') && ! $errors->has('attachments.*')) hidden @endif>{{ $errors->first('attachments') ?: $errors->first('attachments.*') }}</p>
                     <ul class="feedback-files" data-feedback-files aria-live="polite"></ul>
                 </div>

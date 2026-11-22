@@ -34,6 +34,8 @@
 .feedback-dropzone.is-dragging { border-style: solid; border-color: var(--ea-info); background: color-mix(in srgb, var(--ea-info) 12%, var(--ea-surface)); transform: scale(1.015); }
 .feedback-dropzone.is-dragging .feedback-dropzone-icon { animation: feedback-bounce .6s ease-in-out infinite; }
 .feedback-dropzone.is-full { opacity: .6; pointer-events: none; }
+.feedback-dropzone.is-processing { pointer-events: none; }
+.feedback-dropzone.is-processing .feedback-dropzone-icon { animation: feedback-bounce .6s ease-in-out infinite; }
 
 .feedback-files { display: grid; gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }
 .feedback-files:empty { display: none; }
@@ -43,6 +45,26 @@
 .feedback-file-text { display: grid; min-inline-size: 0; }
 .feedback-file-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9rem; color: var(--ea-ink); }
 .feedback-file-text small { color: var(--ea-muted); }
+
+/* Un solo allegato: anteprima reale al centro della casella, con nome, peso e rimozione. */
+.feedback-dropzone-preview[hidden] { display: none; }
+.feedback-dropzone-preview { position: relative; z-index: 2; display: grid; justify-items: center; gap: 8px; inline-size: min(100%, 320px); margin-bottom: 6px; padding: 12px; border: 1px solid var(--ea-line); border-radius: 14px; background: var(--ea-surface); box-shadow: 0 10px 24px -18px rgba(15, 23, 42, .5); cursor: default; animation: feedback-rise .3s both; }
+.feedback-preview-media { inline-size: 100%; max-block-size: 180px; border-radius: 10px; object-fit: contain; background: var(--ea-surface-muted); }
+.feedback-preview-media.feedback-file-icon { display: grid; place-items: center; block-size: 110px; font-size: 3rem; }
+.feedback-dropzone-preview .feedback-file-text { justify-items: center; max-inline-size: 100%; }
+.feedback-dropzone-preview .feedback-file-remove { position: absolute; inset-block-start: -10px; inset-inline-end: -10px; --ea-icon-size: 32px; background: var(--ea-surface); box-shadow: 0 4px 12px -6px rgba(15, 23, 42, .45); }
+.feedback-dropzone.has-single { padding-block: 18px; }
+.feedback-dropzone.has-single .feedback-dropzone-icon { display: none; }
+.feedback-dropzone.has-single > strong { font-size: .9rem; color: var(--ea-info); }
+
+/* Due o più allegati: miniature compatte in fila sotto la casella, che vanno a capo senza scroll orizzontale. */
+.feedback-files.is-strip { display: flex; flex-wrap: wrap; gap: 10px; }
+.feedback-files.is-strip .feedback-file { position: relative; display: grid; grid-template-columns: 1fr; justify-items: center; gap: 4px; inline-size: 84px; padding: 6px; text-align: center; }
+.feedback-files.is-strip .feedback-file-thumb { inline-size: 64px; block-size: 64px; }
+.feedback-files.is-strip .feedback-file-text { inline-size: 100%; }
+.feedback-files.is-strip .feedback-file-text strong { font-size: .72rem; }
+.feedback-files.is-strip .feedback-file-text small { font-size: .68rem; }
+.feedback-files.is-strip .feedback-file-remove { position: absolute; inset-block-start: -8px; inset-inline-end: -8px; --ea-icon-size: 28px; background: var(--ea-surface); box-shadow: 0 4px 12px -6px rgba(15, 23, 42, .45); }
 
 .feedback-sent { display: grid; justify-items: center; gap: 8px; padding: clamp(28px, 6vw, 48px) 20px; text-align: center; animation: feedback-rise .45s cubic-bezier(.2, .8, .2, 1) both; }
 .feedback-sent h2 { margin: 6px 0 0; font-size: clamp(1.15rem, 2.4vw, 1.4rem); }
@@ -60,6 +82,6 @@
   .feedback-form > .row-actions > * { inline-size: 100%; justify-content: center; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .feedback-form, .feedback-file, .feedback-sent, .feedback-sent-icon, .feedback-dropzone-icon { animation: none !important; }
+  .feedback-form, .feedback-file, .feedback-dropzone-preview, .feedback-sent, .feedback-sent-icon, .feedback-dropzone-icon { animation: none !important; }
   .feedback-category span, .feedback-category span i, .feedback-dropzone { transition: none; }
 }

@@ -75,7 +75,7 @@ class PaymentIntegrityTest extends TestCase
         $this->assertSame(0, $restored->cash_amount_cents);
         $this->assertSame(1000, (int) PaymentEntry::sum('cash_amount_cents'));
         $this->assertSame(1000, (int) PaymentEntry::sum('amount_cents'));
-        $this->assertSame(1000, (int) PaymentEntry::sum('ea_amount_cents'));
+        $this->assertSame(600, (int) PaymentEntry::sum('ea_amount_cents'));
         $this->assertNotNull($order->fresh()->paid_at);
         $this->assertSame(1000, $order->fresh()->price_cents);
         $this->assertSame(400, $order->fresh()->carrier_cost_cents);
@@ -96,7 +96,7 @@ class PaymentIntegrityTest extends TestCase
             $entry->note = 'Incasso storico';
             $entry->save();
         }
-        $this->actingAs($admin)->get('/balance')->assertViewHas('cash', 1000)
+        $this->actingAs($admin)->get('/balance')->assertViewHas('cash', 600)
             ->assertViewHas('receiptEconomics', ['gross' => 1000, 'retained' => 600, 'carrier' => 400, 'unallocated' => 1]);
 
         $this->postJson(route('payments.store', $order), ['action' => 'reverse', 'version' => 1, 'note' => 'Rimborso degli incassi storici'])->assertOk();

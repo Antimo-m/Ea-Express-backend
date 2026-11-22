@@ -52,6 +52,19 @@ class FeedbackReportTest extends TestCase
         });
     }
 
+    public function test_several_attachments_are_sent_together_and_identical_files_only_once(): void
+    {
+        $customer = User::factory()->create(['role' => UserRole::Customer]);
+        $files = [
+            UploadedFile::fake()->image('prima.png'), UploadedFile::fake()->image('seconda.jpg', 30, 30),
+            UploadedFile::fake()->createWithContent('log.txt', 'Errore alle 10:42'), UploadedFile::fake()->createWithContent('log-copia.txt', 'Errore alle 10:42'),
+        ];
+
+        $this->actingAs($customer, 'customer')->post('/api/v1/customer/feedback', $this->report(['attachments' => $files]), ['Accept' => 'application/json'])->assertOk();
+
+        Mail::assertSent(FeedbackReport::class, fn (FeedbackReport $mail): bool => count($mail->attachments()) === 3);
+    }
+
     public function test_uploads_stay_blocked_outside_feedback_routes(): void
     {
         $customer = User::factory()->create(['role' => UserRole::Customer]);

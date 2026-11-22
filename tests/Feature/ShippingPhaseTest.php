@@ -129,7 +129,7 @@ class ShippingPhaseTest extends TestCase
         $this->patchJson($url, ['version' => $account->fresh()->version, 'amount' => '7', 'ea_amount' => '2', 'reason' => 'Correzione quota sintetica'])->assertOk();
         $this->assertDatabaseHas('payment_entries', ['order_id' => $order->id, 'amount_cents' => 700, 'ea_amount_cents' => 200]);
         $this->assertSame(600, $order->fresh()->carrier_cost_cents);
-        $this->get('/balance')->assertOk()->assertViewHas('operatingNet', 700);
+        $this->get('/balance')->assertOk()->assertViewHas('operatingNet', 200);
         $this->postJson('/pending/'.$account->slug.'/settlements', [...$data, 'ea_amount' => '3'])->assertConflict();
     }
 

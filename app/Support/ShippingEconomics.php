@@ -9,13 +9,20 @@ use Illuminate\Validation\ValidationException;
 
 class ShippingEconomics
 {
-    public function retainedAmount(Order $order, int $received, ?string $amount): int
+    /** Quota EA-Express della tariffa in SQL, uguale a shareOfPrice(): fuori regione esclude il costo vettore. */
+    public const string PriceShareExpression = "CASE WHEN shipping_type = 'external' THEN (CASE WHEN price_cents > COALESCE(carrier_cost_cents, 0) THEN price_cents - COALESCE(carrier_cost_cents, 0) ELSE 0 END) ELSE price_cents END";
+
+    /**
+     * Quota EA-Express di un incasso. Per le spedizioni fuori regione, senza un importo esplicito, la quota è il margine:
+     * il denaro copre prima il costo vettore ancora scoperto e solo il resto entra nel bilancio EA-Express.
+     */
+    public function retainedAmount(Order $order, int $received, ?string $amount, ?int $exceptEntryId = null): int
     {
         if ($order->shipping_type !== 'external') {
             return $received;
         }
         if ($amount === null || $amount === '') {
-            return $received;
+            return $this->marginShare($order, $received, $exceptEntryId);
         }
         $retained = Money::cents($amount);
         if ($retained > $received) {
@@ -23,6 +30,24 @@ class ShippingEconomics
         }
 
         return $retained;
+    }
+
+    /** Margine EA-Express sull'intera tariffa: per le spedizioni fuori regione è la tariffa meno il costo vettore. */
+    public static function shareOfPrice(Order $order): int
+    {
+        $price = (int) $order->price_cents;
+
+        return $order->shipping_type === 'external' ? max(0, $price - (int) $order->carrier_cost_cents) : $price;
+    }
+
+    private function marginShare(Order $order, int $received, ?int $exceptEntryId): int
+    {
+        $previous = $order->payments()->when($exceptEntryId, fn ($payments) => $payments->whereKeyNot($exceptEntryId))->toBase()
+            ->selectRaw('COALESCE(SUM(amount_cents), 0) AS amount, COALESCE(SUM(COALESCE(ea_amount_cents, amount_cents)), 0) AS retained')->first();
+        $carrierCovered = (int) $previous->amount - (int) $previous->retained;
+        $carrierOpen = max(0, (int) $order->carrier_cost_cents - $carrierCovered);
+
+        return max(0, $received - $carrierOpen);
     }
 
     /** @return array{gross: int, retained: int, carrier: int, unallocated: int} */

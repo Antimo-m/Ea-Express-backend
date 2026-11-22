@@ -143,7 +143,7 @@ class PendingAccountController extends Controller
             $locked = PendingAccount::query()->lockForUpdate()->findOrFail($account->id);
             $existing = $locked->settlements()->where('submission_key', $data['submission_key'])->first();
             if ($existing) {
-                abort_unless($existing->amount_cents === $cents && $existing->method === $data['method'] && (! $order || PaymentEntry::where('pending_settlement_id', $existing->id)->value('ea_amount_cents') === app(ShippingEconomics::class)->retainedAmount($order, $cents, $data['ea_amount'] ?? null)) && $existing->note === $data['note'], 409, 'Chiave già utilizzata con dati diversi.');
+                abort_unless($existing->amount_cents === $cents && $existing->method === $data['method'] && (! $order || ($previous = PaymentEntry::where('pending_settlement_id', $existing->id)->first(['id', 'ea_amount_cents'])) && $previous->ea_amount_cents === app(ShippingEconomics::class)->retainedAmount($order, $cents, $data['ea_amount'] ?? null, $previous->id)) && $existing->note === $data['note'], 409, 'Chiave già utilizzata con dati diversi.');
 
                 return;
             }

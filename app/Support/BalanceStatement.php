@@ -5,7 +5,7 @@ namespace App\Support;
 /**
  * Single source of the balance formulas shown in «Bilancio».
  *
- * - Saldo incassato = incassi monetari registrati (al netto di storni e rimborsi già pagati) + altre entrate manuali.
+ * - Saldo incassato = quota EA-Express degli incassi registrati (fuori regione: tariffa − costo vettore), al netto di storni e rimborsi già pagati, + altre entrate manuali.
  * - Spese = spese registrate + uscite manuali.
  * - Saldo disponibile = Saldo incassato − Spese.
  * - Saldo sospeso = Sospesi in entrata − Sospesi in uscita (posizioni aperte alla data di riferimento).

@@ -38,7 +38,7 @@
                 @endif
             @endforeach
             <input type="hidden" name="checkout_token" value="{{ $review['checkout_token'] }}">
-            <button class="btn btn-success checkout-continue" type="submit">Conferma e crea ritiro</button>
+            <x-ui.icon-button action="confirm" type="submit" label="Conferma e crea ritiro" class="checkout-continue" />
         </form>
         @endif
     </div>

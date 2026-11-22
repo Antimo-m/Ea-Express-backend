@@ -57,7 +57,7 @@
                     @php
                         $option = match ($problem) {
                             \App\OrderStatus::DeliveryAttempted => ['icon' => 'person-x', 'title' => 'Destinatario non presente', 'text' => 'Registra il tentativo di consegna e segnala il destinatario come non affidabile.', 'note' => 'Nota per lo storico', 'default' => 'Destinatario non presente all’indirizzo di consegna.'],
-                            \App\OrderStatus::DeliveryIssue => ['icon' => 'exclamation-octagon', 'title' => 'Altro problema di consegna', 'text' => 'Sospende la spedizione finché l’imprevisto non viene risolto.', 'note' => 'Descrivi il problema', 'default' => ''],
+                            \App\OrderStatus::DeliveryIssue => ['icon' => 'exclamation-octagon', 'title' => 'Altro problema di consegna', 'text' => 'Sospende la spedizione finché l’imprevisto non viene risolto.', 'note' => 'Motivo della sospensione', 'default' => '', 'help' => 'Il cliente vedrà questo messaggio nel dettaglio della spedizione. Es. «Ho forato una ruota, riprendo la consegna appena possibile».', 'max' => 500],
                             default => ['icon' => 'x-octagon', 'title' => 'Annulla ordine', 'text' => 'Chiude definitivamente la spedizione. Il motivo è obbligatorio e resta nello storico.', 'note' => 'Motivo dell’annullamento', 'default' => ''],
                         };
                         $cancel = $problem === \App\OrderStatus::Cancelled;
@@ -70,7 +70,7 @@
                             <input type="hidden" name="version" value="{{ $order->version }}">
                             <input type="hidden" name="status" value="{{ $problem->value }}">
                             @if($cancel)<input type="hidden" name="cancellation_reason" value="other">@endif
-                            <x-ui.field :id="$noteId" name="note" :label="$option['note']" :value="old('status') === $problem->value ? old('note') : $option['default']" :minlength="$cancel ? 5 : null" maxlength="2000" required />
+                            <x-ui.field :id="$noteId" name="note" :label="$option['note']" :value="old('status') === $problem->value ? old('note') : $option['default']" :minlength="$cancel ? 5 : null" :maxlength="$option['max'] ?? 2000" :help="$option['help'] ?? null" required />
                             <div class="workflow-problem-submit">
                                 @if($cancel)
                                     <x-ui.icon-button type="submit" action="delete" label="Annulla ordine" :data-confirm="'Annulla ordine'" :data-confirm-name="$order->displayName()" text />

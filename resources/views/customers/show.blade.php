@@ -1,5 +1,5 @@
 <x-app-layout :title="$customer->name">
-    <nav class="page-back" aria-label="Navigazione pagina"><x-ui.icon-button action="back" :href="route('customers.index')" label="Torna ai clienti" /></nav>
+    <nav class="page-back" aria-label="Navigazione pagina">@php($customerBack = \App\Support\SectionReturn::resolve(request(), route('customers.index'), ['customers.index', 'balance.index', 'pending.index', 'reports.index', 'dashboard']))<x-ui.icon-button action="back" :href="$customerBack" :label="str_starts_with($customerBack, route('customers.index')) || str_starts_with($customerBack, '/customers') ? 'Torna ai clienti' : 'Torna indietro'" /></nav>
     @php($initials = collect(preg_split('/\s+/', trim($customer->name)))->filter()->take(2)->map(fn ($word) => mb_strtoupper(mb_substr($word, 0, 1)))->join(''))
     <section class="customer-hero" aria-label="Profilo cliente">
         <div class="customer-hero-main">

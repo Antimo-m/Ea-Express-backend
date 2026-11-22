@@ -13,13 +13,14 @@ use App\OrderStatus;
 use App\Support\AccountingPeriod;
 use App\Support\Money;
 use App\Support\OrderPrice;
+use App\Support\ShippingEconomics;
 use App\UserRole;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class ManageReceipt
 {
-    public function __construct(private RecordEconomicAudit $audit, private NotifyAccountingParticipants $notify, private OrderPrice $price) {}
+    public function __construct(private RecordEconomicAudit $audit, private NotifyAccountingParticipants $notify, private OrderPrice $price, private ShippingEconomics $economics) {}
 
     /** @param array{action: string, version: int|string, note?: string, received_amount?: string} $data */
     public function handle(User $actor, Order $order, array $data): string
@@ -55,7 +56,8 @@ class ManageReceipt
                 abort_if($net > 0 && ! $payments->contains('kind', 'refund') && ! $verifiedResidual, 409, 'Movimenti già presenti: verifica il residuo nei Sospesi.');
                 $economic = $order->price_cents - $net;
                 $refundedReversal = $order->receiptReversals()->whereNotNull('restored_at')->whereHas('payments', fn ($q) => $q->where('kind', 'refund'))->latest('id')->first();
-                $this->entry($actor, $order, $economic === 0 ? 'recollection' : 'receipt', $economic, $economic, $amount, '', 'receive:'.$order->slug.':'.$order->version, $refundedReversal, $refundedReversal?->payments()->where('kind', 'refund')->latest('id')->first());
+                $retained = $economic > 0 ? $this->economics->retainedAmount($order, $economic, null) : 0;
+                $this->entry($actor, $order, $economic === 0 ? 'recollection' : 'receipt', $economic, $retained, $amount, '', 'receive:'.$order->slug.':'.$order->version, $refundedReversal, $refundedReversal?->payments()->where('kind', 'refund')->latest('id')->first());
                 $order->paid_at = now();
                 $order->paid_by = $actor->id;
                 // La conferma del Rider era solo una segnalazione: ora l'incasso è registrato dall'Admin.

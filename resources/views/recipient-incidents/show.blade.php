@@ -1,6 +1,6 @@
 <x-app-layout title="Dettaglio destinatario">
     <div class="recipient-detail-page" data-workspace-region="recipient-profile">
-    <nav class="page-back" aria-label="Navigazione pagina"><x-ui.icon-button action="back" :href="route('recipient-incidents.index', ['state' => $profile->active_count > 0 ? 'active' : 'restored'])" label="Destinatari non affidabili" text /></nav>
+    <nav class="page-back" aria-label="Navigazione pagina"><x-ui.icon-button action="back" :href="\App\Support\SectionReturn::resolve(request(), route('recipient-incidents.index', ['state' => $profile->active_count > 0 ? 'active' : 'restored']), ['recipient-incidents.index'])" label="Torna indietro" text /></nav>
     <section class="surface recipient-detail-card">
         <header class="card-heading">
             <div><span class="eyebrow">DETTAGLIO DESTINATARIO</span><h1>{{ $recipient['recipient_name'] }}</h1><x-ui.status-badge :tone="$profile->active_count > 0 ? 'danger' : 'green'" :label="$profile->active_count > 0 ? 'Non affidabile' : 'Affidabile'" /></div>

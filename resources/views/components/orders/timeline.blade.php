@@ -23,8 +23,8 @@
             <div class="order-timeline-operator"><span class="order-timeline-avatar" aria-hidden="true">{{ $initials ?: '?' }}</span><span><span class="visually-hidden">Data: {{ $at->format('d/m/Y H:i') }} · </span>Operatore: {{ $operator }}</span></div>
             @if($rescheduled)<div class="order-timeline-change">@if($event->schedule_change['before'])<span class="text-secondary">{{ \Illuminate\Support\Carbon::parse($event->schedule_change['before']['pickup_date'])->format('d/m/Y') }} · {{ $event->schedule_change['before']['pickup_from'] }}–{{ $event->schedule_change['before']['pickup_to'] }}</span> <x-ui.icon name="arrow-right" /> @endif<strong>{{ \Illuminate\Support\Carbon::parse($event->schedule_change['after']['pickup_date'])->format('d/m/Y') }} · {{ $event->schedule_change['after']['pickup_from'] }}–{{ $event->schedule_change['after']['pickup_to'] }}</strong></div>@endif
             @if(isset($event->schedule_change['after']['estimated_at']))<p class="order-timeline-change">Nuovo termine confermato: {{ \Illuminate\Support\Carbon::parse($event->schedule_change['after']['estimated_at'])->timezone('Europe/Rome')->format('d/m/Y H:i') }}</p>@endif
-            @if($event->note)<p class="order-timeline-note is-internal text-break"><x-ui.icon name="lock" />Nota interna: {{ $event->note }}</p>@endif
-            @if($event->public_note)<p class="order-timeline-note text-break"><x-ui.icon name="chat-left-text" />Pubblico: {{ $event->public_note }}</p>@endif
+            @if($event->note && $event->note !== $event->public_note)<p class="order-timeline-note is-internal text-break"><x-ui.icon name="lock" />Nota interna: {{ $event->note }}</p>@endif
+            @if($event->public_note)<p class="order-timeline-note text-break"><x-ui.icon name="chat-left-text" />{{ $event->public_note === $event->note ? 'Messaggio al cliente' : 'Pubblico' }}: {{ $event->public_note }}</p>@endif
         </div>
     </li>
 @empty<li class="order-timeline-empty text-secondary">Nessun evento ancora registrato per questa spedizione.</li>@endforelse</ol>

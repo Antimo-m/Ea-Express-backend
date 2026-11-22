@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class TransitionOrder
@@ -110,14 +111,16 @@ class TransitionOrder
                 }
                 app(RecipientRisk::class)->record($locked, $user);
             }
+            // Il motivo di una sospensione è scritto per il cliente: lo vede nel portale e nella pagina di tracking.
+            $publicNote = $data['public_note'] ?? ($next === OrderStatus::DeliveryIssue && filled($data['note'] ?? null) ? Str::limit($data['note'], 500, '…') : null);
             $locked->status = $next;
             $locked->version++;
             $locked->save();
-            $locked->events()->create(['rider_id' => $locked->rider_id, 'operational_zone' => app(RiderOperations::class)->zone($locked), 'user_id' => $user->id, 'status' => $next, 'note' => $data['note'] ?? null, 'public_note' => $data['public_note'] ?? null, 'schedule_change' => $next === OrderStatus::Rescheduled ? ['before' => ['estimated_at' => $previousEstimate, 'deadline_at' => $previousDeadline], 'after' => ['estimated_at' => $locked->estimated_at->toIso8601String()]] : null]);
+            $locked->events()->create(['rider_id' => $locked->rider_id, 'operational_zone' => app(RiderOperations::class)->zone($locked), 'user_id' => $user->id, 'status' => $next, 'note' => $data['note'] ?? null, 'public_note' => $publicNote, 'schedule_change' => $next === OrderStatus::Rescheduled ? ['before' => ['estimated_at' => $previousEstimate, 'deadline_at' => $previousDeadline], 'after' => ['estimated_at' => $locked->estimated_at->toIso8601String()]] : null]);
             if ($next === OrderStatus::Delivered) {
                 $this->mail->handle($locked, 'delivered');
             }
-            $this->notify->handle($locked, $next->label(), $user->id);
+            $this->notify->handle($locked, $next === OrderStatus::DeliveryIssue && $publicNote ? Str::limit($next->label().': '.$publicNote, 160, '…') : $next->label(), $user->id);
         }, 3);
     }
 }

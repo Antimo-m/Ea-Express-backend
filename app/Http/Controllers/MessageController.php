@@ -6,11 +6,15 @@ use App\Actions\AcknowledgeMessages;
 use App\Actions\NotifyOrderParticipants;
 use App\Models\Order;
 use App\Models\OrderMessage;
+use App\Models\User;
 use App\Rules\PlainText;
+use App\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -24,7 +28,7 @@ class MessageController extends Controller
         $order = $orders->first();
         $messages = $order?->messages()->with('user')->latest()->orderByDesc('id')->paginate(30);
 
-        return view('messages.index', compact('orders', 'order', 'messages'));
+        return view('messages.index', [...compact('orders', 'order', 'messages'), 'oversight' => $order ? $this->oversight($request, $order) : null, 'riderFilter' => $this->riderFilter($request)]);
     }
 
     public function show(Request $request, Order $order): View|JsonResponse
@@ -33,10 +37,12 @@ class MessageController extends Controller
 
         $messages = $order->messages()->with('user')->latest()->orderByDesc('id')->paginate(30);
         if ($request->expectsJson()) {
-            return response()->json(['data' => $messages->getCollection()->map(fn ($message) => $message->conversationData()), 'meta' => ['current_page' => $messages->currentPage(), 'last_page' => $messages->lastPage()]]);
+            $admin = $request->user()->role === UserRole::Admin;
+
+            return response()->json(['data' => $messages->getCollection()->map(fn (OrderMessage $message) => [...$message->conversationData(), ...($admin ? ['author' => $this->author($message, $order->rider_id)] : [])]), 'meta' => ['current_page' => $messages->currentPage(), 'last_page' => $messages->lastPage()]]);
         }
 
-        return view('messages.show', ['order' => $order, 'messages' => $messages, 'orders' => $this->conversations($request)]);
+        return view('messages.show', ['order' => $order, 'messages' => $messages, 'orders' => $this->conversations($request), 'oversight' => $this->oversight($request, $order), 'riderFilter' => $this->riderFilter($request)]);
     }
 
     /** @return LengthAwarePaginator<int, Order> */
@@ -48,10 +54,13 @@ class MessageController extends Controller
             ->groupBy('order_id');
 
         // Si ordinano solo gli identificativi; gli ordini completi si caricano per la pagina visualizzata.
+        $rider = $request->user()->role === UserRole::Admin ? $request->query('rider') : null;
         $page = Order::visibleTo($request->user())->joinSub($conversations, 'conversations', 'conversations.order_id', '=', 'orders.id')
+            ->when($rider === 'none', fn ($query) => $query->whereNull('orders.rider_id'))
+            ->when(is_string($rider) && $rider !== 'none', fn ($query) => $query->whereIn('orders.rider_id', User::where('slug', $rider)->select('id')))
             ->select('orders.id', 'conversations.messages_max_created_at', 'conversations.unread_count')
             ->orderByDesc('conversations.messages_max_created_at')->orderByDesc('orders.id')->paginate(15, ['*'], 'conversations_page')->withQueryString();
-        $orders = Order::whereKey($page->getCollection()->modelKeys())->withDisplayIdentity()->with('latestMessage')->get()->keyBy('id');
+        $orders = Order::whereKey($page->getCollection()->modelKeys())->withDisplayIdentity()->with(['latestMessage.user', 'rider'])->get()->keyBy('id');
 
         return $page->setCollection($page->getCollection()->map(fn (Order $row): Order => $orders[$row->id]->setRawAttributes([
             ...$orders[$row->id]->getAttributes(), 'messages_max_created_at' => $row->messages_max_created_at, 'unread_count' => $row->unread_count,
@@ -111,5 +120,65 @@ class MessageController extends Controller
         });
 
         return back()->with('status', $data['action'] === 'renew' ? 'Nuovo link creato. Il precedente non è più valido.' : 'Accesso cliente revocato.');
+    }
+
+    /**
+     * Centro operativo dell'admin: chi ha scritto, quanto risponde il rider e se il cliente è in attesa.
+     *
+     * @return array{rider: ?User, rider_messages: int, admin_messages: int, other_staff_messages: int, customer_messages: int, last_rider_at: ?Carbon, average_reply_minutes: ?int, waiting_since: ?Carbon}|null
+     */
+    private function oversight(Request $request, Order $order): ?array
+    {
+        if ($request->user()->role !== UserRole::Admin) {
+            return null;
+        }
+        $order->loadMissing('rider');
+        $messages = $order->messages()->with('user:id,role')->orderBy('created_at')->orderBy('id')->get(['id', 'user_id', 'created_at']);
+        $replies = [];
+        $pendingCustomerAt = null;
+        foreach ($messages as $message) {
+            if ($message->user_id === null) {
+                $pendingCustomerAt ??= $message->created_at;
+            } elseif ($pendingCustomerAt !== null) {
+                $replies[] = $pendingCustomerAt->diffInMinutes($message->created_at);
+                $pendingCustomerAt = null;
+            }
+        }
+        $staff = $messages->whereNotNull('user_id');
+
+        return [
+            'rider' => $order->rider,
+            'rider_messages' => $order->rider_id ? $staff->where('user_id', $order->rider_id)->count() : 0,
+            'admin_messages' => $staff->filter(fn (OrderMessage $message): bool => $message->user?->role === UserRole::Admin && $message->user_id !== $order->rider_id)->count(),
+            'other_staff_messages' => $staff->filter(fn (OrderMessage $message): bool => $message->user?->role !== UserRole::Admin && $message->user_id !== $order->rider_id)->count(),
+            'customer_messages' => $messages->whereNull('user_id')->count(),
+            'last_rider_at' => $order->rider_id ? $staff->where('user_id', $order->rider_id)->last()?->created_at : null,
+            'average_reply_minutes' => $replies ? (int) round(array_sum($replies) / count($replies)) : null,
+            'waiting_since' => $pendingCustomerAt,
+        ];
+    }
+
+    /**
+     * Rider selezionabili nel filtro dell'admin (null per gli altri ruoli).
+     *
+     * @return array{selected: ?string, riders: Collection<int, User>}|null
+     */
+    private function riderFilter(Request $request): ?array
+    {
+        if ($request->user()->role !== UserRole::Admin) {
+            return null;
+        }
+
+        return ['selected' => is_string($request->query('rider')) ? $request->query('rider') : null, 'riders' => User::where('role', UserRole::Rider)->orderBy('name')->get(['id', 'slug', 'name'])];
+    }
+
+    /** @return array{name: string, role: string, assigned: bool}|null */
+    private function author(OrderMessage $message, ?int $riderId): ?array
+    {
+        if (! $message->user) {
+            return null;
+        }
+
+        return ['name' => $message->user->name, 'role' => $message->user->role === UserRole::Admin ? 'Admin' : 'Rider', 'assigned' => $riderId !== null && $message->user_id === $riderId];
     }
 }

@@ -222,7 +222,9 @@ class Order extends Model
             ->withExists(['payments as unverified_refund_exists' => fn ($payments) => $payments->where('kind', 'refund')->whereDoesntHave('audits', fn ($audit) => $audit->where(fn ($q) => $q->whereIn('action', ['payment.refund_verified', 'payment.refund_disputed'])->orWhere('after->cash_confirmation', 'explicit_payment')))])
             ->withExists(['payments as receipt_review_required' => fn ($payments) => $payments->where('amount_cents', '<', 0)->whereNull('original_entry_id')])
             ->withSum('payments', 'amount_cents')
-            ->withSum('payments as payments_sum_cash_cents', DB::raw(ReceiptLedger::CashExpression));
+            ->withSum('payments as payments_sum_cash_cents', DB::raw(ReceiptLedger::CashExpression))
+            ->withSum('payments as payments_sum_share_cents', DB::raw(ReceiptLedger::ShareExpression))
+            ->withSum('payments as payments_sum_share_cash_cents', DB::raw(ReceiptLedger::ShareCashExpression));
     }
 
     #[Scope]

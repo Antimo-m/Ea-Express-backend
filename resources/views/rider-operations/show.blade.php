@@ -9,7 +9,7 @@
 <x-app-layout :title="$admin ? 'Pagina operativa · '.$rider->name : 'La mia pagina operativa'">
     <div class="rider-page" data-rider-day>
         @if($admin)
-            <nav class="rider-page-back" aria-label="Navigazione pagina"><x-ui.icon-button action="back" label="Torna ai Rider" :href="route('users.index')" text /></nav>
+            <nav class="rider-page-back" aria-label="Navigazione pagina">@php($riderBack = \App\Support\SectionReturn::resolve(request(), route('users.index'), ['users.index', 'rider-operations.index', 'rider-operations.detail', 'rider-operations.zone-orders', 'dashboard', 'balance.index', 'reports.index']))<x-ui.icon-button action="back" :label="str_starts_with($riderBack, route('users.index')) || str_starts_with($riderBack, '/settings/users') ? 'Torna ai Rider' : 'Torna indietro'" :href="$riderBack" text /></nav>
         @endif
         <header class="rider-page-heading">
             <span class="eyebrow">{{ $admin ? 'PAGINA OPERATIVA RIDER' : 'LA MIA PAGINA OPERATIVA' }}</span>

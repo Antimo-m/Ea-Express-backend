@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\SectionReturn;
 use Illuminate\Contracts\Cache\Factory;
 use Illuminate\Http\Request;
 use Illuminate\Session\Middleware\StartSession;
@@ -21,5 +22,9 @@ class PreservePageNavigation extends StartSession
         }
 
         parent::storeCurrentUrl($request, $session);
+        // Ultima pagina principale di sezione aperta, con i suoi filtri: è il contesto dei pulsanti «Torna indietro».
+        if ($request->isMethod('GET') && $request->routeIs(...SectionReturn::Homes)) {
+            $session->put(SectionReturn::SessionKey, substr($request->getRequestUri(), 0, 2000));
+        }
     }
 }

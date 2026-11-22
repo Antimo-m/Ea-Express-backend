@@ -15,7 +15,9 @@ use App\Models\RecipientIncident;
 use App\Models\ShippingPriceProposal;
 use App\Models\ShippingRate;
 use App\Models\User;
+use App\OrderStatus;
 use App\Support\EconomicAuditPresenter;
+use App\Support\SectionReturn;
 use App\UserRole;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -39,6 +41,30 @@ class EconomicAuditController extends Controller
         $entityLabel = ['recipient_incidents' => 'Precedente destinatario', 'users' => 'Rider', 'orders' => 'Spedizione', 'expenses' => 'Spesa', 'pending_accounts' => 'Sospeso', 'pending_settlements' => 'Pagamento', 'payment_entries' => 'Incasso', 'financial_movements' => 'Movimento', 'shipping_rates' => 'Tariffa', 'shipping_price_proposals' => 'Proposta tariffa', 'accounting_controls' => 'Chiusura contabile'][$data['type']];
         $presenter = new EconomicAuditPresenter;
 
-        return view('balance.audit', compact('entries', 'entityLabel', 'presenter'));
+        $returnUrl = SectionReturn::resolve($request, $this->sectionHome($data['type'], $data['id']));
+
+        return view('balance.audit', compact('entries', 'entityLabel', 'presenter', 'returnUrl'));
+    }
+
+    /** Pagina principale della sezione a cui appartiene la risorsa, usata quando manca un contesto di provenienza. */
+    private function sectionHome(string $type, int $id): string
+    {
+        $order = match ($type) {
+            'orders' => Order::find($id),
+            'shipping_price_proposals' => Order::find(ShippingPriceProposal::whereKey($id)->value('order_id')),
+            default => null,
+        };
+        if ($order) {
+            return route(in_array($order->status->value, OrderStatus::closed(), true) ? 'orders.history' : ($order->status === OrderStatus::Received ? 'orders.incoming' : 'orders.in-progress'));
+        }
+
+        return route(match ($type) {
+            'pending_accounts', 'pending_settlements' => 'pending.index',
+            'shipping_rates' => 'rates.index',
+            'users' => 'users.index',
+            'recipient_incidents' => 'recipient-incidents.index',
+            'accounting_controls' => 'settings.index',
+            default => 'balance.index',
+        });
     }
 }

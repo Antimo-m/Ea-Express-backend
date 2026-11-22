@@ -45,7 +45,7 @@ class CorrectPendingSettlement
                 abort_if($order->receiptReversals()->exists() || $order->payments()->where('amount_cents', '<', 0)->exists(), 409, 'Un incasso con storni o ripristini conserva lo storico e non può essere riscritto.');
                 $period->assertOpen($entry->created_at);
                 $entryBefore = $entry->toArray();
-                $entry->ea_amount_cents = app(ShippingEconomics::class)->retainedAmount($order, $amount, $eaAmount);
+                $entry->ea_amount_cents = app(ShippingEconomics::class)->retainedAmount($order, $amount, $eaAmount, $entry->id);
                 $entry->amount_cents = $amount;
                 $entry->cash_amount_cents = $amount;
                 $entry->save();

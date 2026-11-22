@@ -26,6 +26,9 @@ class SendFeedbackReport
         if (! filled($recipient)) {
             return false;
         }
+        // Lo stesso file selezionato due volte viene allegato una sola volta.
+        $attachments = collect($attachments)->filter(fn (UploadedFile $file): bool => $file->isValid())
+            ->unique(fn (UploadedFile $file): string => (string) hash_file('sha256', $file->getRealPath()))->values()->all();
         try {
             Mail::to($recipient)->send(new FeedbackReport($reporter, $source, $data, $attachments));
         } catch (Throwable $exception) {

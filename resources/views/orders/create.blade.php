@@ -128,6 +128,6 @@
         </form>
         <x-ui.modal id="cancel-order" title="Annullare la creazione dell’ordine?" danger>
             <p>I dati inseriti andranno persi.</p>
-            <footer class="modal-actions"><button type="button" class="btn modal-back" data-dialog-close><x-ui.icon name="arrow-left" /> Continua modifica</button><x-ui.icon-button action="delete" href="{{ route('orders.incoming') }}" label="Annulla compilazione" text /></footer>
+            <footer class="modal-actions cancel-order-actions"><button type="button" class="btn modal-back" data-dialog-close><x-ui.icon name="arrow-left" /> Continua modifica</button><x-ui.icon-button action="delete" href="{{ route('orders.incoming') }}" label="Annulla compilazione" text /></footer>
         </x-ui.modal>
     </x-app-layout>

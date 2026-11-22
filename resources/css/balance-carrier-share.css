@@ -1,0 +1,16 @@
+/* Incassi fuori regione: il bilancio mostra il margine, con il dettaglio cliente − vettore. */
+.ea-app .receipt-carrier-breakdown {
+    display: grid;
+    gap: 6px;
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    border: 1px solid var(--ea-border, rgba(15, 23, 42, .1));
+    border-radius: 12px;
+    background: var(--ea-surface-muted, rgba(15, 23, 42, .03));
+}
+.ea-app .receipt-carrier-breakdown div { display: flex; justify-content: space-between; gap: 12px; }
+.ea-app .receipt-carrier-breakdown dt { font-weight: 500; color: var(--ea-muted, #64748b); }
+.ea-app .receipt-carrier-breakdown dd { margin: 0; font-variant-numeric: tabular-nums; }
+.ea-app .receipt-carrier-breakdown div:last-child { padding-top: 6px; border-top: 1px dashed var(--ea-border, rgba(15, 23, 42, .15)); }
+.ea-app .receipt-carrier-breakdown div:last-child :is(dt, dd) { font-weight: 700; color: inherit; }
+.ea-app .register-amount .receipt-carrier-split { display: block; white-space: nowrap; }

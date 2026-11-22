@@ -74,7 +74,7 @@ class BalanceController extends Controller
         $reversed = (clone $orders)->where('status', OrderStatus::Delivered)->whereBetween('receipt_voided_at', $period->utcRange());
         $payments = $this->paymentsQuery($request->user(), $customerIds, $search, $term)->whereBetween('created_at', $period->utcRange());
         $expenses = $this->expensesQuery($request->user(), $customerIds, $search, $term)->whereDate('spent_on', '>=', $start->toDateString())->whereDate('spent_on', '<=', $end->toDateString());
-        $ledgerTotals = app(ReceiptLedger::class)->totals($payments);
+        $ledgerTotals = app(ReceiptLedger::class)->shareTotals($payments);
         $cash = $ledgerTotals['cash'];
         $generalQuery = $this->generalReceiptsQuery($request->user(), $customerIds, $search, $term)->whereBetween('created_at', $period->utcRange());
         $generalReceipts = (int) (clone $generalQuery)->sum('amount_cents');
@@ -87,11 +87,11 @@ class BalanceController extends Controller
             ->toBase()->selectRaw(
                 'COUNT(*) AS delivered_count, COALESCE(SUM(CASE WHEN receipt_voided_at IS NULL THEN 1 ELSE 0 END), 0) AS completed_count, '
                 .'COALESCE(SUM(CASE WHEN receipt_voided_at IS NULL THEN price_cents END), 0) AS earned, '
-                .'COALESCE(SUM(CASE WHEN receipt_voided_at IS NULL AND paid_at IS NULL THEN price_cents END), 0) AS unpaid, '
+                .'COALESCE(SUM(CASE WHEN receipt_voided_at IS NULL AND paid_at IS NULL THEN '.ShippingEconomics::PriceShareExpression.' END), 0) AS unpaid, '
                 .ShippingEconomics::sumColumns('receipt_voided_at IS NULL')
             )->first();
         $receivableIds = (clone $completed)->whereNull('paid_at')->whereNull('receipt_voided_at')->select('id');
-        $outstanding = (int) $delivered->unpaid - app(ReceiptLedger::class)->cash(PaymentEntry::whereIn('order_id', $receivableIds));
+        $outstanding = (int) $delivered->unpaid - app(ReceiptLedger::class)->shareCash(PaymentEntry::whereIn('order_id', $receivableIds));
         $spent = (int) (clone $expenses)->whereNull('voided_at')->sum('amount_cents');
         $manual = $this->manualQuery($request->user(), $customerIds, $search, $term)->whereDate('occurred_on', '>=', $start->toDateString())->whereDate('occurred_on', '<=', $end->toDateString());
         $manualTotals = (clone $manual)->whereNull('voided_at')->selectRaw('kind, SUM(amount_cents) AS cents')->groupBy('kind')->pluck('cents', 'kind');
@@ -153,8 +153,8 @@ class BalanceController extends Controller
         $monetaryPayments = (clone $payments)->where(fn ($q) => $q->whereNull('kind')->orWhere('kind', '!=', 'cash_reconciliation'))
             ->where(fn ($q) => $q->whereNull('kind')->orWhere('kind', '!=', 'refund')->orWhereDoesntHave('audits', fn ($q) => $q->where('action', 'payment.refund_disputed')));
         $monetaryFlows = (clone $monetaryPayments)->toBase()->selectRaw(
-            'COALESCE(SUM(CASE WHEN '.ReceiptLedger::CashExpression.' > 0 THEN '.ReceiptLedger::CashExpression.' ELSE 0 END), 0) AS cash_in, '
-            .'COALESCE(SUM(CASE WHEN '.ReceiptLedger::CashExpression.' < 0 THEN '.ReceiptLedger::CashExpression.' ELSE 0 END), 0) AS cash_out'
+            'COALESCE(SUM(CASE WHEN '.ReceiptLedger::ShareCashExpression.' > 0 THEN '.ReceiptLedger::ShareCashExpression.' ELSE 0 END), 0) AS cash_in, '
+            .'COALESCE(SUM(CASE WHEN '.ReceiptLedger::ShareCashExpression.' < 0 THEN '.ReceiptLedger::ShareCashExpression.' ELSE 0 END), 0) AS cash_out'
         )->first();
         $cashIn = (int) $monetaryFlows->cash_in + $generalReceipts + $manualFlows['manual_in'];
         $cashOut = -(int) $monetaryFlows->cash_out + $spent + $manualFlows['manual_out'];
@@ -226,7 +226,7 @@ class BalanceController extends Controller
     private function flows(Builder $payments, Builder $generalReceipts, Builder $expenses, Builder $manual): array
     {
         return [
-            'receipts' => app(ReceiptLedger::class)->cash($payments) + (int) (clone $generalReceipts)->sum('amount_cents'),
+            'receipts' => app(ReceiptLedger::class)->shareCash($payments) + (int) (clone $generalReceipts)->sum('amount_cents'),
             'expenses' => (int) (clone $expenses)->whereNull('voided_at')->sum('amount_cents'),
             ...$this->manualFlows($manual),
         ];

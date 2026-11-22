@@ -69,7 +69,8 @@ class WorkflowSecurityTest extends TestCase
         $this->postJson($path, [...$data, 'version' => 3])->assertUnprocessable();
         $this->assertDatabaseCount('payment_entries', 1);
         $this->assertSame(600, PaymentEntry::sole()->amount_cents);
-        $this->assertSame(600, PaymentEntry::sole()->ea_amount_cents);
+        // Fuori regione la quota EA-Express è il margine: 6,00 € incassati − 4,00 € di costo vettore.
+        $this->assertSame(200, PaymentEntry::sole()->ea_amount_cents);
         $this->assertSame(400, $order->fresh()->carrier_cost_cents);
     }
 

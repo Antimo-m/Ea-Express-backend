@@ -18,6 +18,7 @@
                         <div><dt>Cliente / riferimento</dt><dd>{{ $movement['customer'] ?? 'Attività generale' }}</dd></div>
                         @if($movement['source'] === 'payment' && $movement['order'])<div><dt>Rider</dt><dd>@php($order = $movement['order'])@include('balance.delivery-rider')</dd></div><div><dt>Tariffa spedizione</dt><dd>{{ $movement['order']->price_cents === null ? 'Non concordata' : \App\Support\Money::format($movement['order']->price_cents) }}</dd></div>@endif<div><dt>Operatore</dt><dd>{{ $movement['operator'] ?? 'Non disponibile' }}</dd></div>
                         <div><dt>Stato</dt><dd>{{ $movement['state'] }}</dd></div>
+                        @if($movement['carrier'] ?? null)<div class="money-detail-wide"><dt>Fuori regione</dt><dd>Pagato dal cliente {{ \App\Support\Money::format($movement['carrier']['customer']) }} · costo vettore {{ \App\Support\Money::format($movement['carrier']['carrier']) }} escluso dal bilancio</dd></div>@endif
                         @if($movement['reason'])<div class="money-detail-wide"><dt>Motivo della differenza</dt><dd>{{ $movement['reason'] }}</dd></div>@endif
                         @if($movement['note'])<div class="money-detail-wide"><dt>Note</dt><dd>{{ $movement['note'] }}</dd></div>@endif
                     </dl>

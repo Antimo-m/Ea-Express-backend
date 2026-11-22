@@ -4,6 +4,17 @@
     <aside class="inbox-sidebar" aria-labelledby="inbox-heading">
         <header class="inbox-sidebar-heading"><h2 id="inbox-heading" tabindex="-1">Conversazioni</h2><span>{{ $orders->total() }}</span></header>
         <label class="directory-search"><x-ui.icon name="search" /><input type="search" data-inbox-search placeholder="Cerca in questa pagina" aria-label="Cerca conversazioni in questa pagina"></label>
+        @if($riderFilter ?? null)
+        <form method="get" action="{{ route('messages.index') }}" class="inbox-rider-filter" data-inbox-rider-filter>
+            <label for="inbox-rider"><x-ui.icon name="bicycle" /> Rider</label>
+            <select id="inbox-rider" name="rider" class="form-select">
+                <option value="">Tutti i rider</option>
+                <option value="none" @selected($riderFilter['selected'] === 'none')>Senza rider assegnato</option>
+                @foreach($riderFilter['riders'] as $filterRider)<option value="{{ $filterRider->slug }}" @selected($riderFilter['selected'] === $filterRider->slug)>{{ $filterRider->name }}</option>@endforeach
+            </select>
+            <button type="submit" class="visually-hidden">Filtra per rider</button>
+        </form>
+        @endif
         <nav class="inbox-filters" aria-label="Filtra conversazioni in questa pagina"><button type="button" data-inbox-filter="all" aria-pressed="true">Tutte</button><button type="button" data-inbox-filter="unread" aria-pressed="false">Da leggere</button></nav>
         <div class="inbox-live-list" data-live-region="conversations" data-current-conversation="{{ $order?->slug }}">
             <div class="inbox-conversations" data-inbox-list data-scroll-key="conversations">

@@ -64,12 +64,13 @@ class FinancialRegister
             'settlement' => $entry->account, 'expense' => $entry->pendingSettlement?->account, default => null,
         };
         $cash = match ($source) {
-            'payment' => $entry->cash_amount_cents ?? $entry->amount_cents,
+            'payment' => ($entry->cash_amount_cents ?? $entry->amount_cents) - $entry->amount_cents + ($entry->ea_amount_cents ?? $entry->amount_cents),
             'expense' => $entry->voided_at ? 0 : -$entry->amount_cents,
             default => $entry->voided_at ? 0 : $entry->amount_cents,
         };
         $economic = match ($source) {
-            'payment', 'settlement' => $entry->amount_cents,
+            'payment' => $entry->ea_amount_cents ?? $entry->amount_cents,
+            'settlement' => $entry->amount_cents,
             'expense' => $cash,
             default => $entry->kind === 'cash' ? 0 : $cash,
         };
@@ -97,6 +98,8 @@ class FinancialRegister
                 default => $cash === 0 ? $economic : $cash,
             },
             'cash' => $cash, 'economic' => $economic, 'reason' => $reason,
+            'carrier' => $source === 'payment' && $entry->ea_amount_cents !== null && $entry->amount_cents > 0 && $entry->amount_cents > $entry->ea_amount_cents
+                ? ['customer' => $entry->cash_amount_cents ?? $entry->amount_cents, 'carrier' => $entry->amount_cents - $entry->ea_amount_cents] : null,
             'operator' => $entry->user?->name, 'note' => $entry->note ?? $entry->notes,
             'state' => $disputedRefund ? 'Rettificato' : ($entry->voided_at ? 'Annullata' : 'Registrato'),
             'audit_type' => $entry->getTable(), 'order' => $order, 'account' => $account,

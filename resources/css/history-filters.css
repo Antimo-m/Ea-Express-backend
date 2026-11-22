@@ -1,0 +1,11 @@
+/*
+ * Storico ordini: cinque filtri principali non entrano accanto a ricerca e azioni, e «Altri filtri» finiva sopra «Cliente».
+ * Da tablet in su: ricerca e azioni sulla prima riga, filtri principali a tutta larghezza sulla seconda (vanno a capo se serve).
+ */
+@media (min-width: 576px) {
+  .ea-app .order-archive .filter-toolbar.filter-toolbar--data { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+  .ea-app .order-archive .filter-toolbar.filter-toolbar--data > .filter-search { grid-column: 1; grid-row: 1; max-width: 520px; width: 100%; }
+  .ea-app .order-archive .filter-toolbar.filter-toolbar--data > .filter-actions { grid-column: 2; grid-row: 1; justify-self: end; }
+  .ea-app .order-archive .filter-toolbar.filter-toolbar--data > .filter-primary { grid-column: 1 / -1; grid-row: 2; flex-wrap: wrap; min-width: 0; }
+  .ea-app .order-archive .filter-toolbar.filter-toolbar--data > .active-filter-chips { grid-column: 1 / -1; }
+}

@@ -92,8 +92,11 @@ if (chat) {
       [...result.data].reverse().forEach(message => {
         const article = document.createElement('article'); article.dataset.messageId = message.slug;
         article.className = `message-bubble ${message.sender === 'team' ? 'message-team' : ''}`;
+        if (message.author) article.classList.toggle(message.author.role === 'Admin' ? 'message-by-admin' : 'message-by-rider', message.author.role === 'Admin' || message.author.assigned);
         const header = document.createElement('header'); header.className = 'message-meta';
-        const author = document.createElement('strong'); author.textContent = message.sender === 'team' ? 'EA-Express' : 'Cliente';
+        const author = document.createElement('strong'); author.textContent = message.author ? message.author.name : message.sender === 'team' ? 'EA-Express' : 'Cliente';
+        // Solo l'admin riceve l'autore: nome e ruolo di chi ha scritto, come nella pagina generata dal server.
+        if (message.author) { const role = document.createElement('span'); role.className = 'message-author-role'; role.textContent = message.author.role === 'Admin' ? 'Admin' : message.author.assigned ? 'Rider assegnato' : 'Rider'; author.append(role); }
         const time = document.createElement('time'); time.dateTime = message.created_at;
         time.textContent = new Date(message.created_at).toLocaleString('it-IT', { timeZone: 'Europe/Rome', dateStyle: 'short', timeStyle: 'short' });
         header.append(author, time);
@@ -186,4 +189,10 @@ window.addEventListener('ea:workspace-updated', async event => {
     updated.querySelectorAll('details').forEach(item => { item.open = open.has(item.dataset.historyUrl); });
   } catch { /* Il prossimo evento o la riconnessione recupererà gli aggiornamenti. */ }
   finally { notificationsRefreshing = false; }
+});
+
+// Centro messaggi dell'admin: il filtro per rider si applica appena cambia la scelta.
+document.addEventListener('change', event => {
+  const select = event.target.closest?.('[data-inbox-rider-filter] select');
+  if (select) select.form.requestSubmit();
 });
