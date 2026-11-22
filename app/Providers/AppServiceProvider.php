@@ -51,6 +51,7 @@ class AppServiceProvider extends ServiceProvider
         }
         RateLimiter::for('profile-update', fn (Request $request) => [Limit::perMinute(5)->by('profile-user:'.$request->user()->id), Limit::perMinute(20)->by('profile-ip:'.$request->ip())]);
         RateLimiter::for('realtime-writes', fn (Request $request) => Limit::perMinute(60)->by('realtime-writes:'.($request->user()?->id ?? $request->ip())));
+        RateLimiter::for('feedback', fn (Request $request) => [Limit::perHour(5)->by('feedback-user:'.($request->user('customer')?->id ?? $request->user()?->id)), Limit::perHour(20)->by('feedback-ip:'.$request->ip())]);
         RateLimiter::for('writes', fn (Request $request) => Limit::perMinute(60)->by('writes:'.($request->user()?->id ?? $request->ip())));
     }
 }

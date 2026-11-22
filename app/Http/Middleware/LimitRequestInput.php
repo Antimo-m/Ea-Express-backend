@@ -13,6 +13,11 @@ class LimitRequestInput
 {
     private const int MaxBodyBytes = 262144;
 
+    /** Uniche rotte che accettano file (allegati della pagina Feedback): 12 MB di allegati più il margine del multipart. */
+    private const array UploadPaths = ['/feedback', '/api/v1/customer/feedback'];
+
+    private const int MaxUploadBodyBytes = 14680064;
+
     public function handle(Request $request, Closure $next): Response
     {
         $this->validatePayload($request);
@@ -23,10 +28,11 @@ class LimitRequestInput
     /** Also called before Laravel decodes JSON during Request::capture(). */
     public function validatePayload(BaseRequest $request): void
     {
-        if ((int) $request->headers->get('Content-Length', 0) > self::MaxBodyBytes || strlen($request->server->get('QUERY_STRING', '')) > 16384) {
+        $acceptsUploads = $request->getRealMethod() === 'POST' && in_array(rtrim($request->getPathInfo(), '/'), self::UploadPaths, true);
+        if ((int) $request->headers->get('Content-Length', 0) > ($acceptsUploads ? self::MaxUploadBodyBytes : self::MaxBodyBytes) || strlen($request->server->get('QUERY_STRING', '')) > 16384) {
             throw new HttpException(413, 'Richiesta troppo grande.');
         }
-        if ($request->files->count() > 0) {
+        if (! $acceptsUploads && $request->files->count() > 0) {
             throw new HttpException(422, 'Il caricamento di file non è supportato.');
         }
         $stream = $request->getContent(true);

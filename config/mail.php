@@ -6,6 +6,9 @@ return [
     /* Promemoria dei ritiri (sera prima e mattina): attivi solo se lo sono anche le email ordine. */
     'pickup_reminders_enabled' => env('PICKUP_REMINDER_MAIL_ENABLED', true),
 
+    /* Indirizzo aziendale che riceve le segnalazioni inviate dalla pagina Feedback (portale e gestionale). */
+    'feedback_address' => env('FEEDBACK_MAIL_TO'),
+
     /*
     |--------------------------------------------------------------------------
     | Default Mailer

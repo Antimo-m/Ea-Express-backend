@@ -19,6 +19,8 @@ import '../css/cards-revision.css';
 import '../css/page-redesign.css';
 import '../css/empty-scene.css';
 import '../css/page-title.css';
+import '../css/feedback.css';
+import './feedback-dropzone';
 import './card-glow';
 import './order-history';
 import '../css/pickup-agenda.css';

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\BookingRulesController;
 use App\Http\Controllers\Api\CustomerAuthController as Auth;
+use App\Http\Controllers\Api\CustomerFeedbackController;
 use App\Http\Controllers\Api\CustomerLabelController;
 use App\Http\Controllers\Api\CustomerMessageController as Messages;
 use App\Http\Controllers\Api\CustomerOrderController as Orders;
@@ -55,6 +56,7 @@ Route::prefix('api/v1/customer')->name('customer.')->middleware('throttle:custom
         Route::get('notifications/feed', [Workspace::class, 'feed']);
         Route::get('notifications/orders/{order}', [Workspace::class, 'history']);
         Route::get('notifications', [Workspace::class, 'notifications']);
+        Route::post('feedback', CustomerFeedbackController::class)->middleware('throttle:feedback')->name('feedback.store');
         Route::patch('orders/{order}/messages/read', [Messages::class, 'read'])->middleware('throttle:realtime-writes');
         Route::middleware('throttle:writes')->group(function (): void {
             Route::post('orders/checkout', [Orders::class, 'review'])->name('checkout');

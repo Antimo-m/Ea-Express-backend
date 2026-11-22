@@ -27,5 +27,6 @@ return [
     'Account e sistema' => [
         ['label' => 'Il mio profilo', 'route' => 'profile.edit', 'icon' => 'person-circle'],
         ['label' => 'Impostazioni', 'route' => 'settings.index', 'icon' => 'sliders2', 'admin' => true],
+        ['label' => 'Feedback e segnalazioni', 'route' => 'feedback.create', 'icon' => 'bug', 'rider' => true],
     ],
 ];

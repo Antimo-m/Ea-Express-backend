@@ -10,6 +10,7 @@ use App\Http\Controllers\CustomerConversationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EconomicAuditController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\FinancialMovementController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
@@ -53,6 +54,8 @@ Route::get('/', function () {
 Route::middleware(['auth', 'auth.session', EnsureStaff::class, EnsureEmailVerified::class])->group(function () {
     Route::get('/realtime/configuration', [RealtimeController::class, 'configuration'])->middleware('throttle:60,1');
     Route::post('/realtime/auth', [RealtimeController::class, 'authenticate'])->middleware('throttle:realtime-writes');
+    Route::get('/feedback', [FeedbackController::class, 'create'])->name('feedback.create');
+    Route::post('/feedback', [FeedbackController::class, 'store'])->middleware('throttle:feedback')->name('feedback.store');
     Route::get('/rider-operations', [RiderOperationsController::class, 'index'])->middleware(EnsureAdmin::class)->name('rider-operations.index');
     Route::get('/rider-operations/feed', [RiderOperationsController::class, 'feed'])->middleware([EnsureAdmin::class, 'throttle:60,1'])->name('rider-operations.feed');
     Route::get('/rider-operations/zone-orders', [RiderOperationsController::class, 'zoneOrders'])->middleware([EnsureAdmin::class, 'throttle:60,1'])->name('rider-operations.zone-orders');
