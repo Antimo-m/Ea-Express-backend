@@ -82,6 +82,7 @@ class RecipientDetailTest extends TestCase
             $this->assertSame(0, $xpath->query('.//footer/button[@data-dialog-close]', $dialog)->length);
             $this->assertSame(1, $xpath->query('.//footer/button[@type="submit"][@name="action"][@value="correct"][contains(@class, "action-confirm")]', $dialog)->length);
             $this->assertSame(1, $xpath->query('.//footer/button[@type="submit"][@name="action"][@value="dismiss"][@data-confirm="Rimuovi segnalazione"][contains(@class, "action-delete")]', $dialog)->length);
+            $this->assertSame(1, $xpath->query('.//footer/button[@value="dismiss"][@aria-label="Rimuovi segnalazione"][not(contains(@class, "action-with-text"))][count(span) = 1][span[@class="action-icon"]]', $dialog)->length, 'Rimuovi segnalazione mostra soltanto l’icona');
             $this->assertSame(1, $xpath->query('.//header/button[@data-dialog-close]', $dialog)->length);
         }
     }

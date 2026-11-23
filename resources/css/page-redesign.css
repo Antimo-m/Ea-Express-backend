@@ -425,3 +425,14 @@ dialog[id^="pending-history-"] .history-summary { display: flex; flex-wrap: wrap
   .settlement-actions { grid-column: 1 / -1; padding-top: 10px; border-top: 1px solid var(--ea-line); }
 }
 @media (max-width: 767.98px) { .report-filters > .filter-actions { justify-self: end; justify-content: flex-end !important; gap: 10px; inline-size: auto !important; } }
+
+/* Destinatari non affidabili: le sezioni ricevono l'ombra delle card (cards-revision.css), quindi servono anche
+   bordo, angoli e respiro interno come nella scheda Rider; senza, l'ombra appariva tagliata ai lati. */
+.recipient-profile > .profile-section {
+  margin-top: 16px; padding: 18px 20px; border: 1px solid var(--ea-line); border-radius: 18px; background: var(--ea-surface); overflow-wrap: anywhere;
+}
+.recipient-profile > .profile-section + .profile-section { margin-top: 14px; }
+.recipient-profile > .profile-section > header { margin-bottom: 14px; }
+.recipient-profile > .profile-section .profile-facts { margin: 0; }
+.recipient-profile > .profile-footnote { margin-top: 16px; }
+@media (max-width: 575px) { .recipient-profile > .profile-section { padding: 16px; } }

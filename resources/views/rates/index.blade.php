@@ -41,10 +41,10 @@
                 <x-ui.field name="delivery_days_min" label="Giorni lavorativi minimi dal ritiro" type="number" min="1" max="365"/>
                 <x-ui.field name="delivery_days_max" label="Giorni lavorativi massimi dal ritiro" type="number" min="1" max="365" data-required-when="delivery_days_min"/>
                 </div>
-                <x-ui.field name="city" id="rate-city" label="Località" maxlength="100" help="Usa il nome ufficiale del comune. Se omonimo, specifica la provincia: es. Samone (TO)." required/>
+                <x-ui.field name="city" id="rate-city" label="Comune" maxlength="100" help="Usa il nome ufficiale del comune. Se omonimo, specifica la provincia: es. Samone (TO). Per una frazione scrivi qui il comune di appartenenza." required/>
                 <x-ui.field name="area" id="rate-area" label="Area" maxlength="100"/>
                 <x-ui.field name="postal_code" id="rate-postal" label="CAP" maxlength="700" help="Se il comune ha più CAP, separali con una virgola. Lascia vuoto per tutti i CAP verificati del comune."/>
-                <input type="hidden" name="zone"/>
+                <x-ui.field name="zone" id="rate-zone" label="Zona / frazione (facoltativa)" maxlength="100" help="Solo per una tariffa diversa in una frazione con CAP proprio (es. Lanzara, comune Castel San Giorgio): indica anche il CAP della frazione."/>
                 <input type="hidden" name="street"/>
                 <x-ui.field name="price" id="rate-price" label="Costo spedizione (€)" inputmode="decimal" pattern="[0-9]{1,6}([.,][0-9]{1,2})?" required/>
                 <div class="rate-timing-actions"><x-ui.field name="delivery_time" id="rate-time" label="Tempi di consegna" maxlength="100"/><x-ui.icon-button action="history" label="Cronologia modifiche" data-editor-history hidden text /></div>

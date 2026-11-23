@@ -1,0 +1,73 @@
+/* Checkout del gestionale: stessa composizione del portale clienti (dettagli a sinistra, riepilogo economico a destra). */
+.ea-app .checkout-v2 { width: 100%; padding: 0; margin: 0 0 24px; overflow: hidden; border: 1px solid var(--ea-line); border-radius: var(--ea-radius-card); background: var(--ea-surface); color: var(--ea-ink); }
+.ea-app .checkout-v2 .checkout-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; padding: 26px 28px; border-bottom: 1px solid var(--ea-line); }
+.ea-app .checkout-v2 .checkout-heading > div { flex: 1 1 260px; min-width: 0; }
+.ea-app .checkout-v2 .checkout-heading .eyebrow { display: block; margin: 0 0 6px; }
+.ea-app .checkout-v2 .checkout-heading h2 { margin: 0 0 6px; font-size: clamp(1.35rem, 2vw, 1.8rem); line-height: 1.2; }
+.ea-app .checkout-v2 .checkout-heading p:last-child { margin: 0; color: var(--ea-muted); font-size: .9375rem; }
+.ea-app .checkout-seal { display: grid; place-items: center; flex-shrink: 0; width: 48px; height: 48px; border-radius: 16px; background: var(--ea-orange-soft); color: var(--ea-brand); font-size: 22px; }
+.ea-app .checkout-verified { display: flex; align-items: center; gap: 7px; color: var(--ea-success); font-size: .8125rem; font-weight: 600; }
+.ea-app .checkout-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 350px); }
+.ea-app .checkout-details { min-width: 0; }
+.ea-app .checkout-section { padding: 24px 28px; }
+.ea-app .checkout-section + .checkout-section { border-top: 1px solid var(--ea-line); }
+.ea-app .checkout-section-title { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+.ea-app .checkout-section-title > span { color: var(--ea-brand); font: 500 .75rem var(--ea-font-mono); }
+.ea-app .checkout-section-title h3 { margin: 0; font-size: 1.0625rem; }
+.ea-app .checkout-addresses { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); gap: 16px; align-items: start; }
+.ea-app .checkout-address { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-width: 0; overflow-wrap: anywhere; }
+.ea-app h4.checkout-caption { display: flex; gap: 6px; align-items: center; margin: 0; color: var(--ea-muted); font: 500 .65rem var(--ea-font-mono); letter-spacing: .05em; text-transform: uppercase; }
+.ea-app .checkout-route-arrow { align-self: center; display: grid; place-items: center; color: var(--ea-brand); }
+.ea-app .checkout-v2 .key-values { display: grid; gap: 8px; margin: 0; min-width: 0; }
+.ea-app .checkout-v2 .key-values > div { display: grid; grid-template-columns: minmax(104px, 40%) minmax(0, 1fr); gap: 12px; align-items: baseline; min-width: 0; }
+.ea-app .checkout-v2 .key-values dt { margin: 0; color: var(--ea-muted); font-size: .8125rem; font-weight: 500; line-height: 1.35; }
+.ea-app .checkout-v2 .key-values dd { margin: 0; color: var(--ea-ink); font-size: .9375rem; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+@media (min-width: 768px) { .ea-app .checkout-v2 .key-values.checkout-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; } }
+.ea-app .checkout-instructions { display: flex; gap: 10px; margin-top: 20px; padding: 14px 16px; border-radius: 14px; background: var(--ea-surface-muted); font-size: .875rem; }
+.ea-app .checkout-instructions > .bi { color: var(--ea-info); flex-shrink: 0; margin-top: 2px; }
+.ea-app .checkout-instructions > div { min-width: 0; }
+.ea-app .checkout-instructions p { margin: 4px 0 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.ea-app .checkout-summary { display: flex; flex-direction: column; min-width: 0; padding: 28px 24px; background: var(--ea-surface-muted); border-left: 1px solid var(--ea-line); }
+.ea-app .checkout-summary > .eyebrow { display: block; margin: 0 0 6px; }
+.ea-app .checkout-summary h3 { font-size: 1.1875rem; margin: 0 0 20px; }
+.ea-app .checkout-v2 .checkout-amounts { display: grid; padding: 0; margin: 0; background: transparent; border: 0; gap: 0; }
+.ea-app .checkout-v2 .checkout-amounts > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px 0; border: 0; }
+.ea-app .checkout-v2 .checkout-amounts dt { font-size: .875rem; font-weight: 400; color: var(--ea-muted); }
+.ea-app .checkout-v2 .checkout-amounts dd { margin: 0; font: 500 .9375rem var(--ea-font-mono); color: var(--ea-ink); white-space: nowrap; }
+.ea-app .checkout-v2 .checkout-amounts .checkout-total { margin-top: 12px; padding: 20px 0 16px; border-top: 1px solid var(--ea-line); }
+.ea-app .checkout-v2 .checkout-total dt { font-weight: 700; font-size: 1rem; color: var(--ea-ink); }
+.ea-app .checkout-v2 .checkout-total dd { font: 600 clamp(1.35rem, 2vw, 1.75rem) var(--ea-font-display); letter-spacing: -.04em; }
+.ea-app .checkout-v2 .checkout-total-note { margin: 0 0 20px; color: var(--ea-muted); font-size: .8125rem; line-height: 1.5; }
+.ea-app .checkout-assurance { display: flex; gap: 8px; padding-top: 18px; border-top: 1px solid var(--ea-line); }
+.ea-app .checkout-assurance > .bi { flex-shrink: 0; margin-top: 1px; color: var(--ea-success); }
+.ea-app .checkout-assurance p, .ea-app .checkout-v2 .checkout-rate-note { margin: 0; color: var(--ea-muted); font-size: .8125rem; line-height: 1.5; }
+.ea-app .checkout-v2 .checkout-rate-note { margin-top: 12px; }
+.ea-app .checkout-v2 .checkout-unavailable { margin: 16px 0 0; }
+
+/* Azioni: indietro e conferma partono dal margine sinistro, la conferma mantiene la propria larghezza. */
+.ea-app .checkout-v2 .checkout-actions { display: flex !important; flex-flow: row nowrap; justify-content: flex-start !important; align-items: center; gap: 12px; width: 100%; margin: 0; margin-top: auto; padding-top: 24px; }
+.ea-app .checkout-v2 .checkout-actions > form { display: flex; width: auto !important; margin: 0 !important; }
+.ea-app .checkout-v2 .checkout-actions .button-back { flex: 0 0 auto; }
+.ea-app .checkout-v2 .checkout-actions .checkout-continue {
+  display: inline-flex !important; align-items: center; justify-content: center; gap: 8px; width: auto !important; min-height: 46px; padding: 0 18px;
+  border: 1px solid var(--ea-success); border-radius: var(--ea-radius-button); background: var(--ea-success); color: var(--ea-on-color); font-size: .9375rem; font-weight: 600; white-space: nowrap;
+}
+.ea-app .checkout-v2 .checkout-actions .checkout-continue:hover { background: color-mix(in srgb, var(--ea-success) 85%, var(--ea-ink)); border-color: var(--ea-success); color: var(--ea-on-color); }
+.ea-app .checkout-v2 .checkout-actions .checkout-continue:focus-visible { outline: 3px solid var(--ea-focus); outline-offset: 2px; }
+
+@media (max-width: 1100px) {
+  .ea-app .checkout-layout { grid-template-columns: minmax(0, 1fr); }
+  .ea-app .checkout-summary { border-left: 0; border-top: 1px solid var(--ea-line); }
+}
+@media (min-width: 1440px) { .ea-app .checkout-layout { grid-template-columns: minmax(0, 1fr) 360px; } }
+@media (max-width: 575px) {
+  .ea-app .checkout-v2 .checkout-heading { align-items: flex-start; padding: 20px; gap: 12px; }
+  .ea-app .checkout-v2 .checkout-heading > div { flex-basis: calc(100% - 60px); }
+  .ea-app .checkout-verified { padding-left: 60px; }
+  .ea-app .checkout-section, .ea-app .checkout-summary { padding: 20px; }
+  .ea-app .checkout-addresses { grid-template-columns: minmax(0, 1fr); }
+  .ea-app .checkout-route-arrow { display: none; }
+  .ea-app .checkout-address + .checkout-route-arrow + .checkout-address { padding-top: 16px; border-top: 1px solid var(--ea-line); }
+  .ea-app .checkout-v2 .checkout-actions { padding-bottom: env(safe-area-inset-bottom); }
+  .ea-app .checkout-v2 .checkout-actions .checkout-continue { padding-inline: 14px; white-space: normal; text-align: center; }
+}

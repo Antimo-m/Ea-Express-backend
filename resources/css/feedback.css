@@ -85,3 +85,8 @@
   .feedback-form, .feedback-file, .feedback-dropzone-preview, .feedback-sent, .feedback-sent-icon, .feedback-dropzone-icon { animation: none !important; }
   .feedback-category span, .feedback-category span i, .feedback-dropzone { transition: none; }
 }
+
+/* Segnaposto mentre l'anteprima reale viene preparata: resta secondario e non sostituisce l'immagine. */
+.feedback-file-icon.is-loading { color: var(--ea-muted); animation: feedback-preview-wait 1.1s ease-in-out infinite alternate; }
+@keyframes feedback-preview-wait { from { opacity: .55; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .feedback-file-icon.is-loading { animation: none; } }

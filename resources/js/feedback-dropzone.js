@@ -25,17 +25,33 @@ function bindFeedbackForm(form) {
     const title = zone.querySelector('[data-feedback-title]');
     const hint = zone.querySelector('[data-feedback-hint]');
     const iconName = file => /pdf$/i.test(file.name) ? 'file-earmark-pdf' : /\.txt$/i.test(file.name) ? 'file-earmark-text' : 'file-earmark-image';
+    const icon = (file, className, name = iconName(file)) => {
+        const node = document.createElement('span');
+        node.className = `${className} feedback-file-icon`; node.setAttribute('aria-hidden', 'true');
+        node.innerHTML = `<i class="bi bi-${name}"></i>`;
+        return node;
+    };
+    // Anteprime come URL data: — la Content-Security-Policy consente img-src 'self' data:, non blob:.
+    const readPreview = file => new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(typeof reader.result === 'string' && reader.result.startsWith('data:image/') ? reader.result : null);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+    });
     const thumb = (file, className) => {
-        if (file.type.startsWith('image/') && !/heic/i.test(file.type)) {
-            if (!previews.has(file)) previews.set(file, URL.createObjectURL(file));
+        if (!file.type.startsWith('image/') || /heic|heif/i.test(file.type)) return icon(file, className);
+        if (!previews.has(file)) previews.set(file, readPreview(file));
+        // Segnaposto finché l'immagine reale non è pronta, poi sostituito dall'anteprima (o dall'icona se illeggibile).
+        const placeholder = icon(file, className, 'image');
+        placeholder.classList.add('is-loading');
+        previews.get(file).then(url => {
+            if (!placeholder.isConnected) return;
+            if (!url) { placeholder.replaceWith(icon(file, className)); return; }
             const image = document.createElement('img');
-            image.src = previews.get(file); image.alt = ''; image.className = className;
-            return image;
-        }
-        const icon = document.createElement('span');
-        icon.className = `${className} feedback-file-icon`; icon.setAttribute('aria-hidden', 'true');
-        icon.innerHTML = `<i class="bi bi-${iconName(file)}"></i>`;
-        return icon;
+            image.src = url; image.alt = ''; image.className = className;
+            placeholder.replaceWith(image);
+        });
+        return placeholder;
     };
     const removeButton = file => {
         const remove = document.createElement('button');
@@ -44,7 +60,7 @@ function bindFeedbackForm(form) {
         remove.innerHTML = '<span class="action-icon" aria-hidden="true"><i class="bi bi-x-lg"></i></span>';
         remove.addEventListener('click', event => {
             event.preventDefault(); event.stopPropagation();
-            URL.revokeObjectURL(previews.get(file) || ''); previews.delete(file);
+            previews.delete(file);
             files = files.filter(candidate => candidate !== file); showError(''); sync(); input.focus();
         });
         return remove;

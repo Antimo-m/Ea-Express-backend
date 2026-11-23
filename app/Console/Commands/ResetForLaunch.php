@@ -32,7 +32,8 @@ class ResetForLaunch extends Command
 
     public function handle(): int
     {
-        $tables = array_map(fn ($table): string => is_array($table) ? $table['name'] : (string) $table, Schema::getTables());
+        // Solo le tabelle del database dell'applicazione: su MySQL getTables() senza schema elenca ogni database visibile.
+        $tables = array_map(fn ($table): string => is_array($table) ? $table['name'] : (string) $table, Schema::getTables(Schema::getCurrentSchemaName()));
         $unknown = array_diff($tables, self::Kept, self::Cleared);
         if ($unknown !== []) {
             $this->error('Tabelle non previste, nessun dato modificato: '.implode(', ', $unknown));

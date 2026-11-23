@@ -50,6 +50,10 @@ class ReviseShippingRate
                 }
             }
             $data['city_key'] = ShippingQuote::cityKey($data['city']);
+            // Una tariffa di zona viene scelta dal CAP della consegna: senza CAP non sarebbe mai applicabile.
+            if (! $data['is_default'] && ! empty($data['zone']) && empty($data['postal_codes']) && empty($data['postal_code'])) {
+                throw ValidationException::withMessages(['zone' => 'Per una zona o frazione indica anche il suo CAP: la tariffa di zona viene riconosciuta dal CAP di consegna.']);
+            }
             if (! $data['is_default'] && ($territoryChanged || (($data['active'] ?? true) && ($rate?->territory_review_required || ! $rate?->active)))) {
                 $places = app(PostalCodeResolver::class)->places($data['city']);
                 $selectedCodes = ($data['postal_codes'] ?? []) ?: (! empty($data['postal_code']) ? [$data['postal_code']] : []);

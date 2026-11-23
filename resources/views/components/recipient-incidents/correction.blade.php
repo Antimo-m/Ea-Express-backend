@@ -13,7 +13,7 @@
         <x-ui.field :id="$id.'-reason'" name="correction_reason" label="Motivo della rettifica / rimozione" :value="old('dialog_id') === $id ? old('correction_reason') : ''" maxlength="500" required />
         <footer class="modal-actions">
             <x-ui.icon-button type="submit" action="confirm" label="Salva rettifica" name="action" value="correct" text />
-            <x-ui.icon-button type="submit" action="delete" label="Rimuovi segnalazione" name="action" value="dismiss" formnovalidate data-confirm="Rimuovi segnalazione" :data-confirm-name="$incident->recipient['recipient_name']" text />
+            <x-ui.icon-button type="submit" action="delete" icon="person-check" label="Rimuovi segnalazione" name="action" value="dismiss" formnovalidate data-confirm="Rimuovi segnalazione" :data-confirm-name="$incident->recipient['recipient_name']" />
         </footer>
     </form>
 </x-ui.action-dialog>
