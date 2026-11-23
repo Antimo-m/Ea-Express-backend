@@ -44,13 +44,14 @@
 .ea-app .checkout-v2 .checkout-rate-note { margin-top: 12px; }
 .ea-app .checkout-v2 .checkout-unavailable { margin: 16px 0 0; }
 
-/* Azioni: indietro e conferma partono dal margine sinistro, la conferma mantiene la propria larghezza. */
-.ea-app .checkout-v2 .checkout-actions { display: flex !important; flex-flow: row nowrap; justify-content: flex-start !important; align-items: center; gap: 12px; width: 100%; margin: 0; margin-top: auto; padding-top: 24px; }
+/* Azioni: freccia indietro sul margine sinistro, conferma (solo spunta) sul margine destro, stessa misura e stessa riga. */
+.ea-app .checkout-v2 .checkout-actions { display: flex !important; flex-flow: row nowrap !important; justify-content: space-between !important; align-items: center; gap: 12px; width: 100%; margin: 0; margin-top: auto; padding-top: 24px; }
 .ea-app .checkout-v2 .checkout-actions > form { display: flex; width: auto !important; margin: 0 !important; }
+.ea-app .checkout-v2 .checkout-actions > form:last-child { margin-inline-start: auto !important; }
 .ea-app .checkout-v2 .checkout-actions .button-back { flex: 0 0 auto; }
 .ea-app .checkout-v2 .checkout-actions .checkout-continue {
-  display: inline-flex !important; align-items: center; justify-content: center; gap: 8px; width: auto !important; min-height: 46px; padding: 0 18px;
-  border: 1px solid var(--ea-success); border-radius: var(--ea-radius-button); background: var(--ea-success); color: var(--ea-on-color); font-size: .9375rem; font-weight: 600; white-space: nowrap;
+  display: inline-grid !important; place-items: center; box-sizing: border-box; inline-size: 44px; block-size: 44px; width: 44px !important; height: 44px !important; min-width: 44px !important; min-height: 44px !important; padding: 0 !important;
+  border: 1px solid var(--ea-success); border-radius: 50%; background: var(--ea-success); color: var(--ea-on-color); font-size: 1.25rem;
 }
 .ea-app .checkout-v2 .checkout-actions .checkout-continue:hover { background: color-mix(in srgb, var(--ea-success) 85%, var(--ea-ink)); border-color: var(--ea-success); color: var(--ea-on-color); }
 .ea-app .checkout-v2 .checkout-actions .checkout-continue:focus-visible { outline: 3px solid var(--ea-focus); outline-offset: 2px; }
@@ -69,5 +70,4 @@
   .ea-app .checkout-route-arrow { display: none; }
   .ea-app .checkout-address + .checkout-route-arrow + .checkout-address { padding-top: 16px; border-top: 1px solid var(--ea-line); }
   .ea-app .checkout-v2 .checkout-actions { padding-bottom: env(safe-area-inset-bottom); }
-  .ea-app .checkout-v2 .checkout-actions .checkout-continue { padding-inline: 14px; white-space: normal; text-align: center; }
 }

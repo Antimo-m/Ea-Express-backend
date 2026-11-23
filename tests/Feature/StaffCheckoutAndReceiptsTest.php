@@ -33,7 +33,7 @@ class StaffCheckoutAndReceiptsTest extends TestCase
         $this->actingAs($rider);
         $review = $this->post('/orders', $this->payload())->assertOk()->assertViewIs('orders.checkout')->assertSee('Conferma e crea ritiro')
             ->assertSeeInOrder(['Tutto pronto per partire.', 'Mittente e destinatario', 'Privato', 'Campania', 'Il ritiro', 'Cosa spediamo', 'Riepilogo economico', '€ 50,00', '€ 5,00', 'Totale finale', '€ 55,00'])
-            ->assertSee('data-prevent-repeat', false)->viewData('review');
+            ->assertSee('data-prevent-repeat', false)->assertSee('aria-label="Conferma e crea ritiro"', false)->assertDontSee('</x-ui.icon> Conferma e crea ritiro', false)->viewData('review');
         $this->assertDatabaseCount('orders', 0);
         $this->post('/orders/checkout/edit', $review['data'])->assertRedirect('/orders/create')->assertSessionHasInput('parcel_value', '50');
         $data = [...$review['data'], 'checkout_token' => $review['checkout_token']];

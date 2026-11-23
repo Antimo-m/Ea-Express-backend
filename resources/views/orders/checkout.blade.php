@@ -61,7 +61,7 @@
                     <form method="post" action="{{ route('orders.store') }}" data-prevent-repeat>@csrf
                         <x-orders.checkout-fields :data="$data" />
                         <input type="hidden" name="checkout_token" value="{{ $review['checkout_token'] }}">
-                        <button type="submit" class="btn checkout-continue"><x-ui.icon name="check2" /> Conferma e crea ritiro</button>
+                        <button type="submit" class="btn checkout-continue" aria-label="Conferma e crea ritiro" title="Conferma e crea ritiro" data-tooltip="Conferma e crea ritiro"><x-ui.icon name="check2" /></button>
                     </form>
                     @endif
                 </footer>
