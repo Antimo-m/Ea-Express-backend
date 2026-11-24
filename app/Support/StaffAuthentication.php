@@ -93,6 +93,7 @@ class StaffAuthentication
         $request->session()->forget(['staff_authentication.started_at', 'staff_authentication.remember']);
         app(StaffDeviceProof::class)->issue($user);
         app(TrustedRiderDevices::class)->issue($request, $user);
+        app(StaffGatePass::class)->issue();
     }
 
     public function invalidateChallenge(Request $request): void

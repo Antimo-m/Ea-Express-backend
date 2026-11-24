@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\Cookie;
  * Pass del cancello NGINX del gestionale: mostra solo il login, non autentica nessuno.
  *
  * NGINX confronta il cookie in chiaro, perciò è escluso dalla cifratura (vedi bootstrap/app.php).
- * Si consegna soltanto dopo un'attivazione riuscita; senza valore configurato non si emette nulla.
+ * Si consegna soltanto dopo un'attivazione riuscita e si rinnova a ogni accesso staff completato;
+ * senza valore configurato non si emette nulla.
  */
 class StaffGatePass
 {
