@@ -32,7 +32,7 @@ class AccessGateController extends Controller
         }
         $timeout = $guard->recordDenial($request, 'gate', networkOnly: true);
 
-        return $timeout > 0 ? $guard->timeoutResponse($request, $timeout) : $guard->deniedResponse($request, blocked: true);
+        return $timeout > 0 ? $guard->timeoutResponse($request, $timeout, networkOnly: true) : $guard->deniedResponse($request, blocked: true);
     }
 
     private function isSubresource(Request $request): bool

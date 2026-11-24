@@ -12,6 +12,7 @@ use App\Http\Middleware\TrustAuthenticationProxies;
 use App\Support\AccessGuard;
 use App\Support\CanonicalUrl;
 use App\Support\SecurityEvent;
+use App\Support\StaffGatePass;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -43,6 +44,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->replace(TrustProxies::class, TrustAuthenticationProxies::class);
         $middleware->trustHosts(at: fn (): array => CanonicalUrl::trustedHostPatterns(), subdomains: false);
         $middleware->prepend([LimitRequestInput::class, SecurityHeaders::class]);
+        $middleware->encryptCookies(except: [StaffGatePass::CookieName]);
         $middleware->trimStrings(except: ['price', 'parcel_value', 'carrier_cost', 'amount']);
         $middleware->web(append: [EnsureAccountSessionVersion::class, EnsureActiveAccount::class, EnsureStaffAuthentication::class, EnforceAccessTimeout::class], replace: [StartSession::class => PreservePageNavigation::class]);
         $middleware->prependToPriorityList(AuthenticatesRequests::class, EnsureStaffAuthentication::class);

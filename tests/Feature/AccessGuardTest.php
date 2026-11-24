@@ -5,18 +5,26 @@ namespace Tests\Feature;
 use App\Models\Order;
 use App\Models\User;
 use App\UserRole;
+use Illuminate\Cache\ArrayStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Psr\Log\AbstractLogger;
 use Tests\TestCase;
 
 /**
- * Cancello e pause di sicurezza: 5 accessi negati in 2 minuti → 5 minuti, poi 15, poi 30 al massimo.
+ * Cancello e pause di sicurezza: 6 accessi negati in 2 minuti → pausa di 10 minuti.
  * Contano solo i dinieghi di autorizzazione, non i normali 404, e la pausa colpisce soltanto chi insiste.
  */
 class AccessGuardTest extends TestCase
 {
     use RefreshDatabase;
+
+    private const string SuspendedMessage = 'Il tuo account è stato sospeso per 10 minuti per troppi tentativi errati, ritorna tra poco.';
+
+    private const string NetworkSuspendedMessage = 'L’accesso è stato sospeso per 10 minuti per troppi tentativi errati, ritorna tra poco.';
+
+    private const string InviteMessage = 'Per entrare apri il link d’invito completo che hai ricevuto.';
 
     public function test_denied_page_is_neutral_and_does_not_reveal_roles_or_permissions(): void
     {
@@ -28,43 +36,62 @@ class AccessGuardTest extends TestCase
         $this->getJson('/settings/users')->assertForbidden()->assertExactJson(['message' => 'Non è possibile completare la richiesta.']);
     }
 
-    public function test_repeated_denials_pause_the_account_with_escalating_timeouts(): void
+    public function test_six_denials_within_two_minutes_pause_the_account_for_ten_minutes(): void
     {
         $rider = User::factory()->create();
         $this->actingAs($rider);
-        foreach (range(1, 4) as $attempt) {
+        foreach (range(1, 5) as $attempt) {
             $this->get('/settings/users')->assertForbidden();
         }
         $this->get('/dashboard')->assertOk();
-        $this->get('/settings/users')->assertStatus(429)->assertHeader('Retry-After', '300')->assertSee('Accesso momentaneamente sospeso')->assertSee('5 minuti');
-        $this->get('/dashboard')->assertStatus(429);
-        $this->getJson('/notifications/feed')->assertStatus(429)->assertJsonPath('retry_after', fn (int $seconds): bool => $seconds > 0 && $seconds <= 300);
+        $this->get('/settings/users')->assertStatus(429)->assertHeader('Retry-After', '600')->assertSee('Accesso momentaneamente sospeso')->assertSee(self::SuspendedMessage);
+        $this->get('/dashboard')->assertStatus(429)->assertSee(self::SuspendedMessage);
+        $this->getJson('/notifications/feed')->assertStatus(429)->assertJsonPath('message', self::SuspendedMessage)->assertJsonPath('code', 'access_suspended')
+            ->assertJsonPath('retry_after', fn (int $seconds): bool => $seconds > 0 && $seconds <= 600);
 
-        $this->travel(301)->seconds();
+        $this->travel(601)->seconds();
         $this->get('/dashboard')->assertOk();
         foreach (range(1, 5) as $attempt) {
-            $response = $this->get('/settings/users');
+            $this->get('/settings/users')->assertForbidden();
         }
-        $response->assertStatus(429)->assertHeader('Retry-After', '900');
+        $this->get('/settings/users')->assertStatus(429)->assertHeader('Retry-After', '600');
+    }
 
-        $this->travel(901)->seconds();
-        foreach (range(1, 5) as $attempt) {
-            $response = $this->get('/settings/users');
-        }
-        $response->assertStatus(429)->assertHeader('Retry-After', '1800');
+    public function test_pause_stays_active_when_the_cache_returns_numbers_as_text_like_redis(): void
+    {
+        Cache::extend('numbers-as-text', fn () => Cache::repository(new class extends ArrayStore
+        {
+            public function get($key): mixed
+            {
+                $value = parent::get($key);
 
-        $this->travel(1801)->seconds();
+                return is_int($value) ? (string) $value : $value;
+            }
+        }));
+        config(['cache.stores.numbers-as-text' => ['driver' => 'numbers-as-text'], 'cache.default' => 'numbers-as-text']);
+        $rider = User::factory()->create();
+        $gate = fn () => $this->withServerVariables(['EA_ACCESS_GATE' => 'app.ea-express.it', 'REMOTE_ADDR' => '203.0.113.50'])->get('/accesso-negato');
+
         foreach (range(1, 5) as $attempt) {
-            $response = $this->get('/settings/users');
+            $gate()->assertForbidden();
         }
-        $response->assertStatus(429)->assertHeader('Retry-After', '1800');
+        $gate()->assertStatus(429);
+        $gate()->assertStatus(429);
+        $this->travel(601)->seconds();
+        $gate()->assertForbidden();
+
+        $this->actingAs($rider);
+        foreach (range(1, 6) as $attempt) {
+            $this->get('/settings/users');
+        }
+        $this->get('/dashboard')->assertStatus(429);
     }
 
     public function test_slow_or_ordinary_navigation_errors_never_trigger_a_pause(): void
     {
         $rider = User::factory()->create();
         $this->actingAs($rider);
-        foreach (range(1, 4) as $attempt) {
+        foreach (range(1, 5) as $attempt) {
             $this->get('/settings/users')->assertForbidden();
         }
         $this->travel(121)->seconds();
@@ -80,7 +107,7 @@ class AccessGuardTest extends TestCase
         $rider = User::factory()->create();
         $colleague = User::factory()->create();
         $this->actingAs($rider);
-        foreach (range(1, 5) as $attempt) {
+        foreach (range(1, 6) as $attempt) {
             $this->get('/settings/users');
         }
         $this->get('/dashboard')->assertStatus(429);
@@ -98,11 +125,11 @@ class AccessGuardTest extends TestCase
         $own = Order::factory()->create(['customer_id' => $customer->id]);
 
         $this->actingAs($customer, 'customer');
-        foreach (range(1, 4) as $attempt) {
+        foreach (range(1, 5) as $attempt) {
             $this->getJson('/api/v1/customer/orders/'.$foreign->slug)->assertNotFound()->assertExactJson(['message' => 'Risorsa non disponibile.']);
         }
         $this->getJson('/api/v1/customer/orders/'.$own->slug)->assertOk();
-        $this->getJson('/api/v1/customer/orders/'.$foreign->slug)->assertStatus(429)->assertJsonPath('retry_after', 300)->assertJsonStructure(['message', 'retry_after']);
+        $this->getJson('/api/v1/customer/orders/'.$foreign->slug)->assertStatus(429)->assertJsonPath('retry_after', 600)->assertJsonPath('message', self::SuspendedMessage)->assertJsonPath('code', 'access_suspended');
         $this->getJson('/api/v1/customer/orders/'.$own->slug)->assertStatus(429);
 
         $this->actingAs($other, 'customer')->getJson('/api/v1/customer/orders/'.$foreign->slug)->assertOk();
@@ -129,8 +156,10 @@ class AccessGuardTest extends TestCase
         $gate('203.0.113.10')->post('/accesso-negato')->assertForbidden();
         $gate('203.0.113.10')->getJson('/accesso-negato')->assertForbidden()->assertExactJson(['message' => 'Non è possibile completare la richiesta.']);
         $gate('203.0.113.10')->get('/accesso-negato')->assertForbidden();
-        $gate('203.0.113.10')->get('/accesso-negato')->assertStatus(429)->assertHeader('Retry-After', '300');
-        $gate('203.0.113.10')->getJson('/accesso-negato')->assertStatus(429)->assertJsonPath('retry_after', fn (int $seconds): bool => $seconds > 290);
+        $gate('203.0.113.10')->get('/accesso-negato')->assertForbidden();
+        $gate('203.0.113.10')->get('/accesso-negato')->assertStatus(429)->assertHeader('Retry-After', '600')->assertSee(self::NetworkSuspendedMessage)->assertDontSee('account');
+        $gate('203.0.113.10')->get('/accesso-negato')->assertStatus(429)->assertSee(self::NetworkSuspendedMessage)->assertDontSee('account');
+        $gate('203.0.113.10')->getJson('/accesso-negato')->assertStatus(429)->assertJsonPath('message', self::NetworkSuspendedMessage)->assertJsonPath('retry_after', fn (int $seconds): bool => $seconds > 590 && $seconds <= 600);
 
         $gate('198.51.100.20')->get('/accesso-negato')->assertForbidden();
     }
@@ -157,11 +186,11 @@ class AccessGuardTest extends TestCase
         }
         $this->assertSame(0, $logger->denials, 'I file caricati dalla pagina non sono tentativi di accesso.');
 
-        foreach (range(1, 4) as $page) {
+        foreach (range(1, 5) as $page) {
             $gate()->get('/accesso-negato', ['Sec-Fetch-Dest' => 'document'])->assertForbidden()->assertSee('Pagina non disponibile');
         }
         $gate()->getJson('/accesso-negato', ['Sec-Fetch-Dest' => 'empty'])->assertStatus(429);
-        $this->assertSame(5, $logger->denials, 'Pagine e richieste di dati restano conteggiate: la pausa scatta come prima.');
+        $this->assertSame(6, $logger->denials, 'Pagine e richieste di dati restano conteggiate: la pausa scatta come prima.');
         $gate()->get('/accesso-negato', ['Sec-Fetch-Dest' => 'image'])->assertForbidden()->assertContent('');
         $gate()->get('/accesso-negato')->assertStatus(429);
     }
@@ -181,13 +210,15 @@ class AccessGuardTest extends TestCase
     {
         config(['customer.frontend_url' => 'https://app.example.test']);
 
-        foreach (['area', 'app.example.test'] as $host) {
+        $messages = ['area' => 'Non è possibile raggiungere la pagina richiesta.', 'app.example.test' => self::InviteMessage];
+        foreach ($messages as $host => $message) {
             $response = $this->withServerVariables(['EA_ACCESS_GATE' => $host, 'REMOTE_ADDR' => '203.0.113.30'])->get('/accesso-negato')->assertForbidden()
-                ->assertSee('Non è possibile raggiungere la pagina richiesta.')->assertSee('data-unavailable-return', false)->assertSee('secondi tornerai alla pagina precedente')
+                ->assertSee('Pagina non disponibile')->assertSee($message)->assertSee('data-unavailable-return', false)->assertSee('secondi tornerai alla pagina precedente')
                 ->assertDontSee('Torna indietro')->assertDontSee('Pagina iniziale');
+            $host === 'area' ? $response->assertDontSee('invito') : $response->assertDontSee($messages['area']);
             $this->assertStringNotContainsString('<a ', $response->getContent());
         }
-        foreach (range(1, 4) as $attempt) {
+        foreach (range(1, 5) as $attempt) {
             $this->withServerVariables(['EA_ACCESS_GATE' => 'area', 'REMOTE_ADDR' => '203.0.113.31'])->get('/accesso-negato');
         }
         $this->withServerVariables(['EA_ACCESS_GATE' => 'area', 'REMOTE_ADDR' => '203.0.113.31'])->get('/accesso-negato')->assertStatus(429)

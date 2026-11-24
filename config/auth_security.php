@@ -91,12 +91,16 @@ return [
         'ip_attempts' => (int) env('AUTH_SENSITIVE_IP_ATTEMPTS', 20),
         'window_seconds' => (int) env('AUTH_SENSITIVE_WINDOW_SECONDS', 600),
     ],
-    // Accessi negati a risorse protette (cancello, ruoli, risorse altrui): pausa crescente per chi insiste.
+    // Accessi negati a risorse protette (cancello, ruoli, risorse altrui): pausa per chi insiste.
     'access' => [
-        'attempts' => (int) env('AUTH_ACCESS_DENIED_ATTEMPTS', 5),
+        'attempts' => (int) env('AUTH_ACCESS_DENIED_ATTEMPTS', 6),
         'window_seconds' => (int) env('AUTH_ACCESS_DENIED_WINDOW_SECONDS', 120),
-        'timeouts' => [300, 900, 1800],
-        'escalation_memory_seconds' => (int) env('AUTH_ACCESS_ESCALATION_MEMORY_SECONDS', 86400),
+        'timeout_seconds' => (int) env('AUTH_ACCESS_TIMEOUT_SECONDS', 600),
+    ],
+    // Pass del cancello NGINX del gestionale, consegnato al rider che attiva l'account: stesso valore configurato in NGINX.
+    'staff_gate' => [
+        'pass' => env('AUTH_STAFF_GATE_PASS'),
+        'ttl_seconds' => (int) env('AUTH_STAFF_GATE_TTL_SECONDS', 15552000),
     ],
     'trusted_proxies' => array_values(array_filter(array_map('trim', explode(',', (string) env('TRUSTED_PROXIES', ''))))),
 ];

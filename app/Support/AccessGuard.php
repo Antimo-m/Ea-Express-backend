@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Conta gli accessi negati alle risorse protette e applica pause crescenti a chi insiste.
+ * Conta gli accessi negati alle risorse protette e sospende temporaneamente chi insiste.
  *
  * Vengono conteggiati soltanto i dinieghi di autorizzazione (cancello del dominio, ruolo o permesso
  * mancante): 404 ordinari, errori applicativi, sessioni scadute e verifiche di accesso incomplete
@@ -20,6 +20,8 @@ use Symfony\Component\HttpFoundation\Response;
 class AccessGuard
 {
     public const string DeniedMessage = 'Non è possibile completare la richiesta.';
+
+    private const string InviteMessage = 'Per entrare apri il link d’invito completo che hai ricevuto.';
 
     /**
      * Nasconde una risorsa altrui come un normale 404, ma conta il tentativo tra gli accessi negati.
@@ -48,14 +50,9 @@ class AccessGuard
             return 0;
         }
         RateLimiter::clear($this->key('denied', $actor));
-        $strikeKey = $this->key('strikes', $actor);
-        Cache::add($strikeKey, 0, (int) $settings['escalation_memory_seconds']);
-        $strike = (int) Cache::increment($strikeKey);
-        // Pause consecutive: la terza e le successive restano alla durata massima.
-        $timeouts = array_values($settings['timeouts']);
-        $seconds = (int) $timeouts[min(max($strike, 1), count($timeouts)) - 1];
+        $seconds = (int) $settings['timeout_seconds'];
         Cache::put($this->key('timeout', $actor), now()->addSeconds($seconds)->getTimestamp(), $seconds);
-        SecurityEvent::record('access_timeout', $this->userId($actor), ['source' => $source, 'seconds' => $seconds, 'strike' => $strike] + $this->requestContext($request));
+        SecurityEvent::record('access_timeout', $this->userId($actor), ['source' => $source, 'seconds' => $seconds] + $this->requestContext($request));
 
         return $seconds;
     }
@@ -66,19 +63,24 @@ class AccessGuard
         return $this->remaining('user:'.$userId);
     }
 
-    public function timeoutResponse(Request $request, int $seconds): Response
+    /** Nomina l'account solo se la pausa riguarda un account: chi è fermo al cancello è sospeso per indirizzo IP. */
+    public function timeoutResponse(Request $request, int $seconds, bool $networkOnly = false): Response
     {
-        $minutes = max(1, (int) ceil($seconds / 60));
-        $message = 'Troppe richieste non consentite. Potrai riprovare tra '.$minutes.' '.($minutes === 1 ? 'minuto' : 'minuti').'.';
+        $subject = $this->userId($this->actor($request, $networkOnly)) !== null ? 'Il tuo account' : 'L’accesso';
+        $minutes = max(1, (int) ceil((int) config('auth_security.access.timeout_seconds') / 60));
+        $message = $subject.' è stato sospeso per '.$minutes.' '.($minutes === 1 ? 'minuto' : 'minuti').' per troppi tentativi errati, ritorna tra poco.';
         $headers = ['Retry-After' => (string) $seconds, 'Cache-Control' => 'no-store, private'];
         if ($this->wantsJson($request)) {
-            return response()->json(['message' => $message, 'retry_after' => $seconds], 429, $headers);
+            return response()->json(['message' => $message, 'code' => 'access_suspended', 'retry_after' => $seconds], 429, $headers);
         }
 
         return response()->view('errors.unavailable', ['title' => 'Accesso momentaneamente sospeso', 'message' => $message, 'blocked' => true], 429, $headers);
     }
 
-    /** Con `$blocked` (cancello) la pagina mostra solo l'errore: ogni collegamento porterebbe di nuovo a una pagina bloccata. */
+    /**
+     * Con `$blocked` (cancello) la pagina mostra solo l'errore: ogni collegamento porterebbe di nuovo a una pagina bloccata.
+     * Sul portale clienti indica di usare il link d'invito; sul gestionale resta neutra.
+     */
     public function deniedResponse(Request $request, int $status = 403, bool $blocked = false): Response
     {
         $headers = ['Cache-Control' => 'no-store, private'];
@@ -86,18 +88,26 @@ class AccessGuard
             return response()->json(['message' => $status === 404 ? 'Risorsa non disponibile.' : self::DeniedMessage], $status, $headers);
         }
 
-        return response()->view('errors.unavailable', $blocked ? ['blocked' => true] : ['homeUrl' => $this->homeUrl($request)], $status, $headers);
+        $data = $blocked
+            ? ['blocked' => true, 'message' => $this->isPortalHost((string) $request->server('EA_ACCESS_GATE')) ? self::InviteMessage : null]
+            : ['homeUrl' => $this->homeUrl($request)];
+
+        return response()->view('errors.unavailable', $data, $status, $headers);
     }
 
     /** Pagina iniziale consentita per l'host della richiesta: portale clienti o gestionale. */
     public function homeUrl(Request $request): string
     {
-        $portal = rtrim((string) config('customer.frontend_url'), '/');
-        if ($portal !== '' && strcasecmp((string) parse_url($portal, PHP_URL_HOST), $request->getHost()) === 0) {
-            return $portal.'/';
+        if ($this->isPortalHost($request->getHost())) {
+            return rtrim((string) config('customer.frontend_url'), '/').'/';
         }
 
         return route('dashboard');
+    }
+
+    private function isPortalHost(string $host): bool
+    {
+        return $host !== '' && strcasecmp((string) parse_url((string) config('customer.frontend_url'), PHP_URL_HOST), $host) === 0;
     }
 
     private function wantsJson(Request $request): bool
@@ -121,7 +131,8 @@ class AccessGuard
     {
         $until = Cache::get($this->key('timeout', $actor));
 
-        return is_int($until) ? max(0, $until - now()->getTimestamp()) : 0;
+        // Redis restituisce i numeri come testo: un controllo is_int ignorerebbe la pausa in produzione.
+        return is_numeric($until) ? max(0, (int) $until - now()->getTimestamp()) : 0;
     }
 
     private function key(string $kind, string $actor): string

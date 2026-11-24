@@ -7,6 +7,7 @@ use App\Notifications\RiderActivationLink;
 use App\Notifications\RiderEmailOtp;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Testing\TestResponse;
@@ -123,5 +124,55 @@ class RiderActivationTest extends TestCase
         $this->post(route('logout'));
 
         $this->activate($rider, $token)->assertSessionHasErrors('email');
+    }
+
+    public function test_successful_activation_gives_the_browser_the_staff_gate_pass_unencrypted(): void
+    {
+        config(['auth_security.staff_gate.pass' => 'gate-pass-for-tests', 'session.secure' => true]);
+        Notification::fake();
+        $this->freezeTime();
+        $rider = $this->createRider();
+
+        $cookie = $this->activate($rider, $this->token($rider))->assertRedirect(route('login'))->getCookie('ea_staff', decrypt: false);
+
+        $this->assertNotNull($cookie);
+        $this->assertSame('gate-pass-for-tests', $cookie->getValue());
+        $this->assertSame(now()->addDays(180)->getTimestamp(), $cookie->getExpiresTime());
+        $this->assertSame(['/', null, true, true, 'lax'], [$cookie->getPath(), $cookie->getDomain(), $cookie->isSecure(), $cookie->isHttpOnly(), $cookie->getSameSite()]);
+    }
+
+    public function test_opening_the_link_or_using_an_invalid_one_never_gives_the_staff_gate_pass(): void
+    {
+        config(['auth_security.staff_gate.pass' => 'gate-pass-for-tests']);
+        Notification::fake();
+        $rider = $this->createRider();
+        $token = $this->token($rider);
+
+        $this->get('/activate/'.$token.'?email='.$rider->email)->assertOk()->assertCookieMissing('ea_staff');
+        $this->activate($rider, 'forged-token')->assertSessionHasErrors('email')->assertCookieMissing('ea_staff');
+        $this->activate($rider, $token, 'corta')->assertSessionHasErrors('password')->assertCookieMissing('ea_staff');
+        $this->travel(48 * 60 + 1)->minutes();
+        $this->activate($rider, $token)->assertSessionHasErrors('email')->assertCookieMissing('ea_staff');
+    }
+
+    public function test_used_link_does_not_give_the_staff_gate_pass_again(): void
+    {
+        config(['auth_security.staff_gate.pass' => 'gate-pass-for-tests']);
+        Notification::fake();
+        $rider = $this->createRider();
+        $token = $this->token($rider);
+        $this->activate($rider, $token)->assertCookie('ea_staff', 'gate-pass-for-tests', encrypted: false);
+        Cookie::flushQueuedCookies();
+
+        $this->activate($rider, $token, 'Another-password-123')->assertSessionHasErrors('email')->assertCookieMissing('ea_staff');
+    }
+
+    public function test_activation_works_without_a_configured_staff_gate_pass(): void
+    {
+        config(['auth_security.staff_gate.pass' => null]);
+        Notification::fake();
+        $rider = $this->createRider();
+
+        $this->activate($rider, $this->token($rider))->assertRedirect(route('login'))->assertSessionHasNoErrors()->assertCookieMissing('ea_staff');
     }
 }
