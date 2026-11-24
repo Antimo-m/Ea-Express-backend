@@ -1,4 +1,5 @@
 @import './workspaces.css';
+@import './brand-logo.css';
 
 /* EA-EXPRESS: calm surfaces, fluid geometry and purposeful workspaces. */
 body { font-family: var(--ea-font); background: var(--ea-bg); color: var(--ea-ink); line-height: 1.5; }
@@ -13,9 +14,6 @@ a:hover { color: var(--ea-brand); }
 .surface, .panel, .metric, .checkout-review, .report-kpi, .finance-kpi, .workspace-section { background: var(--ea-surface); border-color: var(--ea-line); border-radius: var(--ea-radius-card); box-shadow: none; color: var(--ea-ink); }
 .app-content, .workspace main { max-width: 1680px; padding: 28px 32px; }
 .app-workspace, .workspace { background: var(--ea-bg); }
-.brand-wordmark { display: inline-flex; align-items: baseline; gap: 0; font-family: var(--ea-font-display); font-size: 21px; font-weight: 600; letter-spacing: -.06em; line-height: 1.2; white-space: nowrap; }
-.brand-wordmark b { background: var(--ea-signal); color: var(--ea-graphite); padding: 1px 4px; font-weight: 700; }
-.brand-wordmark small { display: block; font-family: var(--ea-font-mono); font-size: 9px; letter-spacing: .1em; margin-top: 6px; color: inherit; }
 .brand { white-space: normal; }
 .avatar, .sender-avatar, .metric-icon { border-radius: var(--ea-radius-circle); background: var(--ea-surface-muted); color: var(--ea-muted); }
 .btn-primary { --bs-btn-bg: var(--ea-signal); --bs-btn-border-color: var(--ea-signal); --bs-btn-color: var(--ea-graphite); --bs-btn-hover-bg: #f2b75b; --bs-btn-hover-border-color: #f2b75b; --bs-btn-hover-color: var(--ea-graphite); --bs-btn-active-bg: #efbb6c; --bs-btn-active-border-color: #efbb6c; --bs-btn-active-color: var(--ea-graphite); --bs-btn-disabled-bg: var(--ea-signal); --bs-btn-disabled-border-color: var(--ea-signal); --bs-btn-disabled-color: var(--ea-graphite); }

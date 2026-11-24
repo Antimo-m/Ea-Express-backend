@@ -1,0 +1,10 @@
+/* Logo ufficiale: si imposta solo l'altezza, la larghezza segue le proporzioni originali. */
+.ea-logo { display: block; width: auto; height: 60px; max-width: 100%; aspect-ratio: 601.36 / 301.1; flex-shrink: 0; }
+.app-sidebar .ea-logo { height: 64px; }
+.auth-story .ea-logo { height: 92px; }
+.auth-mobile-brand .ea-logo { height: 76px; margin-inline: auto; }
+.not-found-card .ea-logo { width: auto; height: 96px; margin: 0 auto 24px; }
+/* Su fondo scuro il blu del logo non si leggerebbe: diventa chiaro, l'arancio resta invariato. In stampa restano i colori originali. */
+@media screen {
+  :is(.app-sidebar, .auth-story) .ea-logo-ink, :root[data-ea-theme="dark"] .ea-logo:not(.ea-logo--paper) .ea-logo-ink { fill: var(--ea-canvas); }
+}

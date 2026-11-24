@@ -18,8 +18,8 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; background: var(--bg); color: var(--ink); font: 16px/1.5 'Source Sans 3', 'Segoe UI', system-ui, sans-serif; }
 main { width: min(100%, 440px); padding: 32px 28px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: 0 18px 40px -28px #141a2066; text-align: center; }
-.brand { display: inline-flex; align-items: baseline; font: 600 21px/1.2 'Space Grotesk', 'Segoe UI', system-ui, sans-serif; letter-spacing: -.06em; }
-.brand b { padding: 1px 4px; background: var(--signal); color: #141a20; font-weight: 700; }
+.ea-logo { display: block; width: auto; height: 88px; max-width: 100%; aspect-ratio: 601.36 / 301.1; margin: 0 auto; }
+@media (prefers-color-scheme: dark) { .ea-logo-ink { fill: #f6f8f7; } }
 .mark { width: 56px; height: 56px; margin: 24px auto 8px; display: grid; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--signal) 22%, transparent); }
 .mark svg { width: 26px; height: 26px; }
 h1 { margin: 8px 0; font: 600 1.4rem/1.25 'Space Grotesk', 'Segoe UI', system-ui, sans-serif; letter-spacing: -.02em; }
@@ -36,7 +36,7 @@ a:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 </head>
 <body>
 <main aria-labelledby="unavailable-title" @class(['blocked' => $blocked])>
-    <span class="brand" role="img" aria-label="EA-Express"><b>EA</b><span>-Express</span></span>
+    <x-application-logo />
     <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16.5h.01"/></svg></div>
     <h1 id="unavailable-title">{{ $title }}</h1>
     <p>{{ $message }}</p>

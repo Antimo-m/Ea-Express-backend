@@ -1223,7 +1223,7 @@ test('EA pickers and operational pages: keyboard, validation, long content, cont
                 for(let attempt=0;attempt<100;attempt++){if(await evaluate(`!!document.querySelector('.shipment-card')`))break;await new Promise(resolve=>setTimeout(resolve,20));}
                 if(process.env.EA_UI_SCREENSHOTS)writeFileSync(join(process.env.EA_UI_SCREENSHOTS,`portal-dashboard-${width}.png`),Buffer.from((await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true})).data,'base64'));
                 await assertButtonShapes(`portal buttons ${width}`);
-                assert.equal(await evaluate(`document.querySelector('.brand-wordmark').getAttribute('aria-label')`),'EA-Express');
+                assert.equal(await evaluate(`document.querySelector('.ea-logo').getAttribute('aria-label')`),'EA-Express');
                 assert.ok(await evaluate(`!!document.querySelector('.dashboard-actions [href="/pickups/new"]')`));
                 assert.equal(await evaluate(`document.querySelector('.shipment-card').getAttribute('href')`),'/shipments/24369069-5868-49fd-b04c-3709fa3b5a81');
                 assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`), `portal overflow at ${width}`);
