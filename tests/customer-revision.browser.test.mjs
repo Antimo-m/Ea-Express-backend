@@ -104,7 +104,22 @@ test('Customer revision: routes, sender disclosure, tariff states and responsive
         const key = async (key, code = key) => { await send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, windowsVirtualKeyCode: ({ Enter: 13, Escape: 27, Tab: 9, ArrowDown: 40, ArrowUp: 38, ArrowLeft: 37, ArrowRight: 39 })[key] }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: ({ Enter: 13, Escape: 27, Tab: 9, ArrowDown: 40, ArrowUp: 38, ArrowLeft: 37, ArrowRight: 39 })[key] }); };
         const clickPicker = id => evaluate(`document.getElementById(${JSON.stringify(id)}).nextElementSibling.click()`);
         const pause=ms=>new Promise(r=>setTimeout(r,ms));
-        const go=async path=>{await send('Page.navigate',{url:origin+'/'+path});await pause(700);};
+        const go = async path => {
+            const url = `${origin}/${path}`;
+            await send('Page.navigate', { url });
+            if (!['pickups/new', 'orders_create.html'].includes(path)) {
+                await pause(700);
+                return;
+            }
+            const deadline = Date.now() + 10000;
+            while (Date.now() < deadline) {
+                const ready = await evaluate(`location.href === ${JSON.stringify(url)} && document.readyState === 'complete' && Boolean(document.querySelector('.booking-form .ea-picker-trigger'))`);
+                if (ready) return;
+                await pause(50);
+            }
+            const page = await evaluate(`({ url: location.href, message: document.querySelector('[role="alert"], h1')?.textContent || document.body?.innerText.slice(0, 250) })`);
+            throw new Error(`Booking form did not initialize at ${path}: ${JSON.stringify(page)}`);
+        };
         const width=async value=>{await send('Emulation.setDeviceMetricsOverride',{width:value,height:1000,deviceScaleFactor:1,mobile:false});await pause(250);};
         const set=async (name,value)=>evaluate(`(()=>{const e=document.querySelector('[name="'+${JSON.stringify(name)}+'"]');const setter=Object.getOwnPropertyDescriptor(e.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype,'value').set;setter.call(e,${JSON.stringify(value)});e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));})()`);
         const screenshot=async name=>{const shot=await send('Page.captureScreenshot',{captureBeyondViewport:true});writeFileSync(join(temporary,'ea-after-'+name+'.png'),Buffer.from(shot.data,'base64'));};
